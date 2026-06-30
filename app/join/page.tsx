@@ -14,6 +14,7 @@ export default function JoinPage() {
   const [tier1Pick, setTier1Pick] = useState<number | null>(null)
   const [tier2Pick, setTier2Pick] = useState<number | null>(null)
   const [tier3Pick, setTier3Pick] = useState<number | null>(null)
+  const [tier4Pick, setTier4Pick] = useState<number | null>(null)
   const [alreadyJoined, setAlreadyJoined] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -71,13 +72,14 @@ export default function JoinPage() {
       setTier1Pick(draft.tier1_team_id)
       setTier2Pick(draft.tier2_team_id)
       setTier3Pick(draft.tier3_team_id)
+      setTier4Pick(draft.tier4_team_id)
     }
 
     setLoading(false)
   }
 
   async function handleJoin() {
-    if (!tier1Pick || !tier2Pick || !tier3Pick) {
+    if (!tier1Pick || !tier2Pick || !tier3Pick || !tier4Pick) {
       setError('Please pick one team from each tier before joining')
       return
     }
@@ -96,6 +98,7 @@ export default function JoinPage() {
         tier1_team_id: tier1Pick,
         tier2_team_id: tier2Pick,
         tier3_team_id: tier3Pick,
+        tier4_team_id: tier4Pick,
         locked: false
       }, { onConflict: 'competition_id,user_id' })
 
@@ -152,6 +155,13 @@ export default function JoinPage() {
     )
   }
 
+  const tierLabels: Record<number, string> = {
+    1: 'Elite',
+    2: 'Solid',
+    3: 'Mid-table',
+    4: 'Underdogs'
+  }
+
   return (
     <main className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-2xl mx-auto">
@@ -159,17 +169,16 @@ export default function JoinPage() {
         <p className="text-gray-500 mb-8">Before joining you must select one team from each tier that you can use twice during the competition. Choose carefully — these are locked after the first gameweek deadline.</p>
 
         <div className="space-y-6">
-          {[1, 2, 3].map(tier => (
-            <div key={tier} className="bg-white border rounded-lg p-6">
-              <h2 className="font-bold mb-1">
-                Tier {tier} — {tier === 1 ? 'Elite' : tier === 2 ? 'Solid' : 'Mid-table'}
-              </h2>
-              <p className="text-sm text-gray-500 mb-4">Pick one team you can use twice</p>
-              <div className="grid grid-cols-2 gap-2">
-                {teamsInTier(tier).map(team => {
-                  const selected = tier === 1 ? tier1Pick : tier === 2 ? tier2Pick : tier3Pick
-                  const setSelected = tier === 1 ? setTier1Pick : tier === 2 ? setTier2Pick : setTier3Pick
-                  return (
+          {[1, 2, 3, 4].map(tier => {
+            const selected = tier === 1 ? tier1Pick : tier === 2 ? tier2Pick : tier === 3 ? tier3Pick : tier4Pick
+            const setSelected = tier === 1 ? setTier1Pick : tier === 2 ? setTier2Pick : tier === 3 ? setTier3Pick : setTier4Pick
+
+            return (
+              <div key={tier} className="bg-white border rounded-lg p-6">
+                <h2 className="font-bold mb-1">Tier {tier} — {tierLabels[tier]}</h2>
+                <p className="text-sm text-gray-500 mb-4">Pick one team you can use twice</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {teamsInTier(tier).map(team => (
                     <button
                       key={team.id}
                       onClick={() => setSelected(team.id)}
@@ -181,14 +190,14 @@ export default function JoinPage() {
                     >
                       {team.name}
                     </button>
-                  )
-                })}
-                {teamsInTier(tier).length === 0 && (
-                  <p className="text-sm text-gray-400 col-span-2">No teams assigned to this tier yet. Ask the admin to set up quartiles first.</p>
-                )}
+                  ))}
+                  {teamsInTier(tier).length === 0 && (
+                    <p className="text-sm text-gray-400 col-span-2">No teams assigned to this tier yet. Ask the admin to set up quartiles first.</p>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {error && (
@@ -199,7 +208,7 @@ export default function JoinPage() {
 
         <button
           onClick={handleJoin}
-          disabled={saving || !tier1Pick || !tier2Pick || !tier3Pick}
+          disabled={saving || !tier1Pick || !tier2Pick || !tier3Pick || !tier4Pick}
           className="mt-6 w-full bg-black text-white rounded-lg px-4 py-3 font-medium disabled:opacity-50"
         >
           {saving ? 'Joining...' : 'Complete Tier Draft & Join Competition'}

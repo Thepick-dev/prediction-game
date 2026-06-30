@@ -42,13 +42,13 @@ export async function POST(request: Request) {
 
   const { data: draftPick } = await supabase
     .from('tier_draft_picks')
-    .select('tier1_team_id, tier2_team_id, tier3_team_id')
+    .select('tier1_team_id, tier2_team_id, tier3_team_id, tier4_team_id')
     .eq('competition_id', competition_id)
     .eq('user_id', user.id)
     .single()
 
   const doubleUseTeams = draftPick
-    ? [draftPick.tier1_team_id, draftPick.tier2_team_id, draftPick.tier3_team_id]
+    ? [draftPick.tier1_team_id, draftPick.tier2_team_id, draftPick.tier3_team_id, draftPick.tier4_team_id]
     : []
 
   const { data: allPicks } = await supabase
@@ -164,14 +164,14 @@ export async function GET(request: Request) {
       .eq('competition_id', competition_id!),
     supabase
       .from('tier_draft_picks')
-      .select('tier1_team_id, tier2_team_id, tier3_team_id')
+      .select('tier1_team_id, tier2_team_id, tier3_team_id, tier4_team_id')
       .eq('competition_id', competition_id!)
       .eq('user_id', user.id)
       .single()
   ])
 
   const doubleUseTeams = draftPick
-    ? [draftPick.tier1_team_id, draftPick.tier2_team_id, draftPick.tier3_team_id]
+    ? [draftPick.tier1_team_id, draftPick.tier2_team_id, draftPick.tier3_team_id, draftPick.tier4_team_id]
     : []
 
   const teamUseCounts: Record<number, number> = {}
