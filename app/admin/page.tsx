@@ -93,6 +93,14 @@ export default async function AdminDashboard() {
           <div className="font-bold mb-1">Data Sync</div>
           <div className="text-sm text-gray-500">Trigger API syncs manually</div>
         </a>
+        <a href="/admin/quartiles" className="bg-white border rounded-lg p-4 hover:border-black transition-colors">
+          <div className="font-bold mb-1">Quartiles</div>
+          <div className="text-sm text-gray-500">Manage team quartile assignments</div>
+        </a>
+        <a href="/admin/tiers" className="bg-white border rounded-lg p-4 hover:border-black transition-colors">
+          <div className="font-bold mb-1">Tier Draft</div>
+          <div className="text-sm text-gray-500">View player tier selections</div>
+        </a>
       </div>
     </div>
   )

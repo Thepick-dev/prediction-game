@@ -15,20 +15,6 @@ export async function POST() {
 
   const data = await response.json()
 
-  const teams = data.teams.map((team: any) => ({
-    id: team.id,
-    name: team.name,
-    short_name: team.short_name
-  }))
-
-  const { error: teamsError } = await supabase
-    .from('teams')
-    .upsert(teams, { onConflict: 'id' })
-
-  if (teamsError) {
-    return NextResponse.json({ error: teamsError.message }, { status: 500 })
-  }
-
   const players = data.elements.map((player: any) => ({
     id: player.id,
     name: `${player.first_name} ${player.second_name}`,
@@ -49,12 +35,11 @@ export async function POST() {
   await supabase.from('api_sync_log').insert({
     sync_type: 'fpl',
     status: 'success',
-    records_updated: players.length + teams.length
+    records_updated: players.length
   })
 
   return NextResponse.json({
     success: true,
-    teams_imported: teams.length,
     players_imported: players.length
   })
 }

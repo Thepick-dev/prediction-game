@@ -8,16 +8,27 @@ export default async function CompetitionsPage() {
     .select('*')
     .order('created_at', { ascending: false })
 
-  async function createCompetition(formData: FormData) {
+async function createCompetition(formData: FormData) {
     'use server'
     const supabase = await createServerSupabaseClient()
-    await supabase.from('competitions').insert({
-      name: formData.get('name') as string,
-      season: formData.get('season') as string,
-      status: 'upcoming',
-      start_date: formData.get('start_date') as string,
-      end_date: formData.get('end_date') as string,
-    })
+    
+    const { data: comp, error } = await supabase
+      .from('competitions')
+      .insert({
+        name: formData.get('name') as string,
+        season: formData.get('season') as string,
+        status: 'upcoming',
+        start_date: formData.get('start_date') as string,
+        end_date: formData.get('end_date') as string,
+      })
+      .select()
+      .single()
+
+    if (!error && comp) {
+      await supabase.rpc('insert_default_scoring_rules', { comp_id: comp.id })
+      await supabase.rpc('insert_default_player_scoring_rules', { comp_id: comp.id })
+    }
+
     redirect('/admin/competitions')
   }
 

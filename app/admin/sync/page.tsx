@@ -11,11 +11,29 @@ type SyncResult = {
 export default function SyncPage() {
   const [results, setResults] = useState<Record<string, SyncResult>>({})
   const [loading, setLoading] = useState<Record<string, boolean>>({})
+  const [gameweekId, setGameweekId] = useState('')
 
   async function runSync(type: string) {
     setLoading(prev => ({ ...prev, [type]: true }))
     try {
       const res = await fetch(`/api/sync/${type}`, { method: 'POST' })
+      const data = await res.json()
+      setResults(prev => ({ ...prev, [type]: data }))
+    } catch (e) {
+      setResults(prev => ({ ...prev, [type]: { error: 'Request failed' } }))
+    } finally {
+      setLoading(prev => ({ ...prev, [type]: false }))
+    }
+  }
+
+  async function runSyncWithBody(type: string, body: object) {
+    setLoading(prev => ({ ...prev, [type]: true }))
+    try {
+      const res = await fetch(`/api/${type}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
       const data = await res.json()
       setResults(prev => ({ ...prev, [type]: data }))
     } catch (e) {
@@ -37,7 +55,7 @@ export default function SyncPage() {
       <h1 className="text-2xl font-bold mb-8">Data Sync</h1>
       <p className="text-gray-500 text-sm mb-6">Manually trigger data imports and updates from the APIs.</p>
 
-      <div className="grid gap-4">
+      <div className="grid gap-4 mb-8">
         {syncs.map(({ key, label, description }) => (
           <div key={key} className="bg-white border rounded-lg p-4 flex items-center justify-between">
             <div>
@@ -61,6 +79,35 @@ export default function SyncPage() {
             </button>
           </div>
         ))}
+      </div>
+
+      <div className="bg-white border rounded-lg p-6">
+        <h2 className="font-bold mb-2">Recalculate Scoring</h2>
+        <p className="text-sm text-gray-500 mb-4">Use this to manually recalculate points for a gameweek — for example if you corrected a result or added a missed goal. Paste the gameweek ID below then click Run.</p>
+        <div className="flex gap-3 items-center">
+          <input
+            type="text"
+            placeholder="Paste gameweek UUID here"
+            value={gameweekId}
+            onChange={e => setGameweekId(e.target.value)}
+            className="flex-1 border rounded px-3 py-2 text-sm"
+          />
+          <button
+            onClick={() => runSyncWithBody('scoring', { gameweek_id: gameweekId })}
+            disabled={loading['scoring'] || !gameweekId}
+            className="bg-black text-white rounded px-4 py-2 text-sm disabled:opacity-50 shrink-0"
+          >
+            {loading['scoring'] ? 'Running...' : 'Run'}
+          </button>
+        </div>
+        {results['scoring'] && (
+          <div className={`text-xs mt-2 ${results['scoring'].error ? 'text-red-600' : 'text-green-600'}`}>
+            {results['scoring'].error
+              ? `Error: ${results['scoring'].error}`
+              : `Success — ${JSON.stringify(results['scoring'])}`
+            }
+          </div>
+        )}
       </div>
     </div>
   )

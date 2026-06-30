@@ -24,13 +24,51 @@ export default async function GameweeksPage() {
     redirect('/admin/gameweeks')
   }
 
-  async function updateStatus(formData: FormData) {
+async function updateStatus(formData: FormData) {
     'use server'
     const supabase = await createServerSupabaseClient()
+    const id = formData.get('id') as string
+    const status = formData.get('status') as string
+
     await supabase
       .from('gameweeks')
-      .update({ status: formData.get('status') as string })
-      .eq('id', formData.get('id') as string)
+      .update({ status })
+      .eq('id', id)
+
+    if (status === 'completed') {
+      const { data: gw } = await supabase
+        .from('gameweeks')
+        .select('competition_id')
+        .eq('id', id)
+        .single()
+
+      if (gw) {
+        const { data: assignments } = await supabase
+          .from('tier_assignments')
+          .select('team_id, tier')
+          .eq('competition_id', gw.competition_id)
+
+        if (assignments && assignments.length > 0) {
+          await supabase
+            .from('gameweek_quartiles')
+            .upsert(
+              assignments.map(a => ({
+                gameweek_id: id,
+                team_id: a.team_id,
+                quartile: a.tier
+              })),
+              { onConflict: 'gameweek_id,team_id' }
+            )
+        }
+
+        await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/scoring`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gameweek_id: id })
+        })
+      }
+    }
+
     redirect('/admin/gameweeks')
   }
 
