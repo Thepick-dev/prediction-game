@@ -29,6 +29,7 @@ export default async function AdminLayout({
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <span className="font-bold text-lg">Admin Panel</span>
           <div className="flex gap-6 text-sm">
+            <a href="/admin/users" className="hover:text-gray-300">Users</a>
             <a href="/admin" className="hover:text-gray-300">Dashboard</a>
             <a href="/admin/competitions" className="hover:text-gray-300">Competitions</a>
             <a href="/admin/gameweeks" className="hover:text-gray-300">Gameweeks</a>

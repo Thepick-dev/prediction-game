@@ -101,6 +101,18 @@ export default async function AdminDashboard() {
           <div className="font-bold mb-1">Tier Draft</div>
           <div className="text-sm text-gray-500">View player tier selections</div>
         </a>
+        <a href="/admin/events" className="bg-white border rounded-lg p-4 hover:border-black transition-colors">
+          <div className="font-bold mb-1">Events</div>
+          <div className="text-sm text-gray-500">Enter match scores and goalscorers</div>
+        </a>
+        <a href="/admin/scoring" className="bg-white border rounded-lg p-4 hover:border-black transition-colors">
+          <div className="font-bold mb-1">Scoring Rules</div>
+          <div className="text-sm text-gray-500">Edit the points table</div>
+        </a>
+        <a href="/admin/users" className="bg-white border rounded-lg p-4 hover:border-black transition-colors">
+          <div className="font-bold mb-1">Users</div>
+          <div className="text-sm text-gray-500">Manage player display names</div>
+        </a>
       </div>
     </div>
   )

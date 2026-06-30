@@ -24,7 +24,7 @@ export default async function GameweeksPage() {
     redirect('/admin/gameweeks')
   }
 
-async function updateStatus(formData: FormData) {
+  async function updateStatus(formData: FormData) {
     'use server'
     const supabase = await createServerSupabaseClient()
     const id = formData.get('id') as string
@@ -69,6 +69,16 @@ async function updateStatus(formData: FormData) {
       }
     }
 
+    redirect('/admin/gameweeks')
+  }
+
+  async function updateDeadline(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    await supabase
+      .from('gameweeks')
+      .update({ deadline: formData.get('deadline') as string })
+      .eq('id', formData.get('id') as string)
     redirect('/admin/gameweeks')
   }
 
@@ -144,7 +154,20 @@ async function updateStatus(formData: FormData) {
                 <tr key={gw.id} className="border-b last:border-0">
                   <td className="py-2 font-medium">GW{gw.number}</td>
                   <td className="py-2">{(gw.competitions as any)?.name}</td>
-                  <td className="py-2">{new Date(gw.deadline).toLocaleString()}</td>
+                  <td className="py-2">
+                    <form action={updateDeadline} className="flex gap-1 items-center">
+                      <input type="hidden" name="id" value={gw.id} />
+                      <input
+                        type="datetime-local"
+                        name="deadline"
+                        defaultValue={new Date(gw.deadline).toISOString().slice(0, 16)}
+                        className="text-xs border rounded px-1 py-1"
+                      />
+                      <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">
+                        Update
+                      </button>
+                    </form>
+                  </td>
                   <td className="py-2">
                     <span className={`px-2 py-0.5 rounded text-xs ${
                       gw.status === 'open' ? 'bg-green-100 text-green-700' :

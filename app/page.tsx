@@ -19,6 +19,12 @@ export default async function Home() {
     .single()
     .then(({ data }) => !!data) : false
 
+  const { data: profile } = user ? await supabase
+    .from('profiles')
+    .select('display_name')
+    .eq('id', user.id)
+    .single() : { data: null }
+
   async function signOut() {
     'use server'
     const supabase = await createServerSupabaseClient()
@@ -37,7 +43,9 @@ export default async function Home() {
 
         {user ? (
           <div className="space-y-3">
-            <p className="text-sm text-gray-500 mb-4">Logged in as {user.email}</p>
+            <p className="text-sm text-gray-500 mb-4">
+              {profile?.display_name ? `Welcome, ${profile.display_name}` : `Logged in as ${user.email}`}
+            </p>
             {competition && !isJoined && (
               <Link href="/join" className="block w-full bg-black text-white rounded-lg px-4 py-3 font-medium">
                 Join Competition
@@ -50,6 +58,15 @@ export default async function Home() {
             )}
             <Link href="/leaderboard" className="block w-full border rounded-lg px-4 py-3 font-medium hover:border-black">
               Leaderboard
+            </Link>
+            <Link href="/results" className="block w-full border rounded-lg px-4 py-3 font-medium hover:border-black">
+              Results
+            </Link>
+            <Link href="/history" className="block w-full border rounded-lg px-4 py-3 font-medium hover:border-black">
+              My History
+            </Link>
+            <Link href="/settings" className="block w-full border rounded-lg px-4 py-3 font-medium hover:border-black">
+              Settings
             </Link>
             <form action={signOut}>
               <button type="submit" className="w-full text-sm text-gray-500 hover:text-gray-700 py-2">
