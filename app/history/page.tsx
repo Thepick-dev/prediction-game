@@ -9,6 +9,7 @@ type PickRow = {
   player1_id: number
   player2_id: number
   is_banker: boolean
+  is_autopick: boolean
   gameweeks: { number: number }
 }
 
@@ -44,7 +45,7 @@ export default function HistoryPage() {
 
     const { data: picksData } = await supabase
       .from('picks')
-      .select('gameweek_id, team_id, player1_id, player2_id, is_banker, gameweeks(number)')
+      .select('gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick, gameweeks(number)')
       .eq('user_id', user.id)
       .eq('competition_id', competition.id)
       .order('gameweek_id')
@@ -143,6 +144,7 @@ export default function HistoryPage() {
                   <span className="font-medium">GW{(pick.gameweeks as any)?.number}:</span>{' '}
                   {teams[pick.team_id]} · {players[pick.player1_id]} & {players[pick.player2_id]}
                   {pick.is_banker && <span className="ml-2 text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded">BANKER</span>}
+                  {pick.is_autopick && <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">AUTOPICK</span>}
                 </div>
               ))}
             </div>

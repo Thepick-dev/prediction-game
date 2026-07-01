@@ -33,7 +33,7 @@ export default async function ResultsPage() {
 
   const { data: allPicks } = gameweekIds.length > 0 ? await supabase
     .from('picks')
-    .select('id, gameweek_id, team_id, player1_id, player2_id, is_banker, user_id')
+    .select('id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick, user_id')
     .in('gameweek_id', gameweekIds) : { data: [] }
 
   const { data: profiles } = await supabase
@@ -113,6 +113,7 @@ export default async function ResultsPage() {
                           <td className="py-2 px-4 text-gray-500">
                             {teamMap[pick.team_id]} · {playerMap[pick.player1_id]} & {playerMap[pick.player2_id]}
                             {pick.is_banker && <span className="ml-2 text-xs bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded">B</span>}
+                            {pick.is_autopick && <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">AUTO</span>}
                           </td>
                           <td className="py-2 px-4 text-right font-bold">
                             {pointsMap[pick.id] ?? '—'}

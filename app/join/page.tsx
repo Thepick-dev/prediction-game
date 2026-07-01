@@ -5,16 +5,15 @@ import { createClient } from '../lib/supabase'
 
 type Team = { id: number; name: string }
 type Competition = { id: string; name: string; status: string }
-type TierAssignment = { team_id: number; tier: number }
+type DraftTier = { tier_number: number; tier_name: string }
+type DraftTierAssignment = { team_id: number; tier_number: number }
 
 export default function JoinPage() {
   const [competition, setCompetition] = useState<Competition | null>(null)
-  const [tierAssignments, setTierAssignments] = useState<TierAssignment[]>([])
+  const [tiers, setTiers] = useState<DraftTier[]>([])
+  const [assignments, setAssignments] = useState<DraftTierAssignment[]>([])
   const [teams, setTeams] = useState<Team[]>([])
-  const [tier1Pick, setTier1Pick] = useState<number | null>(null)
-  const [tier2Pick, setTier2Pick] = useState<number | null>(null)
-  const [tier3Pick, setTier3Pick] = useState<number | null>(null)
-  const [tier4Pick, setTier4Pick] = useState<number | null>(null)
+  const [picks, setPicks] = useState<Record<number, number>>({})
   const [alreadyJoined, setAlreadyJoined] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -59,27 +58,29 @@ export default function JoinPage() {
       return
     }
 
-    const [{ data: assignments }, { data: teamsData }, { data: draft }] = await Promise.all([
-      supabase.from('tier_assignments').select('team_id, tier').eq('competition_id', comp.id),
+    const [{ data: tiersData }, { data: assignmentsData }, { data: teamsData }, { data: existingPicks }] = await Promise.all([
+      supabase.from('competition_draft_tiers').select('tier_number, tier_name').eq('competition_id', comp.id).order('tier_number'),
+      supabase.from('draft_tier_assignments').select('team_id, tier_number').eq('competition_id', comp.id),
       supabase.from('teams').select('id, name').order('name'),
-      supabase.from('tier_draft_picks').select('*').eq('competition_id', comp.id).eq('user_id', user.id).single()
+      supabase.from('draft_picks').select('tier_number, team_id').eq('competition_id', comp.id).eq('user_id', user.id)
     ])
 
-    setTierAssignments(assignments ?? [])
+    setTiers(tiersData ?? [])
+    setAssignments(assignmentsData ?? [])
     setTeams(teamsData ?? [])
 
-    if (draft) {
-      setTier1Pick(draft.tier1_team_id)
-      setTier2Pick(draft.tier2_team_id)
-      setTier3Pick(draft.tier3_team_id)
-      setTier4Pick(draft.tier4_team_id)
+    if (existingPicks && existingPicks.length > 0) {
+      const pickMap: Record<number, number> = {}
+      existingPicks.forEach(p => { pickMap[p.tier_number] = p.team_id })
+      setPicks(pickMap)
     }
 
     setLoading(false)
   }
 
   async function handleJoin() {
-    if (!tier1Pick || !tier2Pick || !tier3Pick || !tier4Pick) {
+    const allTiersPicked = tiers.every(t => picks[t.tier_number])
+    if (!allTiersPicked) {
       setError('Please pick one team from each tier before joining')
       return
     }
@@ -90,22 +91,23 @@ export default function JoinPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { error: draftError } = await supabase
-      .from('tier_draft_picks')
-      .upsert({
-        competition_id: competition!.id,
-        user_id: user.id,
-        tier1_team_id: tier1Pick,
-        tier2_team_id: tier2Pick,
-        tier3_team_id: tier3Pick,
-        tier4_team_id: tier4Pick,
-        locked: false
-      }, { onConflict: 'competition_id,user_id' })
+    const pickRows = Object.entries(picks).map(([tier_number, team_id]) => ({
+      competition_id: competition!.id,
+      user_id: user.id,
+      tier_number: parseInt(tier_number),
+      team_id
+    }))
 
-    if (draftError) {
-      setError(draftError.message)
-      setSaving(false)
-      return
+    for (const row of pickRows) {
+      const { error: pickError } = await supabase
+        .from('draft_picks')
+        .upsert(row, { onConflict: 'competition_id,user_id,tier_number' })
+
+      if (pickError) {
+        setError(pickError.message)
+        setSaving(false)
+        return
+      }
     }
 
     const { error: entryError } = await supabase
@@ -121,8 +123,8 @@ export default function JoinPage() {
     window.location.href = '/picks'
   }
 
-  const teamsInTier = (tier: number) =>
-    teams.filter(t => tierAssignments.find(a => a.team_id === t.id && a.tier === tier))
+  const teamsInTier = (tierNumber: number) =>
+    teams.filter(t => assignments.find(a => a.team_id === t.id && a.tier_number === tierNumber))
 
   if (loading) {
     return (
@@ -155,11 +157,15 @@ export default function JoinPage() {
     )
   }
 
-  const tierLabels: Record<number, string> = {
-    1: 'Elite',
-    2: 'Solid',
-    3: 'Mid-table',
-    4: 'Underdogs'
+  if (tiers.length === 0) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-2">Draft Tiers Not Set Up</h1>
+          <p className="text-gray-500">The admin hasn't set up the draft tiers yet. Check back soon.</p>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -169,35 +175,30 @@ export default function JoinPage() {
         <p className="text-gray-500 mb-8">Before joining you must select one team from each tier that you can use twice during the competition. Choose carefully — these are locked after the first gameweek deadline.</p>
 
         <div className="space-y-6">
-          {[1, 2, 3, 4].map(tier => {
-            const selected = tier === 1 ? tier1Pick : tier === 2 ? tier2Pick : tier === 3 ? tier3Pick : tier4Pick
-            const setSelected = tier === 1 ? setTier1Pick : tier === 2 ? setTier2Pick : tier === 3 ? setTier3Pick : setTier4Pick
-
-            return (
-              <div key={tier} className="bg-white border rounded-lg p-6">
-                <h2 className="font-bold mb-1">Tier {tier} — {tierLabels[tier]}</h2>
-                <p className="text-sm text-gray-500 mb-4">Pick one team you can use twice</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {teamsInTier(tier).map(team => (
-                    <button
-                      key={team.id}
-                      onClick={() => setSelected(team.id)}
-                      className={`text-left px-3 py-2 rounded border text-sm transition-colors ${
-                        selected === team.id
-                          ? 'bg-black text-white border-black'
-                          : 'hover:border-black'
-                      }`}
-                    >
-                      {team.name}
-                    </button>
-                  ))}
-                  {teamsInTier(tier).length === 0 && (
-                    <p className="text-sm text-gray-400 col-span-2">No teams assigned to this tier yet. Ask the admin to set up quartiles first.</p>
-                  )}
-                </div>
+          {tiers.map(tier => (
+            <div key={tier.tier_number} className="bg-white border rounded-lg p-6">
+              <h2 className="font-bold mb-1">Tier {tier.tier_number} — {tier.tier_name}</h2>
+              <p className="text-sm text-gray-500 mb-4">Pick one team you can use twice</p>
+              <div className="grid grid-cols-2 gap-2">
+                {teamsInTier(tier.tier_number).map(team => (
+                  <button
+                    key={team.id}
+                    onClick={() => setPicks(prev => ({ ...prev, [tier.tier_number]: team.id }))}
+                    className={`text-left px-3 py-2 rounded border text-sm transition-colors ${
+                      picks[tier.tier_number] === team.id
+                        ? 'bg-black text-white border-black'
+                        : 'hover:border-black'
+                    }`}
+                  >
+                    {team.name}
+                  </button>
+                ))}
+                {teamsInTier(tier.tier_number).length === 0 && (
+                  <p className="text-sm text-gray-400 col-span-2">No teams assigned to this tier yet.</p>
+                )}
               </div>
-            )
-          })}
+            </div>
+          ))}
         </div>
 
         {error && (
@@ -208,7 +209,7 @@ export default function JoinPage() {
 
         <button
           onClick={handleJoin}
-          disabled={saving || !tier1Pick || !tier2Pick || !tier3Pick || !tier4Pick}
+          disabled={saving || !tiers.every(t => picks[t.tier_number])}
           className="mt-6 w-full bg-black text-white rounded-lg px-4 py-3 font-medium disabled:opacity-50"
         >
           {saving ? 'Joining...' : 'Complete Tier Draft & Join Competition'}

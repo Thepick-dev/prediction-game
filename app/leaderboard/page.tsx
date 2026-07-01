@@ -106,9 +106,9 @@ export default async function LeaderboardPage() {
 
   const ranked = Object.values(totals).sort((a, b) => {
     if (b.total_points !== a.total_points) return b.total_points - a.total_points
-    if (b.goals !== a.goals) return b.goals - a.goals
-    if (b.away_wins !== a.away_wins) return b.away_wins - a.away_wins
     if (b.points_without_banker !== a.points_without_banker) return b.points_without_banker - a.points_without_banker
+    if (b.away_wins !== a.away_wins) return b.away_wins - a.away_wins
+    if (b.goals !== a.goals) return b.goals - a.goals
     return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime()
   })
 

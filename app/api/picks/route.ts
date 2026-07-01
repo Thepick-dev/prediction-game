@@ -31,25 +31,22 @@ export async function POST(request: Request) {
 
   const { data: entry } = await supabase
     .from('competition_entries')
-    .select('id')
+    .select('id, removed')
     .eq('competition_id', competition_id)
     .eq('user_id', user.id)
     .single()
 
-  if (!entry) {
+  if (!entry || entry.removed) {
     return NextResponse.json({ error: 'You are not entered in this competition' }, { status: 400 })
   }
 
-  const { data: draftPick } = await supabase
-    .from('tier_draft_picks')
-    .select('tier1_team_id, tier2_team_id, tier3_team_id, tier4_team_id')
+  const { data: draftPicksData } = await supabase
+    .from('draft_picks')
+    .select('team_id')
     .eq('competition_id', competition_id)
     .eq('user_id', user.id)
-    .single()
 
-  const doubleUseTeams = draftPick
-    ? [draftPick.tier1_team_id, draftPick.tier2_team_id, draftPick.tier3_team_id, draftPick.tier4_team_id]
-    : []
+  const doubleUseTeams = draftPicksData?.map(p => p.team_id) ?? []
 
   const { data: allPicks } = await supabase
     .from('picks')
@@ -112,6 +109,7 @@ export async function POST(request: Request) {
         player1_id,
         player2_id,
         is_banker,
+        is_autopick: false,
         submitted_at: new Date().toISOString()
       })
       .eq('id', existingPick.id)
@@ -126,7 +124,8 @@ export async function POST(request: Request) {
         team_id,
         player1_id,
         player2_id,
-        is_banker
+        is_banker,
+        is_autopick: false
       })
     error = insertError
   }
@@ -150,7 +149,7 @@ export async function GET(request: Request) {
   const competition_id = searchParams.get('competition_id')
   const gameweek_id = searchParams.get('gameweek_id')
 
-  const [{ data: pick }, { data: allPicks }, { data: draftPick }] = await Promise.all([
+  const [{ data: pick }, { data: allPicks }, { data: draftPicksData }] = await Promise.all([
     supabase
       .from('picks')
       .select('*, teams(name), player1:players!picks_player1_id_fkey(name), player2:players!picks_player2_id_fkey(name)')
@@ -163,16 +162,13 @@ export async function GET(request: Request) {
       .eq('user_id', user.id)
       .eq('competition_id', competition_id!),
     supabase
-      .from('tier_draft_picks')
-      .select('tier1_team_id, tier2_team_id, tier3_team_id, tier4_team_id')
+      .from('draft_picks')
+      .select('team_id')
       .eq('competition_id', competition_id!)
       .eq('user_id', user.id)
-      .single()
   ])
 
-  const doubleUseTeams = draftPick
-    ? [draftPick.tier1_team_id, draftPick.tier2_team_id, draftPick.tier3_team_id, draftPick.tier4_team_id]
-    : []
+  const doubleUseTeams = draftPicksData?.map(p => p.team_id) ?? []
 
   const teamUseCounts: Record<number, number> = {}
   allPicks?.forEach(p => {

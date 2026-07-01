@@ -21,7 +21,8 @@ export async function POST() {
     position: player.element_type === 1 ? 'GK' :
               player.element_type === 2 ? 'DEF' :
               player.element_type === 3 ? 'MID' : 'FWD',
-    team_id: player.team
+    team_id: player.team,
+    minutes_played: player.minutes ?? 0
   }))
 
   const { error: playersError } = await supabase
