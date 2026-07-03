@@ -1,18 +1,18 @@
 @import "tailwindcss";
 
-@theme {
-  --color-coupon-paper: #F5F0E8;
-  --color-coupon-ink: #1A1A1A;
-  --color-coupon-green: #1B4332;
-  --color-coupon-red: #C41E3A;
-  --color-coupon-rule: #C8B89A;
-  --color-coupon-muted: #6B6355;
-
-  --font-display: var(--font-playfair), Georgia, serif;
-  --font-mono: var(--font-pt-mono), 'Courier New', monospace;
+* {
+  box-sizing: border-box;
 }
 
-body {
-  background-color: var(--color-coupon-paper);
-  color: var(--color-coupon-ink);
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #FAFAFA;
+  color: #111111;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
 }

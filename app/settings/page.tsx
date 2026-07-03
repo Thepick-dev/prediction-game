@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
+import Shell from '../components/ceefax-shell'
 
 export default function SettingsPage() {
+  const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
   const [currentName, setCurrentName] = useState('')
   const [email, setEmail] = useState('')
@@ -13,112 +15,91 @@ export default function SettingsPage() {
 
   const supabase = createClient()
 
-  useEffect(() => {
-    loadProfile()
-  }, [])
+  useEffect(() => { loadProfile() }, [])
 
   async function loadProfile() {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      window.location.href = '/login'
-      return
-    }
-
+    if (!user) { window.location.href = '/login'; return }
+    setUser(user)
     setEmail(user.email ?? '')
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('display_name')
-      .eq('id', user.id)
-      .single()
-
+    const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', user.id).single()
     if (profile?.display_name) {
       setDisplayName(profile.display_name)
       setCurrentName(profile.display_name)
     }
-
     setLoading(false)
   }
 
   async function saveDisplayName() {
-    if (!displayName.trim()) {
-      setMessage('Please enter a display name')
-      return
-    }
-    if (displayName.trim().length > 30) {
-      setMessage('Display name must be 30 characters or fewer')
-      return
-    }
-
+    if (!displayName.trim()) { setMessage('Please enter a display name'); return }
+    if (displayName.trim().length > 30) { setMessage('Max 30 characters'); return }
     setSaving(true)
     setMessage('')
-
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({ display_name: displayName.trim() })
-      .eq('id', user.id)
-
-    if (error) {
-      setMessage('Error: ' + error.message)
-    } else {
-      setMessage('Display name saved')
-      setCurrentName(displayName.trim())
-    }
-
+    const { error } = await supabase.from('profiles').update({ display_name: displayName.trim() }).eq('id', user.id)
+    if (error) { setMessage('Error: ' + error.message) }
+    else { setMessage('Saved'); setCurrentName(displayName.trim()) }
     setSaving(false)
+  }
+
+  async function logOut() {
+    await supabase.auth.signOut()
+    window.location.href = '/login'
   }
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
+      <Shell active="SETTINGS">
         <p className="text-gray-500">Loading...</p>
-      </main>
+      </Shell>
     )
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-md mx-auto">
-        <h1 className="text-2xl font-bold mb-2">Settings</h1>
-        <p className="text-gray-500 text-sm mb-8">Logged in as {email}</p>
+    <Shell active="SETTINGS" user={user} displayName={currentName}>
+
+      <h1 className="text-3xl font-bold mb-8">Settings</h1>
+
+      <div className="max-w-md space-y-6">
 
         <div className="bg-white border rounded-lg p-6">
           <h2 className="font-bold mb-1">Display Name</h2>
           <p className="text-sm text-gray-500 mb-4">
-            {currentName ? `Currently shown as "${currentName}"` : 'Not set yet — your email is currently shown to other players'}
+            {currentName ? `Currently shown as "${currentName}"` : 'Not set yet'}
           </p>
-
           <input
             type="text"
-            placeholder="e.g. Kit"
             value={displayName}
             onChange={e => setDisplayName(e.target.value)}
             maxLength={30}
             className="w-full border rounded px-3 py-2 text-sm mb-3"
           />
-
           {message && (
-            <p className={`text-sm mb-3 ${message.startsWith('Error') ? 'text-red-600' : 'text-green-600'}`}>
-              {message}
-            </p>
+            <p className={`text-sm mb-3 ${message.startsWith('Error') ? 'text-red-600' : 'text-green-600'}`}>{message}</p>
           )}
-
           <button
             onClick={saveDisplayName}
             disabled={saving}
-            className="w-full bg-black text-white rounded px-4 py-2 text-sm disabled:opacity-50"
+            className="w-full bg-black text-white rounded px-4 py-2 text-sm font-bold disabled:opacity-50"
           >
-            {saving ? 'Saving...' : 'Save Display Name'}
+            {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
 
-        <a href="/" className="block text-center text-sm text-gray-500 hover:text-gray-700 mt-4">
-          ← Back to home
-        </a>
+        <div className="bg-white border rounded-lg p-6">
+          <h2 className="font-bold mb-1">Account</h2>
+          <p className="text-sm text-gray-500 mb-4">Logged in as {email}</p>
+          <button
+            onClick={logOut}
+            className="w-full border rounded px-4 py-2 text-sm hover:border-black"
+          >
+            Log Out
+          </button>
+        </div>
+
       </div>
-    </main>
+
+    </Shell>
   )
 }

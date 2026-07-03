@@ -9,7 +9,6 @@ type Dispatch = {
   slug: string
   excerpt: string
   content: string
-  author: string
   published: boolean
   published_at: string | null
 }
@@ -21,21 +20,15 @@ export default function DispatchAdminPage() {
   const [slug, setSlug] = useState('')
   const [excerpt, setExcerpt] = useState('')
   const [content, setContent] = useState('')
-  const [author, setAuthor] = useState('Stanno')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
   const supabase = createClient()
 
-  useEffect(() => {
-    loadDispatches()
-  }, [])
+  useEffect(() => { loadDispatches() }, [])
 
   async function loadDispatches() {
-    const { data } = await supabase
-      .from('dispatches')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const { data } = await supabase.from('dispatches').select('*').order('created_at', { ascending: false })
     setDispatches(data ?? [])
   }
 
@@ -49,17 +42,15 @@ export default function DispatchAdminPage() {
     setSlug('')
     setExcerpt('')
     setContent('')
-    setAuthor('Stanno')
     setMessage('')
   }
 
-  function startEdit(dispatch: Dispatch) {
-    setEditing(dispatch)
-    setTitle(dispatch.title)
-    setSlug(dispatch.slug)
-    setExcerpt(dispatch.excerpt ?? '')
-    setContent(dispatch.content)
-    setAuthor(dispatch.author ?? 'Stanno')
+  function startEdit(d: Dispatch) {
+    setEditing(d)
+    setTitle(d.title)
+    setSlug(d.slug)
+    setExcerpt(d.excerpt ?? '')
+    setContent(d.content)
     setMessage('')
   }
 
@@ -68,40 +59,31 @@ export default function DispatchAdminPage() {
       setMessage('Title and content are required')
       return
     }
-
     setSaving(true)
-    setMessage('')
-
     const data = {
       title,
       slug: slug || generateSlug(title),
       excerpt,
       content,
-      author,
       published: publish,
       published_at: publish ? new Date().toISOString() : null
     }
-
     if (editing) {
       await supabase.from('dispatches').update(data).eq('id', editing.id)
     } else {
       await supabase.from('dispatches').insert(data)
     }
-
     setMessage(publish ? 'Published' : 'Saved as draft')
     setSaving(false)
     loadDispatches()
     startNew()
   }
 
-  async function togglePublish(dispatch: Dispatch) {
-    await supabase
-      .from('dispatches')
-      .update({
-        published: !dispatch.published,
-        published_at: !dispatch.published ? new Date().toISOString() : null
-      })
-      .eq('id', dispatch.id)
+  async function togglePublish(d: Dispatch) {
+    await supabase.from('dispatches').update({
+      published: !d.published,
+      published_at: !d.published ? new Date().toISOString() : null
+    }).eq('id', d.id)
     loadDispatches()
   }
 
@@ -112,17 +94,16 @@ export default function DispatchAdminPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-8">Dispatch</h1>
-      <p className="text-gray-500 text-sm mb-6">Write and publish Stanno's weekly dispatches.</p>
+      <h1 className="text-2xl font-bold mb-2">News Posts</h1>
+      <p className="text-gray-500 text-sm mb-8">Write and publish posts for the News section.</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
         <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-4">{editing ? 'Edit Dispatch' : 'New Dispatch'}</h2>
-
+          <h2 className="font-bold mb-4">{editing ? 'Edit Post' : 'New Post'}</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Headline</label>
+              <label className="block text-sm font-medium mb-1">Title</label>
               <input
                 type="text"
                 value={title}
@@ -131,10 +112,9 @@ export default function DispatchAdminPage() {
                   if (!editing) setSlug(generateSlug(e.target.value))
                 }}
                 className="w-full border rounded px-3 py-2 text-sm"
-                placeholder="e.g. Gameweek 3: The Banker That Wasn't"
+                placeholder="e.g. Gameweek 3 Review"
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium mb-1">Slug (URL)</label>
               <input
@@ -142,46 +122,28 @@ export default function DispatchAdminPage() {
                 value={slug}
                 onChange={e => setSlug(e.target.value)}
                 className="w-full border rounded px-3 py-2 text-sm font-mono"
-                placeholder="auto-generated from headline"
               />
             </div>
-
             <div>
-              <label className="block text-sm font-medium mb-1">Byline</label>
-              <input
-                type="text"
-                value={author}
-                onChange={e => setAuthor(e.target.value)}
-                className="w-full border rounded px-3 py-2 text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Excerpt (shown on homepage)</label>
+              <label className="block text-sm font-medium mb-1">Excerpt (shown in the list)</label>
               <textarea
                 value={excerpt}
                 onChange={e => setExcerpt(e.target.value)}
                 rows={2}
                 className="w-full border rounded px-3 py-2 text-sm"
-                placeholder="One or two sentences that appear as a teaser"
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium mb-1">Content</label>
               <textarea
                 value={content}
                 onChange={e => setContent(e.target.value)}
                 rows={12}
-                className="w-full border rounded px-3 py-2 text-sm font-mono"
-                placeholder="Write the dispatch here. Separate paragraphs with a blank line."
+                className="w-full border rounded px-3 py-2 text-sm"
+                placeholder="Write the post. Separate paragraphs with a blank line."
               />
             </div>
-
-            {message && (
-              <p className="text-sm text-green-600">{message}</p>
-            )}
-
+            {message && <p className="text-sm text-green-600">{message}</p>}
             <div className="flex gap-2">
               <button
                 onClick={() => save(false)}
@@ -198,21 +160,16 @@ export default function DispatchAdminPage() {
                 Publish
               </button>
               {editing && (
-                <button
-                  onClick={startNew}
-                  className="text-sm text-gray-500 hover:text-gray-700 px-2"
-                >
-                  Cancel
-                </button>
+                <button onClick={startNew} className="text-sm text-gray-500 px-2">Cancel</button>
               )}
             </div>
           </div>
         </div>
 
         <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-4">All Dispatches</h2>
+          <h2 className="font-bold mb-4">All Posts</h2>
           {dispatches.length === 0 ? (
-            <p className="text-sm text-gray-400">No dispatches yet.</p>
+            <p className="text-sm text-gray-400">No posts yet.</p>
           ) : (
             <div className="space-y-3">
               {dispatches.map(d => (

@@ -1,0 +1,168 @@
+/* ============================================================
+   THE COUPON — Ceefax / Teletext theme
+   ============================================================ */
+
+:root {
+  --tt-black:   #000000;
+  --tt-white:   #ffffff;
+  --tt-cyan:    #00ffff;
+  --tt-yellow:  #ffff33;
+  --tt-green:   #00ff5a;
+  --tt-red:     #ff3b3b;
+  --tt-blue:    #0018a8;
+  --tt-magenta: #ff44ff;
+  --tt-dim:     #888888;
+  --tt-faint:   #444444;
+
+  --tt-font: var(--font-vt323), 'VT323', 'Courier New', monospace;
+  --tt-max:  860px;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #111111;
+  min-height: 100vh;
+  font-family: var(--tt-font);
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: none;
+}
+
+.tt-tv {
+  width: 100%;
+  max-width: var(--tt-max);
+  min-height: 100vh;
+  background: var(--tt-black);
+  position: relative;
+  margin: 0 auto;
+}
+
+.tt-screen {
+  font-family: var(--tt-font);
+  color: var(--tt-white);
+  background: var(--tt-black);
+  width: 100%;
+  min-height: 100vh;
+  padding: 14px 26px 80px;
+  position: relative;
+  text-shadow: 0 0 4px currentColor, 0 0 1px currentColor;
+  line-height: 1.3;
+  font-size: 30px;
+  letter-spacing: 0.5px;
+  box-sizing: border-box;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: none;
+}
+
+.tt-screen * {
+  font-family: var(--tt-font) !important;
+}
+
+.tt-white   { color: var(--tt-white); }
+.tt-cyan    { color: var(--tt-cyan); }
+.tt-yellow  { color: var(--tt-yellow); }
+.tt-green   { color: var(--tt-green); }
+.tt-red     { color: var(--tt-red); }
+.tt-magenta { color: var(--tt-magenta); }
+.tt-dim     { color: var(--tt-dim); }
+
+.tt-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 28px;
+  white-space: nowrap;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #222;
+  margin-bottom: 8px;
+}
+.tt-pageno { color: var(--tt-white); letter-spacing: 1px; }
+.tt-clock  { color: var(--tt-white); letter-spacing: 1px; }
+.tt-date   { color: var(--tt-green); letter-spacing: 1px; }
+
+.tt-title    { font-size: 64px; line-height: 0.9; color: var(--tt-yellow); letter-spacing: 2px; text-shadow: 0 0 8px var(--tt-yellow), 0 0 2px var(--tt-yellow); }
+.tt-subtitle { font-size: 28px; line-height: 1; color: var(--tt-cyan); letter-spacing: 3px; margin-top: 4px; text-shadow: 0 0 4px var(--tt-cyan); }
+
+.tt-block {
+  color: var(--tt-black);
+  text-shadow: none;
+  padding: 2px 8px;
+  letter-spacing: 2px;
+  font-size: 28px;
+  margin: 10px 0 6px;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+.tt-block--green  { background: var(--tt-green); color: var(--tt-black); }
+.tt-block--blue   { background: var(--tt-blue);  color: var(--tt-yellow); }
+.tt-block--yellow { background: var(--tt-yellow); color: var(--tt-black); }
+.tt-block--cyan   { background: var(--tt-cyan);  color: var(--tt-black); }
+.tt-block--red    { background: var(--tt-red);   color: var(--tt-black); }
+
+.tt-fastext {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 4px;
+  padding: 4px 0;
+  background: var(--tt-black);
+}
+.tt-fastext > a {
+  display: block;
+  cursor: pointer;
+  text-align: center;
+  padding: 3px 0;
+  color: var(--tt-black);
+  text-shadow: none;
+  text-decoration: none;
+  font-size: 26px;
+  letter-spacing: 1px;
+}
+.tt-fastext .fx-red    { background: var(--tt-red); }
+.tt-fastext .fx-green  { background: var(--tt-green); }
+.tt-fastext .fx-yellow { background: var(--tt-yellow); }
+.tt-fastext .fx-cyan   { background: var(--tt-cyan); }
+
+.tt-flash { animation: tt-flash 1s steps(1) infinite; }
+@keyframes tt-flash { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.15; } }
+
+.tt-scanlines, .tt-vignette, .tt-flicker {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+.tt-scanlines {
+  z-index: 50;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px,
+    rgba(0,0,0,0.25) 3px, rgba(0,0,0,0.25) 3px
+  );
+}
+.tt-vignette {
+  z-index: 51;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.65) 100%);
+}
+.tt-flicker {
+  z-index: 52;
+  background: rgba(20,25,60,0.04);
+  animation: tt-flicker 3.4s steps(1) infinite;
+}
+@keyframes tt-flicker {
+  0%, 100% { opacity: 0.9; } 47% { opacity: 0.86; } 62% { opacity: 0.95; } 78% { opacity: 0.88; }
+}
+
+.tt-row--you { background: var(--tt-blue); }
+.tt-row--you .tt-white { color: var(--tt-yellow); }
+
+.tt-cell {
+  cursor: pointer;
+  text-align: center;
+  padding: 4px 0;
+  border: 2px solid #333;
+}
+.tt-cell .unsel { color: var(--tt-faint); }
+.tt-cell .sel   { color: var(--tt-black); text-shadow: none; }
+.tt-cell .sel--home { background: var(--tt-cyan); }
+.tt-cell .sel--draw { background: var(--tt-yellow); }
+.tt-cell .sel--away { background: var(--tt-green); }

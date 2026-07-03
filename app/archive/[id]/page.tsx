@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '../lib/supabase'
-import Shell from '../components/ceefax-shell'
+import { useParams } from 'next/navigation'
+import { createClient } from '../../lib/supabase'
+import Shell from '../../components/ceefax-shell'
+import Link from 'next/link'
 
 type RankedPlayer = {
   user_id: string
@@ -15,7 +17,6 @@ type RankedPlayer = {
   banker_points: number
   total_points: number
   points_without_banker: number
-  goals: number
 }
 
 type PickDetail = {
@@ -28,7 +29,10 @@ type PickDetail = {
   points: number | null
 }
 
-export default function LeaderboardPage() {
+export default function ArchivedCompetitionPage() {
+  const params = useParams()
+  const competitionId = params.id as string
+
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
   const [competition, setCompetition] = useState<any>(null)
@@ -54,15 +58,15 @@ export default function LeaderboardPage() {
 
     const { data: comp } = await supabase
       .from('competitions')
-      .select('id, name')
-      .eq('status', 'active')
+      .select('id, name, season')
+      .eq('id', competitionId)
       .single()
 
     if (!comp) { setLoading(false); return }
     setCompetition(comp)
 
     const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: picks }, { data: teams }, { data: players }, { data: gameweeks }] = await Promise.all([
-      supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id).eq('removed', false),
+      supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id),
       supabase.from('profiles').select('id, display_name'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown').eq('competition_id', comp.id),
       supabase.from('picks').select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('competition_id', comp.id),
@@ -99,8 +103,7 @@ export default function LeaderboardPage() {
         player_points: 0,
         banker_points: 0,
         total_points: 0,
-        points_without_banker: 0,
-        goals: 0
+        points_without_banker: 0
       }
     })
 
@@ -131,7 +134,6 @@ export default function LeaderboardPage() {
       if (b.total_points !== a.total_points) return b.total_points - a.total_points
       if (b.points_without_banker !== a.points_without_banker) return b.points_without_banker - a.points_without_banker
       if (b.away_wins !== a.away_wins) return b.away_wins - a.away_wins
-      if (b.goals !== a.goals) return b.goals - a.goals
       return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime()
     })
 
@@ -158,7 +160,7 @@ export default function LeaderboardPage() {
 
   if (loading) {
     return (
-      <Shell active="TABLE">
+      <Shell active="ARCHIVE">
         <p className="text-gray-500">Loading...</p>
       </Shell>
     )
@@ -166,18 +168,18 @@ export default function LeaderboardPage() {
 
   if (!competition) {
     return (
-      <Shell active="TABLE">
-        <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
-        <p className="text-gray-500">There is no active competition right now.</p>
+      <Shell active="ARCHIVE">
+        <h1 className="text-2xl font-bold mb-2">Competition Not Found</h1>
+        <Link href="/archive" className="text-sm text-gray-500 hover:text-black">← Back to archive</Link>
       </Shell>
     )
   }
 
   return (
-    <Shell active="TABLE" user={user} displayName={displayName}>
+    <Shell active="ARCHIVE" user={user} displayName={displayName}>
 
-      <h1 className="text-3xl font-bold mb-1">League Table</h1>
-      <p className="text-gray-500 mb-8">{competition.name}</p>
+      <h1 className="text-3xl font-bold mb-1">{competition.name}</h1>
+      <p className="text-gray-500 mb-8">Final standings — {competition.season}</p>
 
       <div className="bg-white border rounded-lg overflow-x-auto">
         <table className="w-full text-sm min-w-[700px]">
@@ -204,7 +206,7 @@ export default function LeaderboardPage() {
                   <td className="py-3 px-3 text-gray-400">{index + 1}</td>
                   <td className="py-3 px-3 font-bold">
                     {player.display_name}
-                    {index === 0 && <span className="ml-2">👑</span>}
+                    {index === 0 && <span className="ml-2">🏆</span>}
                     <span className="ml-2 text-gray-300 text-xs">{expandedUser === player.user_id ? '▲' : '▼'}</span>
                   </td>
                   <td className="py-3 px-3 text-center text-gray-600">{player.home_wins}</td>
@@ -218,7 +220,7 @@ export default function LeaderboardPage() {
                   <tr key={player.user_id + '-detail'}>
                     <td colSpan={8} className="bg-gray-50 px-6 py-4">
                       {(!pickDetails[player.user_id] || pickDetails[player.user_id].length === 0) ? (
-                        <p className="text-gray-400 text-xs">No picks yet.</p>
+                        <p className="text-gray-400 text-xs">No picks recorded.</p>
                       ) : (
                         <table className="w-full text-xs">
                           <thead>
@@ -250,18 +252,13 @@ export default function LeaderboardPage() {
                 )}
               </>
             ))}
-            {ranked.length === 0 && (
-              <tr>
-                <td colSpan={8} className="py-8 text-center text-gray-400">No players yet.</td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>
 
-      <p className="text-xs text-gray-400 mt-3">
-        HW/AW = home/away wins from your picked teams. Banker = bonus points gained from banker doubles. Click any row for full pick history.
-      </p>
+      <Link href="/archive" className="inline-block mt-6 text-sm text-gray-500 hover:text-black">
+        ← Back to archive
+      </Link>
 
     </Shell>
   )
