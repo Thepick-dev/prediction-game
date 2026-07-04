@@ -43,6 +43,7 @@ export default async function AdminLayout({
             <a href="/admin/scoring" className="hover:text-gray-300">Scoring</a>
             <a href="/admin/postponed" className="hover:text-gray-300">Postponed</a>
             <a href="/admin/dispatch" className="hover:text-gray-300">News</a>
+            <a href="/admin/archive" className="hover:text-gray-300">Archive</a>
             <a href="/" className="hover:text-gray-300">← Back to site</a>
           </div>
         </div>

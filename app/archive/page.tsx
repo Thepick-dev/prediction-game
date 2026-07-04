@@ -12,8 +12,9 @@ export default async function ArchivePage() {
 
   const { data: pastCompetitions } = await supabase
     .from('competitions')
-    .select('id, name, season, start_date, end_date')
+    .select('id, name, season, start_date, end_date, manual_winner, manual_winner_note')
     .in('status', ['completed', 'archived'])
+    .eq('hidden', false)
     .order('start_date', { ascending: false })
 
   const { data: honours } = await supabase
@@ -45,6 +46,9 @@ export default async function ArchivePage() {
                   <div>
                     <p className="font-bold text-sm">{comp.name}</p>
                     <p className="text-xs text-gray-400">{comp.season}</p>
+                    {(comp as any).manual_winner && (
+                      <p className="text-xs text-yellow-700 mt-0.5">🏆 {(comp as any).manual_winner}</p>
+                    )}
                   </div>
                   <span className="text-sm text-gray-400">Final table →</span>
                 </Link>

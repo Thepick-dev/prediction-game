@@ -7,7 +7,9 @@ import Shell from '../components/ceefax-shell'
 type Team = { id: number; name: string }
 type Player = { id: number; name: string; team_id: number }
 type Gameweek = { id: string; number: number; deadline: string; status: string }
+type Fixture = { id: number; home_team_id: number; away_team_id: number; kickoff_time: string; home_score: number | null; away_score: number | null; status: string }
 type HistoryPick = {
+  id: string
   gameweek_id: string
   team_id: number
   player1_id: number
@@ -24,6 +26,7 @@ export default function PicksPage() {
   const [gameweek, setGameweek] = useState<Gameweek | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [players, setPlayers] = useState<Player[]>([])
+  const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [historyPicks, setHistoryPicks] = useState<HistoryPick[]>([])
   const [pointsByPick, setPointsByPick] = useState<Record<string, number>>({})
 
@@ -46,16 +49,11 @@ export default function PicksPage() {
 
   const supabase = createClient()
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  useEffect(() => { loadData() }, [])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      window.location.href = '/login'
-      return
-    }
+    if (!user) { window.location.href = '/login'; return }
     setUser(user)
 
     const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', user.id).single()
@@ -77,10 +75,7 @@ export default function PicksPage() {
       .eq('user_id', user.id)
       .single()
 
-    if (!entry) {
-      window.location.href = '/join'
-      return
-    }
+    if (!entry) { window.location.href = '/join'; return }
 
     const now = new Date()
 
@@ -104,18 +99,27 @@ export default function PicksPage() {
     setPlayers(playersData ?? [])
 
     if (gw) {
-      const res = await fetch(`/api/picks?competition_id=${comp.id}&gameweek_id=${gw.id}`)
-      const data = await res.json()
-      if (data.pick) {
-        setSelectedTeam(data.pick.team_id)
-        setPlayer1(data.pick.player1_id)
-        setPlayer2(data.pick.player2_id)
-        setIsBanker(data.pick.is_banker)
+      const [pickRes, { data: fixturesData }] = await Promise.all([
+        fetch(`/api/picks?competition_id=${comp.id}&gameweek_id=${gw.id}`),
+        supabase
+          .from('fixtures')
+          .select('id, home_team_id, away_team_id, kickoff_time, home_score, away_score, status')
+          .eq('gameweek_id', gw.id)
+          .order('kickoff_time', { ascending: true })
+      ])
+
+      const pickData = await pickRes.json()
+      if (pickData.pick) {
+        setSelectedTeam(pickData.pick.team_id)
+        setPlayer1(pickData.pick.player1_id)
+        setPlayer2(pickData.pick.player2_id)
+        setIsBanker(pickData.pick.is_banker)
       }
-      setUsedTeams(data.usedTeams ?? [])
-      setPlayerCounts(data.playerCounts ?? {})
-      setDoubleUseTeams(data.doubleUseTeams ?? [])
-      setBankersUsed(data.bankersUsed ?? 0)
+      setUsedTeams(pickData.usedTeams ?? [])
+      setPlayerCounts(pickData.playerCounts ?? {})
+      setDoubleUseTeams(pickData.doubleUseTeams ?? [])
+      setBankersUsed(pickData.bankersUsed ?? 0)
+      setFixtures(fixturesData ?? [])
     }
 
     const { data: history } = await supabase
@@ -149,10 +153,8 @@ export default function PicksPage() {
       setMessage('Please pick two different players')
       return
     }
-
     setSaving(true)
     setMessage('')
-
     const res = await fetch('/api/picks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -165,16 +167,13 @@ export default function PicksPage() {
         is_banker: isBanker
       })
     })
-
     const data = await res.json()
-
     if (data.error) {
       setMessage('Error: ' + data.error)
     } else {
       setMessage('Pick saved')
       loadData()
     }
-
     setSaving(false)
   }
 
@@ -187,6 +186,18 @@ export default function PicksPage() {
   const filteredPlayers2 = playerSearch2.length >= 2
     ? players.filter(p => p.name.toLowerCase().includes(playerSearch2.toLowerCase())).slice(0, 8)
     : []
+
+  const hasFixtures = fixtures.length > 0
+  const fixtureTeamIds = new Set(fixtures.flatMap(f => [f.home_team_id, f.away_team_id]))
+
+  function getTeamStatus(teamId: number) {
+    const isUsed = usedTeams.includes(teamId)
+    const isDouble = doubleUseTeams.includes(teamId)
+    const usedCount = isUsed ? (isDouble ? 2 : 1) : 0
+    const maxUses = isDouble ? 2 : 1
+    const remaining = maxUses - usedCount
+    return { isUsed, isDouble, remaining, maxUses }
+  }
 
   if (loading) {
     return (
@@ -227,30 +238,120 @@ export default function PicksPage() {
           ) : (
             <>
               <div className="mb-6">
-                <label className="block font-bold mb-2">Your Team</label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {teams.map(team => {
-                    const isUsed = usedTeams.includes(team.id)
-                    const isDouble = doubleUseTeams.includes(team.id)
-                    return (
-                      <button
-                        key={team.id}
-                        onClick={() => !isUsed && setSelectedTeam(team.id)}
-                        disabled={isUsed}
-                        className={`text-left px-3 py-2 rounded border text-sm ${
-                          selectedTeam === team.id
-                            ? 'bg-black text-white border-black'
-                            : isUsed
-                            ? 'bg-gray-100 text-gray-300 cursor-not-allowed line-through'
-                            : 'hover:border-black'
-                        }`}
-                      >
-                        {team.name}{isDouble && ' ★'}
-                      </button>
-                    )
-                  })}
-                </div>
-                <p className="text-xs text-gray-400 mt-2">★ = your tier picks (usable twice). Crossed out = already used.</p>
+                <label className="block font-bold mb-3">Select Your Team</label>
+
+                {hasFixtures ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-400 mb-3">Click a team to select it. ★ = your tier pick (usable twice). Strikethrough = already used.</p>
+                    {fixtures.map(fixture => {
+                      const homeStatus = getTeamStatus(fixture.home_team_id)
+                      const awayStatus = getTeamStatus(fixture.away_team_id)
+                      const homeTeam = teams.find(t => t.id === fixture.home_team_id)
+                      const awayTeam = teams.find(t => t.id === fixture.away_team_id)
+
+                      return (
+                        <div key={fixture.id} className="border rounded-lg overflow-hidden">
+                          {fixture.kickoff_time && (
+                            <div className="bg-gray-50 px-3 py-1 text-xs text-gray-400 border-b">
+                              {new Date(fixture.kickoff_time).toLocaleDateString('en-GB', {
+                                weekday: 'short', day: 'numeric', month: 'short'
+                              })} {new Date(fixture.kickoff_time).toLocaleTimeString('en-GB', {
+                                hour: '2-digit', minute: '2-digit'
+                              })}
+                            </div>
+                          )}
+                          <div className="grid grid-cols-2 divide-x">
+                            <button
+                              onClick={() => !homeStatus.isUsed && setSelectedTeam(fixture.home_team_id)}
+                              disabled={homeStatus.isUsed}
+                              className={`px-4 py-3 text-left text-sm transition-colors ${
+                                selectedTeam === fixture.home_team_id
+                                  ? 'bg-black text-white'
+                                  : homeStatus.isUsed
+                                  ? 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                                  : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              <span className={homeStatus.isUsed ? 'line-through' : ''}>
+                                {homeTeam?.name ?? 'Unknown'}
+                              </span>
+                              {homeStatus.isDouble && (
+                                <span className={`ml-1 text-xs ${selectedTeam === fixture.home_team_id ? 'text-yellow-300' : 'text-yellow-600'}`}>★</span>
+                              )}
+                              <div className="text-xs mt-0.5 opacity-60">
+                                {homeStatus.isUsed
+                                  ? 'Used'
+                                  : `${homeStatus.remaining}/${homeStatus.maxUses} uses remaining`
+                                }
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => !awayStatus.isUsed && setSelectedTeam(fixture.away_team_id)}
+                              disabled={awayStatus.isUsed}
+                              className={`px-4 py-3 text-left text-sm transition-colors ${
+                                selectedTeam === fixture.away_team_id
+                                  ? 'bg-black text-white'
+                                  : awayStatus.isUsed
+                                  ? 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                                  : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              <span className={awayStatus.isUsed ? 'line-through' : ''}>
+                                {awayTeam?.name ?? 'Unknown'}
+                              </span>
+                              {awayStatus.isDouble && (
+                                <span className={`ml-1 text-xs ${selectedTeam === fixture.away_team_id ? 'text-yellow-300' : 'text-yellow-600'}`}>★</span>
+                              )}
+                              <div className="text-xs mt-0.5 opacity-60">
+                                {awayStatus.isUsed
+                                  ? 'Used'
+                                  : `${awayStatus.remaining}/${awayStatus.maxUses} uses remaining`
+                                }
+                              </div>
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {selectedTeam && !fixtureTeamIds.has(selectedTeam) && (
+                      <p className="text-xs text-orange-600 mt-2">
+                        Your current pick ({teamName(selectedTeam)}) is not in this gameweek's fixtures. You may want to change it.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-xs text-gray-400 mb-3">
+                      No fixtures assigned to this gameweek yet. Pick from all teams below.
+                      ★ = your tier pick. Strikethrough = already used.
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {teams.map(team => {
+                        const status = getTeamStatus(team.id)
+                        return (
+                          <button
+                            key={team.id}
+                            onClick={() => !status.isUsed && setSelectedTeam(team.id)}
+                            disabled={status.isUsed}
+                            className={`text-left px-3 py-2 rounded border text-sm ${
+                              selectedTeam === team.id
+                                ? 'bg-black text-white border-black'
+                                : status.isUsed
+                                ? 'bg-gray-100 text-gray-300 cursor-not-allowed line-through'
+                                : 'hover:border-black'
+                            }`}
+                          >
+                            {team.name}{status.isDouble && ' ★'}
+                            <div className="text-xs opacity-60">
+                              {status.isUsed ? 'Used' : `${status.remaining}/${status.maxUses} left`}
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid md:grid-cols-2 gap-6 mb-6">
@@ -271,7 +372,7 @@ export default function PicksPage() {
                         className="w-full border rounded px-3 py-2 text-sm"
                       />
                       {filteredPlayers1.length > 0 && (
-                        <div className="border rounded mt-1 divide-y">
+                        <div className="border rounded mt-1 divide-y max-h-48 overflow-y-auto">
                           {filteredPlayers1.map(p => {
                             const count = playerCounts[p.id] ?? 0
                             const maxed = count >= 2
@@ -282,7 +383,7 @@ export default function PicksPage() {
                                 disabled={maxed}
                                 className={`block w-full text-left px-3 py-2 text-sm ${maxed ? 'text-gray-300 line-through cursor-not-allowed' : 'hover:bg-gray-50'}`}
                               >
-                                {p.name} <span className="text-xs text-gray-400">({count}/2 used)</span>
+                                {p.name} <span className="text-xs text-gray-400">({count}/2)</span>
                               </button>
                             )
                           })}
@@ -309,7 +410,7 @@ export default function PicksPage() {
                         className="w-full border rounded px-3 py-2 text-sm"
                       />
                       {filteredPlayers2.length > 0 && (
-                        <div className="border rounded mt-1 divide-y">
+                        <div className="border rounded mt-1 divide-y max-h-48 overflow-y-auto">
                           {filteredPlayers2.map(p => {
                             const count = playerCounts[p.id] ?? 0
                             const maxed = count >= 2
@@ -320,7 +421,7 @@ export default function PicksPage() {
                                 disabled={maxed}
                                 className={`block w-full text-left px-3 py-2 text-sm ${maxed ? 'text-gray-300 line-through cursor-not-allowed' : 'hover:bg-gray-50'}`}
                               >
-                                {p.name} <span className="text-xs text-gray-400">({count}/2 used)</span>
+                                {p.name} <span className="text-xs text-gray-400">({count}/2)</span>
                               </button>
                             )
                           })}
@@ -386,7 +487,7 @@ export default function PicksPage() {
             </thead>
             <tbody>
               {historyPicks.map((pick: any) => (
-                <tr key={pick.gameweek_id} className="border-b last:border-0">
+                <tr key={pick.id} className="border-b last:border-0">
                   <td className="py-2 px-4 font-bold">{pick.gameweeks?.number}</td>
                   <td className="py-2 px-4">
                     {teamName(pick.team_id)}
