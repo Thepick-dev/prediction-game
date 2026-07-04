@@ -69,6 +69,9 @@ export default function LeaderboardPage() {
   const [pickDetails, setPickDetails] = useState<Record<string, PickDetail[]>>({})
   const [matchEvents, setMatchEvents] = useState<any[]>([])
   const [potwUserId, setPotwUserId] = useState<string | null>(null)
+  const [allTeams, setAllTeams] = useState<{ id: number; name: string }[]>([])
+  const [usedTeamsByPlayer, setUsedTeamsByPlayer] = useState<Record<string, Record<number, number>>>({})
+  const [doubleUseByPlayer, setDoubleUseByPlayer] = useState<Record<string, number[]>>({})
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
@@ -93,7 +96,7 @@ export default function LeaderboardPage() {
     if (!comp) { setLoading(false); return }
     setCompetition(comp)
 
-    const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: picks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }] = await Promise.all([
+    const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: picks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }] = await Promise.all([
       supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id).eq('removed', false),
       supabase.from('profiles').select('id, display_name'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown').eq('competition_id', comp.id),
@@ -101,10 +104,12 @@ export default function LeaderboardPage() {
       supabase.from('teams').select('id, name'),
       supabase.from('players').select('id, name'),
       supabase.from('gameweeks').select('id, number').eq('competition_id', comp.id),
-      supabase.from('match_events').select('player_id, event_type')
+      supabase.from('match_events').select('player_id, event_type'),
+      supabase.from('draft_picks').select('user_id, team_id').eq('competition_id', comp.id)
     ])
 
     setMatchEvents(events ?? [])
+    setAllTeams(teams ?? [])
 
     const profileMap: Record<string, string> = {}
     profiles?.forEach(p => { profileMap[p.id] = p.display_name ?? 'Unknown' })
@@ -120,6 +125,20 @@ export default function LeaderboardPage() {
 
     const pointsByPickId: Record<string, any> = {}
     pointsData?.forEach(p => { pointsByPickId[p.pick_id] = p })
+
+    const doubleUseMap: Record<string, number[]> = {}
+    draftPicks?.forEach(dp => {
+      if (!doubleUseMap[dp.user_id]) doubleUseMap[dp.user_id] = []
+      doubleUseMap[dp.user_id].push(dp.team_id)
+    })
+    setDoubleUseByPlayer(doubleUseMap)
+
+    const usedMap: Record<string, Record<number, number>> = {}
+    picks?.forEach(pick => {
+      if (!usedMap[pick.user_id]) usedMap[pick.user_id] = {}
+      usedMap[pick.user_id][pick.team_id] = (usedMap[pick.user_id][pick.team_id] || 0) + 1
+    })
+    setUsedTeamsByPlayer(usedMap)
 
     const totals: Record<string, RankedPlayer> = {}
 
@@ -205,6 +224,21 @@ export default function LeaderboardPage() {
     return parts.length > 1 ? `${parts[0][0]}. ${parts[parts.length - 1]}` : name
   }
 
+  function getAvailableTeams(userId: string) {
+    const used = usedTeamsByPlayer[userId] ?? {}
+    const doubleUse = doubleUseByPlayer[userId] ?? []
+
+    return allTeams
+      .map(team => {
+        const usedCount = used[team.id] ?? 0
+        const maxUses = doubleUse.includes(team.id) ? 2 : 1
+        const remaining = maxUses - usedCount
+        return { ...team, remaining, isDouble: doubleUse.includes(team.id) }
+      })
+      .filter(team => team.remaining > 0)
+      .sort((a, b) => abbr(a.name).localeCompare(abbr(b.name)))
+  }
+
   if (loading) {
     return (
       <Shell active="TABLE">
@@ -253,77 +287,106 @@ export default function LeaderboardPage() {
             </tr>
           </thead>
           <tbody>
-            {ranked.map((player, index) => (
-              <React.Fragment key={player.user_id}>
-                <tr
-                  onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
-                  className="border-b cursor-pointer hover:bg-gray-50"
-                >
-                  <td className="py-2 px-2 text-gray-400">{index + 1}</td>
-                  <td className="py-2 px-2 font-bold uppercase">
-                    {player.display_name}
-                    {index === 0 && <span className="ml-1">👑</span>}
-                    <span className="ml-1 text-gray-300" style={{ fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
-                  </td>
-                  <td className="py-2 px-2 text-center text-gray-600">{player.home_wins}</td>
-                  <td className="py-2 px-2 text-center text-gray-600">{player.away_wins}</td>
-                  <td className="py-2 px-2 text-right text-gray-600">{Math.round(player.team_points)}</td>
-                  <td className="py-2 px-2 text-right text-gray-600">{Math.round(player.player_points)}</td>
-                  <td className="py-2 px-2 text-right text-gray-600">{Math.round(player.banker_points)}</td>
-                  <td className="py-2 px-2 text-right font-bold">{player.total_points}</td>
-                </tr>
-                {expandedUser === player.user_id && (
-                  <tr>
-                    <td colSpan={8} className="bg-gray-50 px-2 py-2">
-                      {(!pickDetails[player.user_id] || pickDetails[player.user_id].length === 0) ? (
-                        <p className="text-gray-400" style={{ fontSize: '10px' }}>No picks yet.</p>
-                      ) : (
-                        <table className="w-full" style={{ fontSize: '9px' }}>
-                          <thead>
-                            <tr className="text-left text-gray-400 border-b uppercase tracking-wider">
-                              <th className="py-1 pr-1">GW</th>
-                              <th className="py-1 pr-1">Team</th>
-                              <th className="py-1 pr-1 text-right">Pts</th>
-                              <th className="py-1 pr-1">P1</th>
-                              <th className="py-1 pr-1 text-right">Pts</th>
-                              <th className="py-1 pr-1">P2</th>
-                              <th className="py-1 pr-1 text-right">Pts</th>
-                              <th className="py-1 text-right font-bold">Tot</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {pickDetails[player.user_id].map((d, i) => (
-                              <tr key={i} className="border-b last:border-0">
-                                <td className="py-1 pr-1 font-bold">{d.gw}</td>
-                                <td className="py-1 pr-1 uppercase">
-                                  {abbr(d.team)}
-                                  {d.is_banker && <span className="ml-0.5 bg-yellow-400 text-black px-0.5 rounded font-bold">★</span>}
-                                  {d.is_autopick && <span className="ml-0.5 bg-gray-200 text-gray-500 px-0.5 rounded">A</span>}
-                                </td>
-                                <td className="py-1 pr-1 text-right text-gray-500">{d.team_points ?? '—'}</td>
-                                <td className="py-1 pr-1 uppercase">
-                                  {shortName(d.player1)}
-                                  {goalPlayers.has(d.player1_id) && ' ⚽'}
-                                  {assistPlayers.has(d.player1_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold">A</span>}
-                                </td>
-                                <td className="py-1 pr-1 text-right text-gray-500">{d.player1_points ?? '—'}</td>
-                                <td className="py-1 pr-1 uppercase">
-                                  {shortName(d.player2)}
-                                  {goalPlayers.has(d.player2_id) && ' ⚽'}
-                                  {assistPlayers.has(d.player2_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold">A</span>}
-                                </td>
-                                <td className="py-1 pr-1 text-right text-gray-500">{d.player2_points ?? '—'}</td>
-                                <td className="py-1 text-right font-bold">{d.points ?? '—'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
+            {ranked.map((player, index) => {
+              const availableTeams = getAvailableTeams(player.user_id)
+              return (
+                <React.Fragment key={player.user_id}>
+                  <tr
+                    onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
+                    className="border-b cursor-pointer hover:bg-gray-50"
+                  >
+                    <td className="py-2 px-2 text-gray-400">{index + 1}</td>
+                    <td className="py-2 px-2 font-bold uppercase">
+                      {player.display_name}
+                      {index === 0 && <span className="ml-1">👑</span>}
+                      <span className="ml-1 text-gray-300" style={{ fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                     </td>
+                    <td className="py-2 px-2 text-center text-gray-600">{player.home_wins}</td>
+                    <td className="py-2 px-2 text-center text-gray-600">{player.away_wins}</td>
+                    <td className="py-2 px-2 text-right text-gray-600">{Math.round(player.team_points)}</td>
+                    <td className="py-2 px-2 text-right text-gray-600">{Math.round(player.player_points)}</td>
+                    <td className="py-2 px-2 text-right text-gray-600">{Math.round(player.banker_points)}</td>
+                    <td className="py-2 px-2 text-right font-bold">{player.total_points}</td>
                   </tr>
-                )}
-              </React.Fragment>
-            ))}
+                  {expandedUser === player.user_id && (
+                    <tr>
+                      <td colSpan={8} className="bg-gray-50 px-2 py-3">
+
+                        {(!pickDetails[player.user_id] || pickDetails[player.user_id].length === 0) ? (
+                          <p className="text-gray-400 mb-3" style={{ fontSize: '10px' }}>No picks yet.</p>
+                        ) : (
+                          <table className="w-full mb-4" style={{ fontSize: '9px' }}>
+                            <thead>
+                              <tr className="text-left text-gray-400 border-b uppercase tracking-wider">
+                                <th className="py-1 pr-1">GW</th>
+                                <th className="py-1 pr-1">Team</th>
+                                <th className="py-1 pr-1 text-right">Pts</th>
+                                <th className="py-1 pr-1">P1</th>
+                                <th className="py-1 pr-1 text-right">Pts</th>
+                                <th className="py-1 pr-1">P2</th>
+                                <th className="py-1 pr-1 text-right">Pts</th>
+                                <th className="py-1 text-right font-bold">Tot</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {pickDetails[player.user_id].map((d, i) => (
+                                <tr key={i} className="border-b last:border-0">
+                                  <td className="py-1 pr-1 font-bold">{d.gw}</td>
+                                  <td className="py-1 pr-1 uppercase">
+                                    {abbr(d.team)}
+                                    {d.is_banker && <span className="ml-0.5 bg-yellow-400 text-black px-0.5 rounded font-bold">★</span>}
+                                    {d.is_autopick && <span className="ml-0.5 bg-gray-200 text-gray-500 px-0.5 rounded">A</span>}
+                                  </td>
+                                  <td className="py-1 pr-1 text-right text-gray-500">{d.team_points ?? '—'}</td>
+                                  <td className="py-1 pr-1 uppercase">
+                                    {shortName(d.player1)}
+                                    {goalPlayers.has(d.player1_id) && ' ⚽'}
+                                    {assistPlayers.has(d.player1_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold">A</span>}
+                                  </td>
+                                  <td className="py-1 pr-1 text-right text-gray-500">{d.player1_points ?? '—'}</td>
+                                  <td className="py-1 pr-1 uppercase">
+                                    {shortName(d.player2)}
+                                    {goalPlayers.has(d.player2_id) && ' ⚽'}
+                                    {assistPlayers.has(d.player2_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold">A</span>}
+                                  </td>
+                                  <td className="py-1 pr-1 text-right text-gray-500">{d.player2_points ?? '—'}</td>
+                                  <td className="py-1 text-right font-bold">{d.points ?? '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+
+                        <div style={{ fontSize: '9px' }}>
+                          <p className="text-gray-400 uppercase tracking-wider font-bold mb-1">
+                            Available Teams ({availableTeams.length})
+                          </p>
+                          {availableTeams.length === 0 ? (
+                            <p className="text-gray-400">No teams remaining.</p>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {availableTeams.map(team => (
+                                <span
+                                  key={team.id}
+                                  className="bg-white border rounded px-1.5 py-0.5 uppercase"
+                                  style={{ fontSize: '9px' }}
+                                >
+                                  {abbr(team.name)}
+                                  {team.isDouble && team.remaining === 2 && (
+                                    <span className="ml-0.5 text-yellow-600 font-bold">(x2)</span>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              )
+            })}
             {ranked.length === 0 && (
               <tr>
                 <td colSpan={8} className="py-8 text-center text-gray-400 uppercase tracking-wider" style={{ fontSize: '11px' }}>No players yet.</td>
