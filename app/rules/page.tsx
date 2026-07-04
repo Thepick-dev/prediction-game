@@ -89,6 +89,21 @@ export default async function RulesPage() {
         </section>
 
         <section className="bg-white border rounded-lg p-6">
+          <h2 className="text-lg font-bold mb-3">Quartiles</h2>
+          <p className="text-sm text-gray-600 leading-relaxed mb-2">
+            The 20 Premier League clubs are divided into four quartiles of five — Q1 (strongest) to Q4 (weakest).
+            Quartiles are used to calculate team points based on the difficulty of the result.
+          </p>
+          <p className="text-sm text-gray-600 leading-relaxed mb-2">
+            For the first six gameweeks of each competition, quartiles are fixed based on outright betting odds at the start of the season.
+            From gameweek seven onwards, quartiles are determined by the current league table.
+          </p>
+          <p className="text-sm text-gray-600 leading-relaxed">
+            Quartiles are locked at the point each gameweek deadline passes — past scores are never affected by future quartile changes.
+          </p>
+        </section>
+
+        <section className="bg-white border rounded-lg p-6">
           <h2 className="text-lg font-bold mb-3">Scoring</h2>
           <p className="text-sm text-gray-600 leading-relaxed mb-4">
             Team points depend on the result and the quartile differential between your team and their opponent.

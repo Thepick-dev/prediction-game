@@ -33,6 +33,33 @@ type PickDetail = {
   player2_points: number | null
 }
 
+const TEAM_NAMES: Record<string, string> = {
+  'Arsenal FC': 'Arsenal',
+  'Aston Villa FC': 'Aston Villa',
+  'AFC Bournemouth': 'Bournemouth',
+  'Brentford FC': 'Brentford',
+  'Brighton & Hove Albion FC': 'Brighton',
+  'Burnley FC': 'Burnley',
+  'Chelsea FC': 'Chelsea',
+  'Crystal Palace FC': 'Crystal Palace',
+  'Everton FC': 'Everton',
+  'Fulham FC': 'Fulham',
+  'Leeds United FC': 'Leeds',
+  'Liverpool FC': 'Liverpool',
+  'Manchester City FC': 'Man City',
+  'Manchester United FC': 'Man Utd',
+  'Newcastle United FC': 'Newcastle',
+  'Nottingham Forest FC': "Nott'm Forest",
+  'Sunderland AFC': 'Sunderland',
+  'Tottenham Hotspur FC': 'Spurs',
+  'West Ham United FC': 'West Ham',
+  'Wolverhampton Wanderers FC': 'Wolves',
+}
+
+function abbr(name: string) {
+  return TEAM_NAMES[name] ?? name.replace(' FC', '').replace(' AFC', '')
+}
+
 export default function LeaderboardPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
@@ -269,21 +296,21 @@ export default function LeaderboardPage() {
                               <tr key={i} className="border-b last:border-0">
                                 <td className="py-1 pr-1 font-bold">{d.gw}</td>
                                 <td className="py-1 pr-1 uppercase">
-                                  {shortName(d.team)}
+                                  {abbr(d.team)}
                                   {d.is_banker && <span className="ml-0.5 bg-yellow-400 text-black px-0.5 rounded font-bold">★</span>}
                                   {d.is_autopick && <span className="ml-0.5 bg-gray-200 text-gray-500 px-0.5 rounded">A</span>}
                                 </td>
                                 <td className="py-1 pr-1 text-right text-gray-500">{d.team_points ?? '—'}</td>
                                 <td className="py-1 pr-1 uppercase">
                                   {shortName(d.player1)}
-                                  {goalPlayers.has(d.player1_id) && '⚽'}
-                                  {assistPlayers.has(d.player1_id) && '🎯'}
+                                  {goalPlayers.has(d.player1_id) && ' ⚽'}
+                                  {assistPlayers.has(d.player1_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold">A</span>}
                                 </td>
                                 <td className="py-1 pr-1 text-right text-gray-500">{d.player1_points ?? '—'}</td>
                                 <td className="py-1 pr-1 uppercase">
                                   {shortName(d.player2)}
-                                  {goalPlayers.has(d.player2_id) && '⚽'}
-                                  {assistPlayers.has(d.player2_id) && '🎯'}
+                                  {goalPlayers.has(d.player2_id) && ' ⚽'}
+                                  {assistPlayers.has(d.player2_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold">A</span>}
                                 </td>
                                 <td className="py-1 pr-1 text-right text-gray-500">{d.player2_points ?? '—'}</td>
                                 <td className="py-1 text-right font-bold">{d.points ?? '—'}</td>
@@ -307,7 +334,7 @@ export default function LeaderboardPage() {
       </div>
 
       <p className="mt-3 uppercase tracking-wider text-gray-400" style={{ fontSize: '10px' }}>
-        HW/AW = home/away wins. Bk = banker bonus. Tm/Pl = team/player points. Click any row to expand.
+        HW/AW = home/away wins. Bk = banker bonus. Click any row to expand.
       </p>
 
     </Shell>

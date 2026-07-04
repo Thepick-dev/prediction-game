@@ -19,6 +19,33 @@ type HistoryPick = {
   gameweeks: { number: number }
 }
 
+const TEAM_NAMES: Record<string, string> = {
+  'Arsenal FC': 'Arsenal',
+  'Aston Villa FC': 'Aston Villa',
+  'AFC Bournemouth': 'Bournemouth',
+  'Brentford FC': 'Brentford',
+  'Brighton & Hove Albion FC': 'Brighton',
+  'Burnley FC': 'Burnley',
+  'Chelsea FC': 'Chelsea',
+  'Crystal Palace FC': 'Crystal Palace',
+  'Everton FC': 'Everton',
+  'Fulham FC': 'Fulham',
+  'Leeds United FC': 'Leeds',
+  'Liverpool FC': 'Liverpool',
+  'Manchester City FC': 'Man City',
+  'Manchester United FC': 'Man Utd',
+  'Newcastle United FC': 'Newcastle',
+  'Nottingham Forest FC': "Nott'm Forest",
+  'Sunderland AFC': 'Sunderland',
+  'Tottenham Hotspur FC': 'Spurs',
+  'West Ham United FC': 'West Ham',
+  'Wolverhampton Wanderers FC': 'Wolves',
+}
+
+function abbr(name: string) {
+  return TEAM_NAMES[name] ?? name.replace(' FC', '').replace(' AFC', '')
+}
+
 export default function PicksPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
@@ -186,7 +213,10 @@ export default function PicksPage() {
     setSaving(false)
   }
 
-  const teamName = (id: number | null) => teams.find(t => t.id === id)?.name ?? ''
+  const teamName = (id: number | null) => {
+    const t = teams.find(t => t.id === id)
+    return t ? abbr(t.name) : ''
+  }
   const playerName = (id: number | null) => players.find(p => p.id === id)?.name ?? ''
 
   const filteredPlayers1 = playerSearch1.length >= 2
@@ -211,7 +241,9 @@ export default function PicksPage() {
   function getQuartileLabel(teamId: number) {
     const q = quartileMap[teamId]
     return q ? `Q${q}` : null
-  }if (loading) {
+  }
+
+  if (loading) {
     return (
       <Shell active="PICK">
         <p className="text-gray-500">Loading...</p>
@@ -254,9 +286,6 @@ export default function PicksPage() {
 
                 {hasFixtures ? (
                   <div className="space-y-2">
-                    <p className="text-xs text-gray-400 mb-3 uppercase tracking-wider">
-                      Click a team to select it. ★ = tier pick (usable twice). Q1-Q4 = quartile. Strikethrough = already used.
-                    </p>
                     {fixtures.map(fixture => {
                       const homeStatus = getTeamStatus(fixture.home_team_id)
                       const awayStatus = getTeamStatus(fixture.away_team_id)
@@ -267,15 +296,6 @@ export default function PicksPage() {
 
                       return (
                         <div key={fixture.id} className="border rounded-lg overflow-hidden">
-                          {fixture.kickoff_time && (
-                            <div className="bg-gray-50 px-3 py-1 text-xs text-gray-400 border-b uppercase tracking-wider">
-                              {new Date(fixture.kickoff_time).toLocaleDateString('en-GB', {
-                                weekday: 'short', day: 'numeric', month: 'short'
-                              })} {new Date(fixture.kickoff_time).toLocaleTimeString('en-GB', {
-                                hour: '2-digit', minute: '2-digit'
-                              })}
-                            </div>
-                          )}
                           <div className="grid grid-cols-2 divide-x">
                             <button
                               onClick={() => !homeStatus.isUsed && setSelectedTeam(fixture.home_team_id)}
@@ -290,7 +310,7 @@ export default function PicksPage() {
                             >
                               <div className="flex items-center gap-1 flex-wrap">
                                 <span className={`font-medium uppercase text-xs ${homeStatus.isUsed ? 'line-through' : ''}`}>
-                                  {homeTeam?.name ?? 'Unknown'}
+                                  {homeTeam ? abbr(homeTeam.name) : 'Unknown'}
                                 </span>
                                 {homeStatus.isDouble && (
                                   <span className={`text-xs ${selectedTeam === fixture.home_team_id ? 'text-yellow-300' : 'text-yellow-600'}`}>★</span>
@@ -325,7 +345,7 @@ export default function PicksPage() {
                             >
                               <div className="flex items-center gap-1 flex-wrap">
                                 <span className={`font-medium uppercase text-xs ${awayStatus.isUsed ? 'line-through' : ''}`}>
-                                  {awayTeam?.name ?? 'Unknown'}
+                                  {awayTeam ? abbr(awayTeam.name) : 'Unknown'}
                                 </span>
                                 {awayStatus.isDouble && (
                                   <span className={`text-xs ${selectedTeam === fixture.away_team_id ? 'text-yellow-300' : 'text-yellow-600'}`}>★</span>
@@ -359,39 +379,34 @@ export default function PicksPage() {
                     )}
                   </div>
                 ) : (
-                  <div>
-                    <p className="text-xs text-gray-400 mb-3 uppercase tracking-wider">
-                      No fixtures assigned yet. Pick from all teams below. ★ = tier pick. Strikethrough = used.
-                    </p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {teams.map(team => {
-                        const status = getTeamStatus(team.id)
-                        const q = getQuartileLabel(team.id)
-                        return (
-                          <button
-                            key={team.id}
-                            onClick={() => !status.isUsed && setSelectedTeam(team.id)}
-                            disabled={status.isUsed}
-                            className={`text-left px-3 py-2 rounded border text-xs ${
-                              selectedTeam === team.id
-                                ? 'bg-black text-white border-black'
-                                : status.isUsed
-                                ? 'bg-gray-100 text-gray-300 cursor-not-allowed line-through'
-                                : 'hover:border-black'
-                            }`}
-                          >
-                            <div className="flex items-center gap-1">
-                              <span className="uppercase font-medium">{team.name}</span>
-                              {status.isDouble && <span className="text-yellow-600">★</span>}
-                              {q && <span className="text-xs text-gray-500">{q}</span>}
-                            </div>
-                            <div className="text-xs opacity-60 mt-0.5">
-                              {status.isUsed ? 'Used' : `${status.remaining}/${status.maxUses} left`}
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {teams.map(team => {
+                      const status = getTeamStatus(team.id)
+                      const q = getQuartileLabel(team.id)
+                      return (
+                        <button
+                          key={team.id}
+                          onClick={() => !status.isUsed && setSelectedTeam(team.id)}
+                          disabled={status.isUsed}
+                          className={`text-left px-3 py-2 rounded border text-xs ${
+                            selectedTeam === team.id
+                              ? 'bg-black text-white border-black'
+                              : status.isUsed
+                              ? 'bg-gray-100 text-gray-300 cursor-not-allowed line-through'
+                              : 'hover:border-black'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span className="uppercase font-medium">{abbr(team.name)}</span>
+                            {status.isDouble && <span className="text-yellow-600">★</span>}
+                            {q && <span className="text-xs text-gray-500">{q}</span>}
+                          </div>
+                          <div className="text-xs opacity-60 mt-0.5">
+                            {status.isUsed ? 'Used' : `${status.remaining}/${status.maxUses} left`}
+                          </div>
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
               </div>

@@ -36,6 +36,33 @@ type MatchEvent = {
   event_type: string
 }
 
+const TEAM_NAMES: Record<string, string> = {
+  'Arsenal FC': 'Arsenal',
+  'Aston Villa FC': 'Aston Villa',
+  'AFC Bournemouth': 'Bournemouth',
+  'Brentford FC': 'Brentford',
+  'Brighton & Hove Albion FC': 'Brighton',
+  'Burnley FC': 'Burnley',
+  'Chelsea FC': 'Chelsea',
+  'Crystal Palace FC': 'Crystal Palace',
+  'Everton FC': 'Everton',
+  'Fulham FC': 'Fulham',
+  'Leeds United FC': 'Leeds',
+  'Liverpool FC': 'Liverpool',
+  'Manchester City FC': 'Man City',
+  'Manchester United FC': 'Man Utd',
+  'Newcastle United FC': 'Newcastle',
+  'Nottingham Forest FC': "Nott'm Forest",
+  'Sunderland AFC': 'Sunderland',
+  'Tottenham Hotspur FC': 'Spurs',
+  'West Ham United FC': 'West Ham',
+  'Wolverhampton Wanderers FC': 'Wolves',
+}
+
+function abbr(name: string) {
+  return TEAM_NAMES[name] ?? name.replace(' FC', '').replace(' AFC', '')
+}
+
 export default function ResultsPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
@@ -154,11 +181,6 @@ export default function ResultsPage() {
     return parts.length > 1 ? `${parts[0][0]}. ${parts[parts.length - 1]}` : full
   }
 
-  function shortTeam(id: number, map: Record<number, string>) {
-    const full = map[id] ?? 'Unknown'
-    return full.replace(' FC', '').replace(' AFC', '').replace(' United', ' Utd').replace(' City', ' C').replace(' Wanderers', '').replace(' Hotspur', '').replace(' & Hove Albion', '').substring(0, 10)
-  }
-
   if (loading) {
     return (
       <Shell active="RESULTS">
@@ -269,19 +291,19 @@ export default function ResultsPage() {
                         </td>
                         <td className="py-1.5 px-2 uppercase">
                           <div className="flex items-center gap-0.5">
-                            {shortTeam(pick.team_id, teams)}
+                            {abbr(teams[pick.team_id] ?? '')}
                             {pick.is_banker && <span className="bg-yellow-400 text-black font-bold px-0.5 rounded" style={{ fontSize: '8px' }}>★B</span>}
                           </div>
                         </td>
                         <td className="py-1.5 px-2 uppercase">
                           {shortName(pick.player1_id, players)}
-                          {goalPlayers.has(pick.player1_id) && '⚽'}
-                          {assistPlayers.has(pick.player1_id) && '🎯'}
+                          {goalPlayers.has(pick.player1_id) && ' ⚽'}
+                          {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
                         </td>
                         <td className="py-1.5 px-2 uppercase">
                           {shortName(pick.player2_id, players)}
-                          {goalPlayers.has(pick.player2_id) && '⚽'}
-                          {assistPlayers.has(pick.player2_id) && '🎯'}
+                          {goalPlayers.has(pick.player2_id) && ' ⚽'}
+                          {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
                         </td>
                         {isScored && (
                           <>
@@ -298,7 +320,7 @@ export default function ResultsPage() {
               </table>
               {isScored && (
                 <div className="px-3 py-2 border-t bg-gray-50 uppercase tracking-wider text-gray-400" style={{ fontSize: '9px' }}>
-                  ★B = Banker. ⚽ = Goal. 🎯 = Assist. Tm/P1/P2 = points breakdown.
+                  ★B = Banker. ⚽ = Goal. A = Assist. Tm/P1/P2 = points breakdown.
                 </div>
               )}
             </div>
