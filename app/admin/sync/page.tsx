@@ -44,25 +44,26 @@ export default function SyncPage() {
   }
 
   const syncs = [
-    { key: 'teams', label: 'Import Teams', description: 'Import Premier League teams from football-data.org' },
-    { key: 'fpl', label: 'Import Players', description: 'Import all players from FPL API' },
-    { key: 'fixtures', label: 'Import Fixtures', description: 'Import all Premier League fixtures' },
-    { key: 'results', label: 'Sync Results', description: 'Update finished match scores and results' },
+    { key: 'teams', label: 'Import Teams', description: 'Import Premier League teams from football-data.org. Run once at the start of each season.' },
+    { key: 'fpl', label: 'Import Players', description: 'Import all players from FPL API. Run once at the start of each season after squads are confirmed.' },
+    { key: 'fixtures', label: 'Import Fixtures', description: 'Import all Premier League fixtures. Run once at the start of each season.' },
+    { key: 'results', label: 'Sync Results', description: 'Update finished match scores and results. Run after each gameweek.' },
+    { key: 'standings', label: 'Sync Standings', description: 'Update Premier League table positions. Run after each gameweek once results are in. Required before using Reset to League Table on the Quartiles page.' },
   ]
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-8">Data Sync</h1>
-      <p className="text-gray-500 text-sm mb-6">Manually trigger data imports and updates from the APIs.</p>
+      <h1 className="text-2xl font-bold mb-2">Data Sync</h1>
+      <p className="text-gray-500 text-sm mb-8">Manually trigger data imports and updates from the APIs.</p>
 
       <div className="grid gap-4 mb-8">
         {syncs.map(({ key, label, description }) => (
-          <div key={key} className="bg-white border rounded-lg p-4 flex items-center justify-between">
-            <div>
-              <div className="font-medium">{label}</div>
-              <div className="text-sm text-gray-500">{description}</div>
+          <div key={key} className="bg-white border rounded-lg p-4 flex items-center justify-between gap-4">
+            <div className="flex-1">
+              <div className="font-medium text-sm">{label}</div>
+              <div className="text-xs text-gray-500 mt-0.5">{description}</div>
               {results[key] && (
-                <div className={`text-xs mt-1 ${results[key].error ? 'text-red-600' : 'text-green-600'}`}>
+                <div className={`text-xs mt-2 ${results[key].error ? 'text-red-600' : 'text-green-600'}`}>
                   {results[key].error
                     ? `Error: ${results[key].error}`
                     : `Success — ${JSON.stringify(results[key])}`
@@ -73,7 +74,7 @@ export default function SyncPage() {
             <button
               onClick={() => runSync(key)}
               disabled={loading[key]}
-              className="bg-black text-white rounded px-4 py-2 text-sm disabled:opacity-50 ml-4 shrink-0"
+              className="bg-black text-white rounded px-4 py-2 text-sm disabled:opacity-50 shrink-0"
             >
               {loading[key] ? 'Running...' : 'Run'}
             </button>
@@ -83,7 +84,9 @@ export default function SyncPage() {
 
       <div className="bg-white border rounded-lg p-6">
         <h2 className="font-bold mb-2">Recalculate Scoring</h2>
-        <p className="text-sm text-gray-500 mb-4">Use this to manually recalculate points for a gameweek — for example if you corrected a result or added a missed goal. Paste the gameweek ID below then click Run.</p>
+        <p className="text-sm text-gray-500 mb-4">
+          Use this to manually recalculate points for a gameweek — for example if you corrected a result or added a missed goal. Paste the gameweek ID below then click Run.
+        </p>
         <div className="flex gap-3 items-center">
           <input
             type="text"
