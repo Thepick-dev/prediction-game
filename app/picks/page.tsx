@@ -27,6 +27,7 @@ export default function PicksPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [players, setPlayers] = useState<Player[]>([])
   const [fixtures, setFixtures] = useState<Fixture[]>([])
+  const [quartileMap, setQuartileMap] = useState<Record<number, number>>({})
   const [historyPicks, setHistoryPicks] = useState<HistoryPick[]>([])
   const [pointsByPick, setPointsByPick] = useState<Record<string, number>>({})
 
@@ -99,13 +100,17 @@ export default function PicksPage() {
     setPlayers(playersData ?? [])
 
     if (gw) {
-      const [pickRes, { data: fixturesData }] = await Promise.all([
+      const [pickRes, { data: fixturesData }, { data: quartilesData }] = await Promise.all([
         fetch(`/api/picks?competition_id=${comp.id}&gameweek_id=${gw.id}`),
         supabase
           .from('fixtures')
           .select('id, home_team_id, away_team_id, kickoff_time, home_score, away_score, status')
           .eq('gameweek_id', gw.id)
-          .order('kickoff_time', { ascending: true })
+          .order('kickoff_time', { ascending: true }),
+        supabase
+          .from('tier_assignments')
+          .select('team_id, tier')
+          .eq('competition_id', comp.id)
       ])
 
       const pickData = await pickRes.json()
@@ -120,6 +125,10 @@ export default function PicksPage() {
       setDoubleUseTeams(pickData.doubleUseTeams ?? [])
       setBankersUsed(pickData.bankersUsed ?? 0)
       setFixtures(fixturesData ?? [])
+
+      const qMap: Record<number, number> = {}
+      quartilesData?.forEach(q => { qMap[q.team_id] = q.tier })
+      setQuartileMap(qMap)
     }
 
     const { data: history } = await supabase
@@ -199,7 +208,10 @@ export default function PicksPage() {
     return { isUsed, isDouble, remaining, maxUses }
   }
 
-  if (loading) {
+  function getQuartileLabel(teamId: number) {
+    const q = quartileMap[teamId]
+    return q ? `Q${q}` : null
+  }if (loading) {
     return (
       <Shell active="PICK">
         <p className="text-gray-500">Loading...</p>
@@ -220,11 +232,11 @@ export default function PicksPage() {
     <Shell active="PICK" user={user} displayName={displayName}>
 
       <h1 className="text-3xl font-bold mb-1">Your Pick</h1>
-      <p className="text-gray-500 mb-8">{competition.name}</p>
+      <p className="text-gray-500 mb-8 text-sm">{competition.name}</p>
 
       {gameweek ? (
         <div className="bg-white border rounded-lg p-6 mb-8">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
             <h2 className="text-xl font-bold">Gameweek {gameweek.number}</h2>
             <span className="text-sm text-red-600 font-medium">
               Deadline: {new Date(gameweek.deadline).toLocaleString('en-GB', {
@@ -234,25 +246,29 @@ export default function PicksPage() {
           </div>
 
           {deadlinePassed ? (
-            <p className="text-gray-500">The deadline has passed. Picks are locked.</p>
+            <p className="text-gray-500 uppercase tracking-wider text-sm">The deadline has passed. Picks are locked.</p>
           ) : (
             <>
               <div className="mb-6">
-                <label className="block font-bold mb-3">Select Your Team</label>
+                <label className="block font-bold mb-3 uppercase tracking-wider text-sm">Select Your Team</label>
 
                 {hasFixtures ? (
                   <div className="space-y-2">
-                    <p className="text-xs text-gray-400 mb-3">Click a team to select it. ★ = your tier pick (usable twice). Strikethrough = already used.</p>
+                    <p className="text-xs text-gray-400 mb-3 uppercase tracking-wider">
+                      Click a team to select it. ★ = tier pick (usable twice). Q1-Q4 = quartile. Strikethrough = already used.
+                    </p>
                     {fixtures.map(fixture => {
                       const homeStatus = getTeamStatus(fixture.home_team_id)
                       const awayStatus = getTeamStatus(fixture.away_team_id)
                       const homeTeam = teams.find(t => t.id === fixture.home_team_id)
                       const awayTeam = teams.find(t => t.id === fixture.away_team_id)
+                      const homeQ = getQuartileLabel(fixture.home_team_id)
+                      const awayQ = getQuartileLabel(fixture.away_team_id)
 
                       return (
                         <div key={fixture.id} className="border rounded-lg overflow-hidden">
                           {fixture.kickoff_time && (
-                            <div className="bg-gray-50 px-3 py-1 text-xs text-gray-400 border-b">
+                            <div className="bg-gray-50 px-3 py-1 text-xs text-gray-400 border-b uppercase tracking-wider">
                               {new Date(fixture.kickoff_time).toLocaleDateString('en-GB', {
                                 weekday: 'short', day: 'numeric', month: 'short'
                               })} {new Date(fixture.kickoff_time).toLocaleTimeString('en-GB', {
@@ -264,7 +280,7 @@ export default function PicksPage() {
                             <button
                               onClick={() => !homeStatus.isUsed && setSelectedTeam(fixture.home_team_id)}
                               disabled={homeStatus.isUsed}
-                              className={`px-4 py-3 text-left text-sm transition-colors ${
+                              className={`px-3 py-3 text-left text-sm transition-colors ${
                                 selectedTeam === fixture.home_team_id
                                   ? 'bg-black text-white'
                                   : homeStatus.isUsed
@@ -272,23 +288,34 @@ export default function PicksPage() {
                                   : 'hover:bg-gray-50'
                               }`}
                             >
-                              <span className={homeStatus.isUsed ? 'line-through' : ''}>
-                                {homeTeam?.name ?? 'Unknown'}
-                              </span>
-                              {homeStatus.isDouble && (
-                                <span className={`ml-1 text-xs ${selectedTeam === fixture.home_team_id ? 'text-yellow-300' : 'text-yellow-600'}`}>★</span>
-                              )}
-                              <div className="text-xs mt-0.5 opacity-60">
-                                {homeStatus.isUsed
-                                  ? 'Used'
-                                  : `${homeStatus.remaining}/${homeStatus.maxUses} uses remaining`
-                                }
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <span className={`font-medium uppercase text-xs ${homeStatus.isUsed ? 'line-through' : ''}`}>
+                                  {homeTeam?.name ?? 'Unknown'}
+                                </span>
+                                {homeStatus.isDouble && (
+                                  <span className={`text-xs ${selectedTeam === fixture.home_team_id ? 'text-yellow-300' : 'text-yellow-600'}`}>★</span>
+                                )}
+                                {homeQ && (
+                                  <span className={`text-xs px-1 rounded font-bold ${
+                                    selectedTeam === fixture.home_team_id
+                                      ? 'bg-white text-black'
+                                      : homeQ === 'Q1' ? 'bg-blue-100 text-blue-700'
+                                      : homeQ === 'Q2' ? 'bg-green-100 text-green-700'
+                                      : homeQ === 'Q3' ? 'bg-yellow-100 text-yellow-700'
+                                      : 'bg-red-100 text-red-700'
+                                  }`}>
+                                    {homeQ}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs mt-1 opacity-60 uppercase tracking-wider">
+                                {homeStatus.isUsed ? 'Used' : `${homeStatus.remaining}/${homeStatus.maxUses} left`}
                               </div>
                             </button>
                             <button
                               onClick={() => !awayStatus.isUsed && setSelectedTeam(fixture.away_team_id)}
                               disabled={awayStatus.isUsed}
-                              className={`px-4 py-3 text-left text-sm transition-colors ${
+                              className={`px-3 py-3 text-left text-sm transition-colors ${
                                 selectedTeam === fixture.away_team_id
                                   ? 'bg-black text-white'
                                   : awayStatus.isUsed
@@ -296,17 +323,28 @@ export default function PicksPage() {
                                   : 'hover:bg-gray-50'
                               }`}
                             >
-                              <span className={awayStatus.isUsed ? 'line-through' : ''}>
-                                {awayTeam?.name ?? 'Unknown'}
-                              </span>
-                              {awayStatus.isDouble && (
-                                <span className={`ml-1 text-xs ${selectedTeam === fixture.away_team_id ? 'text-yellow-300' : 'text-yellow-600'}`}>★</span>
-                              )}
-                              <div className="text-xs mt-0.5 opacity-60">
-                                {awayStatus.isUsed
-                                  ? 'Used'
-                                  : `${awayStatus.remaining}/${awayStatus.maxUses} uses remaining`
-                                }
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <span className={`font-medium uppercase text-xs ${awayStatus.isUsed ? 'line-through' : ''}`}>
+                                  {awayTeam?.name ?? 'Unknown'}
+                                </span>
+                                {awayStatus.isDouble && (
+                                  <span className={`text-xs ${selectedTeam === fixture.away_team_id ? 'text-yellow-300' : 'text-yellow-600'}`}>★</span>
+                                )}
+                                {awayQ && (
+                                  <span className={`text-xs px-1 rounded font-bold ${
+                                    selectedTeam === fixture.away_team_id
+                                      ? 'bg-white text-black'
+                                      : awayQ === 'Q1' ? 'bg-blue-100 text-blue-700'
+                                      : awayQ === 'Q2' ? 'bg-green-100 text-green-700'
+                                      : awayQ === 'Q3' ? 'bg-yellow-100 text-yellow-700'
+                                      : 'bg-red-100 text-red-700'
+                                  }`}>
+                                    {awayQ}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs mt-1 opacity-60 uppercase tracking-wider">
+                                {awayStatus.isUsed ? 'Used' : `${awayStatus.remaining}/${awayStatus.maxUses} left`}
                               </div>
                             </button>
                           </div>
@@ -315,26 +353,26 @@ export default function PicksPage() {
                     })}
 
                     {selectedTeam && !fixtureTeamIds.has(selectedTeam) && (
-                      <p className="text-xs text-orange-600 mt-2">
-                        Your current pick ({teamName(selectedTeam)}) is not in this gameweek's fixtures. You may want to change it.
+                      <p className="text-xs text-orange-600 mt-2 uppercase tracking-wider">
+                        Your current pick ({teamName(selectedTeam)}) is not in this gameweek's fixtures.
                       </p>
                     )}
                   </div>
                 ) : (
                   <div>
-                    <p className="text-xs text-gray-400 mb-3">
-                      No fixtures assigned to this gameweek yet. Pick from all teams below.
-                      ★ = your tier pick. Strikethrough = already used.
+                    <p className="text-xs text-gray-400 mb-3 uppercase tracking-wider">
+                      No fixtures assigned yet. Pick from all teams below. ★ = tier pick. Strikethrough = used.
                     </p>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {teams.map(team => {
                         const status = getTeamStatus(team.id)
+                        const q = getQuartileLabel(team.id)
                         return (
                           <button
                             key={team.id}
                             onClick={() => !status.isUsed && setSelectedTeam(team.id)}
                             disabled={status.isUsed}
-                            className={`text-left px-3 py-2 rounded border text-sm ${
+                            className={`text-left px-3 py-2 rounded border text-xs ${
                               selectedTeam === team.id
                                 ? 'bg-black text-white border-black'
                                 : status.isUsed
@@ -342,8 +380,12 @@ export default function PicksPage() {
                                 : 'hover:border-black'
                             }`}
                           >
-                            {team.name}{status.isDouble && ' ★'}
-                            <div className="text-xs opacity-60">
+                            <div className="flex items-center gap-1">
+                              <span className="uppercase font-medium">{team.name}</span>
+                              {status.isDouble && <span className="text-yellow-600">★</span>}
+                              {q && <span className="text-xs text-gray-500">{q}</span>}
+                            </div>
+                            <div className="text-xs opacity-60 mt-0.5">
                               {status.isUsed ? 'Used' : `${status.remaining}/${status.maxUses} left`}
                             </div>
                           </button>
@@ -356,10 +398,10 @@ export default function PicksPage() {
 
               <div className="grid md:grid-cols-2 gap-6 mb-6">
                 <div>
-                  <label className="block font-bold mb-2">Player 1</label>
+                  <label className="block font-bold mb-2 uppercase tracking-wider text-sm">Player 1</label>
                   {player1 ? (
                     <div className="flex items-center justify-between border rounded px-3 py-2">
-                      <span className="text-sm">{playerName(player1)}</span>
+                      <span className="text-sm uppercase">{playerName(player1)}</span>
                       <button onClick={() => setPlayer1(null)} className="text-xs text-red-500">✕</button>
                     </div>
                   ) : (
@@ -383,7 +425,8 @@ export default function PicksPage() {
                                 disabled={maxed}
                                 className={`block w-full text-left px-3 py-2 text-sm ${maxed ? 'text-gray-300 line-through cursor-not-allowed' : 'hover:bg-gray-50'}`}
                               >
-                                {p.name} <span className="text-xs text-gray-400">({count}/2)</span>
+                                <span className="uppercase">{p.name}</span>
+                                <span className="text-xs text-gray-400 ml-2">({count}/2)</span>
                               </button>
                             )
                           })}
@@ -394,10 +437,10 @@ export default function PicksPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold mb-2">Player 2</label>
+                  <label className="block font-bold mb-2 uppercase tracking-wider text-sm">Player 2</label>
                   {player2 ? (
                     <div className="flex items-center justify-between border rounded px-3 py-2">
-                      <span className="text-sm">{playerName(player2)}</span>
+                      <span className="text-sm uppercase">{playerName(player2)}</span>
                       <button onClick={() => setPlayer2(null)} className="text-xs text-red-500">✕</button>
                     </div>
                   ) : (
@@ -421,7 +464,8 @@ export default function PicksPage() {
                                 disabled={maxed}
                                 className={`block w-full text-left px-3 py-2 text-sm ${maxed ? 'text-gray-300 line-through cursor-not-allowed' : 'hover:bg-gray-50'}`}
                               >
-                                {p.name} <span className="text-xs text-gray-400">({count}/2)</span>
+                                <span className="uppercase">{p.name}</span>
+                                <span className="text-xs text-gray-400 ml-2">({count}/2)</span>
                               </button>
                             )
                           })}
@@ -436,7 +480,7 @@ export default function PicksPage() {
                 <button
                   onClick={() => bankersUsed < 2 && setIsBanker(!isBanker)}
                   disabled={bankersUsed >= 2 && !isBanker}
-                  className={`px-4 py-2 rounded border text-sm font-bold ${
+                  className={`px-4 py-2 rounded border text-sm font-bold uppercase tracking-wider ${
                     isBanker
                       ? 'bg-yellow-400 border-yellow-500'
                       : bankersUsed >= 2
@@ -444,13 +488,13 @@ export default function PicksPage() {
                       : 'hover:border-black'
                   }`}
                 >
-                  {isBanker ? '★ BANKER DECLARED' : 'Declare Banker'}
+                  {isBanker ? '★ Banker Declared' : 'Declare Banker'}
                 </button>
-                <span className="text-xs text-gray-400">{bankersUsed} of 2 bankers used</span>
+                <span className="text-xs text-gray-400 uppercase tracking-wider">{bankersUsed} of 2 bankers used</span>
               </div>
 
               {message && (
-                <p className={`text-sm mb-4 ${message.startsWith('Error') ? 'text-red-600' : 'text-green-600'}`}>
+                <p className={`text-sm mb-4 uppercase tracking-wider ${message.startsWith('Error') ? 'text-red-600' : 'text-green-600'}`}>
                   {message}
                 </p>
               )}
@@ -458,7 +502,7 @@ export default function PicksPage() {
               <button
                 onClick={savePick}
                 disabled={saving}
-                className="bg-black text-white rounded px-6 py-3 font-bold disabled:opacity-50"
+                className="bg-black text-white rounded px-6 py-3 font-bold uppercase tracking-wider disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save Pick'}
               </button>
@@ -467,18 +511,18 @@ export default function PicksPage() {
         </div>
       ) : (
         <div className="bg-white border rounded-lg p-6 mb-8">
-          <p className="text-gray-500">No upcoming gameweek with an open deadline.</p>
+          <p className="text-gray-500 uppercase tracking-wider text-sm">No upcoming gameweek with an open deadline.</p>
         </div>
       )}
 
       <h2 className="text-xl font-bold mb-4">Your Previous Picks</h2>
       <div className="bg-white border rounded-lg overflow-hidden">
         {historyPicks.length === 0 ? (
-          <p className="text-gray-400 text-sm p-6">No picks made yet.</p>
+          <p className="text-gray-400 text-sm p-6 uppercase tracking-wider">No picks made yet.</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-gray-500 border-b bg-gray-50">
+              <tr className="text-left text-gray-500 border-b bg-gray-50 text-xs uppercase tracking-wider">
                 <th className="py-2 px-4">GW</th>
                 <th className="py-2 px-4">Team</th>
                 <th className="py-2 px-4">Players</th>
@@ -489,12 +533,12 @@ export default function PicksPage() {
               {historyPicks.map((pick: any) => (
                 <tr key={pick.id} className="border-b last:border-0">
                   <td className="py-2 px-4 font-bold">{pick.gameweeks?.number}</td>
-                  <td className="py-2 px-4">
+                  <td className="py-2 px-4 uppercase">
                     {teamName(pick.team_id)}
                     {pick.is_banker && <span className="ml-2 text-xs bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded">BANKER</span>}
                     {pick.is_autopick && <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">AUTO</span>}
                   </td>
-                  <td className="py-2 px-4 text-gray-500">{playerName(pick.player1_id)} & {playerName(pick.player2_id)}</td>
+                  <td className="py-2 px-4 text-gray-500 uppercase text-xs">{playerName(pick.player1_id)} & {playerName(pick.player2_id)}</td>
                   <td className="py-2 px-4 text-right font-bold">{pointsByPick[pick.id] ?? '—'}</td>
                 </tr>
               ))}
