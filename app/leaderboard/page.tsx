@@ -199,117 +199,119 @@ export default function LeaderboardPage() {
     <Shell active="TABLE" user={user} displayName={displayName}>
 
       <h1 className="text-3xl font-bold mb-1">League Table</h1>
-      <p className="text-gray-500 mb-6">{competition.name}</p>
+      <p className="text-gray-500 mb-6 text-sm">{competition.name}</p>
 
       {potwUserId && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-3">
           <span className="text-xl">👑</span>
           <div>
-            <p className="text-xs text-yellow-700 font-medium uppercase tracking-wide">Current Leader</p>
-            <p className="font-bold">{ranked[0]?.display_name}</p>
+            <p className="text-xs text-yellow-700 font-bold uppercase tracking-wide">Current Leader</p>
+            <p className="font-bold uppercase">{ranked[0]?.display_name}</p>
           </div>
         </div>
       )}
 
-      <div className="bg-white border rounded-lg overflow-x-auto">
-        <table className="w-full text-sm min-w-[700px]">
-          <thead>
-            <tr className="text-left text-gray-500 border-b bg-gray-50">
-              <th className="py-3 px-3">#</th>
-              <th className="py-3 px-3">Player</th>
-              <th className="py-3 px-3 text-center">HW</th>
-              <th className="py-3 px-3 text-center">AW</th>
-              <th className="py-3 px-3 text-right">Team</th>
-              <th className="py-3 px-3 text-right">Players</th>
-              <th className="py-3 px-3 text-right">Banker</th>
-              <th className="py-3 px-3 text-right font-bold">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ranked.map((player, index) => (
-              <React.Fragment key={player.user_id}>
-                <tr
-                  onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
-                  className="border-b cursor-pointer hover:bg-gray-50"
-                >
-                  <td className="py-3 px-3 text-gray-400">{index + 1}</td>
-                  <td className="py-3 px-3 font-bold">
-                    {player.display_name}
-                    {index === 0 && <span className="ml-2">👑</span>}
-                    <span className="ml-2 text-gray-300 text-xs">{expandedUser === player.user_id ? '▲' : '▼'}</span>
-                  </td>
-                  <td className="py-3 px-3 text-center text-gray-600">{player.home_wins}</td>
-                  <td className="py-3 px-3 text-center text-gray-600">{player.away_wins}</td>
-                  <td className="py-3 px-3 text-right text-gray-600">{Math.round(player.team_points)}</td>
-                  <td className="py-3 px-3 text-right text-gray-600">{Math.round(player.player_points)}</td>
-                  <td className="py-3 px-3 text-right text-gray-600">{Math.round(player.banker_points)}</td>
-                  <td className="py-3 px-3 text-right font-bold">{player.total_points}</td>
-                </tr>
-                {expandedUser === player.user_id && (
-                  <tr>
-                    <td colSpan={8} className="bg-gray-50 px-4 py-3">
-                      {(!pickDetails[player.user_id] || pickDetails[player.user_id].length === 0) ? (
-                        <p className="text-gray-400 text-xs">No picks yet.</p>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs" style={{ minWidth: '600px' }}>
-                            <thead>
-                              <tr className="text-left text-gray-400 border-b">
-                                <th className="py-1 pr-4 font-medium" style={{ width: '32px' }}>GW</th>
-                                <th className="py-1 pr-4 font-medium">Team</th>
-                                <th className="py-1 px-3 text-right font-medium" style={{ width: '40px' }}>Pts</th>
-                                <th className="py-1 pr-4 font-medium">Player 1</th>
-                                <th className="py-1 px-3 text-right font-medium" style={{ width: '40px' }}>Pts</th>
-                                <th className="py-1 pr-4 font-medium">Player 2</th>
-                                <th className="py-1 px-3 text-right font-medium" style={{ width: '40px' }}>Pts</th>
-                                <th className="py-1 pl-3 text-right font-bold" style={{ width: '48px' }}>Total</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {pickDetails[player.user_id].map((d, i) => (
-                                <tr key={i} className="border-b last:border-0">
-                                  <td className="py-1.5 pr-4 font-bold" style={{ width: '32px' }}>{d.gw}</td>
-                                  <td className="py-1.5 pr-4">
-                                    {d.team}
-                                    {d.is_banker && <span className="ml-1 bg-yellow-400 text-black px-1 rounded font-bold">★</span>}
-                                    {d.is_autopick && <span className="ml-1 bg-gray-200 text-gray-500 px-1 rounded">A</span>}
-                                  </td>
-                                  <td className="py-1.5 px-3 text-right text-gray-500" style={{ width: '40px' }}>{d.team_points ?? '—'}</td>
-                                  <td className="py-1.5 pr-4">
-                                    {d.player1}
-                                    {goalPlayers.has(d.player1_id) && ' ⚽'}
-                                    {assistPlayers.has(d.player1_id) && ' 🎯'}
-                                  </td>
-                                  <td className="py-1.5 px-3 text-right text-gray-500" style={{ width: '40px' }}>{d.player1_points ?? '—'}</td>
-                                  <td className="py-1.5 pr-4">
-                                    {d.player2}
-                                    {goalPlayers.has(d.player2_id) && ' ⚽'}
-                                    {assistPlayers.has(d.player2_id) && ' 🎯'}
-                                  </td>
-                                  <td className="py-1.5 px-3 text-right text-gray-500" style={{ width: '40px' }}>{d.player2_points ?? '—'}</td>
-                                  <td className="py-1.5 pl-3 text-right font-bold" style={{ width: '48px' }}>{d.points ?? '—'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
-            ))}
-            {ranked.length === 0 && (
-              <tr>
-                <td colSpan={8} className="py-8 text-center text-gray-400">No players yet.</td>
+      <div className="bg-white border rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-500 border-b bg-gray-50 text-xs uppercase tracking-wider">
+                <th className="py-2 px-2">#</th>
+                <th className="py-2 px-2">Player</th>
+                <th className="py-2 px-2 text-center hidden md:table-cell">HW</th>
+                <th className="py-2 px-2 text-center hidden md:table-cell">AW</th>
+                <th className="py-2 px-2 text-right hidden md:table-cell">Team</th>
+                <th className="py-2 px-2 text-right hidden md:table-cell">Players</th>
+                <th className="py-2 px-2 text-right hidden md:table-cell">Banker</th>
+                <th className="py-2 px-2 text-right font-bold">Total</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {ranked.map((player, index) => (
+                <React.Fragment key={player.user_id}>
+                  <tr
+                    onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
+                    className="border-b cursor-pointer hover:bg-gray-50"
+                  >
+                    <td className="py-2 px-2 text-gray-400 text-xs">{index + 1}</td>
+                    <td className="py-2 px-2 font-bold text-sm uppercase">
+                      {player.display_name}
+                      {index === 0 && <span className="ml-1">👑</span>}
+                      <span className="ml-1 text-gray-300 text-xs">{expandedUser === player.user_id ? '▲' : '▼'}</span>
+                    </td>
+                    <td className="py-2 px-2 text-center text-gray-600 text-xs hidden md:table-cell">{player.home_wins}</td>
+                    <td className="py-2 px-2 text-center text-gray-600 text-xs hidden md:table-cell">{player.away_wins}</td>
+                    <td className="py-2 px-2 text-right text-gray-600 text-xs hidden md:table-cell">{Math.round(player.team_points)}</td>
+                    <td className="py-2 px-2 text-right text-gray-600 text-xs hidden md:table-cell">{Math.round(player.player_points)}</td>
+                    <td className="py-2 px-2 text-right text-gray-600 text-xs hidden md:table-cell">{Math.round(player.banker_points)}</td>
+                    <td className="py-2 px-2 text-right font-bold text-sm">{player.total_points}</td>
+                  </tr>
+                  {expandedUser === player.user_id && (
+                    <tr>
+                      <td colSpan={8} className="bg-gray-50 px-2 py-3">
+                        {(!pickDetails[player.user_id] || pickDetails[player.user_id].length === 0) ? (
+                          <p className="text-gray-400 text-xs">No picks yet.</p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full" style={{ fontSize: '11px', minWidth: '500px' }}>
+                              <thead>
+                                <tr className="text-left text-gray-400 border-b uppercase tracking-wider">
+                                  <th className="py-1 pr-2 font-medium">GW</th>
+                                  <th className="py-1 pr-2 font-medium">Team</th>
+                                  <th className="py-1 pr-2 text-right font-medium">Pts</th>
+                                  <th className="py-1 pr-2 font-medium">Player 1</th>
+                                  <th className="py-1 pr-2 text-right font-medium">Pts</th>
+                                  <th className="py-1 pr-2 font-medium">Player 2</th>
+                                  <th className="py-1 pr-2 text-right font-medium">Pts</th>
+                                  <th className="py-1 text-right font-bold">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {pickDetails[player.user_id].map((d, i) => (
+                                  <tr key={i} className="border-b last:border-0">
+                                    <td className="py-1.5 pr-2 font-bold">{d.gw}</td>
+                                    <td className="py-1.5 pr-2">
+                                      {d.team}
+                                      {d.is_banker && <span className="ml-1 bg-yellow-400 text-black px-1 rounded font-bold">★</span>}
+                                      {d.is_autopick && <span className="ml-1 bg-gray-200 text-gray-500 px-1 rounded">A</span>}
+                                    </td>
+                                    <td className="py-1.5 pr-2 text-right text-gray-500">{d.team_points ?? '—'}</td>
+                                    <td className="py-1.5 pr-2">
+                                      {d.player1}
+                                      {goalPlayers.has(d.player1_id) && ' ⚽'}
+                                      {assistPlayers.has(d.player1_id) && ' 🎯'}
+                                    </td>
+                                    <td className="py-1.5 pr-2 text-right text-gray-500">{d.player1_points ?? '—'}</td>
+                                    <td className="py-1.5 pr-2">
+                                      {d.player2}
+                                      {goalPlayers.has(d.player2_id) && ' ⚽'}
+                                      {assistPlayers.has(d.player2_id) && ' 🎯'}
+                                    </td>
+                                    <td className="py-1.5 pr-2 text-right text-gray-500">{d.player2_points ?? '—'}</td>
+                                    <td className="py-1.5 text-right font-bold">{d.points ?? '—'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+              {ranked.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-gray-400 text-sm uppercase tracking-wider">No players yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <p className="text-xs text-gray-400 mt-3">
-        HW/AW = home/away wins. Banker = bonus points from banker doubles. Click any row to expand picks.
+      <p className="text-xs text-gray-400 mt-3 uppercase tracking-wider">
+        HW/AW = home/away wins. Banker = bonus points. Click any row to expand.
       </p>
 
     </Shell>

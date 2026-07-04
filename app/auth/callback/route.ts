@@ -24,7 +24,35 @@ export async function GET(request: Request) {
         },
       }
     )
+
     await supabase.auth.exchangeCodeForSession(code)
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, approved, pending_since')
+        .eq('id', user.id)
+        .single()
+
+      if (profile && !profile.approved && !profile.pending_since) {
+        await supabase
+          .from('profiles')
+          .update({ pending_since: new Date().toISOString() })
+          .eq('id', user.id)
+      }
+
+      if (!profile) {
+        await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            approved: false,
+            pending_since: new Date().toISOString()
+          })
+      }
+    }
   }
 
   return NextResponse.redirect(`${origin}/`)

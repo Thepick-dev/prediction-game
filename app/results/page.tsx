@@ -175,50 +175,48 @@ export default function ResultsPage() {
     <Shell active="RESULTS" user={user} displayName={displayName}>
 
       <h1 className="text-3xl font-bold mb-1">Results</h1>
-      <p className="text-gray-500 mb-6">{competition.name}</p>
+      <p className="text-gray-500 mb-6 text-sm">{competition.name}</p>
 
       {potwUserId && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-3">
           <span className="text-xl">⭐</span>
           <div>
-            <p className="text-xs text-yellow-700 font-medium uppercase tracking-wide">Season Leader (so far)</p>
-            <p className="font-bold">{profiles[potwUserId] ?? 'Unknown'}</p>
+            <p className="text-xs text-yellow-700 font-bold uppercase tracking-wide">Season Leader</p>
+            <p className="font-bold uppercase">{profiles[potwUserId] ?? 'Unknown'}</p>
           </div>
         </div>
       )}
 
       {gameweeks.length === 0 ? (
         <div className="bg-white border rounded-lg p-6">
-          <p className="text-gray-400 text-sm">No gameweeks have passed their deadline yet.</p>
+          <p className="text-gray-400 text-sm uppercase tracking-wider">No gameweeks have passed their deadline yet.</p>
         </div>
       ) : (
         <>
-          <div className="flex gap-2 flex-wrap mb-6">
-            {gameweeks.map(gw => (
-              <button
-                key={gw.id}
-                onClick={() => setSelectedGw(gw.id)}
-                className={`px-4 py-2 rounded border text-sm font-bold transition-colors ${
-                  selectedGw === gw.id
-                    ? 'bg-black text-white border-black'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-black'
-                }`}
-              >
-                GW{gw.number}
-              </button>
-            ))}
+          <div className="mb-6">
+            <select
+              value={selectedGw ?? ''}
+              onChange={e => setSelectedGw(e.target.value)}
+              className="border rounded px-3 py-2 text-sm font-bold bg-white w-full md:w-auto uppercase"
+            >
+              {gameweeks.map(gw => (
+                <option key={gw.id} value={gw.id}>
+                  Gameweek {gw.number} — {gw.status === 'completed' ? 'Scored' : 'Awaiting scoring'}
+                </option>
+              ))}
+            </select>
           </div>
 
           {selectedGameweek && (
             <div className="mb-4 flex items-center gap-3 flex-wrap">
-              <h2 className="text-lg font-bold">Gameweek {selectedGameweek.number}</h2>
-              <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+              <h2 className="text-lg font-bold uppercase">Gameweek {selectedGameweek.number}</h2>
+              <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
                 isScored ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
               }`}>
                 {isScored ? 'Scored' : 'Awaiting scoring'}
               </span>
               {isScored && gwPotwUserId && (
-                <span className="text-xs text-yellow-700 font-medium">
+                <span className="text-xs text-yellow-700 font-bold uppercase tracking-wider">
                   ⭐ GW Winner: {profiles[gwPotwUserId]}
                 </span>
               )}
@@ -226,77 +224,78 @@ export default function ResultsPage() {
           )}
 
           {loadingPicks ? (
-            <p className="text-gray-400 text-sm">Loading picks...</p>
+            <p className="text-gray-400 text-sm uppercase tracking-wider">Loading picks...</p>
           ) : sortedPicks.length === 0 ? (
             <div className="bg-white border rounded-lg p-6">
-              <p className="text-gray-400 text-sm">No picks for this gameweek.</p>
+              <p className="text-gray-400 text-sm uppercase tracking-wider">No picks for this gameweek.</p>
             </div>
           ) : (
-            <div className="bg-white border rounded-lg overflow-x-auto">
-              <table className="w-full text-sm min-w-[640px]">
-                <thead>
-                  <tr className="text-left border-b bg-gray-50">
-                    <th className="py-2 px-3 text-gray-500 font-medium">Player</th>
-                    <th className="py-2 px-3 text-gray-500 font-medium">Team</th>
-                    <th className="py-2 px-3 text-gray-500 font-medium">Player 1</th>
-                    <th className="py-2 px-3 text-gray-500 font-medium">Player 2</th>
-                    {isScored && (
-                      <>
-                        <th className="py-2 px-3 text-gray-500 font-medium text-right">Team</th>
-                        <th className="py-2 px-3 text-gray-500 font-medium text-right">P1</th>
-                        <th className="py-2 px-3 text-gray-500 font-medium text-right">P2</th>
-                        <th className="py-2 px-3 text-gray-500 font-bold text-right">Total</th>
-                      </>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedPicks.map((pick, i) => {
-                    const pts = pointsMap[pick.id]
-                    const isBanker = pick.is_banker
-                    const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
+            <div className="bg-white border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full" style={{ fontSize: '12px' }}>
+                  <thead>
+                    <tr className="text-left border-b bg-gray-50 uppercase tracking-wider text-gray-500" style={{ fontSize: '11px' }}>
+                      <th className="py-2 px-2">Player</th>
+                      <th className="py-2 px-2">Team</th>
+                      <th className="py-2 px-2 hidden sm:table-cell">Player 1</th>
+                      <th className="py-2 px-2 hidden sm:table-cell">Player 2</th>
+                      {isScored && (
+                        <>
+                          <th className="py-2 px-2 text-right hidden md:table-cell">Team</th>
+                          <th className="py-2 px-2 text-right hidden md:table-cell">P1</th>
+                          <th className="py-2 px-2 text-right hidden md:table-cell">P2</th>
+                          <th className="py-2 px-2 text-right font-bold">Total</th>
+                        </>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedPicks.map((pick, i) => {
+                      const pts = pointsMap[pick.id]
+                      const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
 
-                    return (
-                      <tr key={pick.id} className={`border-b last:border-0 ${isWinner ? 'bg-yellow-50' : ''}`}>
-                        <td className="py-2 px-3 font-bold">
-                          <div className="flex items-center gap-1">
-                            {profiles[pick.user_id] ?? 'Unknown'}
-                            {isWinner && <span title="GW Winner">⭐</span>}
-                            {pick.is_autopick && <span className="text-xs bg-gray-200 text-gray-500 px-1 rounded">A</span>}
-                          </div>
-                        </td>
-                        <td className="py-2 px-3">
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs text-gray-700">{shortName(pick.team_id, teams)}</span>
-                            {isBanker && <span className="text-xs bg-yellow-400 text-black font-bold px-1 rounded">★B</span>}
-                          </div>
-                        </td>
-                        <td className="py-2 px-3 text-xs text-gray-600">
-                          {shortName(pick.player1_id, players)}
-                          {goalPlayers.has(pick.player1_id) && ' ⚽'}
-                          {assistPlayers.has(pick.player1_id) && ' 🎯'}
-                        </td>
-                        <td className="py-2 px-3 text-xs text-gray-600">
-                          {shortName(pick.player2_id, players)}
-                          {goalPlayers.has(pick.player2_id) && ' ⚽'}
-                          {assistPlayers.has(pick.player2_id) && ' 🎯'}
-                        </td>
-                        {isScored && (
-                          <>
-                            <td className="py-2 px-3 text-right text-xs text-gray-500">{pts?.team_points ?? '—'}</td>
-                            <td className="py-2 px-3 text-right text-xs text-gray-500">{pts?.player1_points ?? '—'}</td>
-                            <td className="py-2 px-3 text-right text-xs text-gray-500">{pts?.player2_points ?? '—'}</td>
-                            <td className="py-2 px-3 text-right font-bold">{pts?.total_points ?? '—'}</td>
-                          </>
-                        )}
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                      return (
+                        <tr key={pick.id} className={`border-b last:border-0 ${isWinner ? 'bg-yellow-50' : ''}`}>
+                          <td className="py-2 px-2 font-bold uppercase">
+                            <div className="flex items-center gap-1">
+                              {profiles[pick.user_id] ?? 'Unknown'}
+                              {isWinner && <span>⭐</span>}
+                              {pick.is_autopick && <span className="text-xs bg-gray-200 text-gray-500 px-1 rounded">A</span>}
+                            </div>
+                          </td>
+                          <td className="py-2 px-2">
+                            <div className="flex items-center gap-1">
+                              <span className="uppercase">{shortName(pick.team_id, teams)}</span>
+                              {pick.is_banker && <span className="text-xs bg-yellow-400 text-black font-bold px-1 rounded">★B</span>}
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-gray-600 hidden sm:table-cell uppercase">
+                            {shortName(pick.player1_id, players)}
+                            {goalPlayers.has(pick.player1_id) && ' ⚽'}
+                            {assistPlayers.has(pick.player1_id) && ' 🎯'}
+                          </td>
+                          <td className="py-2 px-2 text-gray-600 hidden sm:table-cell uppercase">
+                            {shortName(pick.player2_id, players)}
+                            {goalPlayers.has(pick.player2_id) && ' ⚽'}
+                            {assistPlayers.has(pick.player2_id) && ' 🎯'}
+                          </td>
+                          {isScored && (
+                            <>
+                              <td className="py-2 px-2 text-right text-gray-500 hidden md:table-cell">{pts?.team_points ?? '—'}</td>
+                              <td className="py-2 px-2 text-right text-gray-500 hidden md:table-cell">{pts?.player1_points ?? '—'}</td>
+                              <td className="py-2 px-2 text-right text-gray-500 hidden md:table-cell">{pts?.player2_points ?? '—'}</td>
+                              <td className="py-2 px-2 text-right font-bold">{pts?.total_points ?? '—'}</td>
+                            </>
+                          )}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
               {isScored && (
-                <div className="px-3 py-2 border-t bg-gray-50 text-xs text-gray-400">
-                  ★B = Banker declared. ⚽ = Goal. 🎯 = Assist. Names shortened for space.
+                <div className="px-3 py-2 border-t bg-gray-50 text-xs text-gray-400 uppercase tracking-wider">
+                  ★B = Banker. ⚽ = Goal. 🎯 = Assist.
                 </div>
               )}
             </div>

@@ -49,9 +49,12 @@ export default async function RulesPage() {
 
         <section className="bg-white border rounded-lg p-6">
           <h2 className="text-lg font-bold mb-3">The Competition</h2>
-          <p className="text-sm text-gray-600 leading-relaxed">
+          <p className="text-sm text-gray-600 leading-relaxed mb-2">
             The Coupon runs for roughly half a Premier League season — two competitions per season.
             Join before the first gameweek deadline. Late entries are not permitted.
+          </p>
+          <p className="text-sm text-gray-600 leading-relaxed font-medium">
+            The player with the most points at the end of the competition wins.
           </p>
         </section>
 
@@ -96,14 +99,14 @@ export default async function RulesPage() {
             <table className="w-full text-xs border">
               <thead>
                 <tr className="bg-gray-900 text-white">
-                  <th className="text-left px-3 py-2">Result</th>
+                  <th className="text-left px-3 py-2 uppercase">Result</th>
                   {diffLabels.map(l => <th key={l} className="px-2 py-2 text-center">{l}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {resultTypes.map(([key, label]) => (
                   <tr key={key} className="border-t">
-                    <td className="px-3 py-2 font-medium">{label}</td>
+                    <td className="px-3 py-2 font-medium uppercase">{label}</td>
                     {diffs.map(d => (
                       <td key={d} className="px-2 py-2 text-center">
                         {ruleMap[`${key}_${d}`] ?? '—'}
@@ -112,7 +115,7 @@ export default async function RulesPage() {
                   </tr>
                 ))}
                 <tr className="border-t">
-                  <td className="px-3 py-2 font-medium">Loss</td>
+                  <td className="px-3 py-2 font-medium uppercase">Loss</td>
                   {diffs.map(d => <td key={d} className="px-2 py-2 text-center">0</td>)}
                 </tr>
               </tbody>
@@ -126,6 +129,9 @@ export default async function RulesPage() {
 
         <section className="bg-white border rounded-lg p-6">
           <h2 className="text-lg font-bold mb-3">Tiebreakers</h2>
+          <p className="text-sm text-gray-600 leading-relaxed mb-3">
+            If two players are tied on total points, the following criteria apply in order:
+          </p>
           <ol className="text-sm text-gray-600 leading-relaxed list-decimal pl-5 space-y-1">
             <li>Total points</li>
             <li>Points with banker multiplier removed</li>

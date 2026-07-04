@@ -16,3 +16,19 @@ html, body {
 a {
   color: inherit;
 }
+
+h1, h2, h3 {
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.nav-link {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+thead th {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+}

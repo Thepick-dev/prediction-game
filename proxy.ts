@@ -31,9 +31,32 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user && request.nextUrl.pathname.startsWith('/picks')) {
+  const pathname = request.nextUrl.pathname
+
+  const publicPaths = ['/login', '/pending', '/auth']
+  const isPublicPath = publicPaths.some(p => pathname.startsWith(p))
+  const isAdminPath = pathname.startsWith('/admin')
+  const isApiPath = pathname.startsWith('/api')
+
+  if (isApiPath || isPublicPath) {
+    return supabaseResponse
+  }
+
+  if (!user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    return NextResponse.redirect(url)
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('approved, is_admin')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile?.approved && !isAdminPath) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/pending'
     return NextResponse.redirect(url)
   }
 
