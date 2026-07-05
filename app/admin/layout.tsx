@@ -45,6 +45,8 @@ export default async function AdminLayout({
             <a href="/admin/postponed" className="hover:text-gray-300">Postponed</a>
             <a href="/admin/dispatch" className="hover:text-gray-300">News</a>
             <a href="/admin/archive" className="hover:text-gray-300">Archive</a>
+            <a href="/admin/summary" className="hover:text-gray-300">Summary</a>
+            <a href="/admin/teams" className="hover:text-gray-300">Teams</a>
             <a href="/" className="hover:text-gray-300">← Back to site</a>
           </div>
         </div>
