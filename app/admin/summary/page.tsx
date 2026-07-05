@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
-import { abbrFromMap } from '../../lib/teams'
+import { abbr } from '../../lib/teams'
 
 type Pick = {
   id: string
@@ -29,7 +29,7 @@ export default function AdminSummaryPage() {
   const [selectedGw, setSelectedGw] = useState<string>('')
   const [picks, setPicks] = useState<Pick[]>([])
   const [profiles, setProfiles] = useState<Record<string, string>>({})
-  const [teams, setTeams] = useState<Record<number, { name: string; short_name: string | null }>>({})
+  const [teams, setTeams] = useState<Record<number, string>>({})
   const [players, setPlayers] = useState<Record<number, string>>({})
   const [quartileMap, setQuartileMap] = useState<Record<number, number>>({})
   const [question, setQuestion] = useState<any>(null)
@@ -53,13 +53,13 @@ export default function AdminSummaryPage() {
 
     const [{ data: gws }, { data: teamsData }, { data: playersData }, { data: quartilesData }] = await Promise.all([
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).order('number', { ascending: false }),
-      supabase.from('teams').select('id, name, short_name'),
+      supabase.from('teams').select('id, name'),
       supabase.from('players').select('id, name'),
       supabase.from('tier_assignments').select('team_id, tier').eq('competition_id', comp.id)
     ])
 
-    const teamMap: Record<number, { name: string; short_name: string | null }> = {}
-    teamsData?.forEach(t => { teamMap[t.id] = { name: t.name, short_name: t.short_name } })
+    const teamMap: Record<number, string> = {}
+    teamsData?.forEach(t => { teamMap[t.id] = t.name })
     setTeams(teamMap)
 
     const playerMap: Record<number, string> = {}
@@ -231,7 +231,7 @@ export default function AdminSummaryPage() {
                         {profiles[pick.user_id] ?? 'Unknown'}
                       </td>
                       <td className="py-3 px-4 uppercase">
-                        {abbrFromMap(teams, pick.team_id)}
+                        {abbr(teams[pick.team_id] ?? '')}
                         {pick.is_banker && <span className="ml-1 bg-yellow-400 text-black text-xs font-bold px-1 rounded">★B</span>}
                         {pick.is_autopick && <span className="ml-1 bg-gray-200 text-gray-600 text-xs px-1 rounded">AUTO</span>}
                       </td>
@@ -295,7 +295,10 @@ export default function AdminSummaryPage() {
                           <span className="text-gray-500">{count} ({pct}%)</span>
                         </div>
                         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-black rounded-full" style={{ width: `${pct}%` }} />
+                          <div
+                            className="h-full bg-black rounded-full"
+                            style={{ width: `${pct}%` }}
+                          />
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5">
                           {picks.filter(p => p.question_answer === opt.key).map(p => profiles[p.user_id]).join(', ')}

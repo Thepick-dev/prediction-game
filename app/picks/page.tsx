@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 
-type Team = { id: number; name: string }
+type Team = { id: number; name: string; short_name: string | null }
 type Player = { id: number; name: string; team_id: number }
 type Gameweek = { id: string; number: number; deadline: string; status: string }
 type Fixture = { id: number; home_team_id: number; away_team_id: number; kickoff_time: string; home_score: number | null; away_score: number | null; status: string }
@@ -18,32 +18,51 @@ type HistoryPick = {
   is_autopick: boolean
   gameweeks: { number: number }
 }
-
-const TEAM_NAMES: Record<string, string> = {
-  'Arsenal FC': 'Arsenal',
-  'Aston Villa FC': 'Aston Villa',
-  'AFC Bournemouth': 'Bournemouth',
-  'Brentford FC': 'Brentford',
-  'Brighton & Hove Albion FC': 'Brighton',
-  'Burnley FC': 'Burnley',
-  'Chelsea FC': 'Chelsea',
-  'Crystal Palace FC': 'Crystal Palace',
-  'Everton FC': 'Everton',
-  'Fulham FC': 'Fulham',
-  'Leeds United FC': 'Leeds',
-  'Liverpool FC': 'Liverpool',
-  'Manchester City FC': 'Man City',
-  'Manchester United FC': 'Man Utd',
-  'Newcastle United FC': 'Newcastle',
-  'Nottingham Forest FC': "Nott'm Forest",
-  'Sunderland AFC': 'Sunderland',
-  'Tottenham Hotspur FC': 'Spurs',
-  'West Ham United FC': 'West Ham',
-  'Wolverhampton Wanderers FC': 'Wolves',
+type Question = {
+  id: string
+  question: string
+  option_a: string
+  option_b: string
+  option_c: string | null
+  option_d: string | null
 }
 
-function abbr(name: string) {
-  return TEAM_NAMES[name] ?? name.replace(' FC', '').replace(' AFC', '')
+function teamAbbr(team: Team | undefined) {
+  if (!team) return 'Unknown'
+  return team.short_name ?? team.name.replace(' FC', '').replace(' AFC', '')
+}
+
+function getRiskRating(homeQ: number | null, awayQ: number | null, isHome: boolean) {
+  if (!homeQ || !awayQ) return null
+  const diff = isHome ? awayQ - homeQ : homeQ - awayQ
+  if (diff >= 2) return { label: 'High Risk', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' }
+  if (diff >= 1) return { label: 'Medium Risk', color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' }
+  if (diff === 0) return { label: 'Even', color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200' }
+  if (diff <= -1) return { label: 'Low Risk', color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' }
+  return null
+}
+
+function useCountdown(deadline: string | null) {
+  const [timeLeft, setTimeLeft] = useState('')
+
+  useEffect(() => {
+    if (!deadline) return
+    const interval = setInterval(() => {
+      const now = new Date().getTime()
+      const end = new Date(deadline).getTime()
+      const diff = end - now
+      if (diff <= 0) { setTimeLeft('Deadline passed'); clearInterval(interval); return }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+      const secs = Math.floor((diff % (1000 * 60)) / 1000)
+      if (days > 0) setTimeLeft(`${days}d ${hours}h ${mins}m`)
+      else setTimeLeft(`${hours}h ${mins}m ${secs}s`)
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [deadline])
+
+  return timeLeft
 }
 
 export default function PicksPage() {
@@ -57,6 +76,10 @@ export default function PicksPage() {
   const [quartileMap, setQuartileMap] = useState<Record<number, number>>({})
   const [historyPicks, setHistoryPicks] = useState<HistoryPick[]>([])
   const [pointsByPick, setPointsByPick] = useState<Record<string, number>>({})
+  const [question, setQuestion] = useState<Question | null>(null)
+  const [questionAnswer, setQuestionAnswer] = useState<string>('')
+  const [hasPick, setHasPick] = useState(false)
+  const [showSlip, setShowSlip] = useState(false)
 
   const [selectedTeam, setSelectedTeam] = useState<number | null>(null)
   const [player1, setPlayer1] = useState<number | null>(null)
@@ -76,6 +99,7 @@ export default function PicksPage() {
   const [deadlinePassed, setDeadlinePassed] = useState(false)
 
   const supabase = createClient()
+  const countdown = useCountdown(gameweek?.deadline ?? null)
 
   useEffect(() => { loadData() }, [])
 
@@ -120,14 +144,14 @@ export default function PicksPage() {
     if (gw) setDeadlinePassed(new Date() > new Date(gw.deadline))
 
     const [{ data: teamsData }, { data: playersData }] = await Promise.all([
-      supabase.from('teams').select('id, name').order('name'),
+      supabase.from('teams').select('id, name, short_name').order('name'),
       supabase.from('players').select('id, name, team_id').order('name')
     ])
     setTeams(teamsData ?? [])
     setPlayers(playersData ?? [])
 
     if (gw) {
-      const [pickRes, { data: fixturesData }, { data: quartilesData }] = await Promise.all([
+      const [pickRes, { data: fixturesData }, { data: quartilesData }, { data: questionData }] = await Promise.all([
         fetch(`/api/picks?competition_id=${comp.id}&gameweek_id=${gw.id}`),
         supabase
           .from('fixtures')
@@ -137,7 +161,12 @@ export default function PicksPage() {
         supabase
           .from('tier_assignments')
           .select('team_id, tier')
-          .eq('competition_id', comp.id)
+          .eq('competition_id', comp.id),
+        supabase
+          .from('gameweek_questions')
+          .select('*')
+          .eq('gameweek_id', gw.id)
+          .single()
       ])
 
       const pickData = await pickRes.json()
@@ -146,6 +175,8 @@ export default function PicksPage() {
         setPlayer1(pickData.pick.player1_id)
         setPlayer2(pickData.pick.player2_id)
         setIsBanker(pickData.pick.is_banker)
+        setQuestionAnswer(pickData.pick.question_answer ?? '')
+        setHasPick(true)
       }
       setUsedTeams(pickData.usedTeams ?? [])
       setPlayerCounts(pickData.playerCounts ?? {})
@@ -156,6 +187,8 @@ export default function PicksPage() {
       const qMap: Record<number, number> = {}
       quartilesData?.forEach(q => { qMap[q.team_id] = q.tier })
       setQuartileMap(qMap)
+
+      if (questionData) setQuestion(questionData)
     }
 
     const { data: history } = await supabase
@@ -200,23 +233,22 @@ export default function PicksPage() {
         team_id: selectedTeam,
         player1_id: player1,
         player2_id: player2,
-        is_banker: isBanker
+        is_banker: isBanker,
+        question_answer: questionAnswer
       })
     })
     const data = await res.json()
     if (data.error) {
       setMessage('Error: ' + data.error)
     } else {
-      setMessage('Pick saved')
+      setHasPick(true)
+      setShowSlip(true)
       loadData()
     }
     setSaving(false)
   }
 
-  const teamName = (id: number | null) => {
-    const t = teams.find(t => t.id === id)
-    return t ? abbr(t.name) : ''
-  }
+  const getTeam = (id: number | null) => teams.find(t => t.id === id)
   const playerName = (id: number | null) => players.find(p => p.id === id)?.name ?? ''
 
   const filteredPlayers1 = playerSearch1.length >= 2
@@ -243,6 +275,18 @@ export default function PicksPage() {
     return q ? `Q${q}` : null
   }
 
+  function getSelectedTeamRisk() {
+    if (!selectedTeam) return null
+    const fixture = fixtures.find(f => f.home_team_id === selectedTeam || f.away_team_id === selectedTeam)
+    if (!fixture) return null
+    const isHome = fixture.home_team_id === selectedTeam
+    const homeQ = quartileMap[fixture.home_team_id] ?? null
+    const awayQ = quartileMap[fixture.away_team_id] ?? null
+    return getRiskRating(homeQ, awayQ, isHome)
+  }
+
+  const risk = getSelectedTeamRisk()
+
   if (loading) {
     return (
       <Shell active="PICK">
@@ -262,6 +306,30 @@ export default function PicksPage() {
 
   return (
     <Shell active="PICK" user={user} displayName={displayName}>
+
+      {gameweek && !deadlinePassed && !hasPick && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-3">
+          <span className="text-lg">⚠️</span>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-red-700 uppercase tracking-wider">Pick Required</p>
+            <p className="text-xs text-red-600">You haven't submitted your Gameweek {gameweek.number} pick yet.</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-red-500 uppercase tracking-wider font-bold">{countdown}</p>
+            <p className="text-xs text-red-400">remaining</p>
+          </div>
+        </div>
+      )}
+
+      {gameweek && !deadlinePassed && hasPick && (
+        <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-3">
+          <span className="text-lg">✅</span>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-green-700 uppercase tracking-wider">Pick Submitted</p>
+            <p className="text-xs text-green-600">Gameweek {gameweek.number} pick is in. Deadline in {countdown}.</p>
+          </div>
+        </div>
+      )}
 
       <h1 className="text-3xl font-bold mb-1">Your Pick</h1>
       <p className="text-gray-500 mb-8 text-sm">{competition.name}</p>
@@ -289,8 +357,8 @@ export default function PicksPage() {
                     {fixtures.map(fixture => {
                       const homeStatus = getTeamStatus(fixture.home_team_id)
                       const awayStatus = getTeamStatus(fixture.away_team_id)
-                      const homeTeam = teams.find(t => t.id === fixture.home_team_id)
-                      const awayTeam = teams.find(t => t.id === fixture.away_team_id)
+                      const homeTeam = getTeam(fixture.home_team_id)
+                      const awayTeam = getTeam(fixture.away_team_id)
                       const homeQ = getQuartileLabel(fixture.home_team_id)
                       const awayQ = getQuartileLabel(fixture.away_team_id)
 
@@ -310,7 +378,7 @@ export default function PicksPage() {
                             >
                               <div className="flex items-center gap-1 flex-wrap">
                                 <span className={`font-medium uppercase text-xs ${homeStatus.isUsed ? 'line-through' : ''}`}>
-                                  {homeTeam ? abbr(homeTeam.name) : 'Unknown'}
+                                  {teamAbbr(homeTeam)}
                                 </span>
                                 {homeStatus.isDouble && (
                                   <span className={`text-xs ${selectedTeam === fixture.home_team_id ? 'text-yellow-300' : 'text-yellow-600'}`}>★</span>
@@ -345,7 +413,7 @@ export default function PicksPage() {
                             >
                               <div className="flex items-center gap-1 flex-wrap">
                                 <span className={`font-medium uppercase text-xs ${awayStatus.isUsed ? 'line-through' : ''}`}>
-                                  {awayTeam ? abbr(awayTeam.name) : 'Unknown'}
+                                  {teamAbbr(awayTeam)}
                                 </span>
                                 {awayStatus.isDouble && (
                                   <span className={`text-xs ${selectedTeam === fixture.away_team_id ? 'text-yellow-300' : 'text-yellow-600'}`}>★</span>
@@ -374,7 +442,7 @@ export default function PicksPage() {
 
                     {selectedTeam && !fixtureTeamIds.has(selectedTeam) && (
                       <p className="text-xs text-orange-600 mt-2 uppercase tracking-wider">
-                        Your current pick ({teamName(selectedTeam)}) is not in this gameweek's fixtures.
+                        Your current pick ({teamAbbr(getTeam(selectedTeam))}) is not in this gameweek's fixtures.
                       </p>
                     )}
                   </div>
@@ -397,7 +465,7 @@ export default function PicksPage() {
                           }`}
                         >
                           <div className="flex items-center gap-1">
-                            <span className="uppercase font-medium">{abbr(team.name)}</span>
+                            <span className="uppercase font-medium">{teamAbbr(team)}</span>
                             {status.isDouble && <span className="text-yellow-600">★</span>}
                             {q && <span className="text-xs text-gray-500">{q}</span>}
                           </div>
@@ -407,6 +475,12 @@ export default function PicksPage() {
                         </button>
                       )
                     })}
+                  </div>
+                )}
+
+                {selectedTeam && risk && (
+                  <div className={`mt-3 px-3 py-2 rounded border text-xs font-bold uppercase tracking-wider ${risk.color} ${risk.bg} ${risk.border}`}>
+                    Risk Rating: {risk.label}
                   </div>
                 )}
               </div>
@@ -508,6 +582,33 @@ export default function PicksPage() {
                 <span className="text-xs text-gray-400 uppercase tracking-wider">{bankersUsed} of 2 bankers used</span>
               </div>
 
+              {question && (
+                <div className="mb-6 bg-gray-50 border rounded-lg p-4">
+                  <p className="text-sm font-bold uppercase tracking-wider mb-3">This Week's Question</p>
+                  <p className="text-sm text-gray-700 mb-3">{question.question}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { key: 'A', label: question.option_a },
+                      { key: 'B', label: question.option_b },
+                      question.option_c ? { key: 'C', label: question.option_c } : null,
+                      question.option_d ? { key: 'D', label: question.option_d } : null,
+                    ].filter(Boolean).map((opt: any) => (
+                      <button
+                        key={opt.key}
+                        onClick={() => setQuestionAnswer(opt.key)}
+                        className={`px-3 py-2 rounded border text-sm font-medium transition-colors ${
+                          questionAnswer === opt.key
+                            ? 'bg-black text-white border-black'
+                            : 'hover:border-black bg-white'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {message && (
                 <p className={`text-sm mb-4 uppercase tracking-wider ${message.startsWith('Error') ? 'text-red-600' : 'text-green-600'}`}>
                   {message}
@@ -549,7 +650,7 @@ export default function PicksPage() {
                 <tr key={pick.id} className="border-b last:border-0">
                   <td className="py-2 px-4 font-bold">{pick.gameweeks?.number}</td>
                   <td className="py-2 px-4 uppercase">
-                    {teamName(pick.team_id)}
+                    {teamAbbr(getTeam(pick.team_id))}
                     {pick.is_banker && <span className="ml-2 text-xs bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded">BANKER</span>}
                     {pick.is_autopick && <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">AUTO</span>}
                   </td>
@@ -561,6 +662,61 @@ export default function PicksPage() {
           </table>
         )}
       </div>
+
+      {showSlip && selectedTeam && player1 && player2 && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-end md:items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-t-2xl md:rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+
+            <div className="bg-black text-white px-6 py-4 text-center">
+              <p className="text-xs uppercase tracking-widest text-gray-400 mb-1">The Coupon</p>
+              <p className="text-lg font-bold uppercase tracking-wider">Gameweek {gameweek?.number} Pick</p>
+              <p className="text-xs text-gray-400 mt-1">{new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+            </div>
+
+            <div className="px-6 py-4 space-y-3 border-b">
+              <div className="flex justify-between items-center">
+                <span className="text-xs uppercase tracking-wider text-gray-500">Team</span>
+                <span className="font-bold uppercase">{teamAbbr(getTeam(selectedTeam))}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs uppercase tracking-wider text-gray-500">Player 1</span>
+                <span className="font-medium uppercase text-sm">{playerName(player1)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs uppercase tracking-wider text-gray-500">Player 2</span>
+                <span className="font-medium uppercase text-sm">{playerName(player2)}</span>
+              </div>
+              {isBanker && (
+                <div className="flex justify-between items-center">
+                  <span className="text-xs uppercase tracking-wider text-gray-500">Banker</span>
+                  <span className="font-bold text-yellow-600 uppercase">★ Declared</span>
+                </div>
+              )}
+              {risk && (
+                <div className="flex justify-between items-center">
+                  <span className="text-xs uppercase tracking-wider text-gray-500">Risk Rating</span>
+                  <span className={`font-bold uppercase text-sm ${risk.color}`}>{risk.label}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 text-center">
+              <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Deadline</p>
+              <p className="font-bold text-sm">{gameweek ? new Date(gameweek.deadline).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</p>
+            </div>
+
+            <div className="px-6 py-4">
+              <button
+                onClick={() => setShowSlip(false)}
+                className="w-full bg-black text-white rounded-lg py-3 font-bold uppercase tracking-wider text-sm"
+              >
+                Done
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </Shell>
   )

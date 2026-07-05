@@ -4,13 +4,14 @@ import { redirect } from 'next/navigation'
 export default async function GameweeksPage() {
   const supabase = await createServerSupabaseClient()
 
-  const [{ data: competitions }, { data: gameweeks }] = await Promise.all([
+  const [{ data: competitions }, { data: gameweeks }, { data: questions }] = await Promise.all([
     supabase.from('competitions').select('id, name').order('created_at', { ascending: false }),
-    supabase
-      .from('gameweeks')
-      .select('*, competitions(name)')
-      .order('number', { ascending: true })
+    supabase.from('gameweeks').select('*, competitions(name)').order('number', { ascending: true }),
+    supabase.from('gameweek_questions').select('*')
   ])
+
+  const questionsByGw: Record<string, any> = {}
+  questions?.forEach(q => { questionsByGw[q.gameweek_id] = q })
 
   async function createGameweek(formData: FormData) {
     'use server'
@@ -30,10 +31,7 @@ export default async function GameweeksPage() {
     const id = formData.get('id') as string
     const status = formData.get('status') as string
 
-    await supabase
-      .from('gameweeks')
-      .update({ status })
-      .eq('id', id)
+    await supabase.from('gameweeks').update({ status }).eq('id', id)
 
     if (status === 'completed') {
       const { data: gw } = await supabase
@@ -85,10 +83,37 @@ export default async function GameweeksPage() {
   async function deleteGameweek(formData: FormData) {
     'use server'
     const supabase = await createServerSupabaseClient()
-    await supabase
-      .from('gameweeks')
-      .delete()
-      .eq('id', formData.get('id') as string)
+    await supabase.from('gameweeks').delete().eq('id', formData.get('id') as string)
+    redirect('/admin/gameweeks')
+  }
+
+  async function saveQuestion(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    const gameweek_id = formData.get('gameweek_id') as string
+    const question = formData.get('question') as string
+    const option_a = formData.get('option_a') as string
+    const option_b = formData.get('option_b') as string
+    const option_c = formData.get('option_c') as string || null
+    const option_d = formData.get('option_d') as string || null
+    const existing_id = formData.get('existing_id') as string
+
+    if (existing_id) {
+      await supabase.from('gameweek_questions').update({
+        question, option_a, option_b, option_c, option_d
+      }).eq('id', existing_id)
+    } else {
+      await supabase.from('gameweek_questions').insert({
+        gameweek_id, question, option_a, option_b, option_c, option_d
+      })
+    }
+    redirect('/admin/gameweeks')
+  }
+
+  async function deleteQuestion(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    await supabase.from('gameweek_questions').delete().eq('id', formData.get('id') as string)
     redirect('/admin/gameweeks')
   }
 
@@ -139,48 +164,26 @@ export default async function GameweeksPage() {
       <div className="bg-white border rounded-lg p-6">
         <h2 className="font-bold mb-4">All Gameweeks</h2>
         {gameweeks && gameweeks.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-500 border-b">
-                <th className="pb-2">GW</th>
-                <th className="pb-2">Competition</th>
-                <th className="pb-2">Deadline</th>
-                <th className="pb-2">Status</th>
-                <th className="pb-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {gameweeks.map((gw) => (
-                <tr key={gw.id} className="border-b last:border-0">
-                  <td className="py-2 font-medium">GW{gw.number}</td>
-                  <td className="py-2">{(gw.competitions as any)?.name}</td>
-                  <td className="py-2">
-                    <form action={updateDeadline} className="flex gap-1 items-center">
-                      <input type="hidden" name="id" value={gw.id} />
-                      <input
-                        type="datetime-local"
-                        name="deadline"
-                        defaultValue={new Date(gw.deadline).toISOString().slice(0, 16)}
-                        className="text-xs border rounded px-1 py-1"
-                      />
-                      <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">
-                        Update
-                      </button>
-                    </form>
-                  </td>
-                  <td className="py-2">
-                    <span className={`px-2 py-0.5 rounded text-xs ${
-                      gw.status === 'open' ? 'bg-green-100 text-green-700' :
-                      gw.status === 'locked' ? 'bg-red-100 text-red-700' :
-                      gw.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                      'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {gw.status}
-                    </span>
-                  </td>
-                  <td className="py-2">
-                    <div className="flex gap-2">
-                      <form action={updateStatus}>
+          <div className="space-y-6">
+            {gameweeks.map((gw) => {
+              const existingQuestion = questionsByGw[gw.id]
+              return (
+                <div key={gw.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold">GW{gw.number}</span>
+                      <span className="text-gray-500 text-sm">{(gw.competitions as any)?.name}</span>
+                      <span className={`px-2 py-0.5 rounded text-xs ${
+                        gw.status === 'open' ? 'bg-green-100 text-green-700' :
+                        gw.status === 'locked' ? 'bg-red-100 text-red-700' :
+                        gw.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {gw.status}
+                      </span>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      <form action={updateStatus} className="flex gap-1">
                         <input type="hidden" name="id" value={gw.id} />
                         <select name="status" className="text-xs border rounded px-1 py-1">
                           <option value="upcoming">upcoming</option>
@@ -188,22 +191,93 @@ export default async function GameweeksPage() {
                           <option value="locked">locked</option>
                           <option value="completed">completed</option>
                         </select>
-                        <button type="submit" className="ml-1 text-xs bg-black text-white rounded px-2 py-1">
-                          Set
-                        </button>
+                        <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Set</button>
                       </form>
                       <form action={deleteGameweek}>
                         <input type="hidden" name="id" value={gw.id} />
-                        <button type="submit" className="text-xs bg-red-600 text-white rounded px-2 py-1">
-                          Delete
-                        </button>
+                        <button type="submit" className="text-xs bg-red-600 text-white rounded px-2 py-1">Delete</button>
                       </form>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+
+                  <div className="mb-4">
+                    <form action={updateDeadline} className="flex gap-2 items-center">
+                      <input type="hidden" name="id" value={gw.id} />
+                      <label className="text-xs text-gray-500">Deadline:</label>
+                      <input
+                        type="datetime-local"
+                        name="deadline"
+                        defaultValue={new Date(gw.deadline).toISOString().slice(0, 16)}
+                        className="text-xs border rounded px-2 py-1"
+                      />
+                      <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Update</button>
+                    </form>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">
+                      Gameweek Question {existingQuestion ? '(set)' : '(not set)'}
+                    </p>
+                    <form action={saveQuestion} className="space-y-2">
+                      <input type="hidden" name="gameweek_id" value={gw.id} />
+                      {existingQuestion && <input type="hidden" name="existing_id" value={existingQuestion.id} />}
+                      <input
+                        type="text"
+                        name="question"
+                        defaultValue={existingQuestion?.question ?? ''}
+                        placeholder="e.g. Pizza or Burgers?"
+                        className="w-full border rounded px-3 py-2 text-sm"
+                        required
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          name="option_a"
+                          defaultValue={existingQuestion?.option_a ?? ''}
+                          placeholder="Option A"
+                          className="border rounded px-3 py-2 text-sm"
+                          required
+                        />
+                        <input
+                          type="text"
+                          name="option_b"
+                          defaultValue={existingQuestion?.option_b ?? ''}
+                          placeholder="Option B"
+                          className="border rounded px-3 py-2 text-sm"
+                          required
+                        />
+                        <input
+                          type="text"
+                          name="option_c"
+                          defaultValue={existingQuestion?.option_c ?? ''}
+                          placeholder="Option C (optional)"
+                          className="border rounded px-3 py-2 text-sm"
+                        />
+                        <input
+                          type="text"
+                          name="option_d"
+                          defaultValue={existingQuestion?.option_d ?? ''}
+                          placeholder="Option D (optional)"
+                          className="border rounded px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="submit" className="text-xs bg-black text-white rounded px-3 py-1.5">
+                          {existingQuestion ? 'Update Question' : 'Save Question'}
+                        </button>
+                        {existingQuestion && (
+                          <form action={deleteQuestion}>
+                            <input type="hidden" name="id" value={existingQuestion.id} />
+                            <button type="submit" className="text-xs text-red-500 hover:text-red-700">Delete question</button>
+                          </form>
+                        )}
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         ) : (
           <p className="text-gray-500 text-sm">No gameweeks yet.</p>
         )}

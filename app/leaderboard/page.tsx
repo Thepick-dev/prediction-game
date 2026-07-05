@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
+import { abbrFromMap } from '../lib/teams'
 
 type RankedPlayer = {
   user_id: string
@@ -16,10 +17,12 @@ type RankedPlayer = {
   total_points: number
   points_without_banker: number
   goals: number
+  weekly_points: number[]
 }
 
 type PickDetail = {
   gw: number
+  team_id: number
   team: string
   player1: string
   player2: string
@@ -33,33 +36,6 @@ type PickDetail = {
   player2_points: number | null
 }
 
-const TEAM_NAMES: Record<string, string> = {
-  'Arsenal FC': 'Arsenal',
-  'Aston Villa FC': 'Aston Villa',
-  'AFC Bournemouth': 'Bournemouth',
-  'Brentford FC': 'Brentford',
-  'Brighton & Hove Albion FC': 'Brighton',
-  'Burnley FC': 'Burnley',
-  'Chelsea FC': 'Chelsea',
-  'Crystal Palace FC': 'Crystal Palace',
-  'Everton FC': 'Everton',
-  'Fulham FC': 'Fulham',
-  'Leeds United FC': 'Leeds',
-  'Liverpool FC': 'Liverpool',
-  'Manchester City FC': 'Man City',
-  'Manchester United FC': 'Man Utd',
-  'Newcastle United FC': 'Newcastle',
-  'Nottingham Forest FC': "Nott'm Forest",
-  'Sunderland AFC': 'Sunderland',
-  'Tottenham Hotspur FC': 'Spurs',
-  'West Ham United FC': 'West Ham',
-  'Wolverhampton Wanderers FC': 'Wolves',
-}
-
-function abbr(name: string) {
-  return TEAM_NAMES[name] ?? name.replace(' FC', '').replace(' AFC', '')
-}
-
 export default function LeaderboardPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
@@ -69,9 +45,11 @@ export default function LeaderboardPage() {
   const [pickDetails, setPickDetails] = useState<Record<string, PickDetail[]>>({})
   const [matchEvents, setMatchEvents] = useState<any[]>([])
   const [potwUserId, setPotwUserId] = useState<string | null>(null)
-  const [allTeams, setAllTeams] = useState<{ id: number; name: string }[]>([])
+  const [allTeams, setAllTeams] = useState<{ id: number; name: string; short_name: string | null }[]>([])
+  const [teamMap, setTeamMap] = useState<Record<number, { name: string; short_name: string | null }>>({})
   const [usedTeamsByPlayer, setUsedTeamsByPlayer] = useState<Record<string, Record<number, number>>>({})
   const [doubleUseByPlayer, setDoubleUseByPlayer] = useState<Record<string, number[]>>({})
+  const [avgByGw, setAvgByGw] = useState<Record<number, number>>({})
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
@@ -99,9 +77,9 @@ export default function LeaderboardPage() {
     const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: picks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }] = await Promise.all([
       supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id).eq('removed', false),
       supabase.from('profiles').select('id, display_name'),
-      supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown').eq('competition_id', comp.id),
+      supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
       supabase.from('picks').select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('competition_id', comp.id),
-      supabase.from('teams').select('id, name'),
+      supabase.from('teams').select('id, name, short_name'),
       supabase.from('players').select('id, name'),
       supabase.from('gameweeks').select('id, number').eq('competition_id', comp.id),
       supabase.from('match_events').select('player_id, event_type'),
@@ -114,8 +92,9 @@ export default function LeaderboardPage() {
     const profileMap: Record<string, string> = {}
     profiles?.forEach(p => { profileMap[p.id] = p.display_name ?? 'Unknown' })
 
-    const teamMap: Record<number, string> = {}
-    teams?.forEach(t => { teamMap[t.id] = t.name })
+    const tMap: Record<number, { name: string; short_name: string | null }> = {}
+    teams?.forEach(t => { tMap[t.id] = { name: t.name, short_name: t.short_name } })
+    setTeamMap(tMap)
 
     const playerMap: Record<number, string> = {}
     players?.forEach(p => { playerMap[p.id] = p.name })
@@ -140,6 +119,21 @@ export default function LeaderboardPage() {
     })
     setUsedTeamsByPlayer(usedMap)
 
+    const gwPointsMap: Record<string, Record<string, number>> = {}
+    pointsData?.forEach(p => {
+      if (!gwPointsMap[p.gameweek_id]) gwPointsMap[p.gameweek_id] = {}
+      gwPointsMap[p.gameweek_id][p.user_id] = p.total_points ?? 0
+    })
+
+    const avgMap: Record<number, number> = {}
+    Object.entries(gwPointsMap).forEach(([gwId, userPts]) => {
+      const vals = Object.values(userPts)
+      if (vals.length > 0) {
+        avgMap[gwMap[gwId]] = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length)
+      }
+    })
+    setAvgByGw(avgMap)
+
     const totals: Record<string, RankedPlayer> = {}
 
     entries?.forEach(entry => {
@@ -154,7 +148,8 @@ export default function LeaderboardPage() {
         banker_points: 0,
         total_points: 0,
         points_without_banker: 0,
-        goals: 0
+        goals: 0,
+        weekly_points: []
       }
     })
 
@@ -179,6 +174,9 @@ export default function LeaderboardPage() {
 
       if (breakdown?.team?.includes('home_win')) t.home_wins += 1
       if (breakdown?.team?.includes('away_win')) t.away_wins += 1
+
+      const gwNum = gwMap[p.gameweek_id]
+      if (gwNum) t.weekly_points[gwNum] = p.total_points ?? 0
     })
 
     const rankedList = Object.values(totals).sort((a, b) => {
@@ -196,9 +194,11 @@ export default function LeaderboardPage() {
     picks?.forEach(pick => {
       if (!details[pick.user_id]) details[pick.user_id] = []
       const pts = pointsByPickId[pick.id]
+      const team = tMap[pick.team_id]
       details[pick.user_id].push({
         gw: gwMap[pick.gameweek_id] ?? 0,
-        team: teamMap[pick.team_id] ?? 'Unknown',
+        team_id: pick.team_id,
+        team: team?.name ?? 'Unknown',
         player1: playerMap[pick.player1_id] ?? 'Unknown',
         player2: playerMap[pick.player2_id] ?? 'Unknown',
         player1_id: pick.player1_id,
@@ -224,10 +224,23 @@ export default function LeaderboardPage() {
     return parts.length > 1 ? `${parts[0][0]}. ${parts[parts.length - 1]}` : name
   }
 
+  function getStreak(player: RankedPlayer) {
+    const weeks = Object.keys(avgByGw).map(Number).sort((a, b) => b - a)
+    if (weeks.length < 2) return null
+    let streak = 0
+    for (const gw of weeks) {
+      const playerPts = player.weekly_points[gw]
+      const avg = avgByGw[gw]
+      if (playerPts === undefined || avg === undefined) break
+      if (playerPts > avg) streak++
+      else break
+    }
+    return streak >= 3 ? streak : null
+  }
+
   function getAvailableTeams(userId: string) {
     const used = usedTeamsByPlayer[userId] ?? {}
     const doubleUse = doubleUseByPlayer[userId] ?? []
-
     return allTeams
       .map(team => {
         const usedCount = used[team.id] ?? 0
@@ -236,7 +249,11 @@ export default function LeaderboardPage() {
         return { ...team, remaining, isDouble: doubleUse.includes(team.id) }
       })
       .filter(team => team.remaining > 0)
-      .sort((a, b) => abbr(a.name).localeCompare(abbr(b.name)))
+      .sort((a, b) => {
+        const nameA = a.short_name ?? a.name
+        const nameB = b.short_name ?? b.name
+        return nameA.localeCompare(nameB)
+      })
   }
 
   if (loading) {
@@ -288,6 +305,7 @@ export default function LeaderboardPage() {
           </thead>
           <tbody>
             {ranked.map((player, index) => {
+              const streak = getStreak(player)
               const availableTeams = getAvailableTeams(player.user_id)
               return (
                 <React.Fragment key={player.user_id}>
@@ -299,6 +317,7 @@ export default function LeaderboardPage() {
                     <td className="py-2 px-2 font-bold uppercase">
                       {player.display_name}
                       {index === 0 && <span className="ml-1">👑</span>}
+                      {streak && <span className="ml-1" title={`${streak} weeks above average`}>🔥</span>}
                       <span className="ml-1 text-gray-300" style={{ fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                     </td>
                     <td className="py-2 px-2 text-center text-gray-600">{player.home_wins}</td>
@@ -311,7 +330,6 @@ export default function LeaderboardPage() {
                   {expandedUser === player.user_id && (
                     <tr>
                       <td colSpan={8} className="bg-gray-50 px-2 py-3">
-
                         {(!pickDetails[player.user_id] || pickDetails[player.user_id].length === 0) ? (
                           <p className="text-gray-400 mb-3" style={{ fontSize: '10px' }}>No picks yet.</p>
                         ) : (
@@ -333,7 +351,7 @@ export default function LeaderboardPage() {
                                 <tr key={i} className="border-b last:border-0">
                                   <td className="py-1 pr-1 font-bold">{d.gw}</td>
                                   <td className="py-1 pr-1 uppercase">
-                                    {abbr(d.team)}
+                                    {abbrFromMap(teamMap, d.team_id)}
                                     {d.is_banker && <span className="ml-0.5 bg-yellow-400 text-black px-0.5 rounded font-bold">★</span>}
                                     {d.is_autopick && <span className="ml-0.5 bg-gray-200 text-gray-500 px-0.5 rounded">A</span>}
                                   </td>
@@ -369,9 +387,8 @@ export default function LeaderboardPage() {
                                 <span
                                   key={team.id}
                                   className="bg-white border rounded px-1.5 py-0.5 uppercase"
-                                  style={{ fontSize: '9px' }}
                                 >
-                                  {abbr(team.name)}
+                                  {team.short_name ?? team.name}
                                   {team.isDouble && team.remaining === 2 && (
                                     <span className="ml-0.5 text-yellow-600 font-bold">(x2)</span>
                                   )}
@@ -380,7 +397,6 @@ export default function LeaderboardPage() {
                             </div>
                           )}
                         </div>
-
                       </td>
                     </tr>
                   )}
@@ -396,9 +412,18 @@ export default function LeaderboardPage() {
         </table>
       </div>
 
-      <p className="mt-3 uppercase tracking-wider text-gray-400" style={{ fontSize: '10px' }}>
-        HW/AW = home/away wins. Bk = banker bonus. Click any row to expand.
-      </p>
+      <div className="mt-3 uppercase tracking-wider text-gray-400" style={{ fontSize: '10px' }}>
+        <span className="font-bold mr-2">Key:</span>
+        👑 Leader
+        <span className="mx-2">·</span>
+        🔥 On a streak (3+ weeks above average)
+        <span className="mx-2">·</span>
+        HW/AW = home/away wins
+        <span className="mx-2">·</span>
+        Bk = banker bonus
+        <span className="mx-2">·</span>
+        Click any row to expand
+      </div>
 
     </Shell>
   )

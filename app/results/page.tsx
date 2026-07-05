@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
+import { abbrFromMap } from '../lib/teams'
 
 type Gameweek = {
   id: string
@@ -36,33 +37,6 @@ type MatchEvent = {
   event_type: string
 }
 
-const TEAM_NAMES: Record<string, string> = {
-  'Arsenal FC': 'Arsenal',
-  'Aston Villa FC': 'Aston Villa',
-  'AFC Bournemouth': 'Bournemouth',
-  'Brentford FC': 'Brentford',
-  'Brighton & Hove Albion FC': 'Brighton',
-  'Burnley FC': 'Burnley',
-  'Chelsea FC': 'Chelsea',
-  'Crystal Palace FC': 'Crystal Palace',
-  'Everton FC': 'Everton',
-  'Fulham FC': 'Fulham',
-  'Leeds United FC': 'Leeds',
-  'Liverpool FC': 'Liverpool',
-  'Manchester City FC': 'Man City',
-  'Manchester United FC': 'Man Utd',
-  'Newcastle United FC': 'Newcastle',
-  'Nottingham Forest FC': "Nott'm Forest",
-  'Sunderland AFC': 'Sunderland',
-  'Tottenham Hotspur FC': 'Spurs',
-  'West Ham United FC': 'West Ham',
-  'Wolverhampton Wanderers FC': 'Wolves',
-}
-
-function abbr(name: string) {
-  return TEAM_NAMES[name] ?? name.replace(' FC', '').replace(' AFC', '')
-}
-
 export default function ResultsPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
@@ -73,8 +47,9 @@ export default function ResultsPage() {
   const [pointsData, setPointsData] = useState<PointsRow[]>([])
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
   const [profiles, setProfiles] = useState<Record<string, string>>({})
-  const [teams, setTeams] = useState<Record<number, string>>({})
+  const [teams, setTeams] = useState<Record<number, { name: string; short_name: string | null }>>({})
   const [players, setPlayers] = useState<Record<number, string>>({})
+  const [quartileMap, setQuartileMap] = useState<Record<number, number>>({})
   const [potwUserId, setPotwUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingPicks, setLoadingPicks] = useState(false)
@@ -104,25 +79,30 @@ export default function ResultsPage() {
 
     const now = new Date()
 
-    const [{ data: gws }, { data: profilesData }, { data: teamsData }, { data: playersData }] = await Promise.all([
+    const [{ data: gws }, { data: profilesData }, { data: teamsData }, { data: playersData }, { data: quartilesData }] = await Promise.all([
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).lt('deadline', now.toISOString()).order('number', { ascending: true }),
       supabase.from('profiles').select('id, display_name'),
-      supabase.from('teams').select('id, name'),
-      supabase.from('players').select('id, name')
+      supabase.from('teams').select('id, name, short_name'),
+      supabase.from('players').select('id, name'),
+      supabase.from('tier_assignments').select('team_id, tier').eq('competition_id', comp.id)
     ])
 
     const profileMap: Record<string, string> = {}
     profilesData?.forEach(p => { profileMap[p.id] = p.display_name ?? 'Unknown' })
 
-    const teamMap: Record<number, string> = {}
-    teamsData?.forEach(t => { teamMap[t.id] = t.name })
+    const teamMap: Record<number, { name: string; short_name: string | null }> = {}
+    teamsData?.forEach(t => { teamMap[t.id] = { name: t.name, short_name: t.short_name } })
 
     const playerMap: Record<number, string> = {}
     playersData?.forEach(p => { playerMap[p.id] = p.name })
 
+    const qMap: Record<number, number> = {}
+    quartilesData?.forEach(q => { qMap[q.team_id] = q.tier })
+
     setProfiles(profileMap)
     setTeams(teamMap)
     setPlayers(playerMap)
+    setQuartileMap(qMap)
     setGameweeks(gws ?? [])
 
     if (gws && gws.length > 0) {
@@ -180,6 +160,36 @@ export default function ResultsPage() {
     const parts = full.split(' ')
     return parts.length > 1 ? `${parts[0][0]}. ${parts[parts.length - 1]}` : full
   }
+
+  function getBoldestPick() {
+    let boldest: Pick | null = null
+    let highestQ = -1
+    picks.forEach(pick => {
+      const q = quartileMap[pick.team_id] ?? 0
+      if (q > highestQ) { highestQ = q; boldest = pick }
+    })
+    return boldest
+  }
+
+  function getSafestPick() {
+    let safest: Pick | null = null
+    let lowestQ = 99
+    picks.forEach(pick => {
+      const q = quartileMap[pick.team_id] ?? 99
+      if (q < lowestQ) { lowestQ = q; safest = pick }
+    })
+    return safest
+  }
+
+  function getContrarianPicks() {
+    const teamCounts: Record<number, number> = {}
+    picks.forEach(p => { teamCounts[p.team_id] = (teamCounts[p.team_id] || 0) + 1 })
+    return picks.filter(p => teamCounts[p.team_id] === 1)
+  }
+
+  const boldest = getBoldestPick()
+  const safest = getSafestPick()
+  const contrarians = getContrarianPicks()
 
   if (loading) {
     return (
@@ -257,73 +267,98 @@ export default function ResultsPage() {
               <p className="text-gray-400 text-sm uppercase tracking-wider">No picks for this gameweek.</p>
             </div>
           ) : (
-            <div className="bg-white border rounded-lg overflow-hidden">
-              <table className="w-full" style={{ fontSize: '10px' }}>
-                <thead>
-                  <tr className="text-left border-b bg-gray-50 uppercase tracking-wider text-gray-500" style={{ fontSize: '9px' }}>
-                    <th className="py-2 px-2">Player</th>
-                    <th className="py-2 px-2">Team</th>
-                    <th className="py-2 px-2">P1</th>
-                    <th className="py-2 px-2">P2</th>
-                    {isScored && (
-                      <>
-                        <th className="py-2 px-1 text-right">Tm</th>
-                        <th className="py-2 px-1 text-right">P1</th>
-                        <th className="py-2 px-1 text-right">P2</th>
-                        <th className="py-2 px-1 text-right font-bold">Tot</th>
-                      </>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedPicks.map((pick, i) => {
-                    const pts = pointsMap[pick.id]
-                    const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
+            <>
+              <div className="bg-white border rounded-lg overflow-hidden mb-3">
+                <table className="w-full" style={{ fontSize: '10px' }}>
+                  <thead>
+                    <tr className="text-left border-b bg-gray-50 uppercase tracking-wider text-gray-500" style={{ fontSize: '9px' }}>
+                      <th className="py-2 px-2">Player</th>
+                      <th className="py-2 px-2">Team</th>
+                      <th className="py-2 px-2">P1</th>
+                      <th className="py-2 px-2">P2</th>
+                      <th className="py-2 px-2">Flags</th>
+                      {isScored && (
+                        <>
+                          <th className="py-2 px-1 text-right">Tm</th>
+                          <th className="py-2 px-1 text-right">P1</th>
+                          <th className="py-2 px-1 text-right">P2</th>
+                          <th className="py-2 px-1 text-right font-bold">Tot</th>
+                        </>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedPicks.map((pick, i) => {
+                      const pts = pointsMap[pick.id]
+                      const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
+                      const isBoldest = boldest?.id === pick.id
+                      const isSafest = safest?.id === pick.id && !isBoldest
+                      const isContrarian = contrarians.some(c => c.id === pick.id)
 
-                    return (
-                      <tr key={pick.id} className={`border-b last:border-0 ${isWinner ? 'bg-yellow-50' : ''}`}>
-                        <td className="py-1.5 px-2 font-bold uppercase">
-                          <div className="flex items-center gap-0.5">
-                            {profiles[pick.user_id] ?? 'Unknown'}
-                            {isWinner && <span>⭐</span>}
-                            {pick.is_autopick && <span className="bg-gray-200 text-gray-500 px-0.5 rounded" style={{ fontSize: '8px' }}>A</span>}
-                          </div>
-                        </td>
-                        <td className="py-1.5 px-2 uppercase">
-                          <div className="flex items-center gap-0.5">
-                            {abbr(teams[pick.team_id] ?? '')}
-                            {pick.is_banker && <span className="bg-yellow-400 text-black font-bold px-0.5 rounded" style={{ fontSize: '8px' }}>★B</span>}
-                          </div>
-                        </td>
-                        <td className="py-1.5 px-2 uppercase">
-                          {shortName(pick.player1_id, players)}
-                          {goalPlayers.has(pick.player1_id) && ' ⚽'}
-                          {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
-                        </td>
-                        <td className="py-1.5 px-2 uppercase">
-                          {shortName(pick.player2_id, players)}
-                          {goalPlayers.has(pick.player2_id) && ' ⚽'}
-                          {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
-                        </td>
-                        {isScored && (
-                          <>
-                            <td className="py-1.5 px-1 text-right text-gray-500">{pts?.team_points ?? '—'}</td>
-                            <td className="py-1.5 px-1 text-right text-gray-500">{pts?.player1_points ?? '—'}</td>
-                            <td className="py-1.5 px-1 text-right text-gray-500">{pts?.player2_points ?? '—'}</td>
-                            <td className="py-1.5 px-1 text-right font-bold">{pts?.total_points ?? '—'}</td>
-                          </>
-                        )}
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-              {isScored && (
+                      return (
+                        <tr key={pick.id} className={`border-b last:border-0 ${isWinner ? 'bg-yellow-50' : ''}`}>
+                          <td className="py-1.5 px-2 font-bold uppercase">
+                            <div className="flex items-center gap-0.5">
+                              {profiles[pick.user_id] ?? 'Unknown'}
+                              {isWinner && <span>⭐</span>}
+                              {pick.is_autopick && <span className="bg-gray-200 text-gray-500 px-0.5 rounded" style={{ fontSize: '8px' }}>A</span>}
+                            </div>
+                          </td>
+                          <td className="py-1.5 px-2 uppercase">
+                            <div className="flex items-center gap-0.5">
+                              {abbrFromMap(teams, pick.team_id)}
+                              {pick.is_banker && <span className="bg-yellow-400 text-black font-bold px-0.5 rounded" style={{ fontSize: '8px' }}>★B</span>}
+                            </div>
+                          </td>
+                          <td className="py-1.5 px-2 uppercase">
+                            {shortName(pick.player1_id, players)}
+                            {goalPlayers.has(pick.player1_id) && ' ⚽'}
+                            {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
+                          </td>
+                          <td className="py-1.5 px-2 uppercase">
+                            {shortName(pick.player2_id, players)}
+                            {goalPlayers.has(pick.player2_id) && ' ⚽'}
+                            {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
+                          </td>
+                          <td className="py-1.5 px-2">
+                            <div className="flex gap-0.5">
+                              {isBoldest && <span title="Boldest Pick">🎲</span>}
+                              {isSafest && <span title="Safe Hands">🛡️</span>}
+                              {isContrarian && <span title="Contrarian">🦄</span>}
+                            </div>
+                          </td>
+                          {isScored && (
+                            <>
+                              <td className="py-1.5 px-1 text-right text-gray-500">{pts?.team_points ?? '—'}</td>
+                              <td className="py-1.5 px-1 text-right text-gray-500">{pts?.player1_points ?? '—'}</td>
+                              <td className="py-1.5 px-1 text-right text-gray-500">{pts?.player2_points ?? '—'}</td>
+                              <td className="py-1.5 px-1 text-right font-bold">{pts?.total_points ?? '—'}</td>
+                            </>
+                          )}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+
                 <div className="px-3 py-2 border-t bg-gray-50 uppercase tracking-wider text-gray-400" style={{ fontSize: '9px' }}>
-                  ★B = Banker. ⚽ = Goal. A = Assist. Tm/P1/P2 = points breakdown.
+                  <span className="font-bold mr-2">Key:</span>
+                  ⭐ GW Winner
+                  <span className="mx-2">·</span>
+                  🎲 Boldest Pick
+                  <span className="mx-2">·</span>
+                  🛡️ Safe Hands
+                  <span className="mx-2">·</span>
+                  🦄 Contrarian
+                  <span className="mx-2">·</span>
+                  ⚽ Goal
+                  <span className="mx-2">·</span>
+                  <span className="bg-green-100 text-green-700 px-0.5 rounded font-bold">A</span> Assist
+                  <span className="mx-2">·</span>
+                  <span className="bg-yellow-400 text-black px-0.5 rounded font-bold">★B</span> Banker
                 </div>
-              )}
-            </div>
+              </div>
+            </>
           )}
         </>
       )}

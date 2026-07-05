@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  const { gameweek_id, competition_id, team_id, player1_id, player2_id, is_banker } = await request.json()
+  const { gameweek_id, competition_id, team_id, player1_id, player2_id, is_banker, question_answer } = await request.json()
 
   if (player1_id === player2_id) {
     return NextResponse.json({ error: 'Please pick two different players' }, { status: 400 })
@@ -110,7 +110,8 @@ export async function POST(request: Request) {
         player2_id,
         is_banker,
         is_autopick: false,
-        submitted_at: new Date().toISOString()
+        submitted_at: new Date().toISOString(),
+        question_answer: question_answer ?? null
       })
       .eq('id', existingPick.id)
     error = updateError
@@ -125,7 +126,8 @@ export async function POST(request: Request) {
         player1_id,
         player2_id,
         is_banker,
-        is_autopick: false
+        is_autopick: false,
+        question_answer: question_answer ?? null
       })
     error = insertError
   }
