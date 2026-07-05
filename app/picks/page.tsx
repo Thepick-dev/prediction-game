@@ -636,26 +636,26 @@ export default function PicksPage() {
         {historyPicks.length === 0 ? (
           <p className="text-gray-400 text-sm p-6 uppercase tracking-wider">No picks made yet.</p>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full" style={{ fontSize: '11px' }}>
             <thead>
-              <tr className="text-left text-gray-500 border-b bg-gray-50 text-xs uppercase tracking-wider">
-                <th className="py-2 px-4">GW</th>
-                <th className="py-2 px-4">Team</th>
-                <th className="py-2 px-4">Players</th>
-                <th className="py-2 px-4 text-right">Points</th>
+              <tr className="text-left text-gray-500 border-b bg-gray-50 uppercase tracking-wider" style={{ fontSize: '10px' }}>
+                <th className="py-2 px-2">GW</th>
+                <th className="py-2 px-2">Team</th>
+                <th className="py-2 px-2">Players</th>
+                <th className="py-2 px-2 text-right">Pts</th>
               </tr>
             </thead>
             <tbody>
               {historyPicks.map((pick: any) => (
                 <tr key={pick.id} className="border-b last:border-0">
-                  <td className="py-2 px-4 font-bold">{pick.gameweeks?.number}</td>
-                  <td className="py-2 px-4 uppercase">
+                  <td className="py-2 px-2 font-bold">{pick.gameweeks?.number}</td>
+                  <td className="py-2 px-2 uppercase">
                     {teamAbbr(getTeam(pick.team_id))}
-                    {pick.is_banker && <span className="ml-2 text-xs bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded">BANKER</span>}
-                    {pick.is_autopick && <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">AUTO</span>}
+                    {pick.is_banker && <span className="ml-1 text-xs bg-yellow-200 text-yellow-800 px-1 py-0.5 rounded">B</span>}
+                    {pick.is_autopick && <span className="ml-1 text-xs bg-gray-200 text-gray-600 px-1 py-0.5 rounded">A</span>}
                   </td>
-                  <td className="py-2 px-4 text-gray-500 uppercase text-xs">{playerName(pick.player1_id)} & {playerName(pick.player2_id)}</td>
-                  <td className="py-2 px-4 text-right font-bold">{pointsByPick[pick.id] ?? '—'}</td>
+                  <td className="py-2 px-2 text-gray-500 uppercase" style={{ fontSize: '10px' }}>{playerName(pick.player1_id)} & {playerName(pick.player2_id)}</td>
+                  <td className="py-2 px-2 text-right font-bold">{pointsByPick[pick.id] ?? '—'}</td>
                 </tr>
               ))}
             </tbody>

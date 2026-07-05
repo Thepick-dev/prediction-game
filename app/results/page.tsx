@@ -276,7 +276,6 @@ export default function ResultsPage() {
                       <th className="py-2 px-2">Team</th>
                       <th className="py-2 px-2">P1</th>
                       <th className="py-2 px-2">P2</th>
-                      <th className="py-2 px-2">Flags</th>
                       {isScored && (
                         <>
                           <th className="py-2 px-1 text-right">Tm</th>
@@ -298,9 +297,12 @@ export default function ResultsPage() {
                       return (
                         <tr key={pick.id} className={`border-b last:border-0 ${isWinner ? 'bg-yellow-50' : ''}`}>
                           <td className="py-1.5 px-2 font-bold uppercase">
-                            <div className="flex items-center gap-0.5">
+                            <div className="flex items-center gap-0.5 flex-wrap">
                               {profiles[pick.user_id] ?? 'Unknown'}
                               {isWinner && <span>⭐</span>}
+                              {isBoldest && <span title="Boldest Pick">🎲</span>}
+                              {isSafest && <span title="Safe Hands">🛡️</span>}
+                              {isContrarian && <span title="Contrarian">🦄</span>}
                               {pick.is_autopick && <span className="bg-gray-200 text-gray-500 px-0.5 rounded" style={{ fontSize: '8px' }}>A</span>}
                             </div>
                           </td>
@@ -319,13 +321,6 @@ export default function ResultsPage() {
                             {shortName(pick.player2_id, players)}
                             {goalPlayers.has(pick.player2_id) && ' ⚽'}
                             {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
-                          </td>
-                          <td className="py-1.5 px-2">
-                            <div className="flex gap-0.5">
-                              {isBoldest && <span title="Boldest Pick">🎲</span>}
-                              {isSafest && <span title="Safe Hands">🛡️</span>}
-                              {isContrarian && <span title="Contrarian">🦄</span>}
-                            </div>
                           </td>
                           {isScored && (
                             <>

@@ -382,17 +382,17 @@ export default function LeaderboardPage() {
                           {availableTeams.length === 0 ? (
                             <p className="text-gray-400">No teams remaining.</p>
                           ) : (
-                            <div className="flex flex-wrap gap-1">
+                            <div className="grid grid-cols-4 gap-1">
                               {availableTeams.map(team => (
-                                <span
+                                <div
                                   key={team.id}
-                                  className="bg-white border rounded px-1.5 py-0.5 uppercase"
+                                  className="bg-white border rounded px-1.5 py-1 uppercase text-center"
                                 >
                                   {team.short_name ?? team.name}
                                   {team.isDouble && team.remaining === 2 && (
                                     <span className="ml-0.5 text-yellow-600 font-bold">(x2)</span>
                                   )}
-                                </span>
+                                </div>
                               ))}
                             </div>
                           )}
