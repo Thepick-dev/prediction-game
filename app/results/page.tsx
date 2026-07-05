@@ -12,7 +12,7 @@ type Gameweek = {
   status: string
 }
 
-type Pick = {
+type PickRow = {
   id: string
   user_id: string
   team_id: number
@@ -43,7 +43,7 @@ export default function ResultsPage() {
   const [competition, setCompetition] = useState<any>(null)
   const [gameweeks, setGameweeks] = useState<Gameweek[]>([])
   const [selectedGw, setSelectedGw] = useState<string | null>(null)
-  const [picks, setPicks] = useState<Pick[]>([])
+  const [picks, setPicks] = useState<PickRow[]>([])
   const [pointsData, setPointsData] = useState<PointsRow[]>([])
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
   const [profiles, setProfiles] = useState<Record<string, string>>({})
@@ -161,8 +161,8 @@ export default function ResultsPage() {
     return parts.length > 1 ? `${parts[0][0]}. ${parts[parts.length - 1]}` : full
   }
 
-  function getBoldestPick() {
-    let boldest: Pick | null = null
+  function getBoldestPick(): PickRow | null {
+    let boldest: PickRow | null = null
     let highestQ = -1
     picks.forEach(pick => {
       const q = quartileMap[pick.team_id] ?? 0
@@ -171,8 +171,8 @@ export default function ResultsPage() {
     return boldest
   }
 
-  function getSafestPick() {
-    let safest: Pick | null = null
+  function getSafestPick(): PickRow | null {
+    let safest: PickRow | null = null
     let lowestQ = 99
     picks.forEach(pick => {
       const q = quartileMap[pick.team_id] ?? 99
@@ -181,7 +181,7 @@ export default function ResultsPage() {
     return safest
   }
 
-  function getContrarianPicks() {
+  function getContrarianPicks(): PickRow[] {
     const teamCounts: Record<number, number> = {}
     picks.forEach(p => { teamCounts[p.team_id] = (teamCounts[p.team_id] || 0) + 1 })
     return picks.filter(p => teamCounts[p.team_id] === 1)

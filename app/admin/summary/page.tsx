@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
-import { abbr } from '../../lib/teams'
+import { abbrFromMap } from '../../lib/teams'
 
-type Pick = {
+type PickRow = {
   id: string
   user_id: string
   team_id: number
@@ -27,9 +27,9 @@ export default function AdminSummaryPage() {
   const [competition, setCompetition] = useState<any>(null)
   const [gameweeks, setGameweeks] = useState<Gameweek[]>([])
   const [selectedGw, setSelectedGw] = useState<string>('')
-  const [picks, setPicks] = useState<Pick[]>([])
+  const [picks, setPicks] = useState<PickRow[]>([])
   const [profiles, setProfiles] = useState<Record<string, string>>({})
-  const [teams, setTeams] = useState<Record<number, string>>({})
+  const [teams, setTeams] = useState<Record<number, { name: string; short_name: string | null }>>({})
   const [players, setPlayers] = useState<Record<number, string>>({})
   const [quartileMap, setQuartileMap] = useState<Record<number, number>>({})
   const [question, setQuestion] = useState<any>(null)
@@ -53,13 +53,13 @@ export default function AdminSummaryPage() {
 
     const [{ data: gws }, { data: teamsData }, { data: playersData }, { data: quartilesData }] = await Promise.all([
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).order('number', { ascending: false }),
-      supabase.from('teams').select('id, name'),
+      supabase.from('teams').select('id, name, short_name'),
       supabase.from('players').select('id, name'),
       supabase.from('tier_assignments').select('team_id, tier').eq('competition_id', comp.id)
     ])
 
-    const teamMap: Record<number, string> = {}
-    teamsData?.forEach(t => { teamMap[t.id] = t.name })
+    const teamMap: Record<number, { name: string; short_name: string | null }> = {}
+    teamsData?.forEach(t => { teamMap[t.id] = { name: t.name, short_name: t.short_name } })
     setTeams(teamMap)
 
     const playerMap: Record<number, string> = {}
@@ -106,8 +106,8 @@ export default function AdminSummaryPage() {
     return null
   }
 
-  function getBoldestPick() {
-    let boldest: Pick | null = null
+  function getBoldestPick(): PickRow | null {
+    let boldest: PickRow | null = null
     let highestQ = -1
     picks.forEach(pick => {
       const q = quartileMap[pick.team_id] ?? 0
@@ -116,8 +116,8 @@ export default function AdminSummaryPage() {
     return boldest
   }
 
-  function getSafestPick() {
-    let safest: Pick | null = null
+  function getSafestPick(): PickRow | null {
+    let safest: PickRow | null = null
     let lowestQ = 99
     picks.forEach(pick => {
       const q = quartileMap[pick.team_id] ?? 99
@@ -126,13 +126,13 @@ export default function AdminSummaryPage() {
     return safest
   }
 
-  function getContrarianPicks() {
+  function getContrarianPicks(): PickRow[] {
     const teamCounts: Record<number, number> = {}
     picks.forEach(p => { teamCounts[p.team_id] = (teamCounts[p.team_id] || 0) + 1 })
     return picks.filter(p => teamCounts[p.team_id] === 1)
   }
 
-  function getEarliestPick() {
+  function getEarliestPick(): PickRow | null {
     if (picks.length === 0) return null
     return picks.reduce((earliest, pick) => {
       if (!pick.submitted_at) return earliest
@@ -231,7 +231,7 @@ export default function AdminSummaryPage() {
                         {profiles[pick.user_id] ?? 'Unknown'}
                       </td>
                       <td className="py-3 px-4 uppercase">
-                        {abbr(teams[pick.team_id] ?? '')}
+                        {abbrFromMap(teams, pick.team_id)}
                         {pick.is_banker && <span className="ml-1 bg-yellow-400 text-black text-xs font-bold px-1 rounded">★B</span>}
                         {pick.is_autopick && <span className="ml-1 bg-gray-200 text-gray-600 text-xs px-1 rounded">AUTO</span>}
                       </td>
@@ -295,10 +295,7 @@ export default function AdminSummaryPage() {
                           <span className="text-gray-500">{count} ({pct}%)</span>
                         </div>
                         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-black rounded-full"
-                            style={{ width: `${pct}%` }}
-                          />
+                          <div className="h-full bg-black rounded-full" style={{ width: `${pct}%` }} />
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5">
                           {picks.filter(p => p.question_answer === opt.key).map(p => profiles[p.user_id]).join(', ')}
