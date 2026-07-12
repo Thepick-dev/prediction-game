@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   const { data: picks } = await supabase
     .from('picks')
-    .select('id, user_id, team_id, player1_id, player2_id, is_banker, competition_id')
+    .select('id, user_id, team_id, fixture_id, player1_id, player2_id, is_banker, competition_id')
     .eq('gameweek_id', gameweek_id)
 
   if (!picks || picks.length === 0) {
@@ -66,10 +66,13 @@ export async function POST(request: Request) {
   const playerPointsMap: Record<string, number> = {}
   playerScoringRules?.forEach(r => { playerPointsMap[r.event_type] = r.points })
 
-  const fixtureMap: Record<number, any> = {}
+  const fixtureById: Record<number, any> = {}
+  fixtures?.forEach(f => { fixtureById[f.id] = f })
+
+  const fixtureByTeamId: Record<number, any> = {}
   fixtures?.forEach(f => {
-    if (f.home_team_id) fixtureMap[f.home_team_id] = f
-    if (f.away_team_id) fixtureMap[f.away_team_id] = f
+    if (f.home_team_id) fixtureByTeamId[f.home_team_id] = f
+    if (f.away_team_id) fixtureByTeamId[f.away_team_id] = f
   })
 
   const playerEventsMap: Record<number, { goals: number; assists: number }> = {}
@@ -82,8 +85,11 @@ export async function POST(request: Request) {
     if (event.event_type === 'assist') playerEventsMap[event.player_id].assists++
   })
 
-  function getTeamPoints(teamId: number): { points: number; breakdown: string } {
-    const fixture = fixtureMap[teamId]
+  function getTeamPoints(teamId: number, fixtureId: number | null): { points: number; breakdown: string } {
+    // Prefer the exact fixture the pick was made against. Fall back to team-based
+    // lookup only for old picks made before fixture_id existed.
+    const fixture = fixtureId ? fixtureById[fixtureId] : fixtureByTeamId[teamId]
+
     if (!fixture || fixture.home_score === null || fixture.away_score === null) {
       return { points: 0, breakdown: 'No result' }
     }
@@ -127,7 +133,7 @@ export async function POST(request: Request) {
   const pointsToUpsert = []
 
   for (const pick of picks) {
-    const teamResult = getTeamPoints(pick.team_id)
+    const teamResult = getTeamPoints(pick.team_id, pick.fixture_id)
     const player1Points = getPlayerPoints(pick.player1_id)
     const player2Points = getPlayerPoints(pick.player2_id)
 
