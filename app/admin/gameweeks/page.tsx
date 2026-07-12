@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { redirect } from 'next/navigation'
+import ConfirmDeleteButton from '../components/confirm-delete-button'
 
 export default async function GameweeksPage() {
   const supabase = await createServerSupabaseClient()
@@ -193,10 +194,11 @@ export default async function GameweeksPage() {
                         </select>
                         <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Set</button>
                       </form>
-                      <form action={deleteGameweek}>
-                        <input type="hidden" name="id" value={gw.id} />
-                        <button type="submit" className="text-xs bg-red-600 text-white rounded px-2 py-1">Delete</button>
-                      </form>
+                      <ConfirmDeleteButton
+                        action={deleteGameweek}
+                        hiddenFields={{ id: gw.id }}
+                        confirmText={`Delete GW${gw.number}?`}
+                      />
                     </div>
                   </div>
 
