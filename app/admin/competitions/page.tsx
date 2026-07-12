@@ -48,9 +48,6 @@ export default async function CompetitionsPage() {
     const supabase = await createServerSupabaseClient()
     const id = formData.get('id') as string
 
-    // Archive whatever is currently active first — the database has a hard
-    // constraint allowing only one active competition, so this must happen
-    // before the new one is activated or the update will fail.
     await supabase
       .from('competitions')
       .update({ status: 'archived' })
@@ -183,14 +180,7 @@ export default async function CompetitionsPage() {
                           </button>
                         </form>
                       )}
-                      <form
-                        action={deleteCompetition}
-                        onSubmit={(e) => {
-                          if (!confirm(`Delete "${comp.name}" permanently? This cannot be undone.`)) {
-                            e.preventDefault()
-                          }
-                        }}
-                      >
+                      <form action={deleteCompetition}>
                         <input type="hidden" name="id" value={comp.id} />
                         <button type="submit" className="text-xs bg-red-600 text-white rounded px-2 py-1">
                           Delete
