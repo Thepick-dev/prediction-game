@@ -84,7 +84,23 @@ export default async function GameweeksPage() {
   async function deleteGameweek(formData: FormData) {
     'use server'
     const supabase = await createServerSupabaseClient()
-    await supabase.from('gameweeks').delete().eq('id', formData.get('id') as string)
+    const id = formData.get('id') as string
+
+    // Delete everything that references this gameweek first, since the
+    // database blocks deleting a gameweek that still has picks/points/
+    // fixtures pointing at it.
+    await supabase.from('points').delete().eq('gameweek_id', id)
+    await supabase.from('picks').delete().eq('gameweek_id', id)
+    await supabase.from('gameweek_quartiles').delete().eq('gameweek_id', id)
+    await supabase.from('gameweek_questions').delete().eq('gameweek_id', id)
+    await supabase.from('fixtures').delete().eq('gameweek_id', id)
+
+    const { error } = await supabase.from('gameweeks').delete().eq('id', id)
+
+    if (error) {
+      console.error('Failed to delete gameweek:', error.message)
+    }
+
     redirect('/admin/gameweeks')
   }
 
@@ -183,7 +199,7 @@ export default async function GameweeksPage() {
                         {gw.status}
                       </span>
                     </div>
-                    <div className="flex gap-2 flex-wrap">
+                    <div className="flex gap-2 flex-wrap items-center">
                       <form action={updateStatus} className="flex gap-1">
                         <input type="hidden" name="id" value={gw.id} />
                         <select name="status" className="text-xs border rounded px-1 py-1">
@@ -197,7 +213,7 @@ export default async function GameweeksPage() {
                       <ConfirmDeleteButton
                         action={deleteGameweek}
                         hiddenFields={{ id: gw.id }}
-                        confirmText={`Delete GW${gw.number}?`}
+                        confirmText={`Delete GW${gw.number}? This removes all picks and points for this gameweek too.`}
                       />
                     </div>
                   </div>
@@ -263,18 +279,22 @@ export default async function GameweeksPage() {
                           className="border rounded px-3 py-2 text-sm"
                         />
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 items-center">
                         <button type="submit" className="text-xs bg-black text-white rounded px-3 py-1.5">
                           {existingQuestion ? 'Update Question' : 'Save Question'}
                         </button>
-                        {existingQuestion && (
-                          <form action={deleteQuestion}>
-                            <input type="hidden" name="id" value={existingQuestion.id} />
-                            <button type="submit" className="text-xs text-red-500 hover:text-red-700">Delete question</button>
-                          </form>
-                        )}
                       </div>
                     </form>
+                    {existingQuestion && (
+                      <div className="mt-2">
+                        <ConfirmDeleteButton
+                          action={deleteQuestion}
+                          hiddenFields={{ id: existingQuestion.id }}
+                          label="Delete question"
+                          confirmText="Delete this question?"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               )
