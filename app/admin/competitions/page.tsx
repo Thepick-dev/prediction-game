@@ -8,10 +8,10 @@ export default async function CompetitionsPage() {
     .select('*')
     .order('created_at', { ascending: false })
 
-async function createCompetition(formData: FormData) {
+  async function createCompetition(formData: FormData) {
     'use server'
     const supabase = await createServerSupabaseClient()
-    
+
     const { data: comp, error } = await supabase
       .from('competitions')
       .insert({
@@ -47,12 +47,35 @@ async function createCompetition(formData: FormData) {
     'use server'
     const supabase = await createServerSupabaseClient()
     const id = formData.get('id') as string
+
+    // Archive whatever is currently active first — the database has a hard
+    // constraint allowing only one active competition, so this must happen
+    // before the new one is activated or the update will fail.
+    await supabase
+      .from('competitions')
+      .update({ status: 'archived' })
+      .eq('status', 'active')
+
     await supabase
       .from('competitions')
       .update({ status: 'active' })
       .eq('id', id)
+
     redirect('/admin/competitions')
   }
+
+  async function deleteCompetition(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    const id = formData.get('id') as string
+    await supabase
+      .from('competitions')
+      .delete()
+      .eq('id', id)
+    redirect('/admin/competitions')
+  }
+
+  const hasActiveCompetition = competitions?.some(c => c.status === 'active') ?? false
 
   return (
     <div>
@@ -108,6 +131,11 @@ async function createCompetition(formData: FormData) {
 
       <div className="bg-white border rounded-lg p-6">
         <h2 className="font-bold mb-4">All Competitions</h2>
+        {hasActiveCompetition && (
+          <p className="text-xs text-gray-500 mb-4">
+            Only one competition can be active at a time. Activating a different one will automatically archive the current active competition.
+          </p>
+        )}
         {competitions && competitions.length > 0 ? (
           <table className="w-full text-sm">
             <thead>
@@ -137,23 +165,38 @@ async function createCompetition(formData: FormData) {
                   </td>
                   <td className="py-2">{comp.start_date ?? '—'}</td>
                   <td className="py-2">{comp.end_date ?? '—'}</td>
-                  <td className="py-2 flex gap-2">
-                    {comp.status === 'upcoming' && (
-                      <form action={activateCompetition}>
+                  <td className="py-2">
+                    <div className="flex gap-2 flex-wrap">
+                      {comp.status !== 'active' && (
+                        <form action={activateCompetition}>
+                          <input type="hidden" name="id" value={comp.id} />
+                          <button type="submit" className="text-xs bg-green-600 text-white rounded px-2 py-1">
+                            {comp.status === 'archived' ? 'Reactivate' : 'Activate'}
+                          </button>
+                        </form>
+                      )}
+                      {comp.status !== 'archived' && (
+                        <form action={archiveCompetition}>
+                          <input type="hidden" name="id" value={comp.id} />
+                          <button type="submit" className="text-xs bg-gray-600 text-white rounded px-2 py-1">
+                            Archive
+                          </button>
+                        </form>
+                      )}
+                      <form
+                        action={deleteCompetition}
+                        onSubmit={(e) => {
+                          if (!confirm(`Delete "${comp.name}" permanently? This cannot be undone.`)) {
+                            e.preventDefault()
+                          }
+                        }}
+                      >
                         <input type="hidden" name="id" value={comp.id} />
-                        <button type="submit" className="text-xs bg-green-600 text-white rounded px-2 py-1">
-                          Activate
+                        <button type="submit" className="text-xs bg-red-600 text-white rounded px-2 py-1">
+                          Delete
                         </button>
                       </form>
-                    )}
-                    {comp.status !== 'archived' && (
-                      <form action={archiveCompetition}>
-                        <input type="hidden" name="id" value={comp.id} />
-                        <button type="submit" className="text-xs bg-gray-600 text-white rounded px-2 py-1">
-                          Archive
-                        </button>
-                      </form>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}
