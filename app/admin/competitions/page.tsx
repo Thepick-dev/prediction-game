@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { redirect } from 'next/navigation'
+import ConfirmDeleteButton from '../components/confirm-delete-button'
 
 export default async function CompetitionsPage() {
   const supabase = await createServerSupabaseClient()
@@ -163,7 +164,7 @@ export default async function CompetitionsPage() {
                   <td className="py-2">{comp.start_date ?? '—'}</td>
                   <td className="py-2">{comp.end_date ?? '—'}</td>
                   <td className="py-2">
-                    <div className="flex gap-2 flex-wrap">
+                    <div className="flex gap-2 flex-wrap items-center">
                       {comp.status !== 'active' && (
                         <form action={activateCompetition}>
                           <input type="hidden" name="id" value={comp.id} />
@@ -180,12 +181,11 @@ export default async function CompetitionsPage() {
                           </button>
                         </form>
                       )}
-                      <form action={deleteCompetition}>
-                        <input type="hidden" name="id" value={comp.id} />
-                        <button type="submit" className="text-xs bg-red-600 text-white rounded px-2 py-1">
-                          Delete
-                        </button>
-                      </form>
+                      <ConfirmDeleteButton
+                        action={deleteCompetition}
+                        hiddenFields={{ id: comp.id }}
+                        confirmText={`Delete "${comp.name}" permanently?`}
+                      />
                     </div>
                   </td>
                 </tr>
