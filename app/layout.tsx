@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
-import { Bree_Serif, Lora, IBM_Plex_Mono } from 'next/font/google'
+import { Alfa_Slab_One, Lora, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 
-const breeSerif = Bree_Serif({
+const alfaSlabOne = Alfa_Slab_One({
   weight: '400',
   subsets: ['latin'],
   variable: '--font-heading',
@@ -23,7 +23,7 @@ const plexMono = IBM_Plex_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'The Coupon',
+  title: 'LMS All-Stars Predictions',
   description: 'The Premier League Prediction Game',
 }
 
@@ -33,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${breeSerif.variable} ${lora.variable} ${plexMono.variable}`}>
+    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable}`}>
       <body>{children}</body>
     </html>
   )
