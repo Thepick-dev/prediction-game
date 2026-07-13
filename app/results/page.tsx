@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
+import HeroPage from '../../components/HeroPage'
 import { abbrFromMap } from '../lib/teams'
 
 type Gameweek = {
@@ -210,154 +211,161 @@ export default function ResultsPage() {
 
   return (
     <Shell active="RESULTS" user={user} displayName={displayName}>
+      <HeroPage
+        desktopImage="/images/heroes/results-desktop.png"
+        mobileImage="/images/heroes/results-mobile.png"
+      >
+        <div className="w-full max-w-2xl">
 
-      <h1 className="text-3xl font-bold mb-1">Results</h1>
-      <p className="text-gray-500 mb-6 text-sm">{competition.name}</p>
+          <h1 className="text-3xl font-bold mb-1">Results</h1>
+          <p className="text-gray-500 mb-6 text-sm">{competition.name}</p>
 
-      {potwUserId && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-3">
-          <span className="text-xl">⭐</span>
-          <div>
-            <p className="text-xs text-yellow-700 font-bold uppercase tracking-wide">Season Leader</p>
-            <p className="font-bold uppercase">{profiles[potwUserId] ?? 'Unknown'}</p>
-          </div>
-        </div>
-      )}
-
-      {gameweeks.length === 0 ? (
-        <div className="bg-white border rounded-lg p-6">
-          <p className="text-gray-400 text-sm uppercase tracking-wider">No gameweeks have passed their deadline yet.</p>
-        </div>
-      ) : (
-        <>
-          <div className="mb-6">
-            <select
-              value={selectedGw ?? ''}
-              onChange={e => setSelectedGw(e.target.value)}
-              className="border rounded px-3 py-2 text-sm font-bold bg-white w-full md:w-auto uppercase"
-            >
-              {gameweeks.map(gw => (
-                <option key={gw.id} value={gw.id}>
-                  Gameweek {gw.number} — {gw.status === 'completed' ? 'Scored' : 'Awaiting scoring'}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {selectedGameweek && (
-            <div className="mb-4 flex items-center gap-3 flex-wrap">
-              <h2 className="text-lg font-bold uppercase">Gameweek {selectedGameweek.number}</h2>
-              <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
-                isScored ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-              }`}>
-                {isScored ? 'Scored' : 'Awaiting scoring'}
-              </span>
-              {isScored && gwPotwUserId && (
-                <span className="text-xs text-yellow-700 font-bold uppercase tracking-wider">
-                  ⭐ GW Winner: {profiles[gwPotwUserId]}
-                </span>
-              )}
+          {potwUserId && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-3">
+              <span className="text-xl">⭐</span>
+              <div>
+                <p className="text-xs text-yellow-700 font-bold uppercase tracking-wide">Season Leader</p>
+                <p className="font-bold uppercase">{profiles[potwUserId] ?? 'Unknown'}</p>
+              </div>
             </div>
           )}
 
-          {loadingPicks ? (
-            <p className="text-gray-400 text-sm uppercase tracking-wider">Loading picks...</p>
-          ) : sortedPicks.length === 0 ? (
+          {gameweeks.length === 0 ? (
             <div className="bg-white border rounded-lg p-6">
-              <p className="text-gray-400 text-sm uppercase tracking-wider">No picks for this gameweek.</p>
+              <p className="text-gray-400 text-sm uppercase tracking-wider">No gameweeks have passed their deadline yet.</p>
             </div>
           ) : (
             <>
-              <div className="bg-white border rounded-lg overflow-hidden mb-3">
-                <table className="w-full" style={{ fontSize: '10px' }}>
-                  <thead>
-                    <tr className="text-left border-b bg-gray-50 uppercase tracking-wider text-gray-500" style={{ fontSize: '9px' }}>
-                      <th className="py-2 px-2">Player</th>
-                      <th className="py-2 px-2">Team</th>
-                      <th className="py-2 px-2">P1</th>
-                      <th className="py-2 px-2">P2</th>
-                      {isScored && (
-                        <>
-                          <th className="py-2 px-1 text-right">Tm</th>
-                          <th className="py-2 px-1 text-right">P1</th>
-                          <th className="py-2 px-1 text-right">P2</th>
-                          <th className="py-2 px-1 text-right font-bold">Tot</th>
-                        </>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedPicks.map((pick, i) => {
-                      const pts = pointsMap[pick.id]
-                      const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
-                      const isBoldest = boldest?.id === pick.id
-                      const isSafest = safest?.id === pick.id && !isBoldest
-                      const isContrarian = contrarians.some(c => c.id === pick.id)
+              <div className="mb-6">
+                <select
+                  value={selectedGw ?? ''}
+                  onChange={e => setSelectedGw(e.target.value)}
+                  className="border rounded px-3 py-2 text-sm font-bold bg-white w-full md:w-auto uppercase"
+                >
+                  {gameweeks.map(gw => (
+                    <option key={gw.id} value={gw.id}>
+                      Gameweek {gw.number} — {gw.status === 'completed' ? 'Scored' : 'Awaiting scoring'}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                      return (
-                        <tr key={pick.id} className={`border-b last:border-0 ${isWinner ? 'bg-yellow-50' : ''}`}>
-                          <td className="py-1.5 px-2 font-bold uppercase">
-                            <div className="flex items-center gap-0.5 flex-wrap">
-                              {profiles[pick.user_id] ?? 'Unknown'}
-                              {isWinner && <span>⭐</span>}
-                              {isBoldest && <span title="Boldest Pick">🎲</span>}
-                              {isSafest && <span title="Safe Hands">🛡️</span>}
-                              {isContrarian && <span title="Contrarian">🦄</span>}
-                              {pick.is_autopick && <span className="bg-gray-200 text-gray-500 px-0.5 rounded" style={{ fontSize: '8px' }}>A</span>}
-                            </div>
-                          </td>
-                          <td className="py-1.5 px-2 uppercase">
-                            <div className="flex items-center gap-0.5">
-                              {abbrFromMap(teams, pick.team_id)}
-                              {pick.is_banker && <span className="bg-yellow-400 text-black font-bold px-0.5 rounded" style={{ fontSize: '8px' }}>★B</span>}
-                            </div>
-                          </td>
-                          <td className="py-1.5 px-2 uppercase">
-                            {shortName(pick.player1_id, players)}
-                            {goalPlayers.has(pick.player1_id) && ' ⚽'}
-                            {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
-                          </td>
-                          <td className="py-1.5 px-2 uppercase">
-                            {shortName(pick.player2_id, players)}
-                            {goalPlayers.has(pick.player2_id) && ' ⚽'}
-                            {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
-                          </td>
+              {selectedGameweek && (
+                <div className="mb-4 flex items-center gap-3 flex-wrap">
+                  <h2 className="text-lg font-bold uppercase">Gameweek {selectedGameweek.number}</h2>
+                  <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
+                    isScored ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                  }`}>
+                    {isScored ? 'Scored' : 'Awaiting scoring'}
+                  </span>
+                  {isScored && gwPotwUserId && (
+                    <span className="text-xs text-yellow-700 font-bold uppercase tracking-wider">
+                      ⭐ GW Winner: {profiles[gwPotwUserId]}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {loadingPicks ? (
+                <p className="text-gray-400 text-sm uppercase tracking-wider">Loading picks...</p>
+              ) : sortedPicks.length === 0 ? (
+                <div className="bg-white border rounded-lg p-6">
+                  <p className="text-gray-400 text-sm uppercase tracking-wider">No picks for this gameweek.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-white border rounded-lg overflow-hidden mb-3">
+                    <table className="w-full" style={{ fontSize: '10px' }}>
+                      <thead>
+                        <tr className="text-left border-b bg-gray-50 uppercase tracking-wider text-gray-500" style={{ fontSize: '9px' }}>
+                          <th className="py-2 px-2">Player</th>
+                          <th className="py-2 px-2">Team</th>
+                          <th className="py-2 px-2">P1</th>
+                          <th className="py-2 px-2">P2</th>
                           {isScored && (
                             <>
-                              <td className="py-1.5 px-1 text-right text-gray-500">{pts?.team_points ?? '—'}</td>
-                              <td className="py-1.5 px-1 text-right text-gray-500">{pts?.player1_points ?? '—'}</td>
-                              <td className="py-1.5 px-1 text-right text-gray-500">{pts?.player2_points ?? '—'}</td>
-                              <td className="py-1.5 px-1 text-right font-bold">{pts?.total_points ?? '—'}</td>
+                              <th className="py-2 px-1 text-right">Tm</th>
+                              <th className="py-2 px-1 text-right">P1</th>
+                              <th className="py-2 px-1 text-right">P2</th>
+                              <th className="py-2 px-1 text-right font-bold">Tot</th>
                             </>
                           )}
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {sortedPicks.map((pick, i) => {
+                          const pts = pointsMap[pick.id]
+                          const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
+                          const isBoldest = boldest?.id === pick.id
+                          const isSafest = safest?.id === pick.id && !isBoldest
+                          const isContrarian = contrarians.some(c => c.id === pick.id)
 
-                <div className="px-3 py-2 border-t bg-gray-50 uppercase tracking-wider text-gray-400" style={{ fontSize: '9px' }}>
-                  <span className="font-bold mr-2">Key:</span>
-                  ⭐ GW Winner
-                  <span className="mx-2">·</span>
-                  🎲 Boldest Pick
-                  <span className="mx-2">·</span>
-                  🛡️ Safe Hands
-                  <span className="mx-2">·</span>
-                  🦄 Contrarian
-                  <span className="mx-2">·</span>
-                  ⚽ Goal
-                  <span className="mx-2">·</span>
-                  <span className="bg-green-100 text-green-700 px-0.5 rounded font-bold">A</span> Assist
-                  <span className="mx-2">·</span>
-                  <span className="bg-yellow-400 text-black px-0.5 rounded font-bold">★B</span> Banker
-                </div>
-              </div>
+                          return (
+                            <tr key={pick.id} className={`border-b last:border-0 ${isWinner ? 'bg-yellow-50' : ''}`}>
+                              <td className="py-1.5 px-2 font-bold uppercase">
+                                <div className="flex items-center gap-0.5 flex-wrap">
+                                  {profiles[pick.user_id] ?? 'Unknown'}
+                                  {isWinner && <span>⭐</span>}
+                                  {isBoldest && <span title="Boldest Pick">🎲</span>}
+                                  {isSafest && <span title="Safe Hands">🛡️</span>}
+                                  {isContrarian && <span title="Contrarian">🦄</span>}
+                                  {pick.is_autopick && <span className="bg-gray-200 text-gray-500 px-0.5 rounded" style={{ fontSize: '8px' }}>A</span>}
+                                </div>
+                              </td>
+                              <td className="py-1.5 px-2 uppercase">
+                                <div className="flex items-center gap-0.5">
+                                  {abbrFromMap(teams, pick.team_id)}
+                                  {pick.is_banker && <span className="bg-yellow-400 text-black font-bold px-0.5 rounded" style={{ fontSize: '8px' }}>★B</span>}
+                                </div>
+                              </td>
+                              <td className="py-1.5 px-2 uppercase">
+                                {shortName(pick.player1_id, players)}
+                                {goalPlayers.has(pick.player1_id) && ' ⚽'}
+                                {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
+                              </td>
+                              <td className="py-1.5 px-2 uppercase">
+                                {shortName(pick.player2_id, players)}
+                                {goalPlayers.has(pick.player2_id) && ' ⚽'}
+                                {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
+                              </td>
+                              {isScored && (
+                                <>
+                                  <td className="py-1.5 px-1 text-right text-gray-500">{pts?.team_points ?? '—'}</td>
+                                  <td className="py-1.5 px-1 text-right text-gray-500">{pts?.player1_points ?? '—'}</td>
+                                  <td className="py-1.5 px-1 text-right text-gray-500">{pts?.player2_points ?? '—'}</td>
+                                  <td className="py-1.5 px-1 text-right font-bold">{pts?.total_points ?? '—'}</td>
+                                </>
+                              )}
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+
+                    <div className="px-3 py-2 border-t bg-gray-50 uppercase tracking-wider text-gray-400" style={{ fontSize: '9px' }}>
+                      <span className="font-bold mr-2">Key:</span>
+                      ⭐ GW Winner
+                      <span className="mx-2">·</span>
+                      🎲 Boldest Pick
+                      <span className="mx-2">·</span>
+                      🛡️ Safe Hands
+                      <span className="mx-2">·</span>
+                      🦄 Contrarian
+                      <span className="mx-2">·</span>
+                      ⚽ Goal
+                      <span className="mx-2">·</span>
+                      <span className="bg-green-100 text-green-700 px-0.5 rounded font-bold">A</span> Assist
+                      <span className="mx-2">·</span>
+                      <span className="bg-yellow-400 text-black px-0.5 rounded font-bold">★B</span> Banker
+                    </div>
+                  </div>
+                </>
+              )}
             </>
           )}
-        </>
-      )}
 
+        </div>
+      </HeroPage>
     </Shell>
   )
 }
