@@ -23,10 +23,7 @@ export default function LoginPage() {
   }
 
   return (
-    <HeroPage
-      desktopImage="/images/heroes/turnstile-desktop.png"
-      mobileImage="/images/heroes/turnstile-mobile.png"
-    >
+    <HeroPage>
       {submitted ? (
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Check your email</h1>

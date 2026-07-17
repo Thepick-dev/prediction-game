@@ -43,10 +43,7 @@ export default async function RulesPage() {
 
   return (
     <Shell active="RULES" user={user} displayName={profile?.display_name ?? undefined}>
-      <HeroPage
-        desktopImage="/images/heroes/laws-desktop.png"
-        mobileImage="/images/heroes/laws-mobile.png"
-      >
+      <HeroPage>
         <div className="w-full max-w-2xl">
 
           <h1 className="text-3xl font-bold mb-8">Laws of the Game</h1>

@@ -25,10 +25,7 @@ export default async function ArchivePage() {
 
   return (
     <Shell active="ARCHIVE" user={user} displayName={profile?.display_name ?? undefined}>
-      <HeroPage
-        desktopImage="/images/heroes/trophyroom-desktop.png"
-        mobileImage="/images/heroes/trophyroom-mobile.png"
-      >
+      <HeroPage>
         <div className="w-full max-w-2xl">
 
           <h1 className="text-3xl font-bold mb-8">Trophy Room</h1>

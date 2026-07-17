@@ -19,10 +19,7 @@ export default async function NewsPage() {
 
   return (
     <Shell active="NEWS" user={user} displayName={profile?.display_name ?? undefined}>
-      <HeroPage
-        desktopImage="/images/heroes/programme-desktop.png"
-        mobileImage="/images/heroes/programme-mobile.png"
-      >
+      <HeroPage>
         <div className="w-full max-w-2xl">
 
           <h1 className="text-3xl font-bold mb-8">Matchday Programme</h1>

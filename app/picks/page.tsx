@@ -293,10 +293,7 @@ export default function PicksPage() {
 
   return (
     <Shell active="PICK" user={user} displayName={displayName}>
-      <HeroPage
-        desktopImage="/images/heroes/picks-desktop.png"
-        mobileImage="/images/heroes/picks-mobile.png"
-      >
+      <HeroPage>
         <div className="w-full max-w-2xl">
 
           {gameweek && !deadlinePassed && !hasPick && (

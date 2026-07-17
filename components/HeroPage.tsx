@@ -3,18 +3,31 @@
 import { useEffect, useState } from 'react'
 
 interface HeroPageProps {
-  desktopImage: string
-  mobileImage: string
   children: React.ReactNode
 }
 
-export default function HeroPage({ desktopImage, mobileImage, children }: HeroPageProps) {
+// Update this number whenever you add a new hero-XX-desktop.png / hero-XX-mobile.png pair
+const TOTAL_HEROES = 4
+
+export default function HeroPage({ children }: HeroPageProps) {
   const [showCard, setShowCard] = useState(false)
+  const [heroNumber, setHeroNumber] = useState<number | null>(null)
 
   useEffect(() => {
+    const random = Math.floor(Math.random() * TOTAL_HEROES) + 1
+    setHeroNumber(random)
+
     const timer = setTimeout(() => setShowCard(true), 600)
     return () => clearTimeout(timer)
   }, [])
+
+  if (heroNumber === null) {
+    return null
+  }
+
+  const padded = String(heroNumber).padStart(2, '0')
+  const desktopImage = `/images/heroes/hero-${padded}-desktop.png`
+  const mobileImage = `/images/heroes/hero-${padded}-mobile.png`
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden">

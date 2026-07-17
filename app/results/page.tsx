@@ -211,10 +211,7 @@ export default function ResultsPage() {
 
   return (
     <Shell active="RESULTS" user={user} displayName={displayName}>
-      <HeroPage
-        desktopImage="/images/heroes/results-desktop.png"
-        mobileImage="/images/heroes/results-mobile.png"
-      >
+     <HeroPage>
         <div className="w-full max-w-2xl">
 
           <h1 className="text-3xl font-bold mb-1">Results</h1>
@@ -345,6 +342,7 @@ export default function ResultsPage() {
                     <div className="px-3 py-2 border-t bg-gray-50 uppercase tracking-wider text-gray-400" style={{ fontSize: '9px' }}>
                       <span className="font-bold mr-2">Key:</span>
                       ⭐ GW Winner
+                
                       <span className="mx-2">·</span>
                       🎲 Boldest Pick
                       <span className="mx-2">·</span>

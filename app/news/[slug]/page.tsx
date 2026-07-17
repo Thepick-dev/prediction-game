@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import Shell from '../../components/ceefax-shell'
+import HeroPage from '../../../components/HeroPage'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -24,27 +25,27 @@ export default async function NewsPostPage({ params }: { params: Promise<{ slug:
   const paragraphs = post.content.split('\n\n').filter((p: string) => p.trim())
 
   return (
-    <Shell active="NEWS" user={user} displayName={profile?.display_name ?? undefined}>
+    <Shell active="MATCHDAY PROGRAMME" user={user} displayName={profile?.display_name ?? undefined}>
+      <HeroPage>
+        <div className="w-full max-w-2xl">
+          <p className="text-xs text-gray-400 mb-2">
+            {post.published_at ? new Date(post.published_at).toLocaleDateString('en-GB', {
+              day: 'numeric', month: 'long', year: 'numeric'
+            }) : ''}
+          </p>
+          <h1 className="text-3xl font-bold mb-6">{post.title}</h1>
 
-      <div className="max-w-2xl">
-        <p className="text-xs text-gray-400 mb-2">
-          {post.published_at ? new Date(post.published_at).toLocaleDateString('en-GB', {
-            day: 'numeric', month: 'long', year: 'numeric'
-          }) : ''}
-        </p>
-        <h1 className="text-3xl font-bold mb-6">{post.title}</h1>
+          <div className="bg-white border rounded-lg p-6 space-y-4">
+            {paragraphs.map((para: string, i: number) => (
+              <p key={i} className="text-sm text-gray-700 leading-relaxed">{para}</p>
+            ))}
+          </div>
 
-        <div className="bg-white border rounded-lg p-6 space-y-4">
-          {paragraphs.map((para: string, i: number) => (
-            <p key={i} className="text-sm text-gray-700 leading-relaxed">{para}</p>
-          ))}
+          <Link href="/news" className="inline-block mt-6 text-sm text-gray-500 hover:text-black">
+            ← All news
+          </Link>
         </div>
-
-        <Link href="/news" className="inline-block mt-6 text-sm text-gray-500 hover:text-black">
-          ← All news
-        </Link>
-      </div>
-
+      </HeroPage>
     </Shell>
   )
 }

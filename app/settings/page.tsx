@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
+import HeroPage from '../../components/HeroPage'
 
 export default function SettingsPage() {
   const [user, setUser] = useState<any>(null)
@@ -58,48 +59,52 @@ export default function SettingsPage() {
 
   return (
     <Shell active="SETTINGS" user={user} displayName={currentName}>
+      <HeroPage>
+        <div className="w-full max-w-md">
 
-      <h1 className="text-3xl font-bold mb-8">Settings</h1>
+          <h1 className="text-3xl font-bold mb-8">Settings</h1>
 
-      <div className="max-w-md space-y-6">
+          <div className="space-y-6">
 
-        <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-1">Display Name</h2>
-          <p className="text-sm text-gray-500 mb-4">
-            {currentName ? `Currently shown as "${currentName}"` : 'Not set yet'}
-          </p>
-          <input
-            type="text"
-            value={displayName}
-            onChange={e => setDisplayName(e.target.value)}
-            maxLength={30}
-            className="w-full border rounded px-3 py-2 text-sm mb-3"
-          />
-          {message && (
-            <p className={`text-sm mb-3 ${message.startsWith('Error') ? 'text-red-600' : 'text-green-600'}`}>{message}</p>
-          )}
-          <button
-            onClick={saveDisplayName}
-            disabled={saving}
-            className="w-full bg-black text-white rounded px-4 py-2 text-sm font-bold disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </button>
+            <div className="bg-white border rounded-lg p-6">
+              <h2 className="font-bold mb-1">Display Name</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                {currentName ? `Currently shown as "${currentName}"` : 'Not set yet'}
+              </p>
+              <input
+                type="text"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                maxLength={30}
+                className="w-full border rounded px-3 py-2 text-sm mb-3"
+              />
+              {message && (
+                <p className={`text-sm mb-3 ${message.startsWith('Error') ? 'text-red-600' : 'text-green-600'}`}>{message}</p>
+              )}
+              <button
+                onClick={saveDisplayName}
+                disabled={saving}
+                className="w-full bg-black text-white rounded px-4 py-2 text-sm font-bold disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+
+            <div className="bg-white border rounded-lg p-6">
+              <h2 className="font-bold mb-1">Account</h2>
+              <p className="text-sm text-gray-500 mb-4">Logged in as {email}</p>
+              <button
+                onClick={logOut}
+                className="w-full border rounded px-4 py-2 text-sm hover:border-black"
+              >
+                Log Out
+              </button>
+            </div>
+
+          </div>
+
         </div>
-
-        <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-1">Account</h2>
-          <p className="text-sm text-gray-500 mb-4">Logged in as {email}</p>
-          <button
-            onClick={logOut}
-            className="w-full border rounded px-4 py-2 text-sm hover:border-black"
-          >
-            Log Out
-          </button>
-        </div>
-
-      </div>
-
+      </HeroPage>
     </Shell>
   )
 }
