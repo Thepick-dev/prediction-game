@@ -4,150 +4,171 @@ import { redirect } from 'next/navigation'
 export default async function QuartilesPage() {
   const supabase = await createServerSupabaseClient()
 
-  const [{ data: competitions }, { data: teams }] = await Promise.all([
-    supabase.from('competitions').select('id, name').order('created_at', { ascending: false }),
-    supabase.from('teams').select('id, name').order('name')
-  ])
+  const { data: competitions } = await supabase
+    .from('competitions')
+    .select('id, name')
+    .in('status', ['active', 'upcoming'])
+    .order('created_at', { ascending: false })
 
-  const activeComp = competitions?.[0]
+  const activeCompetition = competitions?.[0]
 
-  const { data: assignments } = activeComp ? await supabase
+  const { data: assignments } = activeCompetition ? await supabase
     .from('tier_assignments')
-    .select('team_id, tier')
-    .eq('competition_id', activeComp.id) : { data: [] }
+    .select('team_id, tier, teams(id, name)')
+    .eq('competition_id', activeCompetition.id)
+    .order('tier', { ascending: true }) : { data: null }
 
-  const assignmentMap: Record<number, number> = {}
-  assignments?.forEach(a => { assignmentMap[a.team_id] = a.tier })
+  const { data: allTeams } = await supabase
+    .from('teams')
+    .select('id, name')
+    .order('name', { ascending: true })
+
+  const assignedTeamIds = new Set(assignments?.map(a => a.team_id) ?? [])
+  const unassignedTeams = allTeams?.filter(t => !assignedTeamIds.has(t.id)) ?? []
+
+  const tierGroups: Record<number, any[]> = { 1: [], 2: [], 3: [], 4: [] }
+  assignments?.forEach(a => {
+    if (tierGroups[a.tier]) {
+      tierGroups[a.tier].push(a)
+    }
+  })
 
   async function assignTier(formData: FormData) {
     'use server'
     const supabase = await createServerSupabaseClient()
-    const competition_id = formData.get('competition_id') as string
-    const team_id = parseInt(formData.get('team_id') as string)
-    const tier = parseInt(formData.get('tier') as string)
-
     await supabase
       .from('tier_assignments')
-      .upsert({ competition_id, team_id, tier }, { onConflict: 'competition_id,team_id' })
+      .upsert({
+        competition_id: formData.get('competition_id') as string,
+        team_id: parseInt(formData.get('team_id') as string),
+        tier: parseInt(formData.get('tier') as string)
+      }, { onConflict: 'competition_id,team_id' })
+    redirect('/admin/quartiles')
+  }
 
+  async function removeAssignment(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    await supabase
+      .from('tier_assignments')
+      .delete()
+      .eq('competition_id', formData.get('competition_id') as string)
+      .eq('team_id', parseInt(formData.get('team_id') as string))
     redirect('/admin/quartiles')
   }
 
   async function resetToLeagueTable(formData: FormData) {
     'use server'
     const supabase = await createServerSupabaseClient()
-    const competition_id = formData.get('competition_id') as string
+    const competitionId = formData.get('competition_id') as string
+
+    // Clear existing assignments first, so relegated teams from a previous
+    // season don't linger alongside newly promoted teams.
+    await supabase
+      .from('tier_assignments')
+      .delete()
+      .eq('competition_id', competitionId)
 
     const { data: positions } = await supabase
       .from('team_league_positions')
       .select('team_id, position')
-      .order('recorded_at', { ascending: false })
       .order('position', { ascending: true })
       .limit(20)
 
     if (!positions || positions.length === 0) {
       redirect('/admin/quartiles')
-      return
     }
-
-    const seen = new Set()
-    const unique = positions.filter(p => {
-      if (seen.has(p.team_id)) return false
-      seen.add(p.team_id)
-      return true
-    })
-
-    const upserts = unique.slice(0, 20).map((p, index) => ({
-      competition_id,
-      team_id: p.team_id,
-      tier: index < 5 ? 1 : index < 10 ? 2 : index < 15 ? 3 : 4
-    }))
 
     await supabase
       .from('tier_assignments')
-      .upsert(upserts, { onConflict: 'competition_id,team_id' })
+      .upsert(
+        positions.map((p, i) => ({
+          competition_id: competitionId,
+          team_id: p.team_id,
+          tier: Math.floor(i / 5) + 1
+        })),
+        { onConflict: 'competition_id,team_id' }
+      )
 
     redirect('/admin/quartiles')
   }
 
-  const quarters = [1, 2, 3, 4]
+  if (!activeCompetition) {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold mb-8">Quartiles</h1>
+        <p className="text-gray-500 text-sm">No active or upcoming competition found.</p>
+      </div>
+    )
+  }
+
+  const tierLabels: Record<number, string> = {
+    1: 'Q1 — Elite',
+    2: 'Q2 — Solid',
+    3: 'Q3 — Mid-Table',
+    4: 'Q4 — Underdogs'
+  }
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-8">Quartile Management</h1>
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold mb-1">Quartiles</h1>
+          <p className="text-gray-500 text-sm">Managing: <strong>{activeCompetition.name}</strong></p>
+        </div>
+        <form action={resetToLeagueTable}>
+          <input type="hidden" name="competition_id" value={activeCompetition.id} />
+          <button type="submit" className="bg-black text-white rounded px-4 py-2 text-sm">
+            Reset to League Table
+          </button>
+        </form>
+      </div>
 
-      {!activeComp ? (
-        <p className="text-gray-500">No competitions found. Create one first.</p>
-      ) : (
-        <>
-          <div className="flex items-center justify-between mb-6">
-            <p className="text-gray-500">Managing: <strong>{activeComp.name}</strong></p>
-            <form action={resetToLeagueTable}>
-              <input type="hidden" name="competition_id" value={activeComp.id} />
-              <button type="submit" className="bg-black text-white rounded px-4 py-2 text-sm">
-                Reset to League Table
-              </button>
-            </form>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        {[1, 2, 3, 4].map(tier => (
+          <div key={tier} className="bg-white border rounded-lg p-4">
+            <h2 className="font-bold mb-3 text-sm">{tierLabels[tier]}</h2>
+            <div className="space-y-2">
+              {tierGroups[tier].length === 0 ? (
+                <p className="text-xs text-gray-400">No teams assigned</p>
+              ) : (
+                tierGroups[tier].map((a: any) => (
+                  <div key={a.team_id} className="flex items-center justify-between text-sm border-b pb-2">
+                    <span>{a.teams?.name}</span>
+                    <form action={removeAssignment}>
+                      <input type="hidden" name="competition_id" value={activeCompetition.id} />
+                      <input type="hidden" name="team_id" value={a.team_id} />
+                      <button type="submit" className="text-xs text-red-500">✕</button>
+                    </form>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
+        ))}
+      </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {quarters.map(q => (
-              <div key={q} className="bg-white border rounded-lg p-4">
-                <h2 className="font-bold mb-3">
-                  Q{q} — {q === 1 ? 'Elite' : q === 2 ? 'Solid' : q === 3 ? 'Mid-table' : 'Underdogs'}
-                </h2>
-                <div className="space-y-1">
-                  {teams?.filter(t => assignmentMap[t.id] === q).map(team => (
-                    <div key={team.id} className="text-sm py-1 border-b last:border-0">
-                      {team.name}
-                    </div>
-                  ))}
-                  {teams?.filter(t => assignmentMap[t.id] === q).length === 0 && (
-                    <p className="text-xs text-gray-400">No teams assigned</p>
-                  )}
-                </div>
-              </div>
+      {unassignedTeams.length > 0 && (
+        <div className="bg-white border rounded-lg p-6">
+          <h2 className="font-bold mb-4">Unassigned Teams ({unassignedTeams.length})</h2>
+          <div className="space-y-2">
+            {unassignedTeams.map(team => (
+              <form key={team.id} action={assignTier} className="flex items-center justify-between border rounded px-4 py-2">
+                <input type="hidden" name="competition_id" value={activeCompetition.id} />
+                <input type="hidden" name="team_id" value={team.id} />
+                <span className="text-sm">{team.name}</span>
+                <select name="tier" className="text-xs border rounded px-2 py-1" required>
+                  <option value="">Assign to tier</option>
+                  <option value="1">Q1 — Elite</option>
+                  <option value="2">Q2 — Solid</option>
+                  <option value="3">Q3 — Mid-Table</option>
+                  <option value="4">Q4 — Underdogs</option>
+                </select>
+                <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1 ml-2">Assign</button>
+              </form>
             ))}
           </div>
-
-          <div className="bg-white border rounded-lg p-6">
-            <h2 className="font-bold mb-4">Assign Teams</h2>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-500 border-b">
-                  <th className="pb-2">Team</th>
-                  <th className="pb-2">Current Quartile</th>
-                  <th className="pb-2">Change To</th>
-                </tr>
-              </thead>
-              <tbody>
-                {teams?.map(team => (
-                  <tr key={team.id} className="border-b last:border-0">
-                    <td className="py-2">{team.name}</td>
-                    <td className="py-2">
-                      {assignmentMap[team.id] ? `Q${assignmentMap[team.id]}` : <span className="text-gray-400">Unassigned</span>}
-                    </td>
-                    <td className="py-2">
-                      <form action={assignTier} className="flex gap-1">
-                        <input type="hidden" name="competition_id" value={activeComp.id} />
-                        <input type="hidden" name="team_id" value={team.id} />
-                        <select name="tier" className="text-xs border rounded px-1 py-1">
-                          <option value="1">Q1 — Elite</option>
-                          <option value="2">Q2 — Solid</option>
-                          <option value="3">Q3 — Mid-table</option>
-                          <option value="4">Q4 — Underdogs</option>
-                        </select>
-                        <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">
-                          Set
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+        </div>
       )}
     </div>
   )

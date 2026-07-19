@@ -5,6 +5,7 @@ import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import { abbrFromMap } from '../lib/teams'
+import KitBadge from '../../components/KitBadge'
 
 type RankedPlayer = {
   user_id: string
@@ -48,6 +49,7 @@ export default function LeaderboardPage() {
   const [potwUserId, setPotwUserId] = useState<string | null>(null)
   const [allTeams, setAllTeams] = useState<{ id: number; name: string; short_name: string | null }[]>([])
   const [teamMap, setTeamMap] = useState<Record<number, { name: string; short_name: string | null }>>({})
+  const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string }>>({})
   const [usedTeamsByPlayer, setUsedTeamsByPlayer] = useState<Record<string, Record<number, number>>>({})
   const [doubleUseByPlayer, setDoubleUseByPlayer] = useState<Record<string, number[]>>({})
   const [avgByGw, setAvgByGw] = useState<Record<number, number>>({})
@@ -77,7 +79,7 @@ export default function LeaderboardPage() {
 
     const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: picks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }] = await Promise.all([
       supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id).eq('removed', false),
-      supabase.from('profiles').select('id, display_name'),
+      supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
       supabase.from('picks').select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('competition_id', comp.id),
       supabase.from('teams').select('id, name, short_name'),
@@ -91,11 +93,20 @@ export default function LeaderboardPage() {
     setAllTeams(teams ?? [])
 
     const profileMap: Record<string, string> = {}
-    profiles?.forEach(p => { profileMap[p.id] = p.display_name ?? 'Unknown' })
+    const kitMap: Record<string, { pattern: string; colour1: string; colour2: string }> = {}
+    profiles?.forEach(p => {
+      profileMap[p.id] = p.display_name ?? 'Unknown'
+      kitMap[p.id] = {
+        pattern: p.kit_pattern ?? 'solid',
+        colour1: p.kit_colour_1 ?? '#1E4D6B',
+        colour2: p.kit_colour_2 ?? '#F5ECD9'
+      }
+    })
 
     const tMap: Record<number, { name: string; short_name: string | null }> = {}
     teams?.forEach(t => { tMap[t.id] = { name: t.name, short_name: t.short_name } })
     setTeamMap(tMap)
+    setKitByUser(kitMap)
 
     const playerMap: Record<number, string> = {}
     players?.forEach(p => { playerMap[p.id] = p.name })
@@ -318,7 +329,15 @@ export default function LeaderboardPage() {
                       >
                         <td className="py-2 px-2 text-gray-400">{index + 1}</td>
                         <td className="py-2 px-2 font-bold uppercase">
-                          {player.display_name}
+                          <span className="inline-flex items-center gap-1.5">
+                            <KitBadge
+                              pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
+                              colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
+                              colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                              size={18}
+                            />
+                            {player.display_name}
+                          </span>
                           {index === 0 && <span className="ml-1">👑</span>}
                           {streak && <span className="ml-1" title={`${streak} weeks above average`}>🔥</span>}
                           <span className="ml-1 text-gray-300" style={{ fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>

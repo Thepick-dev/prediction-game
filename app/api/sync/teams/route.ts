@@ -5,7 +5,7 @@ export async function POST() {
   const supabase = await createServerSupabaseClient()
 
   const response = await fetch(
-    'https://api.football-data.org/v4/competitions/PL/teams?season=2025',
+    'https://api.football-data.org/v4/competitions/PL/teams?season=2026',
     {
       headers: {
         'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY!

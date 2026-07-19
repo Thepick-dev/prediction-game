@@ -5,6 +5,7 @@ import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import { abbrFromMap } from '../lib/teams'
+import KitBadge from '../../components/KitBadge'
 
 type Gameweek = {
   id: string
@@ -48,6 +49,7 @@ export default function ResultsPage() {
   const [pointsData, setPointsData] = useState<PointsRow[]>([])
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
   const [profiles, setProfiles] = useState<Record<string, string>>({})
+  const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string }>>({})
   const [teams, setTeams] = useState<Record<number, { name: string; short_name: string | null }>>({})
   const [players, setPlayers] = useState<Record<number, string>>({})
   const [quartileMap, setQuartileMap] = useState<Record<number, number>>({})
@@ -82,14 +84,22 @@ export default function ResultsPage() {
 
     const [{ data: gws }, { data: profilesData }, { data: teamsData }, { data: playersData }, { data: quartilesData }] = await Promise.all([
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).lt('deadline', now.toISOString()).order('number', { ascending: true }),
-      supabase.from('profiles').select('id, display_name'),
+      supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('teams').select('id, name, short_name'),
       supabase.from('players').select('id, name'),
       supabase.from('tier_assignments').select('team_id, tier').eq('competition_id', comp.id)
     ])
 
     const profileMap: Record<string, string> = {}
-    profilesData?.forEach(p => { profileMap[p.id] = p.display_name ?? 'Unknown' })
+    const kitMap: Record<string, { pattern: string; colour1: string; colour2: string }> = {}
+    profilesData?.forEach(p => {
+      profileMap[p.id] = p.display_name ?? 'Unknown'
+      kitMap[p.id] = {
+        pattern: p.kit_pattern ?? 'solid',
+        colour1: p.kit_colour_1 ?? '#1E4D6B',
+        colour2: p.kit_colour_2 ?? '#F5ECD9'
+      }
+    })
 
     const teamMap: Record<number, { name: string; short_name: string | null }> = {}
     teamsData?.forEach(t => { teamMap[t.id] = { name: t.name, short_name: t.short_name } })
@@ -101,6 +111,7 @@ export default function ResultsPage() {
     quartilesData?.forEach(q => { qMap[q.team_id] = q.tier })
 
     setProfiles(profileMap)
+    setKitByUser(kitMap)
     setTeams(teamMap)
     setPlayers(playerMap)
     setQuartileMap(qMap)
@@ -211,7 +222,7 @@ export default function ResultsPage() {
 
   return (
     <Shell active="RESULTS" user={user} displayName={displayName}>
-     <HeroPage>
+      <HeroPage>
         <div className="w-full max-w-2xl">
 
           <h1 className="text-3xl font-bold mb-1">Results</h1>
@@ -219,7 +230,6 @@ export default function ResultsPage() {
 
           {potwUserId && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-3">
-              <span className="text-xl">⭐</span>
               <div>
                 <p className="text-xs text-yellow-700 font-bold uppercase tracking-wide">Season Leader</p>
                 <p className="font-bold uppercase">{profiles[potwUserId] ?? 'Unknown'}</p>
@@ -257,7 +267,7 @@ export default function ResultsPage() {
                   </span>
                   {isScored && gwPotwUserId && (
                     <span className="text-xs text-yellow-700 font-bold uppercase tracking-wider">
-                      ⭐ GW Winner: {profiles[gwPotwUserId]}
+                      GW Winner: {profiles[gwPotwUserId]}
                     </span>
                   )}
                 </div>
@@ -293,20 +303,18 @@ export default function ResultsPage() {
                         {sortedPicks.map((pick, i) => {
                           const pts = pointsMap[pick.id]
                           const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
-                          const isBoldest = boldest?.id === pick.id
-                          const isSafest = safest?.id === pick.id && !isBoldest
-                          const isContrarian = contrarians.some(c => c.id === pick.id)
 
                           return (
                             <tr key={pick.id} className={`border-b last:border-0 ${isWinner ? 'bg-yellow-50' : ''}`}>
                               <td className="py-1.5 px-2 font-bold uppercase">
-                                <div className="flex items-center gap-0.5 flex-wrap">
+                                <div className="flex items-center gap-1.5">
+                                  <KitBadge
+                                    pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
+                                    colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
+                                    colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
+                                    size={14}
+                                  />
                                   {profiles[pick.user_id] ?? 'Unknown'}
-                                  {isWinner && <span>⭐</span>}
-                                  {isBoldest && <span title="Boldest Pick">🎲</span>}
-                                  {isSafest && <span title="Safe Hands">🛡️</span>}
-                                  {isContrarian && <span title="Contrarian">🦄</span>}
-                                  {pick.is_autopick && <span className="bg-gray-200 text-gray-500 px-0.5 rounded" style={{ fontSize: '8px' }}>A</span>}
                                 </div>
                               </td>
                               <td className="py-1.5 px-2 uppercase">
@@ -317,12 +325,12 @@ export default function ResultsPage() {
                               </td>
                               <td className="py-1.5 px-2 uppercase">
                                 {shortName(pick.player1_id, players)}
-                                {goalPlayers.has(pick.player1_id) && ' ⚽'}
+                                {goalPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>G</span>}
                                 {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
                               </td>
                               <td className="py-1.5 px-2 uppercase">
                                 {shortName(pick.player2_id, players)}
-                                {goalPlayers.has(pick.player2_id) && ' ⚽'}
+                                {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>G</span>}
                                 {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
                               </td>
                               {isScored && (
@@ -341,16 +349,7 @@ export default function ResultsPage() {
 
                     <div className="px-3 py-2 border-t bg-gray-50 uppercase tracking-wider text-gray-400" style={{ fontSize: '9px' }}>
                       <span className="font-bold mr-2">Key:</span>
-                      ⭐ GW Winner
-                
-                      <span className="mx-2">·</span>
-                      🎲 Boldest Pick
-                      <span className="mx-2">·</span>
-                      🛡️ Safe Hands
-                      <span className="mx-2">·</span>
-                      🦄 Contrarian
-                      <span className="mx-2">·</span>
-                      ⚽ Goal
+                      <span className="bg-green-600 text-white px-0.5 rounded font-bold">G</span> Goal
                       <span className="mx-2">·</span>
                       <span className="bg-green-100 text-green-700 px-0.5 rounded font-bold">A</span> Assist
                       <span className="mx-2">·</span>
