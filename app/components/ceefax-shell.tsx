@@ -60,10 +60,11 @@ export default function Shell({ children, active, user, displayName }: Props) {
               <Link
                 key={item.label}
                 href={item.href}
+                style={{ color: active === item.label ? '#D9A441' : '#F5ECD9' }}
                 className={`px-3 py-2.5 text-xs font-bold tracking-widest whitespace-nowrap border-b-2 transition-colors uppercase ${
                   active === item.label
-                    ? 'border-[#D9A441] text-[#D9A441]'
-                    : 'border-transparent text-[#F5ECD9] opacity-70 hover:opacity-100'
+                    ? 'border-[#D9A441]'
+                    : 'border-transparent opacity-70 hover:opacity-100'
                 }`}
               >
                 {item.label}
@@ -80,11 +81,11 @@ export default function Shell({ children, active, user, displayName }: Props) {
                 key={item.label}
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
-                className={`block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-[#3d2f22] ${
-                  active === item.label
-                    ? 'bg-[#D9A441] text-[#2A1F17]'
-                    : 'text-[#F5ECD9] hover:bg-[#3d2f22]'
-                }`}
+                style={{
+                  color: active === item.label ? '#2A1F17' : '#F5ECD9',
+                  backgroundColor: active === item.label ? '#D9A441' : 'transparent'
+                }}
+                className="block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-[#3d2f22]"
               >
                 {item.label}
               </Link>

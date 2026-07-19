@@ -26,10 +26,6 @@ html, body {
   min-height: 100vh;
 }
 
-a {
-  color: inherit;
-}
-
 h1, h2, h3 {
   text-transform: uppercase;
   letter-spacing: 0.02em;
