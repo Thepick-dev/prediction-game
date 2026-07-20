@@ -9,14 +9,16 @@ export async function GET(request: Request) {
 
   const supabase = await createServerSupabaseClient()
   const now = new Date()
-  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
 
+  // Catch any gameweek whose deadline has passed and hasn't been locked
+  // yet — not just ones that passed in a narrow recent window. This means
+  // a gameweek can never be missed, even if the cron job doesn't run for
+  // a day or two, or a deadline falls at an awkward time.
   const { data: gameweeks } = await supabase
     .from('gameweeks')
-    .select('id, competition_id, deadline, status')
+    .select('id, competition_id, deadline, status, number')
     .in('status', ['open', 'upcoming'])
     .lt('deadline', now.toISOString())
-    .gt('deadline', oneHourAgo.toISOString())
 
   if (!gameweeks || gameweeks.length === 0) {
     return NextResponse.json({ success: true, message: 'No gameweeks to process' })
@@ -29,6 +31,17 @@ export async function GET(request: Request) {
       .from('gameweeks')
       .update({ status: 'locked' })
       .eq('id', gw.id)
+
+    // Once the very first gameweek's deadline passes for a competition,
+    // permanently lock every player's tier draft picks so double-use
+    // team selections can no longer be changed for the rest of the season.
+    if (gw.number === 1) {
+      await supabase
+        .from('draft_picks')
+        .update({ locked_at: now.toISOString() })
+        .eq('competition_id', gw.competition_id)
+        .is('locked_at', null)
+    }
 
     const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/autopick`, {
       method: 'POST',
