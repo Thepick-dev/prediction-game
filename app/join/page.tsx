@@ -17,13 +17,13 @@ export default function JoinPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
   const [competition, setCompetition] = useState<any>(null)
+  const [tierNames, setTierNames] = useState<Record<number, string>>({})
   const [teamsByTier, setTeamsByTier] = useState<Record<number, Team[]>>({ 1: [], 2: [], 3: [] })
 
   const [tier1Team, setTier1Team] = useState<number | null>(null)
   const [tier2Team, setTier2Team] = useState<number | null>(null)
   const [tier3Team, setTier3Team] = useState<number | null>(null)
 
-  const [draftId, setDraftId] = useState<string | null>(null)
   const [locked, setLocked] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -32,24 +32,6 @@ export default function JoinPage() {
   const supabase = createClient()
 
   useEffect(() => { loadData() }, [])
-
-  useEffect(() => {
-    if (!draftId) return
-
-    const checkLock = async () => {
-      const { data } = await supabase
-        .from('draft_picks')
-        .select('locked_at')
-        .eq('id', draftId)
-        .single()
-
-      if (data?.locked_at) {
-        setLocked(true)
-      }
-    }
-
-    checkLock()
-  }, [draftId])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -68,33 +50,39 @@ export default function JoinPage() {
     if (!comp) { setLoading(false); return }
     setCompetition(comp)
 
-    const { data: tierAssignments } = await supabase
-      .from('tier_assignments')
-      .select('team_id, tier, teams(id, name, short_name, crest_url)')
-      .eq('competition_id', comp.id)
-      .in('tier', [1, 2, 3])
+    const [{ data: tierNamesData }, { data: assignments }, { data: teamsData }] = await Promise.all([
+      supabase.from('competition_draft_tiers').select('tier_number, tier_name').eq('competition_id', comp.id),
+      supabase.from('draft_tier_assignments').select('team_id, tier_number').eq('competition_id', comp.id),
+      supabase.from('teams').select('id, name, short_name, crest_url')
+    ])
+
+    const nameMap: Record<number, string> = {}
+    tierNamesData?.forEach(t => { nameMap[t.tier_number] = t.tier_name })
+    setTierNames(nameMap)
+
+    const teamMap: Record<number, Team> = {}
+    teamsData?.forEach(t => { teamMap[t.id] = t })
 
     const grouped: Record<number, Team[]> = { 1: [], 2: [], 3: [] }
-    tierAssignments?.forEach((a: any) => {
-      if (grouped[a.tier] && a.teams) {
-        grouped[a.tier].push(a.teams)
+    assignments?.forEach(a => {
+      if (grouped[a.tier_number] && teamMap[a.team_id]) {
+        grouped[a.tier_number].push(teamMap[a.team_id])
       }
     })
     setTeamsByTier(grouped)
 
     const { data: existing } = await supabase
-      .from('draft_picks')
+      .from('tier_draft_picks')
       .select('*')
       .eq('user_id', user.id)
       .eq('competition_id', comp.id)
       .single()
 
     if (existing) {
-      setDraftId(existing.id)
       setTier1Team(existing.tier1_team_id)
       setTier2Team(existing.tier2_team_id)
       setTier3Team(existing.tier3_team_id)
-      if (existing.locked_at) setLocked(true)
+      if (existing.locked) setLocked(true)
     }
 
     setLoading(false)
@@ -112,14 +100,13 @@ export default function JoinPage() {
     if (!user || !competition) return
 
     const { error } = await supabase
-      .from('draft_picks')
+      .from('tier_draft_picks')
       .upsert({
         user_id: user.id,
         competition_id: competition.id,
         tier1_team_id: tier1Team,
         tier2_team_id: tier2Team,
         tier3_team_id: tier3Team,
-        locked_at: null
       }, { onConflict: 'user_id,competition_id' })
 
     if (error) {
@@ -142,12 +129,6 @@ export default function JoinPage() {
       setMessage('saved')
     }
     setSaving(false)
-  }
-
-  const tierLabels: Record<number, string> = {
-    1: 'Q1 — Elite',
-    2: 'Q2 — Solid',
-    3: 'Q3 — Mid-Table',
   }
 
   if (loading) {
@@ -205,9 +186,12 @@ export default function JoinPage() {
           {[1, 2, 3].map(tier => (
             <div key={tier} className="mb-6">
               <h2 className="text-sm font-bold uppercase tracking-wider mb-3" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>
-                {tierLabels[tier]}
+                Tier {tier}{tierNames[tier] ? ` — ${tierNames[tier]}` : ''}
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {teamsByTier[tier]?.length === 0 && (
+                  <p className="text-xs text-[#F5ECD9]/40 col-span-full">No teams assigned to this tier yet.</p>
+                )}
                 {teamsByTier[tier]?.map(team => {
                   const selected =
                     tier === 1 ? tier1Team === team.id :
