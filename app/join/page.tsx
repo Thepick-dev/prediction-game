@@ -125,14 +125,14 @@ export default function JoinPage() {
     if (error) {
       setMessage('Error: ' + error.message)
     } else {
-      const { data: existing } = await supabase
+      const { data: existingEntry } = await supabase
         .from('competition_entries')
         .select('id')
         .eq('user_id', user.id)
         .eq('competition_id', competition.id)
         .single()
 
-      if (!existing) {
+      if (!existingEntry) {
         await supabase.from('competition_entries').insert({
           user_id: user.id,
           competition_id: competition.id
@@ -142,12 +142,6 @@ export default function JoinPage() {
       setMessage('saved')
     }
     setSaving(false)
-  }
-
-  const quartileColours: Record<number, string> = {
-    1: 'bg-blue-500/20 text-blue-300 border-blue-400/40',
-    2: 'bg-green-500/20 text-green-300 border-green-400/40',
-    3: 'bg-yellow-500/20 text-yellow-300 border-yellow-400/40',
   }
 
   const tierLabels: Record<number, string> = {
@@ -182,13 +176,9 @@ export default function JoinPage() {
             <h1 className="text-2xl font-bold mb-3" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Tier Picks Saved</h1>
             <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-6">
               You can change your tier picks any time before the Gameweek 1 deadline. After that, they lock for the rest of the competition.
-              Head to <strong>Settings</strong> if you want to come back and adjust them later.
+              Head to Settings if you want to come back and adjust them later.
             </p>
-            
-              href="/picks"
-              className="inline-block rounded-lg px-6 py-3 font-bold uppercase tracking-wider"
-              style={{ backgroundColor: '#D9A441', color: '#241a12', fontFamily: 'var(--font-heading), serif' }}
-            >
+            <a href="/picks" className="inline-block rounded-lg px-6 py-3 font-bold uppercase tracking-wider" style={{ backgroundColor: '#D9A441', color: '#241a12', fontFamily: 'var(--font-heading), serif' }}>
               Go to Picks
             </a>
           </div>
