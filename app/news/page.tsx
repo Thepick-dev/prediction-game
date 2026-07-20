@@ -1,9 +1,48 @@
-import { createServerSupabaseClient } from '../lib/supabase-server'
-import Shell from '../components/ceefax-shell'
-import HeroPage from '../../components/HeroPage'
+import { createServerSupabaseClient } from '../../lib/supabase-server'
+import Shell from '../../components/ceefax-shell'
+import HeroPage from '../../../components/HeroPage'
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 
-export default async function NewsPage() {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  const supabase = await createServerSupabaseClient()
+
+  const { data: post } = await supabase
+    .from('dispatches')
+    .select('title, excerpt, published_at')
+    .eq('slug', slug)
+    .eq('published', true)
+    .single()
+
+  if (!post) {
+    return {
+      title: 'Article not found — LMS All-Stars Predictions',
+    }
+  }
+
+  const description = post.excerpt ?? 'Read the latest from LMS All-Stars Predictions.'
+
+  return {
+    title: `${post.title} — LMS All-Stars Predictions`,
+    description,
+    openGraph: {
+      title: post.title,
+      description,
+      type: 'article',
+      publishedTime: post.published_at ?? undefined,
+    },
+    twitter: {
+      card: 'summary',
+      title: post.title,
+      description,
+    },
+  }
+}
+
+export default async function NewsPostPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
   const supabase = await createServerSupabaseClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -11,39 +50,37 @@ export default async function NewsPage() {
     ? await supabase.from('profiles').select('display_name').eq('id', user.id).single()
     : { data: null }
 
-  const { data: posts } = await supabase
+  const { data: post } = await supabase
     .from('dispatches')
-    .select('id, title, slug, excerpt, published_at')
+    .select('*')
+    .eq('slug', slug)
     .eq('published', true)
-    .order('published_at', { ascending: false })
+    .single()
+
+  if (!post) notFound()
+
+  const paragraphs = post.content.split('\n\n').filter((p: string) => p.trim())
 
   return (
-    <Shell active="NEWS" user={user} displayName={profile?.display_name ?? undefined}>
+    <Shell active="MATCHDAY PROGRAMME" user={user} displayName={profile?.display_name ?? undefined}>
       <HeroPage>
         <div className="w-full max-w-2xl">
+          <p className="text-xs text-gray-400 mb-2">
+            {post.published_at ? new Date(post.published_at).toLocaleDateString('en-GB', {
+              day: 'numeric', month: 'long', year: 'numeric'
+            }) : ''}
+          </p>
+          <h1 className="text-3xl font-bold mb-6">{post.title}</h1>
 
-          <h1 className="text-3xl font-bold mb-8">Matchday Programme</h1>
+          <div className="bg-white border rounded-lg p-6 space-y-4">
+            {paragraphs.map((para: string, i: number) => (
+              <p key={i} className="text-sm text-gray-700 leading-relaxed">{para}</p>
+            ))}
+          </div>
 
-          {(!posts || posts.length === 0) ? (
-            <div className="bg-white border rounded-lg p-6">
-              <p className="text-gray-400 text-sm">No posts yet.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {posts.map(post => (
-                <Link key={post.id} href={`/news/${post.slug}`} className="block bg-white border rounded-lg p-6 hover:border-black transition-colors">
-                  <p className="text-xs text-gray-400 mb-2">
-                    {post.published_at ? new Date(post.published_at).toLocaleDateString('en-GB', {
-                      day: 'numeric', month: 'long', year: 'numeric'
-                    }) : ''}
-                  </p>
-                  <h2 className="text-xl font-bold mb-2">{post.title}</h2>
-                  {post.excerpt && <p className="text-sm text-gray-500">{post.excerpt}</p>}
-                </Link>
-              ))}
-            </div>
-          )}
-
+          <Link href="/news" className="inline-block mt-6 text-sm text-gray-500 hover:text-black">
+            ← All news
+          </Link>
         </div>
       </HeroPage>
     </Shell>
