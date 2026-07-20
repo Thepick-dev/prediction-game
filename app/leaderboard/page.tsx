@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
-import { abbrFromMap } from '../lib/teams'
+import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
 
 type RankedPlayer = {
@@ -22,10 +22,11 @@ type RankedPlayer = {
   weekly_points: number[]
 }
 
+type Team = { id: number; name: string; short_name: string | null; crest_url: string | null }
+
 type PickDetail = {
   gw: number
   team_id: number
-  team: string
   player1: string
   player2: string
   player1_id: number
@@ -38,6 +39,11 @@ type PickDetail = {
   player2_points: number | null
 }
 
+function teamDisplayName(team: Team | undefined) {
+  if (!team) return 'Unknown'
+  return team.short_name ?? team.name.replace(' FC', '').replace(' AFC', '')
+}
+
 export default function LeaderboardPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
@@ -47,8 +53,8 @@ export default function LeaderboardPage() {
   const [pickDetails, setPickDetails] = useState<Record<string, PickDetail[]>>({})
   const [matchEvents, setMatchEvents] = useState<any[]>([])
   const [potwUserId, setPotwUserId] = useState<string | null>(null)
-  const [allTeams, setAllTeams] = useState<{ id: number; name: string; short_name: string | null }[]>([])
-  const [teamMap, setTeamMap] = useState<Record<number, { name: string; short_name: string | null }>>({})
+  const [allTeams, setAllTeams] = useState<Team[]>([])
+  const [teamMap, setTeamMap] = useState<Record<number, Team>>({})
   const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string }>>({})
   const [usedTeamsByPlayer, setUsedTeamsByPlayer] = useState<Record<string, Record<number, number>>>({})
   const [doubleUseByPlayer, setDoubleUseByPlayer] = useState<Record<string, number[]>>({})
@@ -82,11 +88,11 @@ export default function LeaderboardPage() {
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
       supabase.from('picks').select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('competition_id', comp.id),
-      supabase.from('teams').select('id, name, short_name'),
+      supabase.from('teams').select('id, name, short_name, crest_url'),
       supabase.from('players').select('id, name'),
       supabase.from('gameweeks').select('id, number').eq('competition_id', comp.id),
       supabase.from('match_events').select('player_id, event_type'),
-      supabase.from('draft_picks').select('user_id, team_id').eq('competition_id', comp.id)
+      supabase.from('draft_picks').select('user_id, tier1_team_id, tier2_team_id, tier3_team_id').eq('competition_id', comp.id)
     ])
 
     setMatchEvents(events ?? [])
@@ -102,11 +108,11 @@ export default function LeaderboardPage() {
         colour2: p.kit_colour_2 ?? '#F5ECD9'
       }
     })
-
-    const tMap: Record<number, { name: string; short_name: string | null }> = {}
-    teams?.forEach(t => { tMap[t.id] = { name: t.name, short_name: t.short_name } })
-    setTeamMap(tMap)
     setKitByUser(kitMap)
+
+    const tMap: Record<number, Team> = {}
+    teams?.forEach(t => { tMap[t.id] = t })
+    setTeamMap(tMap)
 
     const playerMap: Record<number, string> = {}
     players?.forEach(p => { playerMap[p.id] = p.name })
@@ -119,8 +125,8 @@ export default function LeaderboardPage() {
 
     const doubleUseMap: Record<string, number[]> = {}
     draftPicks?.forEach(dp => {
-      if (!doubleUseMap[dp.user_id]) doubleUseMap[dp.user_id] = []
-      doubleUseMap[dp.user_id].push(dp.team_id)
+      const teamIds = [dp.tier1_team_id, dp.tier2_team_id, dp.tier3_team_id].filter(Boolean) as number[]
+      doubleUseMap[dp.user_id] = teamIds
     })
     setDoubleUseByPlayer(doubleUseMap)
 
@@ -206,11 +212,9 @@ export default function LeaderboardPage() {
     picks?.forEach(pick => {
       if (!details[pick.user_id]) details[pick.user_id] = []
       const pts = pointsByPickId[pick.id]
-      const team = tMap[pick.team_id]
       details[pick.user_id].push({
         gw: gwMap[pick.gameweek_id] ?? 0,
         team_id: pick.team_id,
-        team: team?.name ?? 'Unknown',
         player1: playerMap[pick.player1_id] ?? 'Unknown',
         player2: playerMap[pick.player2_id] ?? 'Unknown',
         player1_id: pick.player1_id,
@@ -261,11 +265,6 @@ export default function LeaderboardPage() {
         return { ...team, remaining, isDouble: doubleUse.includes(team.id) }
       })
       .filter(team => team.remaining > 0)
-      .sort((a, b) => {
-        const nameA = a.short_name ?? a.name
-        const nameB = b.short_name ?? b.name
-        return nameA.localeCompare(nameB)
-      })
   }
 
   if (loading) {
@@ -287,26 +286,26 @@ export default function LeaderboardPage() {
 
   return (
     <Shell active="LEADERBOARD" user={user} displayName={displayName}>
-      <HeroPage>
-        <div className="w-full max-w-3xl">
+      <HeroPage wide>
+        <div className="w-full text-[#F5ECD9]">
 
-          <h1 className="text-3xl font-bold mb-1">Leaderboard</h1>
-          <p className="text-gray-500 mb-6 text-sm">{competition.name}</p>
+          <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>LEADERBOARD</h1>
+          <p className="text-[#D9A441]/70 mb-6 text-sm">{competition.name}</p>
 
           {potwUserId && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-3">
+            <div className="bg-[#D9A441]/15 border border-[#D9A441]/40 rounded-lg px-4 py-3 mb-5 flex items-center gap-3">
               <span className="text-xl">👑</span>
               <div>
-                <p className="text-xs text-yellow-700 font-bold uppercase tracking-wide">Current Leader</p>
+                <p className="text-xs text-[#D9A441] font-bold uppercase tracking-wide">Current Leader</p>
                 <p className="font-bold uppercase">{ranked[0]?.display_name}</p>
               </div>
             </div>
           )}
 
-          <div className="bg-white border rounded-lg overflow-hidden">
+          <div className="bg-white/5 border border-white/10 rounded-lg overflow-hidden">
             <table className="w-full" style={{ fontSize: '12px' }}>
               <thead>
-                <tr className="text-left text-gray-500 border-b bg-gray-50" style={{ fontSize: '10px' }}>
+                <tr className="text-left border-b border-white/10 text-[#F5ECD9]/50" style={{ fontSize: '10px' }}>
                   <th className="py-2 px-2 uppercase tracking-wider">#</th>
                   <th className="py-2 px-2 uppercase tracking-wider">Player</th>
                   <th className="py-2 px-2 text-center uppercase tracking-wider">HW</th>
@@ -325,39 +324,39 @@ export default function LeaderboardPage() {
                     <React.Fragment key={player.user_id}>
                       <tr
                         onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
-                        className="border-b cursor-pointer hover:bg-gray-50"
+                        className="border-b border-white/5 cursor-pointer hover:bg-white/5"
                       >
-                        <td className="py-2 px-2 text-gray-400">{index + 1}</td>
+                        <td className="py-2 px-2 text-[#F5ECD9]/40">{index + 1}</td>
                         <td className="py-2 px-2 font-bold uppercase">
-                          <span className="inline-flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5">
                             <KitBadge
                               pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
                               colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                               colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
-                              size={18}
+                              size={16}
                             />
                             {player.display_name}
-                          </span>
-                          {index === 0 && <span className="ml-1">👑</span>}
-                          {streak && <span className="ml-1" title={`${streak} weeks above average`}>🔥</span>}
-                          <span className="ml-1 text-gray-300" style={{ fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
+                            {index === 0 && <span className="text-[#D9A441]">👑</span>}
+                            {streak && <span title={`${streak} weeks above average`}>🔥</span>}
+                            <span className="text-[#F5ECD9]/30" style={{ fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
+                          </div>
                         </td>
-                        <td className="py-2 px-2 text-center text-gray-600">{player.home_wins}</td>
-                        <td className="py-2 px-2 text-center text-gray-600">{player.away_wins}</td>
-                        <td className="py-2 px-2 text-right text-gray-600">{Math.round(player.team_points)}</td>
-                        <td className="py-2 px-2 text-right text-gray-600">{Math.round(player.player_points)}</td>
-                        <td className="py-2 px-2 text-right text-gray-600">{Math.round(player.banker_points)}</td>
-                        <td className="py-2 px-2 text-right font-bold">{player.total_points}</td>
+                        <td className="py-2 px-2 text-center text-[#F5ECD9]/60">{player.home_wins}</td>
+                        <td className="py-2 px-2 text-center text-[#F5ECD9]/60">{player.away_wins}</td>
+                        <td className="py-2 px-2 text-right text-[#F5ECD9]/60">{Math.round(player.team_points)}</td>
+                        <td className="py-2 px-2 text-right text-[#F5ECD9]/60">{Math.round(player.player_points)}</td>
+                        <td className="py-2 px-2 text-right text-[#F5ECD9]/60">{Math.round(player.banker_points)}</td>
+                        <td className="py-2 px-2 text-right font-bold" style={{ color: '#D9A441' }}>{player.total_points}</td>
                       </tr>
                       {expandedUser === player.user_id && (
                         <tr>
-                          <td colSpan={8} className="bg-gray-50 px-2 py-3">
+                          <td colSpan={8} className="bg-black/20 px-3 py-3">
                             {(!pickDetails[player.user_id] || pickDetails[player.user_id].length === 0) ? (
-                              <p className="text-gray-400 mb-3" style={{ fontSize: '10px' }}>No picks yet.</p>
+                              <p className="text-[#F5ECD9]/40 mb-3" style={{ fontSize: '10px' }}>No picks yet.</p>
                             ) : (
                               <table className="w-full mb-4" style={{ fontSize: '9px' }}>
                                 <thead>
-                                  <tr className="text-left text-gray-400 border-b uppercase tracking-wider">
+                                  <tr className="text-left text-[#F5ECD9]/40 border-b border-white/10 uppercase tracking-wider">
                                     <th className="py-1 pr-1">GW</th>
                                     <th className="py-1 pr-1">Team</th>
                                     <th className="py-1 pr-1 text-right">Pts</th>
@@ -370,26 +369,29 @@ export default function LeaderboardPage() {
                                 </thead>
                                 <tbody>
                                   {pickDetails[player.user_id].map((d, i) => (
-                                    <tr key={i} className="border-b last:border-0">
+                                    <tr key={i} className="border-b border-white/5 last:border-0">
                                       <td className="py-1 pr-1 font-bold">{d.gw}</td>
                                       <td className="py-1 pr-1 uppercase">
-                                        {abbrFromMap(teamMap, d.team_id)}
-                                        {d.is_banker && <span className="ml-0.5 bg-yellow-400 text-black px-0.5 rounded font-bold">★</span>}
-                                        {d.is_autopick && <span className="ml-0.5 bg-gray-200 text-gray-500 px-0.5 rounded">A</span>}
+                                        <div className="flex items-center gap-1">
+                                          <TeamCrest crestUrl={teamMap[d.team_id]?.crest_url ?? null} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
+                                          {teamDisplayName(teamMap[d.team_id])}
+                                          {d.is_banker && <span className="bg-[#D9A441] text-[#241a12] px-0.5 rounded font-bold">★</span>}
+                                          {d.is_autopick && <span className="bg-white/20 px-0.5 rounded">A</span>}
+                                        </div>
                                       </td>
-                                      <td className="py-1 pr-1 text-right text-gray-500">{d.team_points ?? '—'}</td>
+                                      <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.team_points ?? '—'}</td>
                                       <td className="py-1 pr-1 uppercase">
                                         {shortName(d.player1)}
-                                        {goalPlayers.has(d.player1_id) && ' ⚽'}
-                                        {assistPlayers.has(d.player1_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold">A</span>}
+                                        {goalPlayers.has(d.player1_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold">G</span>}
+                                        {assistPlayers.has(d.player1_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span>}
                                       </td>
-                                      <td className="py-1 pr-1 text-right text-gray-500">{d.player1_points ?? '—'}</td>
+                                      <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.player1_points ?? '—'}</td>
                                       <td className="py-1 pr-1 uppercase">
                                         {shortName(d.player2)}
-                                        {goalPlayers.has(d.player2_id) && ' ⚽'}
-                                        {assistPlayers.has(d.player2_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold">A</span>}
+                                        {goalPlayers.has(d.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold">G</span>}
+                                        {assistPlayers.has(d.player2_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span>}
                                       </td>
-                                      <td className="py-1 pr-1 text-right text-gray-500">{d.player2_points ?? '—'}</td>
+                                      <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.player2_points ?? '—'}</td>
                                       <td className="py-1 text-right font-bold">{d.points ?? '—'}</td>
                                     </tr>
                                   ))}
@@ -398,21 +400,22 @@ export default function LeaderboardPage() {
                             )}
 
                             <div style={{ fontSize: '9px' }}>
-                              <p className="text-gray-400 uppercase tracking-wider font-bold mb-1">
+                              <p className="text-[#F5ECD9]/40 uppercase tracking-wider font-bold mb-1.5">
                                 Available Teams ({availableTeams.length})
                               </p>
                               {availableTeams.length === 0 ? (
-                                <p className="text-gray-400">No teams remaining.</p>
+                                <p className="text-[#F5ECD9]/40">No teams remaining.</p>
                               ) : (
-                                <div className="grid grid-cols-4 gap-1">
+                                <div className="flex flex-wrap gap-1.5">
                                   {availableTeams.map(team => (
                                     <div
                                       key={team.id}
-                                      className="bg-white border rounded px-1.5 py-1 uppercase text-center"
+                                      className="flex items-center gap-1 bg-white/5 border border-white/10 rounded px-1.5 py-1"
                                     >
-                                      {team.short_name ?? team.name}
+                                      <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={14} />
+                                      <span className="uppercase">{teamDisplayName(team)}</span>
                                       {team.isDouble && team.remaining === 2 && (
-                                        <span className="ml-0.5 text-yellow-600 font-bold">(x2)</span>
+                                        <span className="text-[#D9A441] font-bold">×2</span>
                                       )}
                                     </div>
                                   ))}
@@ -427,14 +430,14 @@ export default function LeaderboardPage() {
                 })}
                 {ranked.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-gray-400 uppercase tracking-wider" style={{ fontSize: '11px' }}>No players yet.</td>
+                    <td colSpan={8} className="py-8 text-center text-[#F5ECD9]/40 uppercase tracking-wider" style={{ fontSize: '11px' }}>No players yet.</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
 
-          <div className="mt-3 uppercase tracking-wider text-gray-400" style={{ fontSize: '10px' }}>
+          <div className="mt-3 uppercase tracking-wider text-[#F5ECD9]/40" style={{ fontSize: '10px' }}>
             <span className="font-bold mr-2">Key:</span>
             👑 Leader
             <span className="mx-2">·</span>
