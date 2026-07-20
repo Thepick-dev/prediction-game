@@ -346,7 +346,7 @@ export default function PicksPage() {
                   <label className="block font-bold mb-3 uppercase tracking-wider text-xs text-[#F5ECD9]/70">Select Your Team</label>
 
                   {hasFixtures ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">
+                    <div className="space-y-2 mb-6">
                       {fixtures.map(fixture => {
                         const homeStatus = getTeamStatus(fixture.home_team_id)
                         const awayStatus = getTeamStatus(fixture.away_team_id)
@@ -358,7 +358,7 @@ export default function PicksPage() {
                         const awaySelected = selectedTeam === fixture.away_team_id && selectedFixture === fixture.id
 
                         return (
-                          <div key={fixture.id} className="contents">
+                          <div key={fixture.id} className="grid grid-cols-2 gap-2">
                             <button
                               onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
                               disabled={homeStatus.isUsed}
