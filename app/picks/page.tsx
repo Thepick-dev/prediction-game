@@ -683,51 +683,74 @@ export default function PicksPage() {
       </HeroPage>
 
       {showSlip && selectedTeam && player1 && player2 && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-end md:items-center justify-center z-50 p-4">
-          <div className="w-full max-w-sm overflow-hidden shadow-2xl rounded-lg border border-[#D9A441]/40" style={{ backgroundColor: '#1e1914' }}>
-            <div className="px-6 py-4 text-center border-b border-white/10">
-              <p className="text-xs uppercase tracking-widest text-[#D9A441]/70 mb-1">LMS All-Stars Predictions</p>
-              <p className="text-lg font-bold uppercase tracking-wider text-[#F5ECD9]">Gameweek {gameweek?.number} Pick</p>
-            </div>
+        <div className="fixed inset-0 bg-black/75 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setShowSlip(false)}>
+          <div className="w-full max-w-xs" onClick={e => e.stopPropagation()}>
 
-            <div className="px-6 py-4 space-y-3 border-b border-white/10 text-[#F5ECD9]">
-              <div className="flex justify-between items-center">
-                <span className="text-xs uppercase tracking-wider text-[#F5ECD9]/50">Team</span>
-                <div className="flex items-center gap-2">
-                  <TeamCrest crestUrl={getTeam(selectedTeam)?.crest_url ?? null} teamName={getTeam(selectedTeam)?.name ?? ''} size={20} />
-                  <span className="font-bold uppercase">{teamDisplayName(getTeam(selectedTeam))}</span>
+            {/* Main stub */}
+            <div className="relative shadow-2xl" style={{ backgroundColor: '#F5ECD9', color: '#241a12' }}>
+              {/* Top scalloped/perforated edge */}
+              <div className="absolute -top-2 left-0 right-0 flex justify-between px-1" style={{ height: '16px' }}>
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="rounded-full" style={{ width: '10px', height: '10px', backgroundColor: '#1e1914' }} />
+                ))}
+              </div>
+
+              <div className="px-5 pt-6 pb-4 text-center border-b-2 border-dashed" style={{ borderColor: '#241a1733' }}>
+                <p className="text-[10px] uppercase tracking-[0.2em] mb-1" style={{ color: '#B5493C' }}>LMS All-Stars Predictions</p>
+                <p className="text-xl font-bold uppercase tracking-wider" style={{ fontFamily: 'var(--font-heading), serif' }}>Matchday Ticket</p>
+                <p className="text-xs uppercase tracking-widest mt-1" style={{ color: '#241a1799' }}>Gameweek {gameweek?.number}</p>
+              </div>
+
+              <div className="px-5 py-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-widest" style={{ color: '#241a1799' }}>Team</span>
+                  <div className="flex items-center gap-2">
+                    <TeamCrest crestUrl={getTeam(selectedTeam)?.crest_url ?? null} teamName={getTeam(selectedTeam)?.name ?? ''} size={22} />
+                    <span className="font-bold uppercase text-sm">{teamDisplayName(getTeam(selectedTeam))}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs uppercase tracking-wider text-[#F5ECD9]/50">Player 1</span>
-                <span className="font-medium uppercase text-sm">{playerName(player1)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs uppercase tracking-wider text-[#F5ECD9]/50">Player 2</span>
-                <span className="font-medium uppercase text-sm">{playerName(player2)}</span>
-              </div>
-              {isBanker && (
-                <div className="flex justify-between items-center">
-                  <span className="text-xs uppercase tracking-wider text-[#F5ECD9]/50">Banker</span>
-                  <span className="font-bold text-[#D9A441] uppercase">★ Declared</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-widest" style={{ color: '#241a1799' }}>Player 1</span>
+                  <span className="font-bold uppercase text-sm">{playerName(player1)}</span>
                 </div>
-              )}
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-widest" style={{ color: '#241a1799' }}>Player 2</span>
+                  <span className="font-bold uppercase text-sm">{playerName(player2)}</span>
+                </div>
+                {isBanker && (
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] uppercase tracking-widest" style={{ color: '#241a1799' }}>Banker</span>
+                    <span className="font-bold uppercase text-sm px-2 py-0.5 rounded" style={{ backgroundColor: '#D9A441', color: '#241a12' }}>★ Declared</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Perforation line between stub and tearaway */}
+              <div className="relative border-t-2 border-dashed" style={{ borderColor: '#241a1733' }}>
+                <div className="absolute -left-2 -top-2 rounded-full" style={{ width: '16px', height: '16px', backgroundColor: '#1e1914' }} />
+                <div className="absolute -right-2 -top-2 rounded-full" style={{ width: '16px', height: '16px', backgroundColor: '#1e1914' }} />
+              </div>
+
+              <div className="px-5 py-3 text-center">
+                <p className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#241a1799' }}>Kick-off Deadline</p>
+                <p className="font-bold text-sm">{gameweek ? new Date(gameweek.deadline).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</p>
+              </div>
+
+              {/* Bottom scalloped edge */}
+              <div className="absolute -bottom-2 left-0 right-0 flex justify-between px-1" style={{ height: '16px' }}>
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="rounded-full" style={{ width: '10px', height: '10px', backgroundColor: '#1e1914' }} />
+                ))}
+              </div>
             </div>
 
-            <div className="px-6 py-3 text-center border-b border-white/10">
-              <p className="text-xs text-[#F5ECD9]/50 uppercase tracking-wider mb-1">Deadline</p>
-              <p className="font-bold text-sm text-[#F5ECD9]">{gameweek ? new Date(gameweek.deadline).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</p>
-            </div>
-
-            <div className="px-6 py-4">
-              <button
-                onClick={() => setShowSlip(false)}
-                className="w-full rounded-lg py-3 font-bold uppercase tracking-wider text-sm"
-                style={{ backgroundColor: '#D9A441', color: '#241a12' }}
-              >
-                Done
-              </button>
-            </div>
+            <button
+              onClick={() => setShowSlip(false)}
+              className="w-full rounded-lg py-3 mt-5 font-bold uppercase tracking-wider text-sm shadow-lg"
+              style={{ backgroundColor: '#D9A441', color: '#241a12', fontFamily: 'var(--font-heading), serif' }}
+            >
+              Done
+            </button>
           </div>
         </div>
       )}
