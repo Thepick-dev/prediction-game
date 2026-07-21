@@ -33,6 +33,7 @@ type PickDetail = {
   player2_id: number
   is_banker: boolean
   is_autopick: boolean
+  provisional: boolean
   points: number | null
   team_points: number | null
   player1_points: number | null
@@ -90,7 +91,7 @@ export default function LeaderboardPage() {
       supabase.from('picks').select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('competition_id', comp.id),
       supabase.from('teams').select('id, name, short_name, crest_url').eq('active', true),
       supabase.from('players').select('id, name'),
-      supabase.from('gameweeks').select('id, number').eq('competition_id', comp.id),
+      supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id),
       supabase.from('match_events').select('player_id, event_type'),
       supabase.from('tier_draft_picks').select('user_id, tier1_team_id, tier2_team_id, tier3_team_id').eq('competition_id', comp.id)
     ])
@@ -130,8 +131,55 @@ export default function LeaderboardPage() {
     })
     setDoubleUseByPlayer(doubleUseMap)
 
+    // Fetch provisional autopicks for any gameweek past deadline but not yet scored.
+    const now = new Date()
+    const previewGameweeks = (gameweeks ?? []).filter(g =>
+      new Date(g.deadline) < now && g.status !== 'completed'
+    )
+
+    const realPickKeys = new Set((picks ?? []).map(p => `${p.user_id}-${p.gameweek_id}`))
+    type ProvisionalPick = { user_id: string; gameweek_id: string; team_id: number; player1_id: number; player2_id: number }
+    let provisionalPicks: ProvisionalPick[] = []
+
+    await Promise.all(previewGameweeks.map(async gw => {
+      try {
+        const res = await fetch(`/api/autopick/preview?gameweek_id=${gw.id}`)
+        const data = await res.json()
+        const previews = data.previews ?? {}
+        Object.entries(previews).forEach(([userId, p]: [string, any]) => {
+          if (!realPickKeys.has(`${userId}-${gw.id}`)) {
+            provisionalPicks.push({
+              user_id: userId,
+              gameweek_id: gw.id,
+              team_id: p.team_id,
+              player1_id: p.player1_id,
+              player2_id: p.player2_id,
+            })
+          }
+        })
+      } catch {
+        // ignore preview failures
+      }
+    }))
+
+    // Combined pick list: real picks + provisional autopicks
+    const combinedPicks = [
+      ...(picks ?? []).map(p => ({ ...p, provisional: false })),
+      ...provisionalPicks.map(p => ({
+        id: `preview-${p.user_id}-${p.gameweek_id}`,
+        user_id: p.user_id,
+        gameweek_id: p.gameweek_id,
+        team_id: p.team_id,
+        player1_id: p.player1_id,
+        player2_id: p.player2_id,
+        is_banker: false,
+        is_autopick: true,
+        provisional: true,
+      }))
+    ]
+
     const usedMap: Record<string, Record<number, number>> = {}
-    picks?.forEach(pick => {
+    combinedPicks.forEach(pick => {
       if (!usedMap[pick.user_id]) usedMap[pick.user_id] = {}
       usedMap[pick.user_id][pick.team_id] = (usedMap[pick.user_id][pick.team_id] || 0) + 1
     })
@@ -209,9 +257,9 @@ export default function LeaderboardPage() {
     if (rankedList.length > 0) setPotwUserId(rankedList[0].user_id)
 
     const details: Record<string, PickDetail[]> = {}
-    picks?.forEach(pick => {
+    combinedPicks.forEach(pick => {
       if (!details[pick.user_id]) details[pick.user_id] = []
-      const pts = pointsByPickId[pick.id]
+      const pts = (pick as any).provisional ? null : pointsByPickId[(pick as any).id]
       details[pick.user_id].push({
         gw: gwMap[pick.gameweek_id] ?? 0,
         team_id: pick.team_id,
@@ -221,6 +269,7 @@ export default function LeaderboardPage() {
         player2_id: pick.player2_id,
         is_banker: pick.is_banker,
         is_autopick: pick.is_autopick,
+        provisional: (pick as any).provisional ?? false,
         points: pts?.total_points ?? null,
         team_points: pts?.team_points ?? null,
         player1_points: pts?.player1_points ?? null,
@@ -376,7 +425,7 @@ export default function LeaderboardPage() {
                                           <TeamCrest crestUrl={teamMap[d.team_id]?.crest_url ?? null} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
                                           {teamDisplayName(teamMap[d.team_id])}
                                           {d.is_banker && <span className="bg-[#D9A441] text-[#241a12] px-0.5 rounded font-bold">★</span>}
-                                          {d.is_autopick && <span className="bg-white/20 px-0.5 rounded">A</span>}
+                                          {d.provisional ? <span className="bg-white/20 px-0.5 rounded">AUTO</span> : d.is_autopick && <span className="bg-white/20 px-0.5 rounded">A</span>}
                                         </div>
                                       </td>
                                       <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.team_points ?? '—'}</td>
@@ -441,13 +490,11 @@ export default function LeaderboardPage() {
             <span className="font-bold mr-2">Key:</span>
             👑 Leader
             <span className="mx-2">·</span>
-            🔥 On a streak (3+ weeks above average)
+            🔥 Streak (3+ wks above avg)
             <span className="mx-2">·</span>
-            HW/AW = home/away wins
+            <span className="bg-white/20 px-0.5 rounded">AUTO</span> Provisional autopick
             <span className="mx-2">·</span>
-            Bk = banker bonus
-            <span className="mx-2">·</span>
-            Click any row to expand
+            Click a row to expand
           </div>
 
         </div>
