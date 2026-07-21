@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import PositionEditor from './PositionEditor'
 
 export default async function StandingsPage() {
   const supabase = await createServerSupabaseClient()
@@ -20,6 +21,13 @@ export default async function StandingsPage() {
 
   const sorted = [...(positions ?? [])].sort((a, b) => a.position - b.position)
 
+  const editorRows = sorted.map(row => ({
+    id: row.id,
+    team_id: row.team_id,
+    position: row.position,
+    teamName: teamMap[row.team_id] ?? `Team ${row.team_id}`
+  }))
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-2">League Standings</h1>
@@ -29,7 +37,7 @@ export default async function StandingsPage() {
           : 'No standings data yet — run Sync Standings on the Sync page.'}
       </p>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <div className="bg-white border rounded-lg overflow-hidden mb-8">
         {sorted.length > 0 ? (
           <table className="w-full text-sm">
             <thead>
@@ -67,6 +75,10 @@ export default async function StandingsPage() {
           <p className="text-gray-400 text-sm p-6">No standings data yet.</p>
         )}
       </div>
+
+      {editorRows.length > 0 && lastSynced && (
+        <PositionEditor initialRows={editorRows} recordedAt={lastSynced} />
+      )}
     </div>
   )
 }
