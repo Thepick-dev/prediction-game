@@ -18,6 +18,7 @@ type HistoryPick = {
   player2_id: number
   is_banker: boolean
   is_autopick: boolean
+  provisional?: boolean
   gameweeks: { number: number }
 }
 type Question = {
@@ -184,14 +185,56 @@ export default function PicksPage() {
       if (questionData) setQuestion(questionData)
     }
 
-    const { data: history } = await supabase
-      .from('picks')
-      .select('id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick, gameweeks(number)')
-      .eq('user_id', user.id)
-      .eq('competition_id', comp.id)
-      .order('gameweek_id')
+    const [{ data: history }, { data: allGameweeks }] = await Promise.all([
+      supabase
+        .from('picks')
+        .select('id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick, gameweeks(number)')
+        .eq('user_id', user.id)
+        .eq('competition_id', comp.id)
+        .order('gameweek_id'),
+      supabase
+        .from('gameweeks')
+        .select('id, number, deadline, status')
+        .eq('competition_id', comp.id)
+    ])
 
-    setHistoryPicks((history as any) ?? [])
+    const realHistory = (history as any) ?? []
+    const pickedGwIds = new Set(realHistory.map((h: any) => h.gameweek_id))
+
+    const nowTime = new Date()
+    const pastUnpickedGws = (allGameweeks ?? []).filter(g =>
+      new Date(g.deadline) < nowTime && !pickedGwIds.has(g.id)
+    )
+
+    const provisionalHistory: any[] = []
+    await Promise.all(pastUnpickedGws.map(async g => {
+      try {
+        const res = await fetch(`/api/autopick/preview?gameweek_id=${g.id}`)
+        const data = await res.json()
+        const mine = data.previews?.[user.id]
+        if (mine) {
+          provisionalHistory.push({
+            id: `preview-${g.id}`,
+            gameweek_id: g.id,
+            team_id: mine.team_id,
+            player1_id: mine.player1_id,
+            player2_id: mine.player2_id,
+            is_banker: false,
+            is_autopick: true,
+            provisional: true,
+            gameweeks: { number: g.number }
+          })
+        }
+      } catch {
+        // ignore
+      }
+    }))
+
+    const combinedHistory = [...realHistory, ...provisionalHistory].sort(
+      (a, b) => (a.gameweeks?.number ?? 0) - (b.gameweeks?.number ?? 0)
+    )
+
+    setHistoryPicks(combinedHistory)
 
     const { data: pointsData } = await supabase
       .from('points')
@@ -623,7 +666,7 @@ export default function PicksPage() {
                             <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={16} />
                             {teamDisplayName(t)}
                             {pick.is_banker && <span className="ml-1 text-[10px] bg-[#D9A441] text-[#241a12] px-1 py-0.5 rounded font-bold">B</span>}
-                            {pick.is_autopick && <span className="ml-1 text-[10px] bg-white/20 px-1 py-0.5 rounded">A</span>}
+                            {pick.provisional ? <span className="ml-1 text-[10px] bg-white/20 px-1 py-0.5 rounded">AUTO</span> : pick.is_autopick && <span className="ml-1 text-[10px] bg-white/20 px-1 py-0.5 rounded">A</span>}
                           </div>
                         </td>
                         <td className="py-2 px-3 text-[#F5ECD9]/50 uppercase" style={{ fontSize: '10px' }}>{playerName(pick.player1_id)} & {playerName(pick.player2_id)}</td>
