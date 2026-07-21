@@ -37,10 +37,10 @@ export async function GET(request: Request) {
     // team selections can no longer be changed for the rest of the season.
     if (gw.number === 1) {
       await supabase
-        .from('draft_picks')
-        .update({ locked_at: now.toISOString() })
+        .from('tier_draft_picks')
+        .update({ locked: true })
         .eq('competition_id', gw.competition_id)
-        .is('locked_at', null)
+        .eq('locked', false)
     }
 
     const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/autopick`, {
