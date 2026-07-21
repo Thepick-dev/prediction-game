@@ -88,11 +88,11 @@ export default function LeaderboardPage() {
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
       supabase.from('picks').select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('competition_id', comp.id),
-      supabase.from('teams').select('id, name, short_name, crest_url'),
+      supabase.from('teams').select('id, name, short_name, crest_url').eq('active', true),
       supabase.from('players').select('id, name'),
       supabase.from('gameweeks').select('id, number').eq('competition_id', comp.id),
       supabase.from('match_events').select('player_id, event_type'),
-      supabase.from('draft_picks').select('user_id, tier1_team_id, tier2_team_id, tier3_team_id').eq('competition_id', comp.id)
+      supabase.from('tier_draft_picks').select('user_id, tier1_team_id, tier2_team_id, tier3_team_id').eq('competition_id', comp.id)
     ])
 
     setMatchEvents(events ?? [])
