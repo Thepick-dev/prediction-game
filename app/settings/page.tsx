@@ -40,6 +40,9 @@ export default function SettingsPage() {
   const [kitColour1, setKitColour1] = useState('#1E4D6B')
   const [kitColour2, setKitColour2] = useState('#F5ECD9')
 
+  const [tierLocked, setTierLocked] = useState<boolean | null>(null)
+  const [hasTierPicks, setHasTierPicks] = useState(false)
+
   const [loading, setLoading] = useState(true)
   const [savingName, setSavingName] = useState(false)
   const [savingEmail, setSavingEmail] = useState(false)
@@ -73,6 +76,29 @@ export default function SettingsPage() {
       setKitPattern(profile.kit_pattern ?? 'solid')
       setKitColour1(profile.kit_colour_1 ?? '#1E4D6B')
       setKitColour2(profile.kit_colour_2 ?? '#F5ECD9')
+    }
+
+    const { data: comp } = await supabase
+      .from('competitions')
+      .select('id')
+      .eq('status', 'active')
+      .single()
+
+    if (comp) {
+      const { data: tierPicks } = await supabase
+        .from('tier_draft_picks')
+        .select('locked')
+        .eq('competition_id', comp.id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (tierPicks) {
+        setHasTierPicks(true)
+        setTierLocked(tierPicks.locked ?? false)
+      } else {
+        setHasTierPicks(false)
+        setTierLocked(false)
+      }
     }
 
     setLoading(false)
@@ -295,6 +321,20 @@ export default function SettingsPage() {
               >
                 {savingKit ? 'Saving...' : 'Save Kit'}
               </button>
+            </div>
+
+            <div className="bg-white border rounded-lg p-6">
+              <h2 className="font-bold mb-1">Tier Picks</h2>
+              {tierLocked ? (
+                <p className="text-sm text-gray-500">Your tier picks are locked for the current competition and can no longer be changed.</p>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500 mb-4">{hasTierPicks ? 'You can still change your double-use tier teams until the first gameweek deadline.' : 'You have not set your tier picks yet. Choose your double-use teams before the first gameweek deadline.'}</p>
+                  <a href="/join" className="block w-full text-center bg-black text-white rounded px-4 py-2 text-sm font-bold">
+                    {hasTierPicks ? 'Edit Tier Picks' : 'Set Tier Picks'}
+                  </a>
+                </>
+              )}
             </div>
 
             <div className="bg-white border rounded-lg p-6">

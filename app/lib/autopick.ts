@@ -1,0 +1,130 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+export type DerivedPick = {
+  team_id: number
+  player1_id: number
+  player2_id: number
+}
+
+// Deterministic seeded PRNG (mulberry32) so a given user+gameweek always
+// produces the SAME autopick — whether previewed on-read or written by cron.
+function seededRandom(seed: number) {
+  return function () {
+    seed |= 0
+    seed = (seed + 0x6D2B79F5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+// Turn a string (e.g. userId+gameweekId) into a numeric seed.
+function hashString(str: string): number {
+  let h = 0
+  for (let i = 0; i < str.length; i++) {
+    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0
+  }
+  return h
+}
+
+function seededShuffle<T>(array: T[], seed: number): T[] {
+  const rng = seededRandom(seed)
+  const result = [...array]
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[result[i], result[j]] = [result[j], result[i]]
+  }
+  return result
+}
+
+/**
+ * Derives a player's autopick deterministically. Writes nothing.
+ * Same inputs always yield the same result, so the on-read preview and the
+ * cron-written row are guaranteed to match.
+ *
+ * Rules:
+ *  - Team: lowest available ACTIVE team by current league position, respecting
+ *    used-team counts and double-use (tier) teams.
+ *  - Players: two available players (used < 2 times each), preferring two from
+ *    different teams, chosen via seeded shuffle.
+ */
+export async function deriveAutopick(
+  supabase: SupabaseClient,
+  userId: string,
+  gameweekId: string,
+  competitionId: string
+): Promise<DerivedPick | null> {
+  const [{ data: activeTeams }, { data: leaguePositions }, { data: allPlayers }, { data: userPicks }, { data: tierPicks }] = await Promise.all([
+    supabase.from('teams').select('id, name').eq('active', true),
+    supabase.from('team_league_positions').select('team_id, position, recorded_at').order('recorded_at', { ascending: false }),
+    supabase.from('players').select('id, name, team_id'),
+    supabase.from('picks').select('team_id, player1_id, player2_id').eq('user_id', userId).eq('competition_id', competitionId),
+    supabase.from('tier_draft_picks').select('tier1_team_id, tier2_team_id, tier3_team_id, tier4_team_id').eq('competition_id', competitionId).eq('user_id', userId).single(),
+  ])
+
+  if (!activeTeams || activeTeams.length === 0) return null
+  if (!allPlayers || allPlayers.length < 2) return null
+
+  // Latest league position per team
+  const seen = new Set<number>()
+  const latestPositions: Record<number, number> = {}
+  leaguePositions?.forEach(lp => {
+    if (!seen.has(lp.team_id)) {
+      seen.add(lp.team_id)
+      latestPositions[lp.team_id] = lp.position
+    }
+  })
+
+  // Double-use teams from the CORRECT table (tier_draft_picks)
+  const doubleUseTeams = tierPicks
+    ? [tierPicks.tier1_team_id, tierPicks.tier2_team_id, tierPicks.tier3_team_id, tierPicks.tier4_team_id].filter((id): id is number => id != null)
+    : []
+
+  const teamUseCounts: Record<number, number> = {}
+  const playerUseCounts: Record<number, number> = {}
+  userPicks?.forEach(p => {
+    teamUseCounts[p.team_id] = (teamUseCounts[p.team_id] || 0) + 1
+    playerUseCounts[p.player1_id] = (playerUseCounts[p.player1_id] || 0) + 1
+    playerUseCounts[p.player2_id] = (playerUseCounts[p.player2_id] || 0) + 1
+  })
+
+  const availableTeams = activeTeams.filter(team => {
+    const uses = teamUseCounts[team.id] || 0
+    const maxUses = doubleUseTeams.includes(team.id) ? 2 : 1
+    return uses < maxUses
+  })
+
+  if (availableTeams.length === 0) return null
+
+  // Lowest league position = highest position number (20th is lowest).
+  // Teams with no recorded position sort last (treated as bottom) but only
+  // if genuinely unknown; fall back to name order for full determinism.
+  const sortedTeams = [...availableTeams].sort((a, b) => {
+    const posA = latestPositions[a.id]
+    const posB = latestPositions[b.id]
+    if (posA != null && posB != null) return posB - posA
+    if (posA != null) return -1
+    if (posB != null) return 1
+    return a.name.localeCompare(b.name)
+  })
+
+  const selectedTeam = sortedTeams[0]
+  if (!selectedTeam) return null
+
+  const availablePlayers = allPlayers.filter(p => (playerUseCounts[p.id] || 0) < 2)
+  if (availablePlayers.length < 2) return null
+
+  const seed = hashString(userId + gameweekId)
+  const shuffled = seededShuffle(availablePlayers, seed)
+
+  const player1 = shuffled[0]
+  const player2 = shuffled.find(p => p.team_id !== player1.team_id) ?? shuffled[1]
+
+  if (!player1 || !player2 || player1.id === player2.id) return null
+
+  return {
+    team_id: selectedTeam.id,
+    player1_id: player1.id,
+    player2_id: player2.id,
+  }
+}
