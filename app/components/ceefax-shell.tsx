@@ -1,7 +1,8 @@
 'use client'
-
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { createClient } from '../lib/supabase'
+import KitBadge from '../../components/KitBadge'
 
 type Props = {
   children: React.ReactNode
@@ -22,13 +23,31 @@ const navItems = [
 
 export default function Shell({ children, active, user, displayName }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [kit, setKit] = useState<{ pattern: string; colour1: string; colour2: string } | null>(null)
+
+  useEffect(() => {
+    if (!user?.id) return
+    const supabase = createClient()
+    supabase
+      .from('profiles')
+      .select('kit_pattern, kit_colour_1, kit_colour_2')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setKit({
+            pattern: data.kit_pattern ?? 'solid',
+            colour1: data.kit_colour_1 ?? '#1E4D6B',
+            colour2: data.kit_colour_2 ?? '#F5ECD9',
+          })
+        }
+      })
+  }, [user?.id])
 
   return (
     <div className="min-h-screen">
-
       <header className="bg-[#2A1F17] border-b-4 border-[#D9A441] sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4">
-
           <div className="flex items-center justify-between h-14">
             <Link
               href="/"
@@ -39,9 +58,14 @@ export default function Shell({ children, active, user, displayName }: Props) {
             </Link>
             <div className="flex items-center gap-3">
               {user && (
-                <span className="text-xs text-[#D9A441] hidden sm:block uppercase font-medium tracking-wider">
-                  {displayName ?? ''}
-                </span>
+                <div className="flex flex-col items-center gap-0.5">
+                  {kit && (
+                    <KitBadge pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} size={22} />
+                  )}
+                  <span className="text-[10px] text-[#D9A441] uppercase font-medium tracking-wider leading-none">
+                    {displayName ?? ''}
+                  </span>
+                </div>
               )}
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
@@ -54,7 +78,6 @@ export default function Shell({ children, active, user, displayName }: Props) {
               </button>
             </div>
           </div>
-
           <nav className="hidden md:flex gap-1 -mb-px overflow-x-auto">
             {navItems.map(item => (
               <Link
@@ -71,9 +94,7 @@ export default function Shell({ children, active, user, displayName }: Props) {
               </Link>
             ))}
           </nav>
-
         </div>
-
         {menuOpen && (
           <div className="md:hidden border-t border-[#D9A441] bg-[#2A1F17] shadow-lg">
             {navItems.map(item => (
@@ -98,17 +119,14 @@ export default function Shell({ children, active, user, displayName }: Props) {
           </div>
         )}
       </header>
-
       <main className="max-w-4xl mx-auto px-4 py-6">
         {children}
       </main>
-
       <footer className="border-t border-gray-200 py-4 mt-8 text-center">
         <span className="text-gray-400 text-xs uppercase tracking-widest">
           LMS All-Stars Predictions
         </span>
       </footer>
-
     </div>
   )
 }
