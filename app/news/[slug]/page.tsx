@@ -52,20 +52,22 @@ export default async function NewsPostPage({ params }: { params: Promise<{ slug:
 
   return (
     <Shell active="MATCHDAY PROGRAMME" user={user} displayName={profile?.display_name ?? undefined}>
-      <HeroPage>
-        <div className="w-full max-w-2xl">
-          <p className="text-xs text-gray-400 mb-2">
+      <HeroPage wide>
+        <div className="w-full text-[#F5ECD9]">
+          <p className="text-[10px] uppercase tracking-widest text-[#D9A441]/70 mb-2">
             {post.published_at ? new Date(post.published_at).toLocaleDateString('en-GB', {
               day: 'numeric', month: 'long', year: 'numeric'
             }) : ''}
           </p>
-          <h1 className="text-3xl font-bold mb-6">{post.title}</h1>
-          <div className="bg-white border rounded-lg p-6 space-y-4">
+          <h1 className="text-3xl font-bold mb-6" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>{post.title}</h1>
+
+          <div className="bg-white/5 border border-white/10 rounded-lg p-6 space-y-4">
             {paragraphs.map((para: string, i: number) => (
-              <p key={i} className="text-sm text-gray-700 leading-relaxed">{para}</p>
+              <p key={i} className="text-sm text-[#F5ECD9]/90 leading-relaxed">{para}</p>
             ))}
           </div>
-          <Link href="/news" className="inline-block mt-6 text-sm text-gray-500 hover:text-black">
+
+          <Link href="/news" className="inline-block mt-6 text-sm text-[#D9A441] hover:text-[#F5ECD9]">
             ← All news
           </Link>
         </div>

@@ -185,18 +185,25 @@ export default function SettingsPage() {
     )
   }
 
+  const cardClass = "bg-white/5 border border-white/10 rounded-lg p-6"
+  const labelClass = "font-bold mb-1 text-[#D9A441]"
+  const subClass = "text-sm text-[#F5ECD9]/60 mb-4"
+  const inputClass = "w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm mb-3 text-[#F5ECD9] placeholder:text-[#F5ECD9]/40"
+  const btnClass = "w-full rounded px-4 py-2 text-sm font-bold disabled:opacity-50"
+  const btnStyle = { backgroundColor: '#D9A441', color: '#241a12' }
+
   return (
     <Shell active="SETTINGS" user={user} displayName={currentName}>
       <HeroPage>
-        <div className="w-full max-w-md">
+        <div className="w-full text-[#F5ECD9]">
 
-          <h1 className="text-3xl font-bold mb-8">Settings</h1>
+          <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Settings</h1>
 
           <div className="space-y-6">
 
-            <div className="bg-white border rounded-lg p-6">
-              <h2 className="font-bold mb-1">Username</h2>
-              <p className="text-sm text-gray-500 mb-4">
+            <div className={cardClass}>
+              <h2 className={labelClass}>Username</h2>
+              <p className={subClass}>
                 {currentName ? `Currently shown as "${currentName}"` : 'Not set yet'}
               </p>
               <input
@@ -204,81 +211,69 @@ export default function SettingsPage() {
                 value={displayName}
                 onChange={e => setDisplayName(e.target.value)}
                 maxLength={30}
-                className="w-full border rounded px-3 py-2 text-sm mb-3"
+                className={inputClass}
               />
               {nameMessage && (
-                <p className={`text-sm mb-3 ${nameMessage.startsWith('Saved') ? 'text-green-600' : 'text-red-600'}`}>{nameMessage}</p>
+                <p className={`text-sm mb-3 ${nameMessage.startsWith('Saved') ? 'text-green-400' : 'text-red-400'}`}>{nameMessage}</p>
               )}
-              <button
-                onClick={saveDisplayName}
-                disabled={savingName}
-                className="w-full bg-black text-white rounded px-4 py-2 text-sm font-bold disabled:opacity-50"
-              >
+              <button onClick={saveDisplayName} disabled={savingName} className={btnClass} style={btnStyle}>
                 {savingName ? 'Saving...' : 'Save Username'}
               </button>
             </div>
 
-            <div className="bg-white border rounded-lg p-6">
-              <h2 className="font-bold mb-1">Email</h2>
-              <p className="text-sm text-gray-500 mb-4">Used for magic link login and account recovery.</p>
+            <div className={cardClass}>
+              <h2 className={labelClass}>Email</h2>
+              <p className={subClass}>Used for magic link login and account recovery.</p>
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                className="w-full border rounded px-3 py-2 text-sm mb-3"
+                className={inputClass}
               />
               {emailMessage && (
-                <p className={`text-sm mb-3 ${emailMessage.startsWith('Check') ? 'text-green-600' : 'text-red-600'}`}>{emailMessage}</p>
+                <p className={`text-sm mb-3 ${emailMessage.startsWith('Check') ? 'text-green-400' : 'text-red-400'}`}>{emailMessage}</p>
               )}
-              <button
-                onClick={saveEmail}
-                disabled={savingEmail}
-                className="w-full bg-black text-white rounded px-4 py-2 text-sm font-bold disabled:opacity-50"
-              >
+              <button onClick={saveEmail} disabled={savingEmail} className={btnClass} style={btnStyle}>
                 {savingEmail ? 'Saving...' : 'Update Email'}
               </button>
             </div>
 
-            <div className="bg-white border rounded-lg p-6">
-              <h2 className="font-bold mb-1">Password</h2>
-              <p className="text-sm text-gray-500 mb-4">
-                Set or change your password to log in with username + password instead of a magic link. Forgotten your password? Just use a magic link to get back in, then set a new one here.
+            <div className={cardClass}>
+              <h2 className={labelClass}>Password</h2>
+              <p className={subClass}>
+                Set or change your password to log in with username + password instead of a magic link. Forgotten it? Use a magic link to get back in, then set a new one here.
               </p>
               <input
                 type="password"
                 placeholder="New password"
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
-                className="w-full border rounded px-3 py-2 text-sm mb-3"
+                className={inputClass}
               />
               {passwordMessage && (
-                <p className={`text-sm mb-3 ${passwordMessage.startsWith('Password updated') ? 'text-green-600' : 'text-red-600'}`}>{passwordMessage}</p>
+                <p className={`text-sm mb-3 ${passwordMessage.startsWith('Password updated') ? 'text-green-400' : 'text-red-400'}`}>{passwordMessage}</p>
               )}
-              <button
-                onClick={savePassword}
-                disabled={savingPassword || !newPassword}
-                className="w-full bg-black text-white rounded px-4 py-2 text-sm font-bold disabled:opacity-50"
-              >
+              <button onClick={savePassword} disabled={savingPassword || !newPassword} className={btnClass} style={btnStyle}>
                 {savingPassword ? 'Saving...' : 'Set Password'}
               </button>
             </div>
 
-            <div className="bg-white border rounded-lg p-6">
-              <h2 className="font-bold mb-1">Your Kit</h2>
-              <p className="text-sm text-gray-500 mb-4">Shown next to your name on the leaderboard and results.</p>
+            <div className={cardClass}>
+              <h2 className={labelClass}>Your Kit</h2>
+              <p className={subClass}>Shown next to your name on the leaderboard and results.</p>
 
               <div className="flex justify-center mb-4">
                 <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} size={140} />
               </div>
 
-              <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Pattern</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#F5ECD9]/50 mb-2">Pattern</p>
               <div className="grid grid-cols-3 gap-2 mb-4">
                 {PATTERNS.map(p => (
                   <button
                     key={p.value}
                     onClick={() => setKitPattern(p.value)}
                     className={`flex flex-col items-center gap-1 p-2 rounded border text-xs ${
-                      kitPattern === p.value ? 'border-black bg-gray-50 font-bold' : 'border-gray-200'
+                      kitPattern === p.value ? 'border-[#D9A441] bg-[#D9A441]/10 font-bold' : 'border-white/10'
                     }`}
                   >
                     <KitBadge pattern={p.value} colour1={kitColour1} colour2={kitColour2} size={28} />
@@ -287,62 +282,58 @@ export default function SettingsPage() {
                 ))}
               </div>
 
-              <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Colour 1</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#F5ECD9]/50 mb-2">Colour 1</p>
               <div className="flex flex-wrap gap-2 mb-4">
                 {SWATCHES.map(colour => (
                   <button
                     key={colour}
                     onClick={() => setKitColour1(colour)}
-                    className={`w-8 h-8 rounded-full border-2 ${kitColour1 === colour ? 'border-black' : 'border-transparent'}`}
+                    className={`w-8 h-8 rounded-full border-2 ${kitColour1 === colour ? 'border-[#D9A441]' : 'border-transparent'}`}
                     style={{ backgroundColor: colour }}
                   />
                 ))}
               </div>
 
-              <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Colour 2</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#F5ECD9]/50 mb-2">Colour 2</p>
               <div className="flex flex-wrap gap-2 mb-4">
                 {SWATCHES.map(colour => (
                   <button
                     key={colour}
                     onClick={() => setKitColour2(colour)}
-                    className={`w-8 h-8 rounded-full border-2 ${kitColour2 === colour ? 'border-black' : 'border-transparent'}`}
+                    className={`w-8 h-8 rounded-full border-2 ${kitColour2 === colour ? 'border-[#D9A441]' : 'border-transparent'}`}
                     style={{ backgroundColor: colour }}
                   />
                 ))}
               </div>
 
               {kitMessage && (
-                <p className={`text-sm mb-3 ${kitMessage.startsWith('Kit saved') ? 'text-green-600' : 'text-red-600'}`}>{kitMessage}</p>
+                <p className={`text-sm mb-3 ${kitMessage.startsWith('Kit saved') ? 'text-green-400' : 'text-red-400'}`}>{kitMessage}</p>
               )}
-              <button
-                onClick={saveKit}
-                disabled={savingKit}
-                className="w-full bg-black text-white rounded px-4 py-2 text-sm font-bold disabled:opacity-50"
-              >
+              <button onClick={saveKit} disabled={savingKit} className={btnClass} style={btnStyle}>
                 {savingKit ? 'Saving...' : 'Save Kit'}
               </button>
             </div>
 
-            <div className="bg-white border rounded-lg p-6">
-              <h2 className="font-bold mb-1">Tier Picks</h2>
+            <div className={cardClass}>
+              <h2 className={labelClass}>Tier Picks</h2>
               {tierLocked ? (
-                <p className="text-sm text-gray-500">Your tier picks are locked for the current competition and can no longer be changed.</p>
+                <p className={subClass + ' mb-0'}>Your tier picks are locked for the current competition and can no longer be changed.</p>
               ) : (
                 <>
-                  <p className="text-sm text-gray-500 mb-4">{hasTierPicks ? 'You can still change your double-use tier teams until the first gameweek deadline.' : 'You have not set your tier picks yet. Choose your double-use teams before the first gameweek deadline.'}</p>
-                  <a href="/join" className="block w-full text-center bg-black text-white rounded px-4 py-2 text-sm font-bold">
+                  <p className={subClass}>{hasTierPicks ? 'You can still change your double-use tier teams until the first gameweek deadline.' : 'You have not set your tier picks yet. Choose your double-use teams before the first gameweek deadline.'}</p>
+                  <a href="/join" className={btnClass + ' block text-center'} style={btnStyle}>
                     {hasTierPicks ? 'Edit Tier Picks' : 'Set Tier Picks'}
                   </a>
                 </>
               )}
             </div>
 
-            <div className="bg-white border rounded-lg p-6">
-              <h2 className="font-bold mb-1">Account</h2>
-              <p className="text-sm text-gray-500 mb-4">Logged in as {email}</p>
+            <div className={cardClass}>
+              <h2 className={labelClass}>Account</h2>
+              <p className={subClass}>Logged in as {email}</p>
               <button
                 onClick={logOut}
-                className="w-full border rounded px-4 py-2 text-sm hover:border-black"
+                className="w-full border border-white/20 rounded px-4 py-2 text-sm hover:border-[#D9A441] text-[#F5ECD9]"
               >
                 Log Out
               </button>
