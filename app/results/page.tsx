@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
-import { abbrFromMap } from '../lib/teams'
+import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
 
 type Gameweek = {
@@ -23,6 +23,7 @@ type PickRow = {
   is_banker: boolean
   is_autopick: boolean
   submitted_at: string
+  provisional?: boolean
 }
 
 type PointsRow = {
@@ -39,6 +40,13 @@ type MatchEvent = {
   event_type: string
 }
 
+type Team = { id: number; name: string; short_name: string | null; crest_url: string | null }
+
+function teamDisplayName(team: Team | undefined) {
+  if (!team) return 'Unknown'
+  return team.short_name ?? team.name.replace(' FC', '').replace(' AFC', '')
+}
+
 export default function ResultsPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
@@ -50,9 +58,8 @@ export default function ResultsPage() {
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
   const [profiles, setProfiles] = useState<Record<string, string>>({})
   const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string }>>({})
-  const [teams, setTeams] = useState<Record<number, { name: string; short_name: string | null }>>({})
+  const [teams, setTeams] = useState<Record<number, Team>>({})
   const [players, setPlayers] = useState<Record<number, string>>({})
-  const [quartileMap, setQuartileMap] = useState<Record<number, number>>({})
   const [potwUserId, setPotwUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingPicks, setLoadingPicks] = useState(false)
@@ -82,12 +89,11 @@ export default function ResultsPage() {
 
     const now = new Date()
 
-    const [{ data: gws }, { data: profilesData }, { data: teamsData }, { data: playersData }, { data: quartilesData }] = await Promise.all([
+    const [{ data: gws }, { data: profilesData }, { data: teamsData }, { data: playersData }] = await Promise.all([
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).lt('deadline', now.toISOString()).order('number', { ascending: true }),
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
-      supabase.from('teams').select('id, name, short_name'),
-      supabase.from('players').select('id, name'),
-      supabase.from('tier_assignments').select('team_id, tier').eq('competition_id', comp.id)
+      supabase.from('teams').select('id, name, short_name, crest_url'),
+      supabase.from('players').select('id, name')
     ])
 
     const profileMap: Record<string, string> = {}
@@ -101,20 +107,16 @@ export default function ResultsPage() {
       }
     })
 
-    const teamMap: Record<number, { name: string; short_name: string | null }> = {}
-    teamsData?.forEach(t => { teamMap[t.id] = { name: t.name, short_name: t.short_name } })
+    const teamMap: Record<number, Team> = {}
+    teamsData?.forEach(t => { teamMap[t.id] = t })
 
     const playerMap: Record<number, string> = {}
     playersData?.forEach(p => { playerMap[p.id] = p.name })
-
-    const qMap: Record<number, number> = {}
-    quartilesData?.forEach(q => { qMap[q.team_id] = q.tier })
 
     setProfiles(profileMap)
     setKitByUser(kitMap)
     setTeams(teamMap)
     setPlayers(playerMap)
-    setQuartileMap(qMap)
     setGameweeks(gws ?? [])
 
     if (gws && gws.length > 0) {
@@ -138,13 +140,38 @@ export default function ResultsPage() {
   async function loadPicksForGw(gwId: string) {
     setLoadingPicks(true)
 
-    const [{ data: picksData }, { data: pts }, { data: events }] = await Promise.all([
+    const [{ data: picksData }, { data: pts }, { data: events }, previewRes] = await Promise.all([
       supabase.from('picks').select('id, user_id, team_id, player1_id, player2_id, is_banker, is_autopick, submitted_at').eq('gameweek_id', gwId),
       supabase.from('points').select('pick_id, total_points, team_points, player1_points, player2_points, breakdown').eq('gameweek_id', gwId),
-      supabase.from('match_events').select('player_id, event_type')
+      supabase.from('match_events').select('player_id, event_type'),
+      fetch(`/api/autopick/preview?gameweek_id=${gwId}`)
     ])
 
-    setPicks(picksData ?? [])
+    const realPicks = picksData ?? []
+    const realPickUserIds = new Set(realPicks.map(p => p.user_id))
+
+    let previewPicks: PickRow[] = []
+    try {
+      const previewData = await previewRes.json()
+      const previews = previewData.previews ?? {}
+      previewPicks = Object.entries(previews)
+        .filter(([userId]) => !realPickUserIds.has(userId))
+        .map(([userId, p]: [string, any]) => ({
+          id: `preview-${userId}`,
+          user_id: userId,
+          team_id: p.team_id,
+          player1_id: p.player1_id,
+          player2_id: p.player2_id,
+          is_banker: false,
+          is_autopick: true,
+          submitted_at: '',
+          provisional: true,
+        }))
+    } catch {
+      previewPicks = []
+    }
+
+    setPicks([...realPicks, ...previewPicks])
     setPointsData(pts ?? [])
     setMatchEvents(events ?? [])
     setLoadingPicks(false)
@@ -173,36 +200,6 @@ export default function ResultsPage() {
     return parts.length > 1 ? `${parts[0][0]}. ${parts[parts.length - 1]}` : full
   }
 
-  function getBoldestPick(): PickRow | null {
-    let boldest: PickRow | null = null
-    let highestQ = -1
-    picks.forEach(pick => {
-      const q = quartileMap[pick.team_id] ?? 0
-      if (q > highestQ) { highestQ = q; boldest = pick }
-    })
-    return boldest
-  }
-
-  function getSafestPick(): PickRow | null {
-    let safest: PickRow | null = null
-    let lowestQ = 99
-    picks.forEach(pick => {
-      const q = quartileMap[pick.team_id] ?? 99
-      if (q < lowestQ) { lowestQ = q; safest = pick }
-    })
-    return safest
-  }
-
-  function getContrarianPicks(): PickRow[] {
-    const teamCounts: Record<number, number> = {}
-    picks.forEach(p => { teamCounts[p.team_id] = (teamCounts[p.team_id] || 0) + 1 })
-    return picks.filter(p => teamCounts[p.team_id] === 1)
-  }
-
-  const boldest = getBoldestPick()
-  const safest = getSafestPick()
-  const contrarians = getContrarianPicks()
-
   if (loading) {
     return (
       <Shell active="RESULTS">
@@ -222,32 +219,34 @@ export default function ResultsPage() {
 
   return (
     <Shell active="RESULTS" user={user} displayName={displayName}>
-      <HeroPage>
-        <div className="w-full max-w-2xl">
+      <HeroPage wide>
+        <div className="w-full text-[#F5ECD9]">
 
-          <h1 className="text-3xl font-bold mb-1">Results</h1>
-          <p className="text-gray-500 mb-6 text-sm">{competition.name}</p>
+          <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>RESULTS</h1>
+          <p className="text-[#D9A441]/70 mb-6 text-sm">{competition.name}</p>
 
           {potwUserId && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-3">
+            <div className="bg-[#D9A441]/15 border border-[#D9A441]/40 rounded-lg px-4 py-3 mb-5 flex items-center gap-3">
+              <span className="text-xl">👑</span>
               <div>
-                <p className="text-xs text-yellow-700 font-bold uppercase tracking-wide">Season Leader</p>
+                <p className="text-xs text-[#D9A441] font-bold uppercase tracking-wide">Season Leader</p>
                 <p className="font-bold uppercase">{profiles[potwUserId] ?? 'Unknown'}</p>
               </div>
             </div>
           )}
 
           {gameweeks.length === 0 ? (
-            <div className="bg-white border rounded-lg p-6">
-              <p className="text-gray-400 text-sm uppercase tracking-wider">No gameweeks have passed their deadline yet.</p>
+            <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+              <p className="text-[#F5ECD9]/50 text-sm uppercase tracking-wider">No gameweeks have passed their deadline yet.</p>
             </div>
           ) : (
             <>
-              <div className="mb-6">
+              <div className="mb-5">
                 <select
                   value={selectedGw ?? ''}
                   onChange={e => setSelectedGw(e.target.value)}
-                  className="border rounded px-3 py-2 text-sm font-bold bg-white w-full md:w-auto uppercase"
+                  className="border border-white/20 rounded px-3 py-2 text-sm font-bold w-full md:w-auto uppercase"
+                  style={{ backgroundColor: '#241a12', color: '#F5ECD9' }}
                 >
                   {gameweeks.map(gw => (
                     <option key={gw.id} value={gw.id}>
@@ -259,14 +258,14 @@ export default function ResultsPage() {
 
               {selectedGameweek && (
                 <div className="mb-4 flex items-center gap-3 flex-wrap">
-                  <h2 className="text-lg font-bold uppercase">Gameweek {selectedGameweek.number}</h2>
-                  <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
-                    isScored ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                  <h2 className="text-lg font-bold uppercase" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Gameweek {selectedGameweek.number}</h2>
+                  <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wider border ${
+                    isScored ? 'bg-green-500/20 text-green-300 border-green-400/40' : 'bg-yellow-500/20 text-yellow-300 border-yellow-400/40'
                   }`}>
                     {isScored ? 'Scored' : 'Awaiting scoring'}
                   </span>
                   {isScored && gwPotwUserId && (
-                    <span className="text-xs text-yellow-700 font-bold uppercase tracking-wider">
+                    <span className="text-xs text-[#D9A441] font-bold uppercase tracking-wider">
                       GW Winner: {profiles[gwPotwUserId]}
                     </span>
                   )}
@@ -274,89 +273,92 @@ export default function ResultsPage() {
               )}
 
               {loadingPicks ? (
-                <p className="text-gray-400 text-sm uppercase tracking-wider">Loading picks...</p>
+                <p className="text-[#F5ECD9]/50 text-sm uppercase tracking-wider">Loading picks...</p>
               ) : sortedPicks.length === 0 ? (
-                <div className="bg-white border rounded-lg p-6">
-                  <p className="text-gray-400 text-sm uppercase tracking-wider">No picks for this gameweek.</p>
+                <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+                  <p className="text-[#F5ECD9]/50 text-sm uppercase tracking-wider">No picks for this gameweek.</p>
                 </div>
               ) : (
-                <>
-                  <div className="bg-white border rounded-lg overflow-hidden mb-3">
-                    <table className="w-full" style={{ fontSize: '10px' }}>
-                      <thead>
-                        <tr className="text-left border-b bg-gray-50 uppercase tracking-wider text-gray-500" style={{ fontSize: '9px' }}>
-                          <th className="py-2 px-2">Player</th>
-                          <th className="py-2 px-2">Team</th>
-                          <th className="py-2 px-2">P1</th>
-                          <th className="py-2 px-2">P2</th>
-                          {isScored && (
-                            <>
-                              <th className="py-2 px-1 text-right">Tm</th>
-                              <th className="py-2 px-1 text-right">P1</th>
-                              <th className="py-2 px-1 text-right">P2</th>
-                              <th className="py-2 px-1 text-right font-bold">Tot</th>
-                            </>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sortedPicks.map((pick, i) => {
-                          const pts = pointsMap[pick.id]
-                          const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
+                <div className="bg-white/5 border border-white/10 rounded-lg overflow-hidden mb-3">
+                  <table className="w-full" style={{ fontSize: '10px' }}>
+                    <thead>
+                      <tr className="text-left border-b border-white/10 uppercase tracking-wider text-[#F5ECD9]/50" style={{ fontSize: '9px' }}>
+                        <th className="py-2 px-2">Player</th>
+                        <th className="py-2 px-2">Team</th>
+                        <th className="py-2 px-2">P1</th>
+                        <th className="py-2 px-2">P2</th>
+                        {isScored && (
+                          <>
+                            <th className="py-2 px-1 text-right">Tm</th>
+                            <th className="py-2 px-1 text-right">P1</th>
+                            <th className="py-2 px-1 text-right">P2</th>
+                            <th className="py-2 px-1 text-right font-bold">Tot</th>
+                          </>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedPicks.map((pick, i) => {
+                        const pts = pointsMap[pick.id]
+                        const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
+                        const t = teams[pick.team_id]
 
-                          return (
-                            <tr key={pick.id} className={`border-b last:border-0 ${isWinner ? 'bg-yellow-50' : ''}`}>
-                              <td className="py-1.5 px-2 font-bold uppercase">
-                                <div className="flex items-center gap-1.5">
-                                  <KitBadge
-                                    pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
-                                    colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
-                                    colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
-                                    size={14}
-                                  />
-                                  {profiles[pick.user_id] ?? 'Unknown'}
-                                </div>
-                              </td>
-                              <td className="py-1.5 px-2 uppercase">
-                                <div className="flex items-center gap-0.5">
-                                  {abbrFromMap(teams, pick.team_id)}
-                                  {pick.is_banker && <span className="bg-yellow-400 text-black font-bold px-0.5 rounded" style={{ fontSize: '8px' }}>★B</span>}
-                                </div>
-                              </td>
-                              <td className="py-1.5 px-2 uppercase">
-                                {shortName(pick.player1_id, players)}
-                                {goalPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>G</span>}
-                                {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
-                              </td>
-                              <td className="py-1.5 px-2 uppercase">
-                                {shortName(pick.player2_id, players)}
-                                {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>G</span>}
-                                {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-100 text-green-700 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
-                              </td>
-                              {isScored && (
-                                <>
-                                  <td className="py-1.5 px-1 text-right text-gray-500">{pts?.team_points ?? '—'}</td>
-                                  <td className="py-1.5 px-1 text-right text-gray-500">{pts?.player1_points ?? '—'}</td>
-                                  <td className="py-1.5 px-1 text-right text-gray-500">{pts?.player2_points ?? '—'}</td>
-                                  <td className="py-1.5 px-1 text-right font-bold">{pts?.total_points ?? '—'}</td>
-                                </>
-                              )}
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
+                        return (
+                          <tr key={pick.id} className={`border-b border-white/5 last:border-0 ${isWinner ? 'bg-[#D9A441]/10' : ''}`}>
+                            <td className="py-1.5 px-2 font-bold uppercase">
+                              <div className="flex items-center gap-1.5">
+                                <KitBadge
+                                  pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
+                                  colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
+                                  colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
+                                  size={14}
+                                />
+                                {profiles[pick.user_id] ?? 'Unknown'}
+                                {pick.provisional && <span className="bg-white/20 text-[#F5ECD9]/80 px-0.5 rounded" style={{ fontSize: '8px' }} title="Provisional autopick — not yet locked in">AUTO</span>}
+                              </div>
+                            </td>
+                            <td className="py-1.5 px-2 uppercase">
+                              <div className="flex items-center gap-1">
+                                <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={16} />
+                                {teamDisplayName(t)}
+                                {pick.is_banker && <span className="bg-[#D9A441] text-[#241a12] font-bold px-0.5 rounded" style={{ fontSize: '8px' }}>★B</span>}
+                              </div>
+                            </td>
+                            <td className="py-1.5 px-2 uppercase">
+                              {shortName(pick.player1_id, players)}
+                              {goalPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>G</span>}
+                              {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
+                            </td>
+                            <td className="py-1.5 px-2 uppercase">
+                              {shortName(pick.player2_id, players)}
+                              {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>G</span>}
+                              {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
+                            </td>
+                            {isScored && (
+                              <>
+                                <td className="py-1.5 px-1 text-right text-[#F5ECD9]/50">{pts?.team_points ?? '—'}</td>
+                                <td className="py-1.5 px-1 text-right text-[#F5ECD9]/50">{pts?.player1_points ?? '—'}</td>
+                                <td className="py-1.5 px-1 text-right text-[#F5ECD9]/50">{pts?.player2_points ?? '—'}</td>
+                                <td className="py-1.5 px-1 text-right font-bold" style={{ color: '#D9A441' }}>{pts?.total_points ?? '—'}</td>
+                              </>
+                            )}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
 
-                    <div className="px-3 py-2 border-t bg-gray-50 uppercase tracking-wider text-gray-400" style={{ fontSize: '9px' }}>
-                      <span className="font-bold mr-2">Key:</span>
-                      <span className="bg-green-600 text-white px-0.5 rounded font-bold">G</span> Goal
-                      <span className="mx-2">·</span>
-                      <span className="bg-green-100 text-green-700 px-0.5 rounded font-bold">A</span> Assist
-                      <span className="mx-2">·</span>
-                      <span className="bg-yellow-400 text-black px-0.5 rounded font-bold">★B</span> Banker
-                    </div>
+                  <div className="px-3 py-2 border-t border-white/10 uppercase tracking-wider text-[#F5ECD9]/40" style={{ fontSize: '9px' }}>
+                    <span className="font-bold mr-2">Key:</span>
+                    <span className="bg-green-600 text-white px-0.5 rounded font-bold">G</span> Goal
+                    <span className="mx-2">·</span>
+                    <span className="bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span> Assist
+                    <span className="mx-2">·</span>
+                    <span className="bg-[#D9A441] text-[#241a12] px-0.5 rounded font-bold">★B</span> Banker
+                    <span className="mx-2">·</span>
+                    <span className="bg-white/20 px-0.5 rounded">AUTO</span> Provisional autopick
                   </div>
-                </>
+                </div>
               )}
             </>
           )}
