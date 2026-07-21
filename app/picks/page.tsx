@@ -136,7 +136,7 @@ export default function PicksPage() {
     if (gw) setDeadlinePassed(new Date() > new Date(gw.deadline))
 
     const [{ data: teamsData }, { data: playersData }] = await Promise.all([
-      supabase.from('teams').select('id, name, short_name, crest_url').order('name'),
+      supabase.from('teams').select('id, name, short_name, crest_url').eq('active', true).order('name'),
       supabase.from('players').select('id, name, team_id').order('name')
     ])
     setTeams(teamsData ?? [])
@@ -346,7 +346,7 @@ export default function PicksPage() {
                   <label className="block font-bold mb-3 uppercase tracking-wider text-xs text-[#F5ECD9]/70">Select Your Team</label>
 
                   {hasFixtures ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">
+                    <div className="space-y-2 mb-6">
                       {fixtures.map(fixture => {
                         const homeStatus = getTeamStatus(fixture.home_team_id)
                         const awayStatus = getTeamStatus(fixture.away_team_id)
@@ -358,7 +358,7 @@ export default function PicksPage() {
                         const awaySelected = selectedTeam === fixture.away_team_id && selectedFixture === fixture.id
 
                         return (
-                          <div key={fixture.id} className="contents">
+                          <div key={fixture.id} className="grid grid-cols-2 gap-2">
                             <button
                               onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
                               disabled={homeStatus.isUsed}
@@ -437,9 +437,15 @@ export default function PicksPage() {
                             }`}
                           >
                             <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={24} />
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <div className="text-xs font-bold uppercase truncate">{teamDisplayName(team)}</div>
-                              {q && <span className="text-[10px] text-[#F5ECD9]/50">{q}</span>}
+                              <div className="flex items-center gap-1 mt-0.5">
+                                {q && <span className="text-[10px] text-[#F5ECD9]/50">{q}</span>}
+                                {status.isDouble && <span className="text-[#D9A441] text-[10px]">★</span>}
+                                <span className="text-[10px] text-[#F5ECD9]/50">
+                                  {status.isUsed ? 'Used' : `${status.remaining}/${status.maxUses} left`}
+                                </span>
+                              </div>
                             </div>
                           </button>
                         )

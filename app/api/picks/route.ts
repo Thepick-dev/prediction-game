@@ -1,6 +1,19 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { NextResponse } from 'next/server'
 
+async function getDoubleUseTeams(supabase: any, competition_id: string, user_id: string): Promise<number[]> {
+  const { data } = await supabase
+    .from('tier_draft_picks')
+    .select('tier1_team_id, tier2_team_id, tier3_team_id, tier4_team_id')
+    .eq('competition_id', competition_id)
+    .eq('user_id', user_id)
+    .single()
+
+  if (!data) return []
+  return [data.tier1_team_id, data.tier2_team_id, data.tier3_team_id, data.tier4_team_id]
+    .filter((id): id is number => id != null)
+}
+
 export async function POST(request: Request) {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -40,13 +53,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'You are not entered in this competition' }, { status: 400 })
   }
 
-  const { data: draftPicksData } = await supabase
-    .from('draft_picks')
-    .select('team_id')
-    .eq('competition_id', competition_id)
-    .eq('user_id', user.id)
-
-  const doubleUseTeams = draftPicksData?.map(p => p.team_id) ?? []
+  const doubleUseTeams = await getDoubleUseTeams(supabase, competition_id, user.id)
 
   const { data: allPicks } = await supabase
     .from('picks')
@@ -151,7 +158,7 @@ export async function GET(request: Request) {
   const competition_id = searchParams.get('competition_id')
   const gameweek_id = searchParams.get('gameweek_id')
 
-  const [{ data: pick }, { data: allPicks }, { data: draftPicksData }] = await Promise.all([
+  const [{ data: pick }, { data: allPicks }] = await Promise.all([
     supabase
       .from('picks')
       .select('*, teams(name), player1:players!picks_player1_id_fkey(name), player2:players!picks_player2_id_fkey(name)')
@@ -162,15 +169,10 @@ export async function GET(request: Request) {
       .from('picks')
       .select('team_id, player1_id, player2_id, is_banker')
       .eq('user_id', user.id)
-      .eq('competition_id', competition_id!),
-    supabase
-      .from('draft_picks')
-      .select('team_id')
       .eq('competition_id', competition_id!)
-      .eq('user_id', user.id)
   ])
 
-  const doubleUseTeams = draftPicksData?.map(p => p.team_id) ?? []
+  const doubleUseTeams = await getDoubleUseTeams(supabase, competition_id!, user.id)
 
   const teamUseCounts: Record<number, number> = {}
   allPicks?.forEach(p => {
