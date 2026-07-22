@@ -88,7 +88,9 @@ export async function POST() {
                 player.element_type === 2 ? 'DEF' :
                 player.element_type === 3 ? 'MID' : 'FWD',
       team_id: fplTeamIdToOurTeamId[player.team] ?? null,
-      minutes_played: player.minutes ?? 0
+      minutes_played: player.minutes ?? 0,
+      // FPL prices are in tenths of £1m (e.g. 73 -> £7.3m).
+      value: typeof player.now_cost === 'number' ? player.now_cost / 10 : null
     }))
     .filter((p: any) => p.team_id !== null)
 

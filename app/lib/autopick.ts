@@ -6,6 +6,10 @@ export type DerivedPick = {
   player2_id: number
 }
 
+// Prefer recognisable, higher-value players for autopicks rather than
+// drawing from the entire player pool at random.
+const MIN_AUTOPICK_PLAYER_VALUE = 7.0
+
 // Deterministic seeded PRNG (mulberry32) so a given user+gameweek always
 // produces the SAME autopick — whether previewed on-read or written by cron.
 function seededRandom(seed: number) {
@@ -57,7 +61,7 @@ export async function deriveAutopick(
   const [{ data: activeTeams }, { data: leaguePositions }, { data: allPlayers }, { data: userPicks }, { data: tierPicks }] = await Promise.all([
     supabase.from('teams').select('id, name').eq('active', true),
     supabase.from('team_league_positions').select('team_id, position, recorded_at').order('recorded_at', { ascending: false }),
-    supabase.from('players').select('id, name, team_id'),
+    supabase.from('players').select('id, name, team_id, value'),
     supabase.from('picks').select('team_id, player1_id, player2_id').eq('user_id', userId).eq('competition_id', competitionId),
     supabase.from('tier_draft_picks').select('tier1_team_id, tier2_team_id, tier3_team_id, tier4_team_id').eq('competition_id', competitionId).eq('user_id', userId).single(),
   ])
@@ -114,8 +118,15 @@ export async function deriveAutopick(
   const availablePlayers = allPlayers.filter(p => (playerUseCounts[p.id] || 0) < 2)
   if (availablePlayers.length < 2) return null
 
+  // Prefer players worth at least £7m — but if that's too restrictive right
+  // now (a user's own used-twice history can run a small pool dry late in
+  // the season), fall back to the full available pool rather than skipping
+  // their autopick entirely.
+  const valuablePlayers = availablePlayers.filter(p => (p.value ?? 0) >= MIN_AUTOPICK_PLAYER_VALUE)
+  const candidatePlayers = valuablePlayers.length >= 2 ? valuablePlayers : availablePlayers
+
   const seed = hashString(userId + gameweekId)
-  const shuffled = seededShuffle(availablePlayers, seed)
+  const shuffled = seededShuffle(candidatePlayers, seed)
 
   const player1 = shuffled[0]
   const player2 = shuffled.find(p => p.team_id !== player1.team_id) ?? shuffled[1]

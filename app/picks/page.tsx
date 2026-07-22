@@ -168,13 +168,14 @@ export default function PicksPage() {
 
     if (!entry) { window.location.href = '/join'; return }
 
-    const now = new Date()
-
+    // Status first, not just the deadline: a gameweek an admin has already
+    // locked (or completed) should never be offered for picking, even if
+    // its deadline field happens to still read as being in the future.
     const { data: gw } = await supabase
       .from('gameweeks')
       .select('id, number, deadline, status')
       .eq('competition_id', comp.id)
-      .gt('deadline', now.toISOString())
+      .in('status', ['upcoming', 'open'])
       .order('deadline', { ascending: true })
       .limit(1)
       .single()
