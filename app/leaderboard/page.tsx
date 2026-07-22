@@ -39,6 +39,14 @@ type PickDetail = {
   team_points: number | null
   player1_points: number | null
   player2_points: number | null
+  team_detail: {
+    opponent_team_id: number | null
+    team_quartile: number
+    opponent_quartile: number
+    is_home: boolean | null
+    team_score: number | null
+    opponent_score: number | null
+  } | null
 }
 
 function teamDisplayName(team: Team | undefined) {
@@ -309,7 +317,8 @@ export default function LeaderboardPage() {
         points: pts?.total_points ?? null,
         team_points: pts?.team_points ?? null,
         player1_points: pts?.player1_points ?? null,
-        player2_points: pts?.player2_points ?? null
+        player2_points: pts?.player2_points ?? null,
+        team_detail: pts?.breakdown?.team_detail ?? null
       })
     })
     Object.values(details).forEach(list => list.sort((a, b) => a.gw - b.gw))
@@ -485,6 +494,21 @@ export default function LeaderboardPage() {
                                               ? <span className="border border-white/30 text-[#F5ECD9]/70 px-0.5 rounded" title="Deadline passed with no pick made — this is a preview of what the computer will pick, not final yet">PENDING</span>
                                               : d.is_autopick && <span className="bg-white/20 px-0.5 rounded" title="No pick was made in time, so the computer picked automatically">AUTOPICK</span>}
                                           </div>
+                                          {d.team_detail?.opponent_team_id != null && (
+                                            <div className="normal-case text-[#F5ECD9]/40" style={{ fontSize: '8px' }}>
+                                              <span
+                                                className={`inline-block px-0.5 rounded font-bold mr-1 ${d.team_detail.is_home ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`}
+                                                title={d.team_detail.is_home ? 'Played at home' : 'Played away'}
+                                              >
+                                                {d.team_detail.is_home ? 'H' : 'A'}
+                                              </span>
+                                              vs {teamMap[d.team_detail.opponent_team_id]?.short_code
+                                                ?? teamMap[d.team_detail.opponent_team_id]?.short_name
+                                                ?? '?'}
+                                              {' '}(Q{d.team_detail.team_quartile}→Q{d.team_detail.opponent_quartile})
+                                              {' '}· {d.team_detail.team_score}-{d.team_detail.opponent_score}
+                                            </div>
+                                          )}
                                         </td>
                                         <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.team_points ?? '—'}</td>
                                         <td className="py-1 pr-1 uppercase">

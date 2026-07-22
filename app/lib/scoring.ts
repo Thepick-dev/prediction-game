@@ -5,91 +5,42 @@ export type ScoringResult =
   | { message: string; points_calculated: 0 }
   | { success: true; points_calculated: number; picks_processed: number }
 
-// Pulled out of the /api/scoring route so it can be called directly from
-// server code (e.g. marking a gameweek "completed") instead of over an
-// internal HTTP fetch — that fetch needed NEXT_PUBLIC_SITE_URL to build the
-// right URL, which only exists if it's been separately configured wherever
-// this is deployed, and silently fails if it hasn't.
-export async function calculateScoring(supabase: SupabaseClient, gameweek_id: string): Promise<ScoringResult> {
-  const { data: gameweek } = await supabase
-    .from('gameweeks')
-    .select('id, number, competition_id')
-    .eq('id', gameweek_id)
-    .single()
+type Pick = {
+  id: string
+  user_id: string
+  team_id: number
+  fixture_id: number | null
+  player1_id: number
+  player2_id: number
+  is_banker: boolean
+  competition_id: string
+}
 
-  if (!gameweek) {
-    return { error: 'Gameweek not found' }
-  }
+type Fixture = {
+  id: number
+  home_team_id: number
+  away_team_id: number
+  home_score: number | null
+  away_score: number | null
+  status: string
+}
 
-  const { data: picks } = await supabase
-    .from('picks')
-    .select('id, user_id, team_id, fixture_id, player1_id, player2_id, is_banker, competition_id')
-    .eq('gameweek_id', gameweek_id)
+type ScoringRule = { result_type: string; quartile_diff: number; points: number }
+type PlayerScoringRule = { event_type: string; points: number }
+type MatchEvent = { player_id: number | null; event_type: string; fixture_id: number }
 
-  if (!picks || picks.length === 0) {
-    return { message: 'No picks found for this gameweek', points_calculated: 0 }
-  }
-
-  const { data: fixtures } = await supabase
-    .from('fixtures')
-    .select('id, home_team_id, away_team_id, home_score, away_score, status')
-    .eq('gameweek_id', gameweek_id)
-    .eq('status', 'finished')
-
-  const { data: quartiles } = await supabase
-    .from('gameweek_quartiles')
-    .select('team_id, quartile')
-    .eq('gameweek_id', gameweek_id)
-
-  const { data: scoringRules } = await supabase
-    .from('competition_scoring_rules')
-    .select('result_type, quartile_diff, points')
-    .eq('competition_id', gameweek.competition_id)
-
-  const { data: playerScoringRules } = await supabase
-    .from('player_scoring_rules')
-    .select('event_type, points')
-    .eq('competition_id', gameweek.competition_id)
-
-  const { data: matchEvents } = await supabase
-    .from('match_events')
-    .select('player_id, event_type, fixture_id')
-    .in('fixture_id', fixtures?.map(f => f.id) ?? [])
-
-  const quartileMap: Record<number, number> = {}
-  quartiles?.forEach(q => { quartileMap[q.team_id] = q.quartile })
-
-  const scoringMap: Record<string, number> = {}
-  scoringRules?.forEach(r => {
-    scoringMap[`${r.result_type}_${r.quartile_diff}`] = r.points
-  })
-
-  const playerPointsMap: Record<string, number> = {}
-  playerScoringRules?.forEach(r => { playerPointsMap[r.event_type] = r.points })
-
-  const fixtureById: Record<number, any> = {}
-  fixtures?.forEach(f => { fixtureById[f.id] = f })
-
-  const fixtureByTeamId: Record<number, any> = {}
-  fixtures?.forEach(f => {
-    if (f.home_team_id) fixtureByTeamId[f.home_team_id] = f
-    if (f.away_team_id) fixtureByTeamId[f.away_team_id] = f
-  })
-
-  const playerEventsMap: Record<number, { goals: number; assists: number }> = {}
-  matchEvents?.forEach(event => {
-    if (!event.player_id) return
-    if (!playerEventsMap[event.player_id]) {
-      playerEventsMap[event.player_id] = { goals: 0, assists: 0 }
-    }
-    if (event.event_type === 'goal') playerEventsMap[event.player_id].goals++
-    if (event.event_type === 'assist') playerEventsMap[event.player_id].assists++
-  })
-
-  type TeamPointsDetail = {
-    points: number
-    breakdown: string
-    detail: {
+export type PickScoreRow = {
+  pick_id: string
+  user_id: string
+  competition_id: string
+  gameweek_id: string
+  team_points: number
+  player1_points: number
+  player2_points: number
+  total_points: number
+  breakdown: {
+    team: string
+    team_detail: {
       opponent_team_id: number | null
       team_quartile: number
       opponent_quartile: number
@@ -99,7 +50,52 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
       opponent_score: number | null
       is_home: boolean | null
     }
+    is_banker: boolean
+    player1_raw: number
+    player2_raw: number
   }
+}
+
+// The actual maths, shared by both the real scoring run (frozen quartiles,
+// writes to the database) and the live preview (current quartiles, read-only)
+// — one calculation, two different quartile sources.
+function computePickScores(
+  gameweek_id: string,
+  picks: Pick[],
+  fixtures: Fixture[],
+  quartileMap: Record<number, number>,
+  scoringRules: ScoringRule[],
+  playerScoringRules: PlayerScoringRule[],
+  matchEvents: MatchEvent[]
+): PickScoreRow[] {
+  const scoringMap: Record<string, number> = {}
+  scoringRules.forEach(r => {
+    scoringMap[`${r.result_type}_${r.quartile_diff}`] = r.points
+  })
+
+  const playerPointsMap: Record<string, number> = {}
+  playerScoringRules.forEach(r => { playerPointsMap[r.event_type] = r.points })
+
+  const fixtureById: Record<number, Fixture> = {}
+  fixtures.forEach(f => { fixtureById[f.id] = f })
+
+  const fixtureByTeamId: Record<number, Fixture> = {}
+  fixtures.forEach(f => {
+    if (f.home_team_id) fixtureByTeamId[f.home_team_id] = f
+    if (f.away_team_id) fixtureByTeamId[f.away_team_id] = f
+  })
+
+  const playerEventsMap: Record<number, { goals: number; assists: number }> = {}
+  matchEvents.forEach(event => {
+    if (!event.player_id) return
+    if (!playerEventsMap[event.player_id]) {
+      playerEventsMap[event.player_id] = { goals: 0, assists: 0 }
+    }
+    if (event.event_type === 'goal') playerEventsMap[event.player_id].goals++
+    if (event.event_type === 'assist') playerEventsMap[event.player_id].assists++
+  })
+
+  type TeamPointsDetail = { points: number; breakdown: string; detail: PickScoreRow['breakdown']['team_detail'] }
 
   function getTeamPoints(teamId: number, fixtureId: number | null): TeamPointsDetail {
     // Prefer the exact fixture the pick was made against. Fall back to team-based
@@ -158,9 +154,7 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
     return (events.goals * goalPoints) + (events.assists * assistPoints)
   }
 
-  const pointsToUpsert = []
-
-  for (const pick of picks) {
+  return picks.map(pick => {
     const teamResult = getTeamPoints(pick.team_id, pick.fixture_id)
     const player1Points = getPlayerPoints(pick.player1_id)
     const player2Points = getPlayerPoints(pick.player2_id)
@@ -175,9 +169,7 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
       p2Points *= 2
     }
 
-    const totalPoints = teamPoints + p1Points + p2Points
-
-    pointsToUpsert.push({
+    return {
       pick_id: pick.id,
       user_id: pick.user_id,
       competition_id: pick.competition_id,
@@ -185,7 +177,7 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
       team_points: teamPoints,
       player1_points: p1Points,
       player2_points: p2Points,
-      total_points: totalPoints,
+      total_points: teamPoints + p1Points + p2Points,
       breakdown: {
         team: teamResult.breakdown,
         team_detail: teamResult.detail,
@@ -193,8 +185,72 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
         player1_raw: player1Points,
         player2_raw: player2Points
       }
-    })
+    }
+  })
+}
+
+async function loadCommonScoringData(supabase: SupabaseClient, gameweek_id: string, competition_id: string) {
+  const [{ data: picks }, { data: fixtures }, { data: scoringRules }, { data: playerScoringRules }] = await Promise.all([
+    supabase
+      .from('picks')
+      .select('id, user_id, team_id, fixture_id, player1_id, player2_id, is_banker, competition_id')
+      .eq('gameweek_id', gameweek_id),
+    supabase
+      .from('fixtures')
+      .select('id, home_team_id, away_team_id, home_score, away_score, status')
+      .eq('gameweek_id', gameweek_id)
+      .eq('status', 'finished'),
+    supabase
+      .from('competition_scoring_rules')
+      .select('result_type, quartile_diff, points')
+      .eq('competition_id', competition_id),
+    supabase
+      .from('player_scoring_rules')
+      .select('event_type, points')
+      .eq('competition_id', competition_id),
+  ])
+
+  const { data: matchEvents } = await supabase
+    .from('match_events')
+    .select('player_id, event_type, fixture_id')
+    .in('fixture_id', fixtures?.map(f => f.id) ?? [])
+
+  return { picks: picks ?? [], fixtures: fixtures ?? [], scoringRules: scoringRules ?? [], playerScoringRules: playerScoringRules ?? [], matchEvents: matchEvents ?? [] }
+}
+
+// Pulled out of the /api/scoring route so it can be called directly from
+// server code (e.g. marking a gameweek "completed") instead of over an
+// internal HTTP fetch — that fetch needed NEXT_PUBLIC_SITE_URL to build the
+// right URL, which only exists if it's been separately configured wherever
+// this is deployed, and silently fails if it hasn't.
+export async function calculateScoring(supabase: SupabaseClient, gameweek_id: string): Promise<ScoringResult> {
+  const { data: gameweek } = await supabase
+    .from('gameweeks')
+    .select('id, number, competition_id')
+    .eq('id', gameweek_id)
+    .single()
+
+  if (!gameweek) {
+    return { error: 'Gameweek not found' }
   }
+
+  const { picks, fixtures, scoringRules, playerScoringRules, matchEvents } = await loadCommonScoringData(supabase, gameweek_id, gameweek.competition_id)
+
+  if (picks.length === 0) {
+    return { message: 'No picks found for this gameweek', points_calculated: 0 }
+  }
+
+  // The frozen snapshot taken when this gameweek was marked "completed" —
+  // not live tier_assignments, so a real scoring run never shifts under you.
+  const { data: quartiles } = await supabase
+    .from('gameweek_quartiles')
+    .select('team_id, quartile')
+    .eq('gameweek_id', gameweek_id)
+
+  const quartileMap: Record<number, number> = {}
+  quartiles?.forEach(q => { quartileMap[q.team_id] = q.quartile })
+
+  const pointsToUpsert = computePickScores(gameweek_id, picks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents)
 
   const { error: upsertError } = await supabase
     .from('points')
@@ -209,4 +265,43 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
     points_calculated: pointsToUpsert.length,
     picks_processed: picks.length
   }
+}
+
+export type PreviewScoringResult =
+  | { error: string }
+  | { rows: PickScoreRow[] }
+
+// Read-only version for a gameweek that's locked (deadline passed) but not
+// yet marked "completed" — no gameweek_quartiles snapshot exists yet, so
+// this uses whatever the live tier_assignments say right now. Nothing is
+// written to the database; if picks or quartiles change before the gameweek
+// is actually completed, calling this again reflects that, on purpose.
+export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_id: string): Promise<PreviewScoringResult> {
+  const { data: gameweek } = await supabase
+    .from('gameweeks')
+    .select('id, competition_id')
+    .eq('id', gameweek_id)
+    .single()
+
+  if (!gameweek) {
+    return { error: 'Gameweek not found' }
+  }
+
+  const { picks, fixtures, scoringRules, playerScoringRules, matchEvents } = await loadCommonScoringData(supabase, gameweek_id, gameweek.competition_id)
+
+  if (picks.length === 0) {
+    return { rows: [] }
+  }
+
+  const { data: assignments } = await supabase
+    .from('tier_assignments')
+    .select('team_id, tier')
+    .eq('competition_id', gameweek.competition_id)
+
+  const quartileMap: Record<number, number> = {}
+  assignments?.forEach(a => { quartileMap[a.team_id] = a.tier })
+
+  const rows = computePickScores(gameweek_id, picks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents)
+
+  return { rows }
 }

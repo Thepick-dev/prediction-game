@@ -148,6 +148,7 @@ export default function ResultsPage() {
 
   async function loadPicksForGw(gwId: string) {
     setLoadingPicks(true)
+    const gw = gameweeks.find(g => g.id === gwId)
 
     const [{ data: picksData }, { data: pts }, { data: events }, previewRes] = await Promise.all([
       supabase.from('picks').select('id, user_id, team_id, player1_id, player2_id, is_banker, is_autopick, submitted_at').eq('gameweek_id', gwId),
@@ -181,13 +182,31 @@ export default function ResultsPage() {
     }
 
     setPicks([...realPicks, ...previewPicks])
-    setPointsData(pts ?? [])
     setMatchEvents(events ?? [])
+
+    // Once the deadline's passed but before a gameweek is marked "completed",
+    // there's no frozen points row yet — show a live calculation instead,
+    // using whatever quartiles/results currently stand. Recalculated fresh
+    // every time this loads, so it moves if picks or quartiles do too.
+    if (gw?.status === 'locked') {
+      try {
+        const previewScoringRes = await fetch(`/api/scoring/preview?gameweek_id=${gwId}`)
+        const previewScoringData = await previewScoringRes.json()
+        setPointsData(previewScoringData.rows ?? [])
+      } catch {
+        setPointsData([])
+      }
+    } else {
+      setPointsData(pts ?? [])
+    }
+
     setLoadingPicks(false)
   }
 
   const selectedGameweek = gameweeks.find(g => g.id === selectedGw)
   const isScored = selectedGameweek?.status === 'completed'
+  const isLocked = selectedGameweek?.status === 'locked'
+  const showScoring = isScored || isLocked
 
   const pointsMap: Record<string, PointsRow> = {}
   pointsData.forEach(p => { pointsMap[p.pick_id] = p })
@@ -267,6 +286,14 @@ export default function ResultsPage() {
                   }`}>
                     {isScored ? 'Scored' : 'Awaiting scoring'}
                   </span>
+                  {isLocked && (
+                    <span
+                      className="text-xs border border-white/30 text-[#F5ECD9]/70 px-2 py-0.5 rounded font-bold uppercase tracking-wider"
+                      title="Deadline's passed so this is calculated from current results and quartiles, but it's not official until the gameweek is marked completed — it can still change"
+                    >
+                      Live preview — not final
+                    </span>
+                  )}
                   {isScored && gwPotwUserId && (
                     <span className="text-xs text-[#D9A441] font-bold uppercase tracking-wider">
                       GW Winner: {profiles[gwPotwUserId]}
@@ -290,7 +317,7 @@ export default function ResultsPage() {
                         <th className="py-2 px-2">Team</th>
                         <th className="py-2 px-2">P1</th>
                         <th className="py-2 px-2">P2</th>
-                        {isScored && (
+                        {showScoring && (
                           <>
                             <th className="py-2 px-1 text-right">Tm</th>
                             <th className="py-2 px-1 text-right">P1</th>
@@ -326,7 +353,7 @@ export default function ResultsPage() {
                                 {teamDisplayName(t)}
                                 {pick.is_banker && <span className="bg-[#D9A441] text-[#241a12] font-bold px-0.5 rounded" style={{ fontSize: '8px' }}>★B</span>}
                               </div>
-                              {isScored && pts?.breakdown?.team_detail?.opponent_team_id != null && (
+                              {showScoring && pts?.breakdown?.team_detail?.opponent_team_id != null && (
                                 <div className="normal-case text-[#F5ECD9]/40" style={{ fontSize: '8px' }}>
                                   <span
                                     className={`inline-block px-1 rounded font-bold mr-1 ${pts.breakdown.team_detail.is_home ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`}
@@ -352,7 +379,7 @@ export default function ResultsPage() {
                               {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>G</span>}
                               {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
                             </td>
-                            {isScored && (
+                            {showScoring && (
                               <>
                                 <td className="py-1.5 px-1 text-right text-[#F5ECD9]/50">{pts?.team_points ?? '—'}</td>
                                 <td className="py-1.5 px-1 text-right text-[#F5ECD9]/50">{pts?.player1_points ?? '—'}</td>

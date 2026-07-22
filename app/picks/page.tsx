@@ -706,7 +706,10 @@ export default function PicksPage() {
               )}
             </div>
           ) : (
-            <p className="text-[#F5ECD9]/60 uppercase tracking-wider text-sm">No upcoming gameweek with an open deadline.</p>
+            <div className="bg-white/5 border border-white/10 rounded-lg p-6 mb-6">
+              <p className="text-[#F5ECD9]/60 uppercase tracking-wider text-sm font-bold mb-1">No gameweeks currently open for picking</p>
+              <p className="text-[#F5ECD9]/40 text-xs">Check back once the next gameweek's deadline has been set.</p>
+            </div>
           )}
 
           <h2 className="text-lg font-bold mt-6 mb-3" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Your Previous Picks</h2>
