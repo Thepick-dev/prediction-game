@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { runAutopickForGameweek } from '../../lib/autopick'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -43,13 +44,7 @@ export async function GET(request: Request) {
         .eq('locked', false)
     }
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/autopick`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gameweek_id: gw.id })
-    })
-
-    const data = await res.json()
+    const data = await runAutopickForGameweek(supabase, gw.id)
     results.push({ gameweek_id: gw.id, ...data })
   }
 

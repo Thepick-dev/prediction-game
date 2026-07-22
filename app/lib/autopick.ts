@@ -128,3 +128,74 @@ export async function deriveAutopick(
     player2_id: player2.id,
   }
 }
+
+export type AutopickRunResult =
+  | { error: string }
+  | { success: true; autopicks_created: number; missing_users: number }
+
+// Pulled out of the /api/autopick route so cron can call it directly
+// instead of over an internal HTTP fetch — that fetch needed
+// NEXT_PUBLIC_SITE_URL to build the right URL, which only exists if it's
+// been separately configured wherever this is deployed, and silently
+// fails if it hasn't.
+export async function runAutopickForGameweek(supabase: SupabaseClient, gameweek_id: string): Promise<AutopickRunResult> {
+  const { data: gameweek } = await supabase
+    .from('gameweeks')
+    .select('id, competition_id, deadline, status')
+    .eq('id', gameweek_id)
+    .single()
+
+  if (!gameweek) {
+    return { error: 'Gameweek not found' }
+  }
+
+  if (new Date() < new Date(gameweek.deadline)) {
+    return { error: 'Deadline has not passed yet' }
+  }
+
+  const { data: entries } = await supabase
+    .from('competition_entries')
+    .select('user_id')
+    .eq('competition_id', gameweek.competition_id)
+    .eq('removed', false)
+
+  const { data: existingPicks } = await supabase
+    .from('picks')
+    .select('user_id')
+    .eq('gameweek_id', gameweek_id)
+
+  const existingPickUserIds = new Set(existingPicks?.map(p => p.user_id) ?? [])
+  const missingUsers = entries?.filter(e => !existingPickUserIds.has(e.user_id)) ?? []
+
+  if (missingUsers.length === 0) {
+    return { success: true, autopicks_created: 0, missing_users: 0 }
+  }
+
+  let autopicksCreated = 0
+
+  for (const entry of missingUsers) {
+    const derived = await deriveAutopick(supabase, entry.user_id, gameweek_id, gameweek.competition_id)
+    if (!derived) continue
+
+    const { error } = await supabase
+      .from('picks')
+      .insert({
+        user_id: entry.user_id,
+        competition_id: gameweek.competition_id,
+        gameweek_id,
+        team_id: derived.team_id,
+        player1_id: derived.player1_id,
+        player2_id: derived.player2_id,
+        is_banker: false,
+        is_autopick: true
+      })
+
+    if (!error) autopicksCreated++
+  }
+
+  return {
+    success: true,
+    autopicks_created: autopicksCreated,
+    missing_users: missingUsers.length
+  }
+}

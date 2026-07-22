@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { calculateScoring } from '../../lib/scoring'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
 
@@ -60,11 +61,7 @@ export default async function GameweeksPage() {
             )
         }
 
-        await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/scoring`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ gameweek_id: id })
-        })
+        await calculateScoring(supabase, id)
       }
     }
 
