@@ -40,7 +40,7 @@ export default function WeeklyHelpPage() {
               set, then works out points from the results and any goals/assists. (The Scoring page is only for editing
               the points formula itself, it doesn’t calculate anything.)
             </li>
-            <li>Spot-check the <a href="/leaderboard" className="underline">Leaderboard</a> — does it look right? Any pick still showing “PENDING” that should be final by now?</li>
+            <li>Spot-check the <a href="/leaderboard" className="underline">Leaderboard</a> — does it look right?</li>
           </ol>
         </div>
 

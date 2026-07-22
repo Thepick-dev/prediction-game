@@ -490,9 +490,7 @@ export default function LeaderboardPage() {
                                             <TeamCrest crestUrl={teamMap[d.team_id]?.crest_url ?? null} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
                                             {teamDisplayName(teamMap[d.team_id])}
                                             {d.is_banker && <span className="bg-[#D9A441] text-[#241a12] px-0.5 rounded font-bold">★</span>}
-                                            {d.provisional
-                                              ? <span className="border border-white/30 text-[#F5ECD9]/70 px-0.5 rounded" title="Deadline passed with no pick made — this is a preview of what the computer will pick, not final yet">PENDING</span>
-                                              : d.is_autopick && <span className="bg-white/20 px-0.5 rounded" title="No pick was made in time, so the computer picked automatically">AUTOPICK</span>}
+                                            {(d.provisional || d.is_autopick) && <span className="bg-white/20 px-0.5 rounded" title="No pick was made in time, so the computer picked automatically">AUTOPICK</span>}
                                           </div>
                                           {d.team_detail?.opponent_team_id != null && (
                                             <div className="normal-case text-[#F5ECD9]/40" style={{ fontSize: '8px' }}>
@@ -581,8 +579,6 @@ export default function LeaderboardPage() {
             🔥 Streak (3+ wks above avg)
             <span className="mx-2">·</span>
             <span className="bg-white/20 px-0.5 rounded">AUTOPICK</span> Computer picked it (deadline passed, no pick made)
-            <span className="mx-2">·</span>
-            <span className="border border-white/30 text-[#F5ECD9]/70 px-0.5 rounded">PENDING</span> Preview of what the computer will pick — not final yet
             <span className="mx-2">·</span>
             Click a row to expand
           </div>

@@ -737,9 +737,7 @@ export default function PicksPage() {
                             <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={16} />
                             {teamDisplayName(t)}
                             {pick.is_banker && <span className="ml-1 text-[10px] bg-[#D9A441] text-[#241a12] px-1 py-0.5 rounded font-bold">B</span>}
-                            {pick.provisional
-                              ? <span className="ml-1 text-[10px] border border-white/30 text-[#F5ECD9]/70 px-1 py-0.5 rounded" title="Deadline passed with no pick made — this is a preview of what the computer will pick, not final yet">PENDING</span>
-                              : pick.is_autopick && <span className="ml-1 text-[10px] bg-white/20 px-1 py-0.5 rounded" title="No pick was made in time, so the computer picked automatically">AUTOPICK</span>}
+                            {(pick.provisional || pick.is_autopick) && <span className="ml-1 text-[10px] bg-white/20 px-1 py-0.5 rounded" title="No pick was made in time, so the computer picked automatically">AUTOPICK</span>}
                           </div>
                         </td>
                         <td className="py-2 px-3 text-[#F5ECD9]/50 uppercase" style={{ fontSize: '10px' }}>{playerName(pick.player1_id)} & {playerName(pick.player2_id)}</td>

@@ -19,7 +19,7 @@ Most of this happens automatically. Here's what runs itself, and what to check b
 2. Click **Sync Standings** — this updates the league table. Do this before the next step, since it feeds straight into it.
 3. Go to `/admin/quartiles` and click **Reset to League Table** — this re-splits the 20 clubs into four difficulty bands based on the table you just synced. **This step is easy to forget.** Quartiles are only a snapshot: whatever `/admin/quartiles` says at the exact moment you mark a gameweek "completed" is what gets locked in and used for that week's scoring, permanently. Skip this step and that week quietly scores against old, stale bands instead of the current table.
 4. Go to `/admin/gameweeks`, find the gameweek, and set its status to **completed**. This is the step that actually calculates points — it takes the quartile snapshot from step 3 and works out everyone's points from the results and any goals/assists. (`/admin/scoring` is a different page — it only edits the points formula itself, it doesn't calculate anything.)
-5. Spot-check the Leaderboard page — does it look right? Any player showing "PENDING" when they shouldn't be (that means their pick is still just a preview, not final)?
+5. Spot-check the Leaderboard page — does it look right?
 
 **If something looks wrong with a result or a goal that got added late:** use the "Recalculate Scoring" box on `/admin/sync` to re-run scoring for that gameweek — safe to run as many times as you need, it always recalculates from scratch rather than adding on top of last time. This does *not* refresh the quartile snapshot from step 3, though — if the quartiles themselves were wrong for that week, that needs fixing separately.
 

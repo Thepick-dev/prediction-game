@@ -344,7 +344,7 @@ export default function ResultsPage() {
                                   size={14}
                                 />
                                 {profiles[pick.user_id] ?? 'Unknown'}
-                                {pick.provisional && <span className="border border-white/30 text-[#F5ECD9]/70 px-0.5 rounded" style={{ fontSize: '8px' }} title="Deadline passed with no pick made — this is a preview of what the computer will pick, not final yet">PENDING</span>}
+                                {(pick.provisional || pick.is_autopick) && <span className="bg-white/20 px-0.5 rounded" style={{ fontSize: '8px' }} title="No pick was made in time, so the computer picked automatically">AUTOPICK</span>}
                               </div>
                             </td>
                             <td className="py-1.5 px-2 uppercase">
@@ -403,7 +403,7 @@ export default function ResultsPage() {
                     <span className="mx-2">·</span>
                     <span className="bg-blue-500/20 text-blue-300 px-0.5 rounded font-bold">H</span>/<span className="bg-orange-500/20 text-orange-300 px-0.5 rounded font-bold">A</span> Home/Away
                     <span className="mx-2">·</span>
-                    <span className="border border-white/30 text-[#F5ECD9]/70 px-0.5 rounded">PENDING</span> Preview of what the computer will pick — not final yet
+                    <span className="bg-white/20 px-0.5 rounded">AUTOPICK</span> Computer picked it (deadline passed, no pick made)
                   </div>
                 </div>
               )}
