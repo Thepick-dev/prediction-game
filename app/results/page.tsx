@@ -328,6 +328,12 @@ export default function ResultsPage() {
                               </div>
                               {isScored && pts?.breakdown?.team_detail?.opponent_team_id != null && (
                                 <div className="normal-case text-[#F5ECD9]/40" style={{ fontSize: '8px' }}>
+                                  <span
+                                    className={`inline-block px-1 rounded font-bold mr-1 ${pts.breakdown.team_detail.is_home ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`}
+                                    title={pts.breakdown.team_detail.is_home ? 'Played at home' : 'Played away'}
+                                  >
+                                    {pts.breakdown.team_detail.is_home ? 'H' : 'A'}
+                                  </span>
                                   vs {teams[pts.breakdown.team_detail.opponent_team_id]?.short_code
                                     ?? teams[pts.breakdown.team_detail.opponent_team_id]?.short_name
                                     ?? '?'}
@@ -367,6 +373,8 @@ export default function ResultsPage() {
                     <span className="bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span> Assist
                     <span className="mx-2">·</span>
                     <span className="bg-[#D9A441] text-[#241a12] px-0.5 rounded font-bold">★B</span> Banker
+                    <span className="mx-2">·</span>
+                    <span className="bg-blue-500/20 text-blue-300 px-0.5 rounded font-bold">H</span>/<span className="bg-orange-500/20 text-orange-300 px-0.5 rounded font-bold">A</span> Home/Away
                     <span className="mx-2">·</span>
                     <span className="border border-white/30 text-[#F5ECD9]/70 px-0.5 rounded">PENDING</span> Preview of what the computer will pick — not final yet
                   </div>
