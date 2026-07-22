@@ -66,7 +66,7 @@ export default async function AdminPage() {
                   <td className="py-2 font-medium">GW{gw.number}</td>
                   <td className="py-2 text-gray-500">
                     {new Date(gw.deadline).toLocaleDateString('en-GB', {
-                      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London'
                     })}
                   </td>
                   <td className="py-2">

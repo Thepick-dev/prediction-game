@@ -71,7 +71,7 @@ export default async function PicksLogPage() {
                   </td>
                   <td className="py-2 px-3 text-xs text-gray-500">
                     {pick.submitted_at ? new Date(pick.submitted_at).toLocaleDateString('en-GB', {
-                      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London'
                     }) : '—'}
                   </td>
                 </tr>

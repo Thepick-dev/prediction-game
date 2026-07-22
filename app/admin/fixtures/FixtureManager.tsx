@@ -188,7 +188,7 @@ export default function FixtureManager({ teamMap, gameweeks }: Props) {
                     />
                   </td>
                   <td className="py-2 text-xs text-gray-500">
-                    {new Date(f.kickoff_time).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    {new Date(f.kickoff_time).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}
                   </td>
                   <td className="py-2">{teamMap[f.home_team_id]} vs {teamMap[f.away_team_id]}</td>
                   <td className="py-2 text-xs">

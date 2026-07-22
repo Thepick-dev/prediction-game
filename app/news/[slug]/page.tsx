@@ -52,11 +52,11 @@ export default async function NewsPostPage({ params }: { params: Promise<{ slug:
 
   return (
     <Shell active="MATCHDAY PROGRAMME" user={user} displayName={profile?.display_name ?? undefined}>
-      <HeroPage wide>
+      <HeroPage wide noImage>
         <div className="w-full text-[#F5ECD9]">
           <p className="text-[10px] uppercase tracking-widest text-[#D9A441]/70 mb-2">
             {post.published_at ? new Date(post.published_at).toLocaleDateString('en-GB', {
-              day: 'numeric', month: 'long', year: 'numeric'
+              day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London'
             }) : ''}
           </p>
           <h1 className="text-3xl font-bold mb-6" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>{post.title}</h1>

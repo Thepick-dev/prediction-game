@@ -6,6 +6,7 @@ import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
+import { buildPlayerDisplayNames } from '../lib/players'
 
 type Gameweek = {
   id: string
@@ -40,7 +41,7 @@ type MatchEvent = {
   event_type: string
 }
 
-type Team = { id: number; name: string; short_name: string | null; crest_url: string | null }
+type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
 
 function teamDisplayName(team: Team | undefined) {
   if (!team) return 'Unknown'
@@ -57,7 +58,7 @@ export default function ResultsPage() {
   const [pointsData, setPointsData] = useState<PointsRow[]>([])
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
   const [profiles, setProfiles] = useState<Record<string, string>>({})
-  const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string }>>({})
+  const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; stars: number; earths: number }>>({})
   const [teams, setTeams] = useState<Record<number, Team>>({})
   const [players, setPlayers] = useState<Record<number, string>>({})
   const [potwUserId, setPotwUserId] = useState<string | null>(null)
@@ -92,26 +93,34 @@ export default function ResultsPage() {
     const [{ data: gws }, { data: profilesData }, { data: teamsData }, { data: playersData }] = await Promise.all([
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).lt('deadline', now.toISOString()).order('number', { ascending: true }),
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
-      supabase.from('teams').select('id, name, short_name, crest_url'),
-      supabase.from('players').select('id, name')
+      supabase.from('teams').select('id, name, short_name, short_code, crest_url'),
+      supabase.from('players').select('id, name, web_name, team_id')
     ])
 
+    // Kept as its own request, deliberately separate from the profiles query
+    // above: if these columns ever have a problem, it should only affect kit
+    // badges, never take down display names with it.
+    const { data: kitExtras } = await supabase.from('profiles').select('id, kit_stars, kit_earths')
+    const kitExtrasMap: Record<string, { stars: number; earths: number }> = {}
+    kitExtras?.forEach(k => { kitExtrasMap[k.id] = { stars: k.kit_stars ?? 0, earths: k.kit_earths ?? 0 } })
+
     const profileMap: Record<string, string> = {}
-    const kitMap: Record<string, { pattern: string; colour1: string; colour2: string }> = {}
+    const kitMap: Record<string, { pattern: string; colour1: string; colour2: string; stars: number; earths: number }> = {}
     profilesData?.forEach(p => {
       profileMap[p.id] = p.display_name ?? 'Unknown'
       kitMap[p.id] = {
         pattern: p.kit_pattern ?? 'solid',
         colour1: p.kit_colour_1 ?? '#1E4D6B',
-        colour2: p.kit_colour_2 ?? '#F5ECD9'
+        colour2: p.kit_colour_2 ?? '#F5ECD9',
+        stars: kitExtrasMap[p.id]?.stars ?? 0,
+        earths: kitExtrasMap[p.id]?.earths ?? 0
       }
     })
 
     const teamMap: Record<number, Team> = {}
     teamsData?.forEach(t => { teamMap[t.id] = t })
 
-    const playerMap: Record<number, string> = {}
-    playersData?.forEach(p => { playerMap[p.id] = p.name })
+    const playerMap = buildPlayerDisplayNames(playersData ?? [], teamMap)
 
     setProfiles(profileMap)
     setKitByUser(kitMap)
@@ -193,12 +202,6 @@ export default function ResultsPage() {
   })
 
   const gwPotwUserId = isScored && sortedPicks.length > 0 ? sortedPicks[0].user_id : null
-
-  function shortName(id: number, map: Record<number, string>) {
-    const full = map[id] ?? 'Unknown'
-    const parts = full.split(' ')
-    return parts.length > 1 ? `${parts[0][0]}. ${parts[parts.length - 1]}` : full
-  }
 
   if (loading) {
     return (
@@ -311,10 +314,12 @@ export default function ResultsPage() {
                                   pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
                                   colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
                                   colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
+                                  stars={kitByUser[pick.user_id]?.stars ?? 0}
+                                  earths={kitByUser[pick.user_id]?.earths ?? 0}
                                   size={14}
                                 />
                                 {profiles[pick.user_id] ?? 'Unknown'}
-                                {pick.provisional && <span className="bg-white/20 text-[#F5ECD9]/80 px-0.5 rounded" style={{ fontSize: '8px' }} title="Provisional autopick — not yet locked in">AUTO</span>}
+                                {pick.provisional && <span className="border border-white/30 text-[#F5ECD9]/70 px-0.5 rounded" style={{ fontSize: '8px' }} title="Deadline passed with no pick made — this is a preview of what the computer will pick, not final yet">PENDING</span>}
                               </div>
                             </td>
                             <td className="py-1.5 px-2 uppercase">
@@ -325,12 +330,12 @@ export default function ResultsPage() {
                               </div>
                             </td>
                             <td className="py-1.5 px-2 uppercase">
-                              {shortName(pick.player1_id, players)}
+                              {players[pick.player1_id] ?? 'Unknown'}
                               {goalPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>G</span>}
                               {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
                             </td>
                             <td className="py-1.5 px-2 uppercase">
-                              {shortName(pick.player2_id, players)}
+                              {players[pick.player2_id] ?? 'Unknown'}
                               {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>G</span>}
                               {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
                             </td>
@@ -356,7 +361,7 @@ export default function ResultsPage() {
                     <span className="mx-2">·</span>
                     <span className="bg-[#D9A441] text-[#241a12] px-0.5 rounded font-bold">★B</span> Banker
                     <span className="mx-2">·</span>
-                    <span className="bg-white/20 px-0.5 rounded">AUTO</span> Provisional autopick
+                    <span className="border border-white/30 text-[#F5ECD9]/70 px-0.5 rounded">PENDING</span> Preview of what the computer will pick — not final yet
                   </div>
                 </div>
               )}

@@ -23,7 +23,7 @@ const navItems = [
 
 export default function Shell({ children, active, user, displayName }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [kit, setKit] = useState<{ pattern: string; colour1: string; colour2: string } | null>(null)
+  const [kit, setKit] = useState<{ pattern: string; colour1: string; colour2: string; stars: number; earths: number } | null>(null)
 
   useEffect(() => {
     if (!user?.id) return
@@ -39,7 +39,22 @@ export default function Shell({ children, active, user, displayName }: Props) {
             pattern: data.kit_pattern ?? 'solid',
             colour1: data.kit_colour_1 ?? '#1E4D6B',
             colour2: data.kit_colour_2 ?? '#F5ECD9',
+            stars: 0,
+            earths: 0,
           })
+        }
+      })
+    // Kept as its own request, deliberately separate from the query above:
+    // if these columns ever have a problem, it should only affect the
+    // sleeve badges, never take down the kit shirt itself with it.
+    supabase
+      .from('profiles')
+      .select('kit_stars, kit_earths')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setKit(prev => prev ? { ...prev, stars: data.kit_stars ?? 0, earths: data.kit_earths ?? 0 } : prev)
         }
       })
   }, [user?.id])
@@ -60,7 +75,7 @@ export default function Shell({ children, active, user, displayName }: Props) {
               {user && (
                 <div className="flex flex-col items-center gap-0.5">
                   {kit && (
-                    <KitBadge pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} size={22} />
+                    <KitBadge pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} stars={kit.stars} earths={kit.earths} size={36} />
                   )}
                   <span className="text-[10px] text-[#D9A441] uppercase font-medium tracking-wider leading-none">
                     {displayName ?? ''}

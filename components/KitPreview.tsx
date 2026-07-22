@@ -2,10 +2,25 @@ interface KitPreviewProps {
   pattern: string
   colour1: string
   colour2: string
+  stars?: number
+  earths?: number
   size?: number
 }
 
-export default function KitPreview({ pattern, colour1, colour2, size = 120 }: KitPreviewProps) {
+// Actual repeated icons, not a "x3" count — shown prominently right next
+// to the shirt (this preview has plenty of room, so a bigger size than the
+// compact header/table badge).
+function BadgeStats({ stars, earths }: { stars: number; earths: number }) {
+  if (!stars && !earths) return null
+  return (
+    <div className="flex flex-col gap-1.5 text-left" style={{ fontSize: '22px' }}>
+      {stars > 0 && <div style={{ color: '#D9A441' }}>{'★'.repeat(stars)}</div>}
+      {earths > 0 && <div>{'🌍'.repeat(earths)}</div>}
+    </div>
+  )
+}
+
+export default function KitPreview({ pattern, colour1, colour2, stars = 0, earths = 0, size = 120 }: KitPreviewProps) {
   const shirtPath = "M8 2 L11 2 L12 4 L16 4 L17 2 L20 2 L26 7 L23 11 L20 9 L20 24 L8 24 L8 9 L5 11 L2 7 Z"
   const shortsPath = "M8 25 L20 25 L20 33 L15 33 L14 30 L13 33 L8 33 Z"
   const leftSockPath = "M9 34 L13 34 L13 46 L9 46 Z"
@@ -95,20 +110,23 @@ export default function KitPreview({ pattern, colour1, colour2, size = 120 }: Ki
   }
 
   return (
-    <svg width={size} height={size} viewBox="0 0 28 48" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <clipPath id={shirtClipId}>
-          <path d={shirtPath} />
-        </clipPath>
-      </defs>
+    <div className="inline-flex items-center gap-5">
+      <svg width={size} height={size} viewBox="0 0 28 48" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <clipPath id={shirtClipId}>
+            <path d={shirtPath} />
+          </clipPath>
+        </defs>
 
-      {renderShirtFill()}
-      <path d={shirtPath} fill="none" stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
+        {renderShirtFill()}
+        <path d={shirtPath} fill="none" stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
 
-      <path d={shortsPath} fill={colour2} stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
+        <path d={shortsPath} fill={colour2} stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
 
-      <path d={leftSockPath} fill={colour1} stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
-      <path d={rightSockPath} fill={colour1} stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
-    </svg>
+        <path d={leftSockPath} fill={colour1} stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
+        <path d={rightSockPath} fill={colour1} stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
+      </svg>
+      <BadgeStats stars={stars} earths={earths} />
+    </div>
   )
 }

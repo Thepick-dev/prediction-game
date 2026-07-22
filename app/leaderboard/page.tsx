@@ -53,11 +53,12 @@ export default function LeaderboardPage() {
   const [ranked, setRanked] = useState<RankedPlayer[]>([])
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
   const [pickDetails, setPickDetails] = useState<Record<string, PickDetail[]>>({})
+  const [allGameweeks, setAllGameweeks] = useState<{ id: string; number: number; deadline: string }[]>([])
   const [matchEvents, setMatchEvents] = useState<any[]>([])
   const [potwUserId, setPotwUserId] = useState<string | null>(null)
   const [allTeams, setAllTeams] = useState<Team[]>([])
   const [teamMap, setTeamMap] = useState<Record<number, Team>>({})
-  const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string }>>({})
+  const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; stars: number; earths: number }>>({})
   const [usedTeamsByPlayer, setUsedTeamsByPlayer] = useState<Record<string, Record<number, number>>>({})
   const [doubleUseByPlayer, setDoubleUseByPlayer] = useState<Record<string, number[]>>({})
   const [avgByGw, setAvgByGw] = useState<Record<number, number>>({})
@@ -85,7 +86,7 @@ export default function LeaderboardPage() {
     if (!comp) { setLoading(false); return }
     setCompetition(comp)
 
-    const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: picks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }] = await Promise.all([
+    const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: picks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }, { data: fixtures }] = await Promise.all([
       supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id).eq('removed', false),
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
@@ -93,21 +94,31 @@ export default function LeaderboardPage() {
       supabase.from('teams').select('id, name, short_name, short_code, crest_url').eq('active', true),
       supabase.from('players').select('id, name, web_name, team_id'),
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id),
-      supabase.from('match_events').select('player_id, event_type'),
-      supabase.from('tier_draft_picks').select('user_id, tier1_team_id, tier2_team_id, tier3_team_id').eq('competition_id', comp.id)
+      supabase.from('match_events').select('player_id, event_type, fixture_id'),
+      supabase.from('tier_draft_picks').select('user_id, tier1_team_id, tier2_team_id, tier3_team_id').eq('competition_id', comp.id),
+      supabase.from('fixtures').select('id, gameweek_id')
     ])
+
+    // Kept as its own request, deliberately separate from the profiles query
+    // above: if these columns ever have a problem, it should only affect kit
+    // badges, never take down display names with it.
+    const { data: kitExtras } = await supabase.from('profiles').select('id, kit_stars, kit_earths')
+    const kitExtrasMap: Record<string, { stars: number; earths: number }> = {}
+    kitExtras?.forEach(k => { kitExtrasMap[k.id] = { stars: k.kit_stars ?? 0, earths: k.kit_earths ?? 0 } })
 
     setMatchEvents(events ?? [])
     setAllTeams(teams ?? [])
 
     const profileMap: Record<string, string> = {}
-    const kitMap: Record<string, { pattern: string; colour1: string; colour2: string }> = {}
+    const kitMap: Record<string, { pattern: string; colour1: string; colour2: string; stars: number; earths: number }> = {}
     profiles?.forEach(p => {
       profileMap[p.id] = p.display_name ?? 'Unknown'
       kitMap[p.id] = {
         pattern: p.kit_pattern ?? 'solid',
         colour1: p.kit_colour_1 ?? '#1E4D6B',
-        colour2: p.kit_colour_2 ?? '#F5ECD9'
+        colour2: p.kit_colour_2 ?? '#F5ECD9',
+        stars: kitExtrasMap[p.id]?.stars ?? 0,
+        earths: kitExtrasMap[p.id]?.earths ?? 0
       }
     })
     setKitByUser(kitMap)
@@ -120,6 +131,7 @@ export default function LeaderboardPage() {
 
     const gwMap: Record<string, number> = {}
     gameweeks?.forEach(g => { gwMap[g.id] = g.number })
+    setAllGameweeks((gameweeks ?? []).slice().sort((a, b) => a.number - b.number))
 
     const pointsByPickId: Record<string, any> = {}
     pointsData?.forEach(p => { pointsByPickId[p.pick_id] = p })
@@ -200,6 +212,24 @@ export default function LeaderboardPage() {
     })
     setAvgByGw(avgMap)
 
+    // Goals scored by a picked player only count towards that specific
+    // gameweek's pick, not their season total, so we need to know which
+    // gameweek each goal's fixture belongs to.
+    const fixtureGwMap: Record<number, string> = {}
+    fixtures?.forEach(f => { fixtureGwMap[f.id] = f.gameweek_id })
+
+    const goalCountByPlayerGw: Record<string, number> = {}
+    events?.forEach(e => {
+      if (e.event_type !== 'goal' || !e.player_id || !e.fixture_id) return
+      const gwId = fixtureGwMap[e.fixture_id]
+      if (!gwId) return
+      const key = `${e.player_id}_${gwId}`
+      goalCountByPlayerGw[key] = (goalCountByPlayerGw[key] || 0) + 1
+    })
+
+    const pickById: Record<string, { player1_id: number; player2_id: number }> = {}
+    picks?.forEach(p => { pickById[p.id] = { player1_id: p.player1_id, player2_id: p.player2_id } })
+
     const totals: Record<string, RankedPlayer> = {}
 
     entries?.forEach(entry => {
@@ -240,6 +270,12 @@ export default function LeaderboardPage() {
 
       if (breakdown?.team?.includes('home_win')) t.home_wins += 1
       if (breakdown?.team?.includes('away_win')) t.away_wins += 1
+
+      const pickPlayers = pickById[p.pick_id]
+      if (pickPlayers) {
+        t.goals += (goalCountByPlayerGw[`${pickPlayers.player1_id}_${p.gameweek_id}`] || 0)
+                 + (goalCountByPlayerGw[`${pickPlayers.player2_id}_${p.gameweek_id}`] || 0)
+      }
 
       const gwNum = gwMap[p.gameweek_id]
       if (gwNum) t.weekly_points[gwNum] = p.total_points ?? 0
@@ -298,7 +334,7 @@ export default function LeaderboardPage() {
     return streak >= 3 ? streak : null
   }
 
-  function getAvailableTeams(userId: string) {
+  function getTeamsWithAvailability(userId: string) {
     const used = usedTeamsByPlayer[userId] ?? {}
     const doubleUse = doubleUseByPlayer[userId] ?? []
     return allTeams
@@ -308,7 +344,7 @@ export default function LeaderboardPage() {
         const remaining = maxUses - usedCount
         return { ...team, remaining, isDouble: doubleUse.includes(team.id) }
       })
-      .filter(team => team.remaining > 0)
+      .sort((a, b) => teamDisplayName(a).localeCompare(teamDisplayName(b)))
   }
 
   if (loading) {
@@ -363,7 +399,7 @@ export default function LeaderboardPage() {
               <tbody>
                 {ranked.map((player, index) => {
                   const streak = getStreak(player)
-                  const availableTeams = getAvailableTeams(player.user_id)
+                  const teamsWithAvailability = getTeamsWithAvailability(player.user_id)
                   return (
                     <React.Fragment key={player.user_id}>
                       <tr
@@ -377,6 +413,8 @@ export default function LeaderboardPage() {
                               pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
                               colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                               colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                              stars={kitByUser[player.user_id]?.stars ?? 0}
+                              earths={kitByUser[player.user_id]?.earths ?? 0}
                               size={16}
                             />
                             {player.display_name}
@@ -395,7 +433,7 @@ export default function LeaderboardPage() {
                       {expandedUser === player.user_id && (
                         <tr>
                           <td colSpan={8} className="bg-black/20 px-3 py-3">
-                            {(!pickDetails[player.user_id] || pickDetails[player.user_id].length === 0) ? (
+                            {allGameweeks.length === 0 ? (
                               <p className="text-[#F5ECD9]/40 mb-3" style={{ fontSize: '10px' }}>No picks yet.</p>
                             ) : (
                               <table className="w-full mb-4" style={{ fontSize: '9px' }}>
@@ -412,57 +450,77 @@ export default function LeaderboardPage() {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {pickDetails[player.user_id].map((d, i) => (
-                                    <tr key={i} className="border-b border-white/5 last:border-0">
-                                      <td className="py-1 pr-1 font-bold">{d.gw}</td>
-                                      <td className="py-1 pr-1 uppercase">
-                                        <div className="flex items-center gap-1">
-                                          <TeamCrest crestUrl={teamMap[d.team_id]?.crest_url ?? null} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
-                                          {teamDisplayName(teamMap[d.team_id])}
-                                          {d.is_banker && <span className="bg-[#D9A441] text-[#241a12] px-0.5 rounded font-bold">★</span>}
-                                          {d.provisional ? <span className="bg-white/20 px-0.5 rounded">AUTO</span> : d.is_autopick && <span className="bg-white/20 px-0.5 rounded">A</span>}
-                                        </div>
-                                      </td>
-                                      <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.team_points ?? '—'}</td>
-                                      <td className="py-1 pr-1 uppercase">
-                                        {d.player1}
-                                        {goalPlayers.has(d.player1_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold">G</span>}
-                                        {assistPlayers.has(d.player1_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span>}
-                                      </td>
-                                      <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.player1_points ?? '—'}</td>
-                                      <td className="py-1 pr-1 uppercase">
-                                        {d.player2}
-                                        {goalPlayers.has(d.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold">G</span>}
-                                        {assistPlayers.has(d.player2_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span>}
-                                      </td>
-                                      <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.player2_points ?? '—'}</td>
-                                      <td className="py-1 text-right font-bold">{d.points ?? '—'}</td>
-                                    </tr>
-                                  ))}
+                                  {allGameweeks.map(gw => {
+                                    const d = pickDetails[player.user_id]?.find(pd => pd.gw === gw.number)
+                                    if (!d) {
+                                      const notYetDue = new Date(gw.deadline) > new Date()
+                                      return (
+                                        <tr key={gw.id} className="border-b border-white/5 last:border-0 text-[#F5ECD9]/30">
+                                          <td className="py-1 pr-1 font-bold">{gw.number}</td>
+                                          <td className="py-1 pr-1 uppercase" colSpan={6}>{notYetDue ? 'Not yet due' : 'No pick'}</td>
+                                          <td className="py-1 text-right font-bold">—</td>
+                                        </tr>
+                                      )
+                                    }
+                                    return (
+                                      <tr key={gw.id} className="border-b border-white/5 last:border-0">
+                                        <td className="py-1 pr-1 font-bold">{d.gw}</td>
+                                        <td className="py-1 pr-1 uppercase">
+                                          <div className="flex items-center gap-1">
+                                            <TeamCrest crestUrl={teamMap[d.team_id]?.crest_url ?? null} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
+                                            {teamDisplayName(teamMap[d.team_id])}
+                                            {d.is_banker && <span className="bg-[#D9A441] text-[#241a12] px-0.5 rounded font-bold">★</span>}
+                                            {d.provisional
+                                              ? <span className="border border-white/30 text-[#F5ECD9]/70 px-0.5 rounded" title="Deadline passed with no pick made — this is a preview of what the computer will pick, not final yet">PENDING</span>
+                                              : d.is_autopick && <span className="bg-white/20 px-0.5 rounded" title="No pick was made in time, so the computer picked automatically">AUTOPICK</span>}
+                                          </div>
+                                        </td>
+                                        <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.team_points ?? '—'}</td>
+                                        <td className="py-1 pr-1 uppercase">
+                                          {d.player1}
+                                          {goalPlayers.has(d.player1_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold">G</span>}
+                                          {assistPlayers.has(d.player1_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span>}
+                                        </td>
+                                        <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.player1_points ?? '—'}</td>
+                                        <td className="py-1 pr-1 uppercase">
+                                          {d.player2}
+                                          {goalPlayers.has(d.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold">G</span>}
+                                          {assistPlayers.has(d.player2_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span>}
+                                        </td>
+                                        <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.player2_points ?? '—'}</td>
+                                        <td className="py-1 text-right font-bold">{d.points ?? '—'}</td>
+                                      </tr>
+                                    )
+                                  })}
                                 </tbody>
                               </table>
                             )}
 
                             <div style={{ fontSize: '9px' }}>
                               <p className="text-[#F5ECD9]/40 uppercase tracking-wider font-bold mb-1.5">
-                                Available Teams ({availableTeams.length})
+                                Teams ({teamsWithAvailability.filter(t => t.remaining > 0).length} available)
                               </p>
-                              {availableTeams.length === 0 ? (
-                                <p className="text-[#F5ECD9]/40">No teams remaining.</p>
+                              {teamsWithAvailability.length === 0 ? (
+                                <p className="text-[#F5ECD9]/40">No teams.</p>
                               ) : (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {availableTeams.map(team => (
-                                    <div
-                                      key={team.id}
-                                      className="flex items-center gap-1 bg-white/5 border border-white/10 rounded px-1.5 py-1"
-                                    >
-                                      <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={14} />
-                                      <span className="uppercase">{teamDisplayName(team)}</span>
-                                      {team.isDouble && team.remaining === 2 && (
-                                        <span className="text-[#D9A441] font-bold">×2</span>
-                                      )}
-                                    </div>
-                                  ))}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+                                  {teamsWithAvailability.map(team => {
+                                    const used = team.remaining <= 0
+                                    return (
+                                      <div
+                                        key={team.id}
+                                        className={`flex items-center gap-1 rounded px-1.5 py-1 border ${
+                                          used ? 'bg-white/[0.02] border-white/5 opacity-40' : 'bg-white/5 border-white/10'
+                                        }`}
+                                      >
+                                        <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={14} />
+                                        <span className="uppercase truncate">{teamDisplayName(team)}</span>
+                                        {team.isDouble && !used && team.remaining === 2 && (
+                                          <span className="text-[#D9A441] font-bold shrink-0">×2</span>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
                                 </div>
                               )}
                             </div>
@@ -487,7 +545,9 @@ export default function LeaderboardPage() {
             <span className="mx-2">·</span>
             🔥 Streak (3+ wks above avg)
             <span className="mx-2">·</span>
-            <span className="bg-white/20 px-0.5 rounded">AUTO</span> Provisional autopick
+            <span className="bg-white/20 px-0.5 rounded">AUTOPICK</span> Computer picked it (deadline passed, no pick made)
+            <span className="mx-2">·</span>
+            <span className="border border-white/30 text-[#F5ECD9]/70 px-0.5 rounded">PENDING</span> Preview of what the computer will pick — not final yet
             <span className="mx-2">·</span>
             Click a row to expand
           </div>

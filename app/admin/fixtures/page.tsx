@@ -113,7 +113,7 @@ export default async function FixturesPage() {
                   <span className="text-gray-400 mx-2">vs</span>
                   <span className="font-medium">{teamMap[f.away_team_id]}</span>
                   <span className="text-gray-400 ml-3 text-xs">
-                    {new Date(f.kickoff_time).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    {new Date(f.kickoff_time).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}
                   </span>
                 </div>
                 <form action={assignFixture} className="flex gap-2">

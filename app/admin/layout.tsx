@@ -25,7 +25,7 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-black text-white px-6 py-3">
+      <nav className="bg-black text-white px-6 py-3 print:hidden">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-3">
             <span className="font-bold text-lg uppercase tracking-wider">Admin</span>
@@ -57,6 +57,8 @@ export default async function AdminLayout({
                 <a href="/admin/events" className="block hover:text-white">Events</a>
                 <a href="/admin/scoring" className="block hover:text-white">Scoring</a>
                 <a href="/admin/picks-log" className="block hover:text-white">Picks Log</a>
+                <a href="/admin/print-grid" className="block hover:text-white">Print Grid</a>
+                <a href="/admin/edit-pick" className="block hover:text-white">Edit Pick</a>
               </div>
             </div>
 
@@ -88,10 +90,18 @@ export default async function AdminLayout({
               </div>
             </div>
 
+            <div>
+              <p className="text-gray-500 uppercase tracking-widest text-xs mb-1.5">Help</p>
+              <div className="space-y-1.5">
+                <a href="/admin/help/weekly" className="block hover:text-white">Weekly Routine</a>
+                <a href="/admin/help/pre-season" className="block hover:text-white">New Season Setup</a>
+              </div>
+            </div>
+
           </div>
         </div>
       </nav>
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-6 py-8 print:max-w-none print:px-0 print:py-0">
         {children}
       </main>
     </div>

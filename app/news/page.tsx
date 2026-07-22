@@ -19,7 +19,7 @@ export default async function NewsListPage() {
 
   return (
     <Shell active="MATCHDAY PROGRAMME" user={user} displayName={profile?.display_name ?? undefined}>
-      <HeroPage wide>
+      <HeroPage wide noImage>
         <div className="w-full text-[#F5ECD9]">
 
           <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>MATCHDAY PROGRAMME</h1>
@@ -39,7 +39,7 @@ export default async function NewsListPage() {
                 >
                   <p className="text-[10px] uppercase tracking-widest text-[#D9A441]/70 mb-1">
                     {post.published_at ? new Date(post.published_at).toLocaleDateString('en-GB', {
-                      day: 'numeric', month: 'long', year: 'numeric'
+                      day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London'
                     }) : ''}
                   </p>
                   <h2 className="text-lg font-bold mb-1" style={{ fontFamily: 'var(--font-heading), serif' }}>{post.title}</h2>

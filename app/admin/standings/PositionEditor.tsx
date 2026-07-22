@@ -54,7 +54,7 @@ export default function PositionEditor({ initialRows, recordedAt }: { initialRow
         <div>
           <h2 className="font-bold">Manual Override</h2>
           <p className="text-xs text-gray-500">
-            Reorder teams for {new Date(recordedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}. Position 1 = top of the table.
+            Reorder teams for {new Date(recordedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London' })}. Position 1 = top of the table.
           </p>
         </div>
         <button

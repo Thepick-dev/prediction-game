@@ -36,26 +36,71 @@ function teamDisplayName(team: Team | undefined) {
   return team.short_name ?? team.name.replace(' FC', '').replace(' AFC', '')
 }
 
-function useCountdown(deadline: string | null) {
-  const [timeLeft, setTimeLeft] = useState('')
+type CountdownTime = { days: number; hours: number; mins: number; secs: number; expired: boolean }
+
+function useCountdown(deadline: string | null): CountdownTime | null {
+  const [timeLeft, setTimeLeft] = useState<CountdownTime | null>(null)
 
   useEffect(() => {
     if (!deadline) return
-    const interval = setInterval(() => {
+
+    function tick() {
       const now = new Date().getTime()
-      const end = new Date(deadline).getTime()
+      const end = new Date(deadline!).getTime()
       const diff = end - now
-      if (diff <= 0) { setTimeLeft('Deadline passed'); clearInterval(interval); return }
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-      if (days > 0) setTimeLeft(`${days}d ${hours}h ${mins}m`)
-      else setTimeLeft(`${hours}h ${mins}m`)
-    }, 1000)
+      if (diff <= 0) {
+        setTimeLeft({ days: 0, hours: 0, mins: 0, secs: 0, expired: true })
+        return
+      }
+      setTimeLeft({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        mins: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        secs: Math.floor((diff % (1000 * 60)) / 1000),
+        expired: false,
+      })
+    }
+
+    tick()
+    const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
   }, [deadline])
 
   return timeLeft
+}
+
+// A ceefax-teletext-style flip clock, in keeping with the rest of the site.
+function CountdownClock({ time }: { time: CountdownTime | null }) {
+  if (!time) return null
+  if (time.expired) {
+    return <span className="text-xs uppercase tracking-wider font-bold" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Deadline passed</span>
+  }
+
+  const units = [
+    { label: 'Days', value: time.days },
+    { label: 'Hrs', value: time.hours },
+    { label: 'Mins', value: time.mins },
+    { label: 'Secs', value: time.secs },
+  ]
+
+  return (
+    <div className="flex items-center gap-1">
+      {units.map((u, i) => (
+        <div key={u.label} className="flex items-center gap-1">
+          <div className="flex flex-col items-center">
+            <div
+              className="rounded px-1.5 py-1 min-w-[2rem] text-center font-bold tabular-nums text-sm"
+              style={{ backgroundColor: '#1a120b', color: '#D9A441', border: '1px solid #D9A44155', fontFamily: 'var(--font-heading), serif' }}
+            >
+              {String(u.value).padStart(2, '0')}
+            </div>
+            <span className="text-[8px] uppercase tracking-wider mt-0.5 text-[#F5ECD9]/40">{u.label}</span>
+          </div>
+          {i < units.length - 1 && <span className="text-[#D9A441]/40 font-bold -mt-2.5">:</span>}
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export default function PicksPage() {
@@ -298,16 +343,26 @@ export default function PicksPage() {
   const displayNames = buildPlayerDisplayNames(players, teamMap)
   const playerName = (id: number | null) => (id != null ? displayNames[id] : undefined) ?? ''
 
-  // NOTE: players.team_id is NOT in the same id-space as teams.id (it's FPL's
-  // internal per-season team code, copied verbatim by the fpl sync route) —
-  // so it can't currently be joined against the `teams` table to check
-  // active status. Filtering on that join here previously hid every player.
-  // Revisit once the fpl sync maps FPL team codes to teams.id properly.
+  const questionAnswerLabel = (() => {
+    if (!question || !questionAnswer) return ''
+    const options: Record<string, string | null> = {
+      A: question.option_a, B: question.option_b, C: question.option_c, D: question.option_d
+    }
+    return options[questionAnswer] ?? ''
+  })()
+
+  // Only players on currently active teams can be newly selected — teamMap
+  // only holds active teams (players.team_id now correctly matches teams.id,
+  // since the fpl sync route maps FPL's team codes onto our teams table).
+  // This hides players from clubs no longer in the competition without
+  // touching past picks/history display, which still resolve every player.
+  const selectablePlayers = players.filter(p => teamMap[p.team_id])
+
   const filteredPlayers1 = playerSearch1.length >= 2
-    ? players.filter(p => p.name.toLowerCase().includes(playerSearch1.toLowerCase())).slice(0, 8)
+    ? selectablePlayers.filter(p => p.name.toLowerCase().includes(playerSearch1.toLowerCase())).slice(0, 8)
     : []
   const filteredPlayers2 = playerSearch2.length >= 2
-    ? players.filter(p => p.name.toLowerCase().includes(playerSearch2.toLowerCase())).slice(0, 8)
+    ? selectablePlayers.filter(p => p.name.toLowerCase().includes(playerSearch2.toLowerCase())).slice(0, 8)
     : []
 
   const hasFixtures = fixtures.length > 0
@@ -356,25 +411,28 @@ export default function PicksPage() {
         <div className="w-full text-[#F5ECD9]">
 
           {gameweek && !deadlinePassed && !hasPick && (
-            <div className="bg-red-900/40 border border-red-500/40 rounded-lg px-4 py-3 mb-5 flex items-center gap-3">
-              <span className="text-lg">⚠️</span>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-red-300 uppercase tracking-wider">Pick Required</p>
-                <p className="text-xs text-red-200">Gameweek {gameweek.number} pick not yet submitted.</p>
+            <div className="bg-red-900/40 border border-red-500/40 rounded-lg px-4 py-3 mb-5 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <span className="text-lg">⚠️</span>
+                <div>
+                  <p className="text-sm font-bold text-red-300 uppercase tracking-wider">Pick Required</p>
+                  <p className="text-xs text-red-200">Gameweek {gameweek.number} pick not yet submitted.</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-xs text-red-300 uppercase tracking-wider font-bold">{countdown}</p>
-              </div>
+              <CountdownClock time={countdown} />
             </div>
           )}
 
           {gameweek && !deadlinePassed && hasPick && (
-            <div className="bg-green-900/40 border border-green-500/40 rounded-lg px-4 py-3 mb-5 flex items-center gap-3">
-              <span className="text-lg">✅</span>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-green-300 uppercase tracking-wider">Pick Submitted</p>
-                <p className="text-xs text-green-200">Gameweek {gameweek.number} pick is in. Deadline in {countdown}.</p>
+            <div className="bg-green-900/40 border border-green-500/40 rounded-lg px-4 py-3 mb-5 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <span className="text-lg">✅</span>
+                <div>
+                  <p className="text-sm font-bold text-green-300 uppercase tracking-wider">Pick Submitted</p>
+                  <p className="text-xs text-green-200">Gameweek {gameweek.number} pick is in.</p>
+                </div>
               </div>
+              <CountdownClock time={countdown} />
             </div>
           )}
 
@@ -387,7 +445,7 @@ export default function PicksPage() {
                 <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Gameweek {gameweek.number}</h2>
                 <span className="text-xs text-[#F5ECD9]/70">
                   Deadline: {new Date(gameweek.deadline).toLocaleString('en-GB', {
-                    weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                    weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London'
                   })}
                 </span>
               </div>
@@ -676,7 +734,9 @@ export default function PicksPage() {
                             <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={16} />
                             {teamDisplayName(t)}
                             {pick.is_banker && <span className="ml-1 text-[10px] bg-[#D9A441] text-[#241a12] px-1 py-0.5 rounded font-bold">B</span>}
-                            {pick.provisional ? <span className="ml-1 text-[10px] bg-white/20 px-1 py-0.5 rounded">AUTO</span> : pick.is_autopick && <span className="ml-1 text-[10px] bg-white/20 px-1 py-0.5 rounded">A</span>}
+                            {pick.provisional
+                              ? <span className="ml-1 text-[10px] border border-white/30 text-[#F5ECD9]/70 px-1 py-0.5 rounded" title="Deadline passed with no pick made — this is a preview of what the computer will pick, not final yet">PENDING</span>
+                              : pick.is_autopick && <span className="ml-1 text-[10px] bg-white/20 px-1 py-0.5 rounded" title="No pick was made in time, so the computer picked automatically">AUTOPICK</span>}
                           </div>
                         </td>
                         <td className="py-2 px-3 text-[#F5ECD9]/50 uppercase" style={{ fontSize: '10px' }}>{playerName(pick.player1_id)} & {playerName(pick.player2_id)}</td>
@@ -693,7 +753,7 @@ export default function PicksPage() {
       </HeroPage>
 
       {showSlip && selectedTeam && player1 && player2 && (
-        <div className="fixed inset-0 bg-black/75 flex items-end md:items-center justify-center z-50 p-4" onClick={() => setShowSlip(false)}>
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4" onClick={() => setShowSlip(false)}>
           <div className="w-full max-w-xs" onClick={e => e.stopPropagation()}>
 
             {/* Main stub */}
@@ -733,6 +793,12 @@ export default function PicksPage() {
                     <span className="font-bold uppercase text-sm px-2 py-0.5 rounded" style={{ backgroundColor: '#D9A441', color: '#241a12' }}>★ Declared</span>
                   </div>
                 )}
+                {question && questionAnswer && (
+                  <div className="flex items-center justify-between gap-3 pt-1">
+                    <span className="text-[10px] uppercase tracking-widest shrink-0" style={{ color: '#241a1799' }}>Your Answer</span>
+                    <span className="font-bold uppercase text-sm text-right">{questionAnswerLabel}</span>
+                  </div>
+                )}
               </div>
 
               {/* Perforation line between stub and tearaway */}
@@ -743,7 +809,7 @@ export default function PicksPage() {
 
               <div className="px-5 py-3 text-center">
                 <p className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#241a1799' }}>Kick-off Deadline</p>
-                <p className="font-bold text-sm">{gameweek ? new Date(gameweek.deadline).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</p>
+                <p className="font-bold text-sm">{gameweek ? new Date(gameweek.deadline).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' }) : ''}</p>
               </div>
 
               {/* Bottom scalloped edge */}

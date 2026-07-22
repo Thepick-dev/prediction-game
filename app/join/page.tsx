@@ -96,36 +96,24 @@ export default function JoinPage() {
     setSaving(true)
     setMessage('')
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user || !competition) return
+    if (!competition) return
 
-    const { error } = await supabase
-      .from('tier_draft_picks')
-      .upsert({
-        user_id: user.id,
+    const res = await fetch('/api/tier-picks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         competition_id: competition.id,
         tier1_team_id: tier1Team,
         tier2_team_id: tier2Team,
         tier3_team_id: tier3Team,
-      }, { onConflict: 'user_id,competition_id' })
+      })
+    })
+    const data = await res.json()
 
-    if (error) {
-      setMessage('Error: ' + error.message)
+    if (data.error) {
+      setMessage('Error: ' + data.error)
+      if (data.error.includes('locked')) setLocked(true)
     } else {
-      const { data: existingEntry } = await supabase
-        .from('competition_entries')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('competition_id', competition.id)
-        .single()
-
-      if (!existingEntry) {
-        await supabase.from('competition_entries').insert({
-          user_id: user.id,
-          competition_id: competition.id
-        })
-      }
-
       setMessage('saved')
     }
     setSaving(false)

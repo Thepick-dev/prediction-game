@@ -33,7 +33,7 @@ export default async function StandingsPage() {
       <h1 className="text-2xl font-bold mb-2">League Standings</h1>
       <p className="text-gray-500 text-sm mb-8">
         {lastSynced
-          ? `Last synced: ${new Date(lastSynced).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+          ? `Last synced: ${new Date(lastSynced).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}`
           : 'No standings data yet — run Sync Standings on the Sync page.'}
       </p>
 

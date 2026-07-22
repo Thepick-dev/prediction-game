@@ -119,7 +119,7 @@ export default function LoginPage() {
 
   if (submitted) {
     return (
-      <HeroPage>
+      <HeroPage noImage>
         <div className="text-center text-[#F5ECD9]">
           <h1 className="text-2xl font-bold mb-4" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Check your email</h1>
           <p>We sent a magic link to <strong>{email}</strong></p>
@@ -132,7 +132,7 @@ export default function LoginPage() {
   const inputClass = "w-full bg-white/5 border border-white/10 rounded px-4 py-2 mb-3 text-[#F5ECD9] placeholder:text-[#F5ECD9]/40"
 
   return (
-    <HeroPage>
+    <HeroPage noImage>
       <div className="w-full text-[#F5ECD9]">
         <h1 className="text-2xl font-bold mb-6 text-center" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>The Turnstile</h1>
 

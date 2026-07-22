@@ -248,7 +248,7 @@ export default function AdminSummaryPage() {
                       </td>
                       <td className="py-3 px-4 text-xs text-gray-400">
                         {pick.submitted_at ? new Date(pick.submitted_at).toLocaleString('en-GB', {
-                          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London'
                         }) : '—'}
                       </td>
                     </tr>

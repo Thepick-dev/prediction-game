@@ -38,10 +38,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'That team is not currently active' }, { status: 400 })
   }
 
-  // NOTE: players.team_id is not in the same id-space as teams.id (see
-  // app/api/sync/fpl/route.ts — it stores FPL's own per-season team code,
-  // not our teams.id), so we can't yet validate the picked players' club is
-  // active here. Re-add once the fpl sync maps FPL team codes to teams.id.
+  // No foreign key exists between players.team_id and teams.id, so this is
+  // a plain two-step lookup rather than a select(...) embed.
+  const { data: pickedPlayers } = await supabase
+    .from('players')
+    .select('id, team_id')
+    .in('id', [player1_id, player2_id])
+
+  const pickedTeamIds = [...new Set((pickedPlayers ?? []).map(p => p.team_id))]
+  const { data: pickedPlayersTeams } = await supabase
+    .from('teams')
+    .select('id, active')
+    .in('id', pickedTeamIds)
+
+  const activeTeamIds = new Set((pickedPlayersTeams ?? []).filter(t => t.active).map(t => t.id))
+  const bothPlayersActive = pickedPlayers?.length === 2 && pickedPlayers.every(p => activeTeamIds.has(p.team_id))
+
+  if (!bothPlayersActive) {
+    return NextResponse.json({ error: 'One of the selected players is not on an active team' }, { status: 400 })
+  }
 
   const { data: gameweek } = await supabase
     .from('gameweeks')

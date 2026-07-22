@@ -39,6 +39,8 @@ export default function SettingsPage() {
   const [kitPattern, setKitPattern] = useState('solid')
   const [kitColour1, setKitColour1] = useState('#1E4D6B')
   const [kitColour2, setKitColour2] = useState('#F5ECD9')
+  const [kitStars, setKitStars] = useState(0)
+  const [kitEarths, setKitEarths] = useState(0)
 
   const [tierLocked, setTierLocked] = useState<boolean | null>(null)
   const [hasTierPicks, setHasTierPicks] = useState(false)
@@ -70,12 +72,23 @@ export default function SettingsPage() {
       .eq('id', user.id)
       .single()
 
+    // Kept as its own request, deliberately separate from the profile query
+    // above: if these columns ever have a problem, it should only affect kit
+    // badges, never take down the rest of this page with it.
+    const { data: kitExtras } = await supabase
+      .from('profiles')
+      .select('kit_stars, kit_earths')
+      .eq('id', user.id)
+      .single()
+
     if (profile) {
       setDisplayName(profile.display_name ?? '')
       setCurrentName(profile.display_name ?? '')
       setKitPattern(profile.kit_pattern ?? 'solid')
       setKitColour1(profile.kit_colour_1 ?? '#1E4D6B')
       setKitColour2(profile.kit_colour_2 ?? '#F5ECD9')
+      setKitStars(kitExtras?.kit_stars ?? 0)
+      setKitEarths(kitExtras?.kit_earths ?? 0)
     }
 
     const { data: comp } = await supabase
@@ -262,9 +275,12 @@ export default function SettingsPage() {
               <h2 className={labelClass}>Your Kit</h2>
               <p className={subClass}>Shown next to your name on the leaderboard and results.</p>
 
-              <div className="flex justify-center mb-4">
-                <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} size={140} />
+              <div className="flex justify-center mb-3">
+                <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} stars={kitStars} earths={kitEarths} size={140} />
               </div>
+              {(kitStars > 0 || kitEarths > 0) && (
+                <p className="text-xs text-center text-[#F5ECD9]/40 mb-3">Awarded by the league admin.</p>
+              )}
 
               <p className="text-xs font-bold uppercase tracking-wider text-[#F5ECD9]/50 mb-2">Pattern</p>
               <div className="grid grid-cols-3 gap-2 mb-4">
