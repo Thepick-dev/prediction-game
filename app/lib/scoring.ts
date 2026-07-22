@@ -86,13 +86,32 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
     if (event.event_type === 'assist') playerEventsMap[event.player_id].assists++
   })
 
-  function getTeamPoints(teamId: number, fixtureId: number | null): { points: number; breakdown: string } {
+  type TeamPointsDetail = {
+    points: number
+    breakdown: string
+    detail: {
+      opponent_team_id: number | null
+      team_quartile: number
+      opponent_quartile: number
+      quartile_diff: number
+      result_type: string
+      team_score: number | null
+      opponent_score: number | null
+      is_home: boolean | null
+    }
+  }
+
+  function getTeamPoints(teamId: number, fixtureId: number | null): TeamPointsDetail {
     // Prefer the exact fixture the pick was made against. Fall back to team-based
     // lookup only for old picks made before fixture_id existed.
     const fixture = fixtureId ? fixtureById[fixtureId] : fixtureByTeamId[teamId]
 
     if (!fixture || fixture.home_score === null || fixture.away_score === null) {
-      return { points: 0, breakdown: 'No result' }
+      return {
+        points: 0,
+        breakdown: 'No result',
+        detail: { opponent_team_id: null, team_quartile: quartileMap[teamId] ?? 2, opponent_quartile: 2, quartile_diff: 0, result_type: 'no_result', team_score: null, opponent_score: null, is_home: null }
+      }
     }
 
     const isHome = fixture.home_team_id === teamId
@@ -102,7 +121,10 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
 
     const teamQuartile = quartileMap[teamId] ?? 2
     const opponentQuartile = quartileMap[opponentId] ?? 2
-    const quartileDiff = opponentQuartile - teamQuartile
+    // Higher quartile number = weaker team (Q4 = "Underdogs", Q1 = "Elite").
+    // A positive diff means OUR team was the weaker side ("N Up") — beating
+    // or drawing a stronger opponent, which is worth more, not less.
+    const quartileDiff = teamQuartile - opponentQuartile
 
     let resultType: string
     if (teamScore > opponentScore) {
@@ -110,7 +132,11 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
     } else if (teamScore === opponentScore) {
       resultType = isHome ? 'home_draw' : 'away_draw'
     } else {
-      return { points: 0, breakdown: 'Loss' }
+      return {
+        points: 0,
+        breakdown: 'Loss',
+        detail: { opponent_team_id: opponentId, team_quartile: teamQuartile, opponent_quartile: opponentQuartile, quartile_diff: teamQuartile - opponentQuartile, result_type: 'loss', team_score: teamScore, opponent_score: opponentScore, is_home: isHome }
+      }
     }
 
     const clampedDiff = Math.max(-3, Math.min(3, quartileDiff))
@@ -119,7 +145,8 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
 
     return {
       points,
-      breakdown: `${resultType} (Q diff: ${clampedDiff}) = ${points}pts`
+      breakdown: `${resultType} (Q diff: ${clampedDiff}) = ${points}pts`,
+      detail: { opponent_team_id: opponentId, team_quartile: teamQuartile, opponent_quartile: opponentQuartile, quartile_diff: clampedDiff, result_type: resultType, team_score: teamScore, opponent_score: opponentScore, is_home: isHome }
     }
   }
 
@@ -161,6 +188,7 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
       total_points: totalPoints,
       breakdown: {
         team: teamResult.breakdown,
+        team_detail: teamResult.detail,
         is_banker: pick.is_banker,
         player1_raw: player1Points,
         player2_raw: player2Points

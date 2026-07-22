@@ -326,6 +326,15 @@ export default function ResultsPage() {
                                 {teamDisplayName(t)}
                                 {pick.is_banker && <span className="bg-[#D9A441] text-[#241a12] font-bold px-0.5 rounded" style={{ fontSize: '8px' }}>★B</span>}
                               </div>
+                              {isScored && pts?.breakdown?.team_detail?.opponent_team_id != null && (
+                                <div className="normal-case text-[#F5ECD9]/40" style={{ fontSize: '8px' }}>
+                                  vs {teams[pts.breakdown.team_detail.opponent_team_id]?.short_code
+                                    ?? teams[pts.breakdown.team_detail.opponent_team_id]?.short_name
+                                    ?? '?'}
+                                  {' '}(Q{pts.breakdown.team_detail.team_quartile}→Q{pts.breakdown.team_detail.opponent_quartile})
+                                  {' '}· {pts.breakdown.team_detail.team_score}-{pts.breakdown.team_detail.opponent_score}
+                                </div>
+                              )}
                             </td>
                             <td className="py-1.5 px-2 uppercase">
                               {players[pick.player1_id] ?? 'Unknown'}
