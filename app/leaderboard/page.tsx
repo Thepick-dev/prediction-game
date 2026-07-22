@@ -6,6 +6,7 @@ import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
+import { buildPlayerDisplayNames } from '../lib/players'
 
 type RankedPlayer = {
   user_id: string
@@ -22,7 +23,7 @@ type RankedPlayer = {
   weekly_points: number[]
 }
 
-type Team = { id: number; name: string; short_name: string | null; crest_url: string | null }
+type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
 
 type PickDetail = {
   gw: number
@@ -89,8 +90,8 @@ export default function LeaderboardPage() {
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
       supabase.from('picks').select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('competition_id', comp.id),
-      supabase.from('teams').select('id, name, short_name, crest_url').eq('active', true),
-      supabase.from('players').select('id, name'),
+      supabase.from('teams').select('id, name, short_name, short_code, crest_url').eq('active', true),
+      supabase.from('players').select('id, name, web_name, team_id'),
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id),
       supabase.from('match_events').select('player_id, event_type'),
       supabase.from('tier_draft_picks').select('user_id, tier1_team_id, tier2_team_id, tier3_team_id').eq('competition_id', comp.id)
@@ -115,8 +116,7 @@ export default function LeaderboardPage() {
     teams?.forEach(t => { tMap[t.id] = t })
     setTeamMap(tMap)
 
-    const playerMap: Record<number, string> = {}
-    players?.forEach(p => { playerMap[p.id] = p.name })
+    const playerMap = buildPlayerDisplayNames(players ?? [], tMap)
 
     const gwMap: Record<string, number> = {}
     gameweeks?.forEach(g => { gwMap[g.id] = g.number })
@@ -284,11 +284,6 @@ export default function LeaderboardPage() {
   const goalPlayers = new Set(matchEvents.filter(e => e.event_type === 'goal').map(e => e.player_id))
   const assistPlayers = new Set(matchEvents.filter(e => e.event_type === 'assist').map(e => e.player_id))
 
-  function shortName(name: string) {
-    const parts = name.split(' ')
-    return parts.length > 1 ? `${parts[0][0]}. ${parts[parts.length - 1]}` : name
-  }
-
   function getStreak(player: RankedPlayer) {
     const weeks = Object.keys(avgByGw).map(Number).sort((a, b) => b - a)
     if (weeks.length < 2) return null
@@ -430,13 +425,13 @@ export default function LeaderboardPage() {
                                       </td>
                                       <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.team_points ?? '—'}</td>
                                       <td className="py-1 pr-1 uppercase">
-                                        {shortName(d.player1)}
+                                        {d.player1}
                                         {goalPlayers.has(d.player1_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold">G</span>}
                                         {assistPlayers.has(d.player1_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span>}
                                       </td>
                                       <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.player1_points ?? '—'}</td>
                                       <td className="py-1 pr-1 uppercase">
-                                        {shortName(d.player2)}
+                                        {d.player2}
                                         {goalPlayers.has(d.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold">G</span>}
                                         {assistPlayers.has(d.player2_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span>}
                                       </td>

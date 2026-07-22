@@ -5,9 +5,10 @@ import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
+import { buildPlayerDisplayNames } from '../lib/players'
 
-type Team = { id: number; name: string; short_name: string | null; crest_url: string | null }
-type Player = { id: number; name: string; team_id: number }
+type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
+type Player = { id: number; name: string; web_name: string | null; team_id: number }
 type Gameweek = { id: string; number: number; deadline: string; status: string }
 type Fixture = { id: number; home_team_id: number; away_team_id: number; kickoff_time: string; home_score: number | null; away_score: number | null; status: string }
 type HistoryPick = {
@@ -137,8 +138,8 @@ export default function PicksPage() {
     if (gw) setDeadlinePassed(new Date() > new Date(gw.deadline))
 
     const [{ data: teamsData }, { data: playersData }] = await Promise.all([
-      supabase.from('teams').select('id, name, short_name, crest_url').eq('active', true).order('name'),
-      supabase.from('players').select('id, name, team_id').order('name')
+      supabase.from('teams').select('id, name, short_name, short_code, crest_url').eq('active', true).order('name'),
+      supabase.from('players').select('id, name, web_name, team_id').order('name')
     ])
     setTeams(teamsData ?? [])
     setPlayers(playersData ?? [])
@@ -291,8 +292,17 @@ export default function PicksPage() {
   }
 
   const getTeam = (id: number | null) => teams.find(t => t.id === id)
-  const playerName = (id: number | null) => players.find(p => p.id === id)?.name ?? ''
 
+  const teamMap: Record<number, Team> = {}
+  teams.forEach(t => { teamMap[t.id] = t })
+  const displayNames = buildPlayerDisplayNames(players, teamMap)
+  const playerName = (id: number | null) => (id != null ? displayNames[id] : undefined) ?? ''
+
+  // NOTE: players.team_id is NOT in the same id-space as teams.id (it's FPL's
+  // internal per-season team code, copied verbatim by the fpl sync route) —
+  // so it can't currently be joined against the `teams` table to check
+  // active status. Filtering on that join here previously hid every player.
+  // Revisit once the fpl sync maps FPL team codes to teams.id properly.
   const filteredPlayers1 = playerSearch1.length >= 2
     ? players.filter(p => p.name.toLowerCase().includes(playerSearch1.toLowerCase())).slice(0, 8)
     : []
@@ -525,7 +535,7 @@ export default function PicksPage() {
                                     disabled={maxed}
                                     className={`block w-full text-left px-3 py-2 text-sm ${maxed ? 'text-[#F5ECD9]/30 line-through cursor-not-allowed' : 'hover:bg-white/10'}`}
                                   >
-                                    <span className="uppercase">{p.name}</span>
+                                    <span className="uppercase">{playerName(p.id)}</span>
                                     <span className="text-xs text-[#F5ECD9]/40 ml-2">({count}/2)</span>
                                   </button>
                                 )
@@ -564,7 +574,7 @@ export default function PicksPage() {
                                     disabled={maxed}
                                     className={`block w-full text-left px-3 py-2 text-sm ${maxed ? 'text-[#F5ECD9]/30 line-through cursor-not-allowed' : 'hover:bg-white/10'}`}
                                   >
-                                    <span className="uppercase">{p.name}</span>
+                                    <span className="uppercase">{playerName(p.id)}</span>
                                     <span className="text-xs text-[#F5ECD9]/40 ml-2">({count}/2)</span>
                                   </button>
                                 )

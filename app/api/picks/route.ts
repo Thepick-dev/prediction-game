@@ -28,6 +28,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Please pick two different players' }, { status: 400 })
   }
 
+  const { data: team } = await supabase
+    .from('teams')
+    .select('active')
+    .eq('id', team_id)
+    .single()
+
+  if (!team?.active) {
+    return NextResponse.json({ error: 'That team is not currently active' }, { status: 400 })
+  }
+
+  // NOTE: players.team_id is not in the same id-space as teams.id (see
+  // app/api/sync/fpl/route.ts — it stores FPL's own per-season team code,
+  // not our teams.id), so we can't yet validate the picked players' club is
+  // active here. Re-add once the fpl sync maps FPL team codes to teams.id.
+
   const { data: gameweek } = await supabase
     .from('gameweeks')
     .select('deadline, status')
