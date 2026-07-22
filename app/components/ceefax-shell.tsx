@@ -66,7 +66,7 @@ export default function Shell({ children, active, user, displayName }: Props) {
           <div className="flex items-center justify-between h-14">
             <Link
               href="/"
-              className="text-2xl tracking-wide uppercase"
+              className="text-base sm:text-2xl tracking-wide uppercase whitespace-nowrap"
               style={{ fontFamily: 'var(--font-heading), serif', color: '#F5ECD9' }}
             >
               LMS All-Stars
@@ -74,8 +74,15 @@ export default function Shell({ children, active, user, displayName }: Props) {
             <div className="flex items-center gap-3">
               {user && (
                 <div className="flex flex-col items-center gap-0.5">
+                  {/* Stars and globes flank the shirt (same style as the
+                      Leaderboard), sized to fit this narrow bar on mobile
+                      while still growing a bit on wider screens. */}
                   {kit && (
-                    <KitBadge pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} stars={kit.stars} earths={kit.earths} size={36} />
+                    <KitBadge
+                      pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2}
+                      stars={kit.stars} earths={kit.earths}
+                      size={30} iconTextClass="text-[10px] sm:text-sm"
+                    />
                   )}
                   <span className="text-[10px] text-[#D9A441] uppercase font-medium tracking-wider leading-none">
                     {displayName ?? ''}

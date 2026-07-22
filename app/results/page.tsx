@@ -314,8 +314,6 @@ export default function ResultsPage() {
                                   pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
                                   colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
                                   colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
-                                  stars={kitByUser[pick.user_id]?.stars ?? 0}
-                                  earths={kitByUser[pick.user_id]?.earths ?? 0}
                                   size={14}
                                 />
                                 {profiles[pick.user_id] ?? 'Unknown'}

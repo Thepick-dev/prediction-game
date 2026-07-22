@@ -413,8 +413,6 @@ export default function LeaderboardPage() {
                               pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
                               colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                               colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
-                              stars={kitByUser[player.user_id]?.stars ?? 0}
-                              earths={kitByUser[player.user_id]?.earths ?? 0}
                               size={16}
                             />
                             {player.display_name}
@@ -433,6 +431,19 @@ export default function LeaderboardPage() {
                       {expandedUser === player.user_id && (
                         <tr>
                           <td colSpan={8} className="bg-black/20 px-3 py-3">
+                            {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
+                              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-white/10">
+                                <KitBadge
+                                  pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
+                                  colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
+                                  colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                                  stars={kitByUser[player.user_id]?.stars ?? 0}
+                                  earths={kitByUser[player.user_id]?.earths ?? 0}
+                                  size={40}
+                                  iconTextClass="text-base sm:text-xl"
+                                />
+                              </div>
+                            )}
                             {allGameweeks.length === 0 ? (
                               <p className="text-[#F5ECD9]/40 mb-3" style={{ fontSize: '10px' }}>No picks yet.</p>
                             ) : (

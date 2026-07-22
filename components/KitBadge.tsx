@@ -5,21 +5,26 @@ interface KitBadgeProps {
   stars?: number
   earths?: number
   size?: number
+  // Tailwind text-size classes for the icon rows — takes a responsive pair
+  // (e.g. "text-[9px] sm:text-sm") so mobile and desktop can each get a
+  // sensible size without any JS, rather than one fixed pixel value.
+  iconTextClass?: string
 }
 
-// Actual repeated icons, not a "x3" count — shown at a size that's
-// genuinely readable, right next to the shirt rather than drawn on it.
-function BadgeCaption({ stars, earths }: { stars: number; earths: number }) {
-  if (!stars && !earths) return null
-  return (
-    <div className="flex items-center gap-1 leading-none" style={{ fontSize: '14px' }}>
-      {stars > 0 && <span style={{ color: '#D9A441' }}>{'★'.repeat(stars)}</span>}
-      {earths > 0 && <span>{'🌍'.repeat(earths)}</span>}
-    </div>
-  )
+// Actual repeated icons, not a "x3" count — genuinely readable, flanking
+// the shirt (stars on the left, globes on the right) rather than drawn on
+// it or listed after it.
+function StarIcons({ stars, className }: { stars: number; className: string }) {
+  if (!stars) return null
+  return <span className={`leading-none ${className}`} style={{ color: '#D9A441' }}>{'★'.repeat(stars)}</span>
 }
 
-export default function KitBadge({ pattern, colour1, colour2, stars = 0, earths = 0, size = 28 }: KitBadgeProps) {
+function GlobeIcons({ earths, className }: { earths: number; className: string }) {
+  if (!earths) return null
+  return <span className={`leading-none ${className}`}>{'🌍'.repeat(earths)}</span>
+}
+
+export default function KitBadge({ pattern, colour1, colour2, stars = 0, earths = 0, size = 28, iconTextClass = 'text-sm' }: KitBadgeProps) {
   const shirtPath = "M8 2 L11 2 L12 4 L16 4 L17 2 L20 2 L26 7 L23 11 L20 9 L20 24 L8 24 L8 9 L5 11 L2 7 Z"
 
   const clipId = `kit-clip-${pattern}-${colour1.replace('#', '')}-${colour2.replace('#', '')}`
@@ -114,8 +119,9 @@ export default function KitBadge({ pattern, colour1, colour2, stars = 0, earths 
   }
 
   return (
-    <div className="inline-flex items-center gap-1">
-      <svg width={size} height={size} viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
+    <div className="inline-flex items-center gap-1 sm:gap-1.5">
+      <StarIcons stars={stars} className={iconTextClass} />
+      <svg width={size} height={size} viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
         <defs>
           <clipPath id={clipId}>
             <path d={shirtPath} />
@@ -124,7 +130,7 @@ export default function KitBadge({ pattern, colour1, colour2, stars = 0, earths 
         {renderFill()}
         <path d={shirtPath} fill="none" stroke="#2A1F17" strokeWidth="1" strokeLinejoin="round" />
       </svg>
-      <BadgeCaption stars={stars} earths={earths} />
+      <GlobeIcons earths={earths} className={iconTextClass} />
     </div>
   )
 }
