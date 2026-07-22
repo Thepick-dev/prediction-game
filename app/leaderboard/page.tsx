@@ -163,8 +163,11 @@ export default function LeaderboardPage() {
 
     await Promise.all(previewGameweeks.map(async gw => {
       try {
-        const res = await fetch(`/api/autopick/preview?gameweek_id=${gw.id}`)
-        const data = await res.json()
+        const [previewRes, scoringPreviewRes] = await Promise.all([
+          fetch(`/api/autopick/preview?gameweek_id=${gw.id}`),
+          fetch(`/api/scoring/preview?gameweek_id=${gw.id}`),
+        ])
+        const data = await previewRes.json()
         const previews = data.previews ?? {}
         Object.entries(previews).forEach(([userId, p]: [string, any]) => {
           if (!realPickKeys.has(`${userId}-${gw.id}`)) {
@@ -175,6 +178,19 @@ export default function LeaderboardPage() {
               player1_id: p.player1_id,
               player2_id: p.player2_id,
             })
+          }
+        })
+
+        // The scoring preview is scoped to one gameweek, so its rows use a
+        // plain `preview-${userId}` id — remap to match this page's own
+        // `preview-${userId}-${gameweekId}` convention (it spans several
+        // gameweeks at once, so needs the gameweek in the key to stay unique).
+        const scoringData = await scoringPreviewRes.json()
+        ;(scoringData.rows ?? []).forEach((row: any) => {
+          if (row.pick_id.startsWith('preview-')) {
+            pointsByPickId[`preview-${row.user_id}-${gw.id}`] = row
+          } else {
+            pointsByPickId[row.pick_id] = row
           }
         })
       } catch {
@@ -440,19 +456,17 @@ export default function LeaderboardPage() {
                       {expandedUser === player.user_id && (
                         <tr>
                           <td colSpan={8} className="bg-black/20 px-3 py-3">
-                            {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
-                              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-white/10">
-                                <KitBadge
-                                  pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
-                                  colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
-                                  colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
-                                  stars={kitByUser[player.user_id]?.stars ?? 0}
-                                  earths={kitByUser[player.user_id]?.earths ?? 0}
-                                  size={40}
-                                  iconTextClass="text-base sm:text-xl"
-                                />
-                              </div>
-                            )}
+                            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-white/10">
+                              <KitBadge
+                                pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
+                                colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
+                                colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                                stars={kitByUser[player.user_id]?.stars ?? 0}
+                                earths={kitByUser[player.user_id]?.earths ?? 0}
+                                size={40}
+                                iconTextClass="text-base sm:text-xl"
+                              />
+                            </div>
                             {allGameweeks.length === 0 ? (
                               <p className="text-[#F5ECD9]/40 mb-3" style={{ fontSize: '10px' }}>No picks yet.</p>
                             ) : (
@@ -504,7 +518,9 @@ export default function LeaderboardPage() {
                                                 ?? teamMap[d.team_detail.opponent_team_id]?.short_name
                                                 ?? '?'}
                                               {' '}(Q{d.team_detail.team_quartile}→Q{d.team_detail.opponent_quartile})
-                                              {' '}· {d.team_detail.team_score}-{d.team_detail.opponent_score}
+                                              {d.team_detail.team_score != null
+                                                ? <>{' '}· {d.team_detail.team_score}-{d.team_detail.opponent_score}</>
+                                                : <>{' '}· not played yet</>}
                                             </div>
                                           )}
                                         </td>

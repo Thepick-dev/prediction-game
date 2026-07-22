@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { deriveAutopick } from './autopick'
 
 export type ScoringResult =
   | { error: string }
@@ -102,25 +103,38 @@ function computePickScores(
     // lookup only for old picks made before fixture_id existed.
     const fixture = fixtureId ? fixtureById[fixtureId] : fixtureByTeamId[teamId]
 
-    if (!fixture || fixture.home_score === null || fixture.away_score === null) {
+    if (!fixture) {
       return {
         points: 0,
-        breakdown: 'No result',
-        detail: { opponent_team_id: null, team_quartile: quartileMap[teamId] ?? 2, opponent_quartile: 2, quartile_diff: 0, result_type: 'no_result', team_score: null, opponent_score: null, is_home: null }
+        breakdown: 'No fixture',
+        detail: { opponent_team_id: null, team_quartile: quartileMap[teamId] ?? 2, opponent_quartile: 2, quartile_diff: 0, result_type: 'no_fixture', team_score: null, opponent_score: null, is_home: null }
       }
     }
 
     const isHome = fixture.home_team_id === teamId
-    const teamScore = isHome ? fixture.home_score : fixture.away_score
-    const opponentScore = isHome ? fixture.away_score : fixture.home_score
     const opponentId = isHome ? fixture.away_team_id : fixture.home_team_id
-
     const teamQuartile = quartileMap[teamId] ?? 2
     const opponentQuartile = quartileMap[opponentId] ?? 2
     // Higher quartile number = weaker team (Q4 = "Underdogs", Q1 = "Elite").
     // A positive diff means OUR team was the weaker side ("N Up") — beating
     // or drawing a stronger opponent, which is worth more, not less.
     const quartileDiff = teamQuartile - opponentQuartile
+    const clampedDiffForNoResult = Math.max(-3, Math.min(3, quartileDiff))
+
+    // The fixture (and so the opponent/quartiles/home-away) is known well
+    // before kickoff — only the scoreline itself is genuinely unknown until
+    // the match is played. Show everything we already know rather than
+    // waiting for a final result.
+    if (fixture.home_score === null || fixture.away_score === null) {
+      return {
+        points: 0,
+        breakdown: 'Not played yet',
+        detail: { opponent_team_id: opponentId, team_quartile: teamQuartile, opponent_quartile: opponentQuartile, quartile_diff: clampedDiffForNoResult, result_type: 'not_played', team_score: null, opponent_score: null, is_home: isHome }
+      }
+    }
+
+    const teamScore = isHome ? fixture.home_score : fixture.away_score
+    const opponentScore = isHome ? fixture.away_score : fixture.home_score
 
     let resultType: string
     if (teamScore > opponentScore) {
@@ -198,8 +212,7 @@ async function loadCommonScoringData(supabase: SupabaseClient, gameweek_id: stri
     supabase
       .from('fixtures')
       .select('id, home_team_id, away_team_id, home_score, away_score, status')
-      .eq('gameweek_id', gameweek_id)
-      .eq('status', 'finished'),
+      .eq('gameweek_id', gameweek_id),
     supabase
       .from('competition_scoring_rules')
       .select('result_type, quartile_diff, points')
@@ -276,6 +289,12 @@ export type PreviewScoringResult =
 // this uses whatever the live tier_assignments say right now. Nothing is
 // written to the database; if picks or quartiles change before the gameweek
 // is actually completed, calling this again reflects that, on purpose.
+//
+// Also covers anyone who hasn't made a real pick yet: their would-be
+// autopick is deterministic (see deriveAutopick), so there's no reason the
+// same opponent/quartile/home-away detail shouldn't be visible for them
+// too — the row id follows the `preview-${userId}` convention the client
+// already uses for provisional picks, so it lines up automatically.
 export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_id: string): Promise<PreviewScoringResult> {
   const { data: gameweek } = await supabase
     .from('gameweeks')
@@ -289,10 +308,6 @@ export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_
 
   const { picks, fixtures, scoringRules, playerScoringRules, matchEvents } = await loadCommonScoringData(supabase, gameweek_id, gameweek.competition_id)
 
-  if (picks.length === 0) {
-    return { rows: [] }
-  }
-
   const { data: assignments } = await supabase
     .from('tier_assignments')
     .select('team_id, tier')
@@ -301,7 +316,34 @@ export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_
   const quartileMap: Record<number, number> = {}
   assignments?.forEach(a => { quartileMap[a.team_id] = a.tier })
 
-  const rows = computePickScores(gameweek_id, picks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents)
+  const realRows = computePickScores(gameweek_id, picks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents)
 
-  return { rows }
+  const { data: entries } = await supabase
+    .from('competition_entries')
+    .select('user_id')
+    .eq('competition_id', gameweek.competition_id)
+    .eq('removed', false)
+
+  const pickedUserIds = new Set(picks.map(p => p.user_id))
+  const missingUsers = (entries ?? []).filter(e => !pickedUserIds.has(e.user_id))
+
+  const provisionalPicks: Pick[] = []
+  for (const entry of missingUsers) {
+    const derived = await deriveAutopick(supabase, entry.user_id, gameweek_id, gameweek.competition_id)
+    if (!derived) continue
+    provisionalPicks.push({
+      id: `preview-${entry.user_id}`,
+      user_id: entry.user_id,
+      team_id: derived.team_id,
+      fixture_id: null,
+      player1_id: derived.player1_id,
+      player2_id: derived.player2_id,
+      is_banker: false,
+      competition_id: gameweek.competition_id,
+    })
+  }
+
+  const provisionalRows = computePickScores(gameweek_id, provisionalPicks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents)
+
+  return { rows: [...realRows, ...provisionalRows] }
 }

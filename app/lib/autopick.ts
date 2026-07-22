@@ -7,8 +7,11 @@ export type DerivedPick = {
 }
 
 // Prefer recognisable, higher-value players for autopicks rather than
-// drawing from the entire player pool at random.
-const MIN_AUTOPICK_PLAYER_VALUE = 7.0
+// drawing from the entire player pool at random — roughly the top 150 or
+// so by price (out of ~840), a reasonable trade-off between "recognisable"
+// and leaving enough room that a user's own used-twice history doesn't run
+// the pool dry over a season.
+const MIN_AUTOPICK_PLAYER_VALUE = 5.5
 
 // Deterministic seeded PRNG (mulberry32) so a given user+gameweek always
 // produces the SAME autopick — whether previewed on-read or written by cron.
@@ -61,10 +64,17 @@ export async function deriveAutopick(
   const [{ data: activeTeams }, { data: leaguePositions }, { data: allPlayers }, { data: userPicks }, { data: tierPicks }] = await Promise.all([
     supabase.from('teams').select('id, name').eq('active', true),
     supabase.from('team_league_positions').select('team_id, position, recorded_at').order('recorded_at', { ascending: false }),
-    supabase.from('players').select('id, name, team_id, value'),
+    supabase.from('players').select('id, name, team_id'),
     supabase.from('picks').select('team_id, player1_id, player2_id').eq('user_id', userId).eq('competition_id', competitionId),
     supabase.from('tier_draft_picks').select('tier1_team_id, tier2_team_id, tier3_team_id, tier4_team_id').eq('competition_id', competitionId).eq('user_id', userId).single(),
   ])
+
+  // Kept as its own request, deliberately separate from the players query
+  // above: if this column ever has a problem, autopick should still work —
+  // just without the value preference — rather than failing outright.
+  const { data: playerValues } = await supabase.from('players').select('id, value')
+  const valueByPlayerId: Record<number, number> = {}
+  playerValues?.forEach(p => { if (p.value != null) valueByPlayerId[p.id] = p.value })
 
   if (!activeTeams || activeTeams.length === 0) return null
   if (!allPlayers || allPlayers.length < 2) return null
@@ -118,11 +128,11 @@ export async function deriveAutopick(
   const availablePlayers = allPlayers.filter(p => (playerUseCounts[p.id] || 0) < 2)
   if (availablePlayers.length < 2) return null
 
-  // Prefer players worth at least £7m — but if that's too restrictive right
+  // Prefer players worth at least £5.5m — but if that's too restrictive right
   // now (a user's own used-twice history can run a small pool dry late in
-  // the season), fall back to the full available pool rather than skipping
-  // their autopick entirely.
-  const valuablePlayers = availablePlayers.filter(p => (p.value ?? 0) >= MIN_AUTOPICK_PLAYER_VALUE)
+  // the season, or the value data isn't populated yet), fall back to the
+  // full available pool rather than skipping their autopick entirely.
+  const valuablePlayers = availablePlayers.filter(p => (valueByPlayerId[p.id] ?? 0) >= MIN_AUTOPICK_PLAYER_VALUE)
   const candidatePlayers = valuablePlayers.length >= 2 ? valuablePlayers : availablePlayers
 
   const seed = hashString(userId + gameweekId)

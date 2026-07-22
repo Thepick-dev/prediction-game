@@ -81,7 +81,26 @@ export default async function RulesPage() {
               </p>
               <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">
                 Picks can be edited until the deadline, then locked and visible to everyone.
-                Miss the deadline and you receive an autopick — the lowest available team in the table and two random players, clearly marked.
+                Miss the deadline and you receive an autopick — see below for how that works.
+              </p>
+            </section>
+
+            <section className={cardClass}>
+              <h2 className="text-lg font-bold mb-3 text-[#D9A441]">Autopick</h2>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
+                Miss the deadline and the site picks for you automatically: the lowest-placed available team in the
+                league table, and two players who haven&apos;t already been used twice.
+              </p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
+                Players are drawn from those valued at £5.5m or more on Fantasy Premier League — a deliberately
+                recognisable pool of well-known names, not a random pick from the entire player list. (If that pool
+                has run too low for you specifically late in a season, it falls back to any available player rather
+                than skip your pick entirely.)
+              </p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">
+                Autopicks are marked clearly wherever they appear, and a banker is never applied to one. What you see
+                previewed before the deadline is exactly what gets saved once it passes — it&apos;s fully determined
+                the moment the deadline arrives, never a guess that might later change.
               </p>
             </section>
 

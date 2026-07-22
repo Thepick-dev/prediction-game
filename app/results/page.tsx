@@ -365,7 +365,9 @@ export default function ResultsPage() {
                                     ?? teams[pts.breakdown.team_detail.opponent_team_id]?.short_name
                                     ?? '?'}
                                   {' '}(Q{pts.breakdown.team_detail.team_quartile}→Q{pts.breakdown.team_detail.opponent_quartile})
-                                  {' '}· {pts.breakdown.team_detail.team_score}-{pts.breakdown.team_detail.opponent_score}
+                                  {pts.breakdown.team_detail.team_score != null
+                                    ? <>{' '}· {pts.breakdown.team_detail.team_score}-{pts.breakdown.team_detail.opponent_score}</>
+                                    : <>{' '}· not played yet</>}
                                 </div>
                               )}
                             </td>
