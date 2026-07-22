@@ -319,7 +319,10 @@ export default function LeaderboardPage() {
     const details: Record<string, PickDetail[]> = {}
     combinedPicks.forEach(pick => {
       if (!details[pick.user_id]) details[pick.user_id] = []
-      const pts = (pick as any).provisional ? null : pointsByPickId[(pick as any).id]
+      // Provisional picks now resolve through pointsByPickId too (populated
+      // above via the scoring preview) — this used to hard-null them here,
+      // which threw away that data before it ever reached the render.
+      const pts = pointsByPickId[(pick as any).id]
       details[pick.user_id].push({
         gw: gwMap[pick.gameweek_id] ?? 0,
         team_id: pick.team_id,
