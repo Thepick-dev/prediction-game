@@ -42,9 +42,14 @@ export async function POST() {
     season: '2026'
   }))
 
+  // recorded_at is a plain date (no time component), with a unique
+  // constraint on (team_id, recorded_at) — a second sync on the same day
+  // used to fail outright with a duplicate-key error on every single row,
+  // since a plain insert can't update an existing day's snapshot. Upsert
+  // means re-running it later the same day just refreshes that day's row.
   const { error } = await supabase
     .from('team_league_positions')
-    .insert(rows)
+    .upsert(rows, { onConflict: 'team_id,recorded_at' })
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })

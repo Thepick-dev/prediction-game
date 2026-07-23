@@ -2,13 +2,18 @@ import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { calculateScoring } from '../../lib/scoring'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
+import CompetitionFilter from '../components/competition-filter'
 
-export default async function GameweeksPage() {
+export default async function GameweeksPage({ searchParams }: { searchParams: Promise<{ competition_id?: string }> }) {
+  const { competition_id: selectedCompetitionId } = await searchParams
   const supabase = await createServerSupabaseClient()
+
+  let gameweeksQuery = supabase.from('gameweeks').select('*, competitions(name)').order('number', { ascending: true })
+  if (selectedCompetitionId) gameweeksQuery = gameweeksQuery.eq('competition_id', selectedCompetitionId)
 
   const [{ data: competitions }, { data: gameweeks }, { data: questions }] = await Promise.all([
     supabase.from('competitions').select('id, name').order('created_at', { ascending: false }),
-    supabase.from('gameweeks').select('*, competitions(name)').order('number', { ascending: true }),
+    gameweeksQuery,
     supabase.from('gameweek_questions').select('*')
   ])
 
@@ -133,7 +138,10 @@ export default async function GameweeksPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-8">Gameweeks</h1>
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
+        <h1 className="text-2xl font-bold">Gameweeks</h1>
+        <CompetitionFilter competitions={competitions ?? []} />
+      </div>
 
       <div className="bg-white border rounded-lg p-6 mb-8">
         <h2 className="font-bold mb-4">Create Gameweek</h2>

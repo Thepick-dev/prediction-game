@@ -11,7 +11,7 @@ export default async function PicksLogPage() {
 
   const { data: picks } = competition ? await supabase
     .from('picks')
-    .select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick, submitted_at, gameweeks(number), teams(name), player1:players!picks_player1_id_fkey(name), player2:players!picks_player2_id_fkey(name)')
+    .select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick, submitted_at, comments, gameweeks(number), teams(name), player1:players!picks_player1_id_fkey(name), player2:players!picks_player2_id_fkey(name)')
     .eq('competition_id', competition.id)
     .order('gameweek_id', { ascending: true }) : { data: [] }
 
@@ -52,6 +52,7 @@ export default async function PicksLogPage() {
                 <th className="py-2 px-3">Banker</th>
                 <th className="py-2 px-3">Auto</th>
                 <th className="py-2 px-3">Submitted</th>
+                <th className="py-2 px-3">Comments</th>
               </tr>
             </thead>
             <tbody>
@@ -74,6 +75,7 @@ export default async function PicksLogPage() {
                       day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London'
                     }) : '—'}
                   </td>
+                  <td className="py-2 px-3 text-xs text-gray-600 max-w-xs">{pick.comments ?? '—'}</td>
                 </tr>
               ))}
             </tbody>

@@ -85,6 +85,7 @@ export default function PicksPage() {
   const [pointsByPick, setPointsByPick] = useState<Record<string, number>>({})
   const [question, setQuestion] = useState<Question | null>(null)
   const [questionAnswer, setQuestionAnswer] = useState<string>('')
+  const [comments, setComments] = useState<string>('')
   const [hasPick, setHasPick] = useState(false)
   const [showSlip, setShowSlip] = useState(false)
 
@@ -186,6 +187,7 @@ export default function PicksPage() {
         setPlayer2(pickData.pick.player2_id)
         setIsBanker(pickData.pick.is_banker)
         setQuestionAnswer(pickData.pick.question_answer ?? '')
+        setComments(pickData.pick.comments ?? '')
         setHasPick(true)
       }
       setUsedTeams(pickData.usedTeams ?? [])
@@ -292,7 +294,8 @@ export default function PicksPage() {
         player1_id: player1,
         player2_id: player2,
         is_banker: isBanker,
-        question_answer: questionAnswer
+        question_answer: questionAnswer,
+        comments: comments.trim() || null
       })
     })
     const data = await res.json()
@@ -658,6 +661,18 @@ export default function PicksPage() {
                     </div>
                   )}
 
+                  <div className="mb-5">
+                    <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-[#D9A441]">Any Other Comments</label>
+                    <textarea
+                      value={comments}
+                      onChange={e => setComments(e.target.value)}
+                      placeholder="Anything you want to add — banter, a prediction, whatever..."
+                      rows={3}
+                      maxLength={500}
+                      className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#F5ECD9] placeholder:text-[#F5ECD9]/30 focus:outline-none focus:border-[#D9A441]/50"
+                    />
+                  </div>
+
                   {message && (
                     <p className={`text-sm mb-3 uppercase tracking-wider ${message.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}>
                       {message}
@@ -757,6 +772,12 @@ export default function PicksPage() {
               <div className="flex items-center justify-between gap-3 pt-1">
                 <span className="text-[10px] uppercase tracking-widest shrink-0" style={{ color: '#241a1799' }}>Your Answer</span>
                 <span className="font-bold uppercase text-sm text-right">{questionAnswerLabel}</span>
+              </div>
+            )}
+            {comments.trim() && (
+              <div className="pt-1">
+                <span className="text-[10px] uppercase tracking-widest block mb-1" style={{ color: '#241a1799' }}>Your Comments</span>
+                <span className="text-sm block">{comments.trim()}</span>
               </div>
             )}
           </div>

@@ -115,10 +115,12 @@ export default function ResultsPage() {
     if (!comp) { setLoading(false); return }
     setCompetition(comp)
 
-    const now = new Date()
-
     const [{ data: gws }, { data: profilesData }, { data: teamsData }, { data: playersData }] = await Promise.all([
-      supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).lt('deadline', now.toISOString()).order('number', { ascending: true }),
+      // All gameweeks, not just ones whose deadline has passed — future
+      // gameweeks are still selectable here so their fixtures/schedule are
+      // browsable ahead of time; loadPicksForGw is what actually keeps any
+      // picks data from ever being fetched for one that isn't due yet.
+      supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).order('number', { ascending: true }),
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('teams').select('id, name, short_name, short_code, crest_url'),
       supabase.from('players').select('id, name, web_name, team_id')
@@ -156,7 +158,15 @@ export default function ResultsPage() {
     setGameweeks(gws ?? [])
 
     if (gws && gws.length > 0) {
-      setSelectedGw(gws[gws.length - 1].id)
+      // Default to the most recent gameweek whose deadline has already
+      // passed (what you actually want to see on this page most often) —
+      // not simply the last one in the list, now that future gameweeks
+      // are included too. Falls back to the earliest upcoming one if none
+      // have passed yet (e.g. right at the start of a season).
+      const now = new Date()
+      const pastDue = gws.filter(g => new Date(g.deadline) <= now)
+      const defaultGw = pastDue.length > 0 ? pastDue[pastDue.length - 1] : gws[0]
+      setSelectedGw(defaultGw.id)
     }
 
     const { data: allPoints } = await supabase
@@ -176,6 +186,25 @@ export default function ResultsPage() {
   async function loadPicksForGw(gwId: string) {
     setLoadingPicks(true)
     const gw = gameweeks.find(g => g.id === gwId)
+
+    // A gameweek that isn't due yet: only ever fetch its fixtures (public
+    // schedule info) — never picks, points, previews or the weekly question,
+    // no matter what. This is the one thing that must never leak early.
+    if (gw && new Date() < new Date(gw.deadline)) {
+      const { data: fixturesData } = await supabase
+        .from('fixtures')
+        .select('id, home_team_id, away_team_id, kickoff_time, status, home_score, away_score')
+        .eq('gameweek_id', gwId)
+        .order('kickoff_time')
+      setFixtures(fixturesData ?? [])
+      setExpandedFixture(null)
+      setPicks([])
+      setPointsData([])
+      setMatchEvents([])
+      setQuestion(null)
+      setLoadingPicks(false)
+      return
+    }
 
     const [{ data: picksData }, { data: pts }, { data: fixturesData }, { data: questionData }, previewRes] = await Promise.all([
       supabase.from('picks').select('id, user_id, team_id, player1_id, player2_id, is_banker, is_autopick, submitted_at, question_answer').eq('gameweek_id', gwId),
@@ -249,6 +278,7 @@ export default function ResultsPage() {
   const isScored = selectedGameweek?.status === 'completed'
   const isLocked = selectedGameweek?.status === 'locked'
   const showScoring = isScored || isLocked
+  const isFutureGw = !!selectedGameweek && new Date() < new Date(selectedGameweek.deadline)
 
   const pointsMap: Record<string, PointsRow> = {}
   pointsData.forEach(p => { pointsMap[p.pick_id] = p })
@@ -358,7 +388,11 @@ export default function ResultsPage() {
                 >
                   {gameweeks.map(gw => (
                     <option key={gw.id} value={gw.id}>
-                      Gameweek {gw.number} — {gw.status === 'completed' ? 'Scored' : 'Awaiting scoring'}
+                      Gameweek {gw.number} — {
+                        gw.status === 'completed' ? 'Scored'
+                        : new Date() < new Date(gw.deadline) ? 'Upcoming'
+                        : 'Awaiting scoring'
+                      }
                     </option>
                   ))}
                 </select>
@@ -368,9 +402,11 @@ export default function ResultsPage() {
                 <div className="mb-4 flex items-center gap-3 flex-wrap">
                   <h2 className="text-lg font-bold uppercase" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Gameweek {selectedGameweek.number}</h2>
                   <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wider border ${
-                    isScored ? 'bg-green-500/20 text-green-300 border-green-400/40' : 'bg-yellow-500/20 text-yellow-300 border-yellow-400/40'
+                    isScored ? 'bg-green-500/20 text-green-300 border-green-400/40'
+                    : isFutureGw ? 'bg-white/10 text-[#F5ECD9]/60 border-white/20'
+                    : 'bg-yellow-500/20 text-yellow-300 border-yellow-400/40'
                   }`}>
-                    {isScored ? 'Scored' : 'Awaiting scoring'}
+                    {isScored ? 'Scored' : isFutureGw ? 'Upcoming' : 'Awaiting scoring'}
                   </span>
                   {isLocked && (
                     <span
@@ -493,6 +529,12 @@ export default function ResultsPage() {
 
               {loadingPicks ? (
                 <p className="text-[#F5ECD9]/50 text-sm uppercase tracking-wider">Loading picks...</p>
+              ) : isFutureGw ? (
+                <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+                  <p className="text-[#F5ECD9]/50 text-sm uppercase tracking-wider">
+                    This gameweek hasn&apos;t reached its deadline yet — picks stay hidden until then. Check the fixtures above for the schedule.
+                  </p>
+                </div>
               ) : sortedPicks.length === 0 ? (
                 <div className="bg-white/5 border border-white/10 rounded-lg p-6">
                   <p className="text-[#F5ECD9]/50 text-sm uppercase tracking-wider">No picks for this gameweek.</p>

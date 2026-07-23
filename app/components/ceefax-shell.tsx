@@ -88,15 +88,15 @@ export default function Shell({ children, active, user, displayName }: Props) {
     <div className="min-h-screen">
       <header className="bg-[#2A1F17] border-b-4 border-[#D9A441] sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4">
-          <div className="flex items-center justify-between h-14">
+          <div className="flex sm:grid sm:grid-cols-3 items-center justify-between h-14">
             <Link
               href="/"
-              className="text-base sm:text-2xl tracking-wide uppercase whitespace-nowrap"
+              className="text-base sm:text-2xl tracking-wide uppercase whitespace-nowrap sm:col-start-2 sm:text-center sm:justify-self-center"
               style={{ fontFamily: 'var(--font-heading), serif', color: '#F5ECD9' }}
             >
               LMS All-Stars
             </Link>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 sm:col-start-3 sm:justify-self-end">
               {user && (
                 <div className="flex flex-col items-center gap-0.5">
                   {/* Stars and globes flank the shirt (same style as the
