@@ -107,7 +107,7 @@ export default function StatsHubPage() {
       const [
         { data: teams }, { data: players }, { data: gameweeks },
         { data: entries }, { data: picks }, { data: points }, { data: events },
-        { data: playerRules }
+        { data: fixtures }, { data: playerRules }
       ] = await Promise.all([
         supabase.from('teams').select('id, name, short_name, short_code, crest_url, active'),
         supabase.from('players').select('id, name, web_name, team_id, position'),
@@ -116,6 +116,7 @@ export default function StatsHubPage() {
         supabase.from('picks').select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('competition_id', comp.id),
         supabase.from('points').select('user_id, pick_id, gameweek_id, total_points, team_points, player1_points, player2_points, breakdown').eq('competition_id', comp.id),
         supabase.from('match_events').select('player_id, event_type, fixture_id'),
+        supabase.from('fixtures').select('id, gameweek_id'),
         supabase.from('player_scoring_rules').select('event_type, points').eq('competition_id', comp.id),
       ])
 
@@ -128,6 +129,14 @@ export default function StatsHubPage() {
 
       const gwMap: Record<string, number> = {}
       gameweeks?.forEach(g => { gwMap[g.id] = g.number })
+
+      // match_events isn't tagged with a competition directly (only with a
+      // fixture), so without this filter goals/assists from every past
+      // competition's fixtures would bleed into this one's player stats.
+      const currentCompFixtureIds = new Set(
+        (fixtures ?? []).filter(f => gwMap[f.gameweek_id] !== undefined).map(f => f.id)
+      )
+      const scopedEvents = (events ?? []).filter(e => e.fixture_id != null && currentCompFixtureIds.has(e.fixture_id))
 
       const pickById: Record<string, { user_id: string; team_id: number; player1_id: number; player2_id: number; is_banker: boolean; is_autopick: boolean; gameweek_id: string }> = {}
       picks?.forEach(p => { pickById[p.id] = p })
@@ -162,7 +171,7 @@ export default function StatsHubPage() {
       // --- Player stats (real-world goals/assists + pick performance) ---
       const goalCount: Record<number, number> = {}
       const assistCount: Record<number, number> = {}
-      events?.forEach(e => {
+      scopedEvents.forEach(e => {
         if (e.event_type === 'goal') goalCount[e.player_id] = (goalCount[e.player_id] ?? 0) + 1
         if (e.event_type === 'assist') assistCount[e.player_id] = (assistCount[e.player_id] ?? 0) + 1
       })

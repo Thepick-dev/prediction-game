@@ -7,6 +7,7 @@ import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
 import { buildPlayerDisplayNames } from '../lib/players'
+import GameweekRecapCard from '../../components/GameweekRecapCard'
 
 type Gameweek = {
   id: string
@@ -64,6 +65,7 @@ export default function ResultsPage() {
   const [potwUserId, setPotwUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingPicks, setLoadingPicks] = useState(false)
+  const [showRecap, setShowRecap] = useState(false)
 
   const supabase = createClient()
 
@@ -222,6 +224,30 @@ export default function ResultsPage() {
 
   const gwPotwUserId = isScored && sortedPicks.length > 0 ? sortedPicks[0].user_id : null
 
+  const recapWinner = isScored && sortedPicks[0]
+    ? { name: profiles[sortedPicks[0].user_id] ?? 'Unknown', points: pointsMap[sortedPicks[0].id]?.total_points ?? 0 }
+    : null
+  const recapRunnerUp = isScored && sortedPicks[1]
+    ? { name: profiles[sortedPicks[1].user_id] ?? 'Unknown', points: pointsMap[sortedPicks[1].id]?.total_points ?? 0 }
+    : null
+  const recapTotalPoints = isScored
+    ? sortedPicks.reduce((sum, p) => sum + (pointsMap[p.id]?.total_points ?? 0), 0)
+    : 0
+  const recapBestResult = isScored
+    ? sortedPicks
+        .map(p => ({ pick: p, detail: pointsMap[p.id]?.breakdown?.team_detail, teamPts: pointsMap[p.id]?.team_points ?? 0 }))
+        .filter(r => r.detail?.opponent_team_id != null && r.detail?.team_score != null)
+        .sort((a, b) => b.teamPts - a.teamPts)[0]
+    : null
+  const recapBestResultData = recapBestResult ? {
+    team: teamDisplayName(teams[recapBestResult.pick.team_id]),
+    opponent: teamDisplayName(teams[recapBestResult.detail.opponent_team_id]),
+    teamScore: recapBestResult.detail.team_score,
+    opponentScore: recapBestResult.detail.opponent_score,
+    isHome: !!recapBestResult.detail.is_home,
+    teamPoints: Math.round(recapBestResult.teamPts),
+  } : null
+
   if (loading) {
     return (
       <Shell active="RESULTS">
@@ -298,6 +324,14 @@ export default function ResultsPage() {
                     <span className="text-xs text-[#D9A441] font-bold uppercase tracking-wider">
                       GW Winner: {profiles[gwPotwUserId]}
                     </span>
+                  )}
+                  {isScored && (
+                    <button
+                      onClick={() => setShowRecap(true)}
+                      className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded border border-[#D9A441]/50 text-[#D9A441] hover:bg-[#D9A441]/10 transition-colors ml-auto"
+                    >
+                      Share Recap
+                    </button>
                   )}
                 </div>
               )}
@@ -414,6 +448,18 @@ export default function ResultsPage() {
 
         </div>
       </HeroPage>
+
+      {showRecap && selectedGameweek && (
+        <GameweekRecapCard
+          competitionName={competition.name}
+          gameweekNumber={selectedGameweek.number}
+          winner={recapWinner}
+          runnerUp={recapRunnerUp}
+          totalPoints={recapTotalPoints}
+          bestResult={recapBestResultData}
+          onClose={() => setShowRecap(false)}
+        />
+      )}
     </Shell>
   )
 }

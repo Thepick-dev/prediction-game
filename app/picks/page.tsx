@@ -6,6 +6,7 @@ import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import { buildPlayerDisplayNames } from '../lib/players'
+import { useCountdown, type CountdownTime } from '../lib/useCountdown'
 
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
 type Player = { id: number; name: string; web_name: string | null; team_id: number }
@@ -34,39 +35,6 @@ type Question = {
 function teamDisplayName(team: Team | undefined) {
   if (!team) return 'Unknown'
   return team.short_name ?? team.name.replace(' FC', '').replace(' AFC', '')
-}
-
-type CountdownTime = { days: number; hours: number; mins: number; secs: number; expired: boolean }
-
-function useCountdown(deadline: string | null): CountdownTime | null {
-  const [timeLeft, setTimeLeft] = useState<CountdownTime | null>(null)
-
-  useEffect(() => {
-    if (!deadline) return
-
-    function tick() {
-      const now = new Date().getTime()
-      const end = new Date(deadline!).getTime()
-      const diff = end - now
-      if (diff <= 0) {
-        setTimeLeft({ days: 0, hours: 0, mins: 0, secs: 0, expired: true })
-        return
-      }
-      setTimeLeft({
-        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-        mins: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-        secs: Math.floor((diff % (1000 * 60)) / 1000),
-        expired: false,
-      })
-    }
-
-    tick()
-    const interval = setInterval(tick, 1000)
-    return () => clearInterval(interval)
-  }, [deadline])
-
-  return timeLeft
 }
 
 // A ceefax-teletext-style flip clock, in keeping with the rest of the site.

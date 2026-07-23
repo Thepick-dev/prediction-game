@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '../lib/supabase'
 import KitBadge from '../../components/KitBadge'
+import { useCountdown } from '../lib/useCountdown'
 
 type Props = {
   children: React.ReactNode
@@ -25,6 +26,29 @@ const navItems = [
 export default function Shell({ children, active, user, displayName }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [kit, setKit] = useState<{ pattern: string; colour1: string; colour2: string; stars: number; earths: number } | null>(null)
+  const [nextDeadline, setNextDeadline] = useState<{ number: number; deadline: string } | null>(null)
+  const countdown = useCountdown(nextDeadline?.deadline ?? null)
+
+  // Deliberately its own query, independent of the kit fetch below — if the
+  // competition/gameweek lookup ever fails, it should only mean no deadline
+  // strip shows, never take the kit badge or the rest of the header with it.
+  useEffect(() => {
+    if (!user?.id) return
+    const supabase = createClient()
+    ;(async () => {
+      const { data: comp } = await supabase.from('competitions').select('id').eq('status', 'active').single()
+      if (!comp) return
+      const { data: gws } = await supabase
+        .from('gameweeks')
+        .select('number, deadline')
+        .eq('competition_id', comp.id)
+        .in('status', ['upcoming', 'open'])
+        .order('deadline', { ascending: true })
+        .limit(1)
+      const gw = gws?.[0]
+      if (gw && new Date(gw.deadline) > new Date()) setNextDeadline(gw)
+    })()
+  }, [user?.id])
 
   useEffect(() => {
     if (!user?.id) return
@@ -101,7 +125,7 @@ export default function Shell({ children, active, user, displayName }: Props) {
               </button>
             </div>
           </div>
-          <nav className="hidden md:flex flex-wrap gap-x-1">
+          <nav className="hidden md:flex flex-wrap justify-center gap-x-1">
             {navItems.map(item => (
               <Link
                 key={item.label}
@@ -118,6 +142,19 @@ export default function Shell({ children, active, user, displayName }: Props) {
             ))}
           </nav>
         </div>
+        {nextDeadline && countdown && !countdown.expired && (
+          <div className="bg-[#D9A441]/10 border-t border-[#D9A441]/20">
+            <div className="max-w-4xl mx-auto px-4">
+              <Link
+                href="/picks"
+                className="flex items-center justify-center gap-1.5 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#D9A441] hover:text-[#F5ECD9] transition-colors"
+              >
+                <span>⏱</span>
+                GW{nextDeadline.number} picks close in {countdown.days > 0 ? `${countdown.days}d ` : ''}{countdown.hours}h {countdown.mins}m
+              </Link>
+            </div>
+          </div>
+        )}
         {menuOpen && (
           <div className="md:hidden border-t border-[#D9A441] bg-[#2A1F17] shadow-lg">
             {navItems.map(item => (

@@ -29,6 +29,9 @@ export default function EventsPage() {
   const [minute, setMinute] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [fplEvent, setFplEvent] = useState('')
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<any>(null)
 
   const supabase = createClient()
 
@@ -38,7 +41,12 @@ export default function EventsPage() {
   }, [])
 
   useEffect(() => {
-    if (selectedGameweek) loadFixtures()
+    if (selectedGameweek) {
+      loadFixtures()
+      const gw = gameweeks.find(g => g.id === selectedGameweek)
+      setFplEvent(gw ? String(gw.number) : '')
+      setSyncResult(null)
+    }
   }, [selectedGameweek])
 
   useEffect(() => {
@@ -123,6 +131,28 @@ export default function EventsPage() {
     setMessage('Score updated')
   }
 
+  async function syncFromFpl() {
+    if (!selectedGameweek || !fplEvent) return
+    setSyncing(true)
+    setSyncResult(null)
+    try {
+      const res = await fetch('/api/admin/sync-events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameweek_id: selectedGameweek, fpl_event: fplEvent })
+      })
+      const data = await res.json()
+      setSyncResult({ ok: res.ok, ...data })
+      if (res.ok) {
+        await loadFixtures()
+        if (selectedFixture) await loadEvents()
+      }
+    } catch (e: any) {
+      setSyncResult({ ok: false, error: e?.message ?? 'Sync failed' })
+    }
+    setSyncing(false)
+  }
+
   const filteredPlayers = players.filter(p =>
     p.name.toLowerCase().includes(playerSearch.toLowerCase())
   )
@@ -147,6 +177,64 @@ export default function EventsPage() {
           ))}
         </select>
       </div>
+
+      {selectedGameweek && (
+        <div className="bg-white border rounded-lg p-6 mb-6">
+          <h2 className="font-bold mb-2">Sync from FPL</h2>
+          <p className="text-gray-500 text-sm mb-4">
+            Pulls goalscorers, assists, own goals and final scores for finished fixtures straight from the FPL API,
+            using player and team data matched to ours. This replaces any existing events for this gameweek&apos;s
+            fixtures with a fresh pull — safe to click again if FPL updates anything (e.g. a late bonus/VAR correction).
+          </p>
+          <div className="flex items-end gap-3 flex-wrap">
+            <div>
+              <label className="block text-xs font-medium mb-1 text-gray-600">FPL Gameweek Number</label>
+              <input
+                type="number"
+                min="1"
+                max="38"
+                value={fplEvent}
+                onChange={e => setFplEvent(e.target.value)}
+                className="w-32 border rounded px-3 py-2 text-sm"
+              />
+              <p className="text-xs text-gray-400 mt-1 max-w-xs">
+                The real Premier League gameweek number — only change this if it differs from this competition&apos;s own gameweek count above.
+              </p>
+            </div>
+            <button
+              onClick={syncFromFpl}
+              disabled={syncing || !fplEvent}
+              className="bg-black text-white rounded px-4 py-2 text-sm disabled:opacity-50"
+            >
+              {syncing ? 'Syncing...' : 'Sync from FPL'}
+            </button>
+          </div>
+
+          {syncResult && (
+            <div className={`mt-4 text-sm rounded p-3 ${syncResult.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+              {syncResult.ok ? (
+                <>
+                  <p className="font-medium">
+                    Done — matched {syncResult.fixtures_matched} fixture(s), inserted {syncResult.events_inserted} event(s), updated {syncResult.scores_updated} score(s).
+                  </p>
+                  {syncResult.unmatched?.length > 0 && (
+                    <ul className="list-disc list-inside mt-2 text-amber-700">
+                      {syncResult.unmatched.map((u: string, i: number) => <li key={i}>{u}</li>)}
+                    </ul>
+                  )}
+                </>
+              ) : (
+                <p>{syncResult.error}</p>
+              )}
+              {syncResult.teams_missing_short_code?.length > 0 && (
+                <p className="mt-2 text-amber-700">
+                  These teams have no FPL code stored yet, so any of their fixtures were skipped — run an FPL player sync first: {syncResult.teams_missing_short_code.join(', ')}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {fixtures.length > 0 && (
         <div className="bg-white border rounded-lg p-6 mb-6">
