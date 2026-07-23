@@ -92,23 +92,42 @@ export default function PreSeasonHelpPage() {
 
             <div className="border-t border-red-100 pt-4">
               <h3 className="font-bold text-sm mb-1">3. Adding new hero background images</h3>
+              <p className="text-sm text-gray-700 mb-2">
+                The pool is currently empty (<code className="bg-gray-100 px-1 rounded">TOTAL_HEROES = 0</code>) — every page just shows
+                the plain dark background until this is done.
+              </p>
               <ol className="list-decimal pl-5 text-sm text-gray-700 space-y-1.5">
                 <li>
-                  Add your new image files into the <code className="bg-gray-100 px-1 rounded">private/hero-images/</code> folder
+                  Crop two versions of each new photo — a wide landscape one for desktop, a taller portrait one for mobile
+                  (they&rsquo;re shown with &ldquo;cover&rdquo; sizing, so exact pixel dimensions don&rsquo;t matter much, just the general shape).
+                  Photopea or any image editor works fine.
+                </li>
+                <li>
+                  Add the files into the <code className="bg-gray-100 px-1 rounded">private/hero-images/</code> folder
                   (in VS Code&rsquo;s file explorer on the left, or by dragging files into that folder on your computer) — note
                   this is <code className="bg-gray-100 px-1 rounded">private/</code>, not <code className="bg-gray-100 px-1 rounded">public/</code>; images
-                  live outside the public folder on purpose so they can only be seen by people logged in.
-                  Name them following the existing pattern — if the last one is <code className="bg-gray-100 px-1 rounded">hero-04</code>,
-                  your new ones are <code className="bg-gray-100 px-1 rounded">hero-05-desktop.png</code> and <code className="bg-gray-100 px-1 rounded">hero-05-mobile.png</code> (a
-                  separate image for phone screens vs computer screens, same number).
+                  live outside the public folder on purpose, served only through a login-checked route, so nothing here is
+                  ever reachable or reverse-image-searchable without an account.
+                  Name them <code className="bg-gray-100 px-1 rounded">hero-01-desktop.png</code> / <code className="bg-gray-100 px-1 rounded">hero-01-mobile.png</code>,
+                  then <code className="bg-gray-100 px-1 rounded">hero-02-desktop.png</code> / <code className="bg-gray-100 px-1 rounded">hero-02-mobile.png</code>, and so on.
                 </li>
                 <li>
                   Open <code className="bg-gray-100 px-1 rounded">components/HeroPage.tsx</code> and find this line near the top:
-                  <pre className="bg-gray-900 text-gray-100 text-xs rounded p-3 my-2 overflow-x-auto"><code>{`const TOTAL_HEROES = 4`}</code></pre>
-                  Change <code className="bg-gray-100 px-1 rounded">4</code> to however many pairs of images you now have in total (e.g. <code className="bg-gray-100 px-1 rounded">5</code>).
+                  <pre className="bg-gray-900 text-gray-100 text-xs rounded p-3 my-2 overflow-x-auto"><code>{`const TOTAL_HEROES = 0`}</code></pre>
+                  Change <code className="bg-gray-100 px-1 rounded">0</code> to however many numbered pairs you&rsquo;ve added — this is what actually turns the photos on.
                 </li>
                 <li>Save, then publish using the same steps as above. This can be done any time, not just pre-season.</li>
               </ol>
+              <p className="text-sm text-gray-700 mt-3">
+                <strong>Two pages are photo-free on purpose and always will be</strong>, no matter how many images are in the pool:
+                Login and the individual News article page. Both pass a <code className="bg-gray-100 px-1 rounded">noImage</code> setting
+                explicitly in their own code, since those pages are reachable without logging in — don&rsquo;t remove that.
+              </p>
+              <p className="text-sm text-gray-700 mt-2">
+                <strong>The Trophy Room (<code className="bg-gray-100 px-1 rounded">/archive</code>) uses its own single fixed image</strong>, not
+                the rotating pool — add <code className="bg-gray-100 px-1 rounded">hero-trophy-desktop.png</code> and <code className="bg-gray-100 px-1 rounded">hero-trophy-mobile.png</code> to
+                the same folder (no numbering, no <code className="bg-gray-100 px-1 rounded">TOTAL_HEROES</code> change needed) and it&rsquo;ll be picked up automatically.
+              </p>
             </div>
           </div>
         </div>

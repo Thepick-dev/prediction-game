@@ -6,42 +6,53 @@ interface HeroPageProps {
   children: React.ReactNode
   wide?: boolean
   noImage?: boolean
+  // A fixed image slug (e.g. "trophy") instead of a random pick from the
+  // rotating pool — for a page that wants its own specific, permanent image
+  // rather than one of the general background photos.
+  heroOverride?: string
 }
 
-const TOTAL_HEROES = 4
+// Bump this once new cropped images actually exist in private/hero-images/
+// (see docs/SEASON-GUIDE.md) — until then it stays 0 so every page that
+// wants a photo safely falls back to the plain gradient instead of
+// requesting a file that doesn't exist yet.
+const TOTAL_HEROES = 0
 
-// Hero photos are switched off site-wide for now (copyright/licensing still
-// being sorted out) — every page gets the plain background unless a future
-// call site explicitly passes noImage={false}.
-export default function HeroPage({ children, wide = false, noImage = true }: HeroPageProps) {
+export default function HeroPage({ children, wide = false, noImage = false, heroOverride }: HeroPageProps) {
   const [showCard, setShowCard] = useState(false)
   const [heroNumber, setHeroNumber] = useState<number | null>(null)
 
+  const poolEmpty = !heroOverride && TOTAL_HEROES === 0
+  const effectiveNoImage = noImage || poolEmpty
+
   useEffect(() => {
-    if (noImage) {
+    if (effectiveNoImage) {
       setShowCard(true)
       return
     }
-    const random = Math.floor(Math.random() * TOTAL_HEROES) + 1
-    setHeroNumber(random)
+    if (!heroOverride) {
+      const random = Math.floor(Math.random() * TOTAL_HEROES) + 1
+      setHeroNumber(random)
+    }
 
     const timer = setTimeout(() => setShowCard(true), 600)
     return () => clearTimeout(timer)
-  }, [noImage])
+  }, [effectiveNoImage, heroOverride])
 
-  if (!noImage && heroNumber === null) {
+  if (!effectiveNoImage && !heroOverride && heroNumber === null) {
     return null
   }
 
-  const padded = String(heroNumber).padStart(2, '0')
-  const desktopImage = `/api/hero-image/hero-${padded}-desktop.png`
-  const mobileImage = `/api/hero-image/hero-${padded}-mobile.png`
+  const heroSlug = heroOverride ?? String(heroNumber).padStart(2, '0')
+  const desktopImage = `/api/hero-image/hero-${heroSlug}-desktop.png`
+  const mobileImage = `/api/hero-image/hero-${heroSlug}-mobile.png`
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden">
-      {noImage ? (
+      {effectiveNoImage ? (
         // Plain themed background — no photo. Used on pages reachable
-        // without logging in, so there's nothing publicly reverse-
+        // without logging in (login, news), and anywhere the pool is
+        // currently empty, so there's nothing publicly reverse-
         // image-searchable back to an uncertain source/licence.
         <div
           className="fixed inset-0 -z-10"

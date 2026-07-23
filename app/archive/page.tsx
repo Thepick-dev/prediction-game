@@ -27,7 +27,7 @@ export default async function ArchivePage() {
 
   return (
     <Shell active="TROPHY ROOM" user={user} displayName={profile?.display_name ?? undefined}>
-      <HeroPage wide>
+      <HeroPage wide heroOverride="trophy">
         <div className="w-full text-[#F5ECD9]">
           <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Trophy Room</h1>
 

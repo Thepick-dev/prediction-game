@@ -5,8 +5,11 @@ import path from 'path'
 
 // Hero images live outside `public/` on purpose — files under `public/` are
 // always served to anyone regardless of login, so serving them from here
-// instead lets us actually check the visitor is signed in first.
-const FILENAME_PATTERN = /^hero-\d{2}-(desktop|mobile)\.png$/
+// instead lets us actually check the visitor is signed in first. Matches
+// either a numbered pool image (hero-01-desktop.png) or a named one-off
+// override (hero-trophy-desktop.png) — never anything with a slash or
+// "..", so this can't be used to read any other file on disk.
+const FILENAME_PATTERN = /^hero-[a-z0-9]{2,20}-(desktop|mobile)\.png$/
 
 export async function GET(request: Request, { params }: { params: Promise<{ filename: string }> }) {
   const supabase = await createServerSupabaseClient()

@@ -91,14 +91,19 @@ The right-hand side (in quotes) must exactly match that club's **Short Name** as
 
 *Coventry, Hull and Ipswich's codes (`COV`, `HUL`, `IPS`) are already added for the 2026/27 season* — but FPL's own site hadn't switched over to the new season's team list yet when these were added, so they're a best-confidence guess, not yet confirmed against real data. After running Import Players once FPL updates, check the result message doesn't list any of the three under "unmapped teams" — if it does, the guessed code was wrong for that club and needs a one-line fix here.
 
-**3. Adding new hero background images.**
-1. Add the new image files into `private/hero-images/` (note: `private/`, not `public/` — images live outside the public folder on purpose so only logged-in visitors can see them), following the existing naming pattern — if the last one is `hero-04`, your new ones are `hero-05-desktop.png` and `hero-05-mobile.png`.
-2. Open `components/HeroPage.tsx` and find:
+**3. Adding new hero background images.** The pool is currently empty (`TOTAL_HEROES = 0`) — every page just shows the plain dark background until this is done.
+1. Crop two versions of each new photo — a wide landscape one for desktop, a taller portrait one for mobile (they're shown with `background-size: cover`, so exact pixel dimensions aren't critical, just the general shape). Photopea or any image editor works fine.
+2. Add the files into `private/hero-images/` (note: `private/`, not `public/` — images live outside the public folder on purpose, served only through a login-checked route, so nothing here is ever reachable or reverse-image-searchable without an account). Name them `hero-01-desktop.png` / `hero-01-mobile.png`, `hero-02-desktop.png` / `hero-02-mobile.png`, and so on.
+3. Open `components/HeroPage.tsx` and find:
    ```js
-   const TOTAL_HEROES = 4
+   const TOTAL_HEROES = 0
    ```
-   Change `4` to however many pairs of images you now have in total.
-3. Save and publish using the steps above. This can be done any time, not just pre-season.
+   Change `0` to however many numbered pairs you've added — this is what actually turns the photos on.
+4. Save and publish using the steps above. This can be done any time, not just pre-season.
+
+**Two pages are photo-free on purpose and always will be**, regardless of `TOTAL_HEROES`: Login and the individual News article page (`app/login/page.tsx` and `app/news/[slug]/page.tsx`) both pass `noImage` explicitly, since those are reachable without logging in — nothing photo-based should ever be servable to a logged-out visitor. Don't remove that prop from either page.
+
+**The Trophy Room (`/archive`) uses its own single fixed image, not the rotating pool.** Add `hero-trophy-desktop.png` and `hero-trophy-mobile.png` to the same folder (no numbering, no `TOTAL_HEROES` change needed) and it'll pick them up automatically — the page passes `heroOverride="trophy"` to `HeroPage` instead of using a random pick.
 
 ### Everything else
 
