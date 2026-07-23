@@ -4,11 +4,14 @@ import { NextResponse } from 'next/server'
 
 // FPL's bootstrap-static team ids (1-20, reassigned each season) have no
 // relation to our own teams.id (football-data.org ids, stable across
-// seasons). FPL's 3-letter short_name codes are stable and correspond
-// 1:1 with the short_name values we store on `teams` — use that as the
-// bridge instead of fuzzy-matching full club names (which don't line up
-// cleanly, e.g. FPL "Spurs"/"Wolves"/"Nott'm Forest" vs our "Tottenham"/
-// "Wolves"/"Forest").
+// seasons). The PRIMARY bridge is teams.short_code — the exact FPL code
+// this same sync already writes back onto each team once it's matched it
+// once, so it's immune to someone later editing that team's short_name
+// for display purposes (which used to be the only bridge here, and broke
+// silently for several established clubs once their short_name text was
+// changed — see docs/TODO.md). The dictionary below is only a FALLBACK,
+// used purely to bootstrap a brand-new team's very first sync, before it
+// has a short_code of its own yet.
 const FPL_CODE_TO_OUR_SHORT_NAME: Record<string, string> = {
   ARS: 'Arsenal',
   AVL: 'Villa',
@@ -30,18 +33,16 @@ const FPL_CODE_TO_OUR_SHORT_NAME: Record<string, string> = {
   TOT: 'Tottenham',
   WHU: 'West Ham',
   WOL: 'Wolves',
-  // 2026/27 promoted clubs. FPL's own site hasn't switched over to the new
-  // season's team list yet (as of adding this, it still returns 2025/26's
-  // 20 clubs), so these codes are our best-confidence expectation, not yet
-  // confirmed against a live FPL response — HUL and IPS match their codes
-  // from each club's last Premier League stint; COV is a standard-format
-  // guess since Coventry haven't been in the Prem since before FPL existed
-  // in its current form. If any of these turn out wrong, the sync simply
-  // skips that club's players (reported in unmapped_teams) rather than
-  // failing — safe to leave in and correct once FPL updates their data.
-  COV: 'Coventry',
-  HUL: 'Hull',
-  IPS: 'Ipswich',
+  // 2026/27 promoted clubs — confirmed live against FPL's own feed (it has
+  // switched over to the new season's team list, and these 3 codes are
+  // exactly right). Matched here against each team's current short_name in
+  // our own database (checked directly, not guessed) since these three have
+  // never been through a successful sync yet and so have no short_code of
+  // their own to fall back on above — this dictionary entry only needs to
+  // be right for ONE successful sync; after that, short_code takes over.
+  COV: 'Coventry City',
+  HUL: 'Hull City',
+  IPS: 'Ipswich Town',
 }
 
 export async function POST() {
@@ -61,10 +62,12 @@ export async function POST() {
 
   const data = await response.json()
 
-  const { data: ourTeams } = await supabase.from('teams').select('id, short_name')
+  const { data: ourTeams } = await supabase.from('teams').select('id, short_name, short_code')
 
+  const ourTeamIdByShortCode: Record<string, number> = {}
   const ourTeamIdByShortName: Record<string, number> = {}
   ourTeams?.forEach(t => {
+    if (t.short_code) ourTeamIdByShortCode[t.short_code] = t.id
     if (t.short_name) ourTeamIdByShortName[t.short_name.toLowerCase()] = t.id
   })
 
@@ -72,8 +75,13 @@ export async function POST() {
   const unmappedFplTeams: string[] = []
   const teamCodeUpdates: { id: number; short_code: string }[] = []
   data.teams.forEach((fplTeam: any) => {
-    const ourShortName = FPL_CODE_TO_OUR_SHORT_NAME[fplTeam.short_name]
-    const ourTeamId = ourShortName ? ourTeamIdByShortName[ourShortName.toLowerCase()] : undefined
+    // Try the stable short_code bridge first; only fall back to the
+    // name-based dictionary for a team that's never been matched before.
+    let ourTeamId: number | undefined = ourTeamIdByShortCode[fplTeam.short_name]
+    if (!ourTeamId) {
+      const ourShortName = FPL_CODE_TO_OUR_SHORT_NAME[fplTeam.short_name]
+      ourTeamId = ourShortName ? ourTeamIdByShortName[ourShortName.toLowerCase()] : undefined
+    }
     if (ourTeamId) {
       fplTeamIdToOurTeamId[fplTeam.id] = ourTeamId
       teamCodeUpdates.push({ id: ourTeamId, short_code: fplTeam.short_name })

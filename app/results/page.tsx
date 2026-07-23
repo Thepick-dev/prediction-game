@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
@@ -390,7 +390,7 @@ export default function ResultsPage() {
                       onClick={() => setShowRecap(true)}
                       className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded border border-[#D9A441]/50 text-[#D9A441] hover:bg-[#D9A441]/10 transition-colors ml-auto"
                     >
-                      Share Recap
+                      📱 Share Recap
                     </button>
                   )}
                 </div>
@@ -416,17 +416,17 @@ export default function ResultsPage() {
                             onClick={() => setExpandedFixture(isExpanded ? null : f.id)}
                             className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-white/5 transition-colors"
                           >
-                            <div className="flex items-center gap-2 text-xs uppercase">
+                            <div className="flex items-center gap-1.5 text-xs uppercase flex-wrap min-w-0">
                               <TeamCrest crestUrl={teams[f.home_team_id]?.crest_url ?? null} teamName={teams[f.home_team_id]?.name ?? ''} size={16} />
                               <span className="font-bold">{teamDisplayName(teams[f.home_team_id])}</span>
-                              <span className="text-[#F5ECD9]/40 font-bold">
+                              <span className="text-[#F5ECD9]/40 font-bold shrink-0">
                                 {played ? `${f.home_score} - ${f.away_score}` : 'vs'}
                               </span>
                               <span className="font-bold">{teamDisplayName(teams[f.away_team_id])}</span>
                               <TeamCrest crestUrl={teams[f.away_team_id]?.crest_url ?? null} teamName={teams[f.away_team_id]?.name ?? ''} size={16} />
-                              {!played && <span className="text-[#F5ECD9]/30 normal-case" style={{ fontSize: '9px' }}>Not played yet</span>}
+                              {!played && <span className="text-[#F5ECD9]/30 normal-case shrink-0" style={{ fontSize: '9px' }}>Not played yet</span>}
                             </div>
-                            <span className="text-[#F5ECD9]/30 text-xs">{isExpanded ? '▲' : '▼'}</span>
+                            <span className="text-[#F5ECD9]/30 text-xs shrink-0">{isExpanded ? '▲' : '▼'}</span>
                           </button>
                           {isExpanded && (
                             <div className="px-3 pb-3 text-xs space-y-1">
@@ -498,99 +498,85 @@ export default function ResultsPage() {
                   <p className="text-[#F5ECD9]/50 text-sm uppercase tracking-wider">No picks for this gameweek.</p>
                 </div>
               ) : (
-                <div className="bg-white/5 border border-white/10 rounded-lg overflow-hidden mb-3">
-                  <table className="w-full" style={{ fontSize: '10px' }}>
-                    <thead>
-                      <tr className="text-left border-b border-white/10 uppercase tracking-wider text-[#F5ECD9]/50" style={{ fontSize: '9px' }}>
-                        <th className="py-2 px-1 sm:px-2">Player</th>
-                        <th className="py-2 px-1 sm:px-2">Team</th>
-                        <th className="py-2 px-1 sm:px-2">P1</th>
-                        <th className="py-2 px-1 sm:px-2">P2</th>
-                        {showScoring && (
-                          <>
-                            <th className="py-2 px-1 text-right">Tm</th>
-                            <th className="py-2 px-1 text-right">P1</th>
-                            <th className="py-2 px-1 text-right">P2</th>
-                            <th className="py-2 px-1 text-right font-bold">Tot</th>
-                          </>
-                        )}
-                        {question && <th className="py-2 px-1 sm:px-2">Answer</th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedPicks.map((pick, i) => {
-                        const pts = pointsMap[pick.id]
-                        const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
-                        const t = teams[pick.team_id]
+                <div className="bg-white/5 border border-white/10 rounded-lg overflow-hidden mb-3 divide-y divide-white/5">
+                  {sortedPicks.map((pick, i) => {
+                    const pts = pointsMap[pick.id]
+                    const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
+                    const t = teams[pick.team_id]
+                    const answerLabel = pick.question_answer
+                      ? questionOptions.find(([letter]) => letter === pick.question_answer)?.[1] ?? pick.question_answer
+                      : null
 
-                        return (
-                          <tr key={pick.id} className={`border-b border-white/5 last:border-0 ${isWinner ? 'bg-[#D9A441]/10' : ''}`}>
-                            <td className="py-1.5 px-1 sm:px-2 font-bold uppercase">
-                              <div className="flex items-center gap-1.5">
-                                <KitBadge
-                                  pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
-                                  colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
-                                  colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
-                                  size={14}
-                                />
-                                {profiles[pick.user_id] ?? 'Unknown'}
-                                {(pick.provisional || pick.is_autopick) && <span className="bg-white/20 px-0.5 rounded" style={{ fontSize: '8px' }} title="No pick was made in time, so the computer picked automatically">AUTOPICK</span>}
-                              </div>
-                            </td>
-                            <td className="py-1.5 px-1 sm:px-2 uppercase">
-                              <div className="flex items-center gap-1">
-                                <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={16} />
-                                {teamDisplayName(t)}
-                                {pick.is_banker && <span className="bg-[#D9A441] text-[#241a12] font-bold px-0.5 rounded" style={{ fontSize: '8px' }}>★B</span>}
-                              </div>
-                              {showScoring && pts?.breakdown?.team_detail?.opponent_team_id != null && (
-                                <div className="normal-case text-[#F5ECD9]/40" style={{ fontSize: '8px' }}>
-                                  <span
-                                    className={`inline-block px-1 rounded font-bold mr-1 ${pts.breakdown.team_detail.is_home ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`}
-                                    title={pts.breakdown.team_detail.is_home ? 'Played at home' : 'Played away'}
-                                  >
-                                    {pts.breakdown.team_detail.is_home ? 'H' : 'A'}
-                                  </span>
-                                  vs {teams[pts.breakdown.team_detail.opponent_team_id]?.short_code
-                                    ?? teams[pts.breakdown.team_detail.opponent_team_id]?.short_name
-                                    ?? '?'}
-                                  {' '}(Q{pts.breakdown.team_detail.team_quartile}→Q{pts.breakdown.team_detail.opponent_quartile})
-                                  {pts.breakdown.team_detail.team_score != null
-                                    ? <>{' '}· {pts.breakdown.team_detail.team_score}-{pts.breakdown.team_detail.opponent_score}</>
-                                    : <>{' '}· not played yet</>}
-                                </div>
-                              )}
-                            </td>
-                            <td className="py-1.5 px-1 sm:px-2 uppercase">
-                              {players[pick.player1_id] ?? 'Unknown'}
-                              {goalPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>G</span>}
-                              {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
-                            </td>
-                            <td className="py-1.5 px-1 sm:px-2 uppercase">
-                              {players[pick.player2_id] ?? 'Unknown'}
-                              {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>G</span>}
-                              {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
-                            </td>
-                            {showScoring && (
-                              <>
-                                <td className="py-1.5 px-1 text-right text-[#F5ECD9]/50">{pts?.team_points ?? '—'}</td>
-                                <td className="py-1.5 px-1 text-right text-[#F5ECD9]/50">{pts?.player1_points ?? '—'}</td>
-                                <td className="py-1.5 px-1 text-right text-[#F5ECD9]/50">{pts?.player2_points ?? '—'}</td>
-                                <td className="py-1.5 px-1 text-right font-bold" style={{ color: '#D9A441' }}>{pts?.total_points ?? '—'}</td>
-                              </>
+                    return (
+                      <div key={pick.id} className={`p-2.5 ${isWinner ? 'bg-[#D9A441]/10' : ''}`} style={{ fontSize: '11px' }}>
+                        {/* Player + total: everything wraps, nothing is ever clipped or needs side-scrolling */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
+                          <div className="flex items-center gap-1.5 font-bold uppercase min-w-0">
+                            <KitBadge
+                              pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
+                              colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
+                              colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
+                              size={14}
+                            />
+                            <span className="truncate">{profiles[pick.user_id] ?? 'Unknown'}</span>
+                            {(pick.provisional || pick.is_autopick) && (
+                              <span className="bg-white/20 px-1 rounded shrink-0" style={{ fontSize: '9px' }} title="No pick was made in time, so the computer picked automatically">AP</span>
                             )}
-                            {question && (
-                              <td className="py-1.5 px-1 sm:px-2 uppercase text-[#F5ECD9]/60">
-                                {pick.question_answer
-                                  ? questionOptions.find(([letter]) => letter === pick.question_answer)?.[1] ?? pick.question_answer
-                                  : '—'}
-                              </td>
-                            )}
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                          </div>
+                          {showScoring && (
+                            <span className="font-bold shrink-0" style={{ color: '#D9A441' }}>{pts?.total_points ?? '—'} pts</span>
+                          )}
+                        </div>
+
+                        {/* Team */}
+                        <div className="flex items-center gap-1 uppercase flex-wrap">
+                          <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={15} />
+                          <span>{teamDisplayName(t)}</span>
+                          {pick.is_banker && <span className="bg-[#D9A441] text-[#241a12] font-bold px-1 rounded" style={{ fontSize: '9px' }}>★ BANKER</span>}
+                          {showScoring && <span className="text-[#F5ECD9]/50 ml-auto">{pts?.team_points ?? '—'} pts</span>}
+                        </div>
+                        {showScoring && pts?.breakdown?.team_detail?.opponent_team_id != null && (
+                          <div className="normal-case text-[#F5ECD9]/40 mt-0.5" style={{ fontSize: '9px' }}>
+                            <span
+                              className={`inline-block px-1 rounded font-bold mr-1 ${pts.breakdown.team_detail.is_home ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`}
+                              title={pts.breakdown.team_detail.is_home ? 'Played at home' : 'Played away'}
+                            >
+                              {pts.breakdown.team_detail.is_home ? 'H' : 'A'}
+                            </span>
+                            vs {teams[pts.breakdown.team_detail.opponent_team_id]?.short_code
+                              ?? teams[pts.breakdown.team_detail.opponent_team_id]?.short_name
+                              ?? '?'}
+                            {' '}(Q{pts.breakdown.team_detail.team_quartile}→Q{pts.breakdown.team_detail.opponent_quartile})
+                            {pts.breakdown.team_detail.team_score != null
+                              ? <>{' '}· {pts.breakdown.team_detail.team_score}-{pts.breakdown.team_detail.opponent_score}</>
+                              : <>{' '}· not played yet</>}
+                          </div>
+                        )}
+
+                        {/* Players */}
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 uppercase">
+                          <span>
+                            {players[pick.player1_id] ?? 'Unknown'}
+                            {goalPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '9px' }}>G</span>}
+                            {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '9px' }}>A</span>}
+                            {showScoring && <span className="text-[#F5ECD9]/50 normal-case ml-1">({pts?.player1_points ?? '—'} pts)</span>}
+                          </span>
+                          <span>
+                            {players[pick.player2_id] ?? 'Unknown'}
+                            {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '9px' }}>G</span>}
+                            {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '9px' }}>A</span>}
+                            {showScoring && <span className="text-[#F5ECD9]/50 normal-case ml-1">({pts?.player2_points ?? '—'} pts)</span>}
+                          </span>
+                        </div>
+
+                        {question && (
+                          <div className="text-[#F5ECD9]/40 normal-case mt-1.5" style={{ fontSize: '9px' }}>
+                            <span className="uppercase tracking-wider font-bold">Answer:</span> {answerLabel ?? '—'}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
 
                   <div className="px-3 py-2 border-t border-white/10 uppercase tracking-wider text-[#F5ECD9]/40" style={{ fontSize: '9px' }}>
                     <span className="font-bold mr-2">Key:</span>
@@ -602,7 +588,7 @@ export default function ResultsPage() {
                     <span className="mx-2">·</span>
                     <span className="bg-blue-500/20 text-blue-300 px-0.5 rounded font-bold">H</span>/<span className="bg-orange-500/20 text-orange-300 px-0.5 rounded font-bold">A</span> Home/Away
                     <span className="mx-2">·</span>
-                    <span className="bg-white/20 px-0.5 rounded">AUTOPICK</span> Computer picked it (deadline passed, no pick made)
+                    <span className="bg-white/20 px-0.5 rounded">AP</span> Autopick — computer picked it (deadline passed, no pick made)
                   </div>
                 </div>
               )}
@@ -622,6 +608,8 @@ export default function ResultsPage() {
           bestResult={recapBestResultData}
           fullScores={recapFullScores}
           isFinal={isScored}
+          questionText={question?.question ?? null}
+          questionPoll={questionTally.map(t => ({ label: t.label as string, count: t.count }))}
           onClose={() => setShowRecap(false)}
         />
       )}

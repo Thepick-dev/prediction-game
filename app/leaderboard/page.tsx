@@ -7,6 +7,7 @@ import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
 import { buildPlayerDisplayNames } from '../lib/players'
+import LeaderboardShareCard from '../../components/LeaderboardShareCard'
 
 type RankedPlayer = {
   user_id: string
@@ -71,6 +72,7 @@ export default function LeaderboardPage() {
   const [doubleUseByPlayer, setDoubleUseByPlayer] = useState<Record<string, number[]>>({})
   const [avgByGw, setAvgByGw] = useState<Record<number, number>>({})
   const [loading, setLoading] = useState(true)
+  const [showShare, setShowShare] = useState(false)
 
   const supabase = createClient()
 
@@ -397,7 +399,17 @@ export default function LeaderboardPage() {
       <HeroPage wide>
         <div className="w-full text-[#F5ECD9]">
 
-          <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>LEADERBOARD</h1>
+          <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
+            <h1 className="text-3xl font-bold" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>LEADERBOARD</h1>
+            {ranked.length > 0 && (
+              <button
+                onClick={() => setShowShare(true)}
+                className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded border border-[#D9A441]/50 text-[#D9A441] hover:bg-[#D9A441]/10 transition-colors"
+              >
+                📱 Share Standings
+              </button>
+            )}
+          </div>
           <p className="text-[#D9A441]/70 mb-6 text-sm">{competition.name}</p>
 
           {potwUserId && (
@@ -520,7 +532,7 @@ export default function LeaderboardPage() {
                                             <TeamCrest crestUrl={teamMap[d.team_id]?.crest_url ?? null} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
                                             {teamDisplayName(teamMap[d.team_id])}
                                             {d.is_banker && <span className="bg-[#D9A441] text-[#241a12] px-0.5 rounded font-bold">★</span>}
-                                            {(d.provisional || d.is_autopick) && <span className="bg-white/20 px-0.5 rounded" title="No pick was made in time, so the computer picked automatically">AUTOPICK</span>}
+                                            {(d.provisional || d.is_autopick) && <span className="bg-white/20 px-0.5 rounded" title="No pick was made in time, so the computer picked automatically">AP</span>}
                                           </div>
                                           {d.team_detail?.opponent_team_id != null && (
                                             <div className="normal-case text-[#F5ECD9]/40" style={{ fontSize: '8px' }}>
@@ -610,13 +622,21 @@ export default function LeaderboardPage() {
             <span className="mx-2">·</span>
             🔥 Streak (3+ wks above avg)
             <span className="mx-2">·</span>
-            <span className="bg-white/20 px-0.5 rounded">AUTOPICK</span> Computer picked it (deadline passed, no pick made)
+            <span className="bg-white/20 px-0.5 rounded">AP</span> Autopick — computer picked it (deadline passed, no pick made)
             <span className="mx-2">·</span>
             Click a row to expand
           </div>
 
         </div>
       </HeroPage>
+
+      {showShare && (
+        <LeaderboardShareCard
+          competitionName={competition.name}
+          standings={ranked.map(p => ({ name: p.display_name, points: p.total_points }))}
+          onClose={() => setShowShare(false)}
+        />
+      )}
     </Shell>
   )
 }

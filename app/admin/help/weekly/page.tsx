@@ -23,32 +23,52 @@ export default function WeeklyHelpPage() {
           </p>
         </div>
 
-        <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-2">After each round of matches</h2>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h2 className="font-bold mb-2 text-blue-900">The weekly cycle, in order</h2>
+          <p className="text-sm text-gray-700 mb-3">
+            The important thing to understand: <strong>quartiles for a gameweek must be set BEFORE that gameweek opens
+            for picking</strong>, not afterwards. Players need to see the actual bands (which team is the "underdog",
+            worth more points) while they&apos;re choosing — so the cycle below always sets up gameweek N+1&apos;s
+            quartiles as part of closing out gameweek N, not as a separate later job. If you find yourself resetting
+            quartiles on a gameweek that&apos;s already open for picking, something&apos;s out of order.
+          </p>
           <ol className="list-decimal pl-5 text-sm text-gray-700 space-y-2">
-            <li>Go to <a href="/admin/sync" className="underline">Sync</a> and click <strong>Sync Results</strong> — pulls in the finished scores.</li>
-            <li>Click <strong>Sync Standings</strong> — updates the league table. Do this before the next step, since it feeds straight into it.</li>
+            <li>Go to <a href="/admin/sync" className="underline">Sync</a> and click <strong>Sync Results</strong> — pulls in the finished scores for the gameweek that just finished.</li>
+            <li>Click <strong>Sync Standings</strong> — updates the league table with those results. Do this before the next step, since it feeds straight into it.</li>
             <li>
-              Go to <a href="/admin/quartiles" className="underline">Quartiles</a> and click <strong>Reset to League Table</strong>. This re-splits
-              the 20 clubs into four bands based on the table you just synced. <strong>This is the step that’s easy to
-              forget</strong> — if you skip it, that week’s scoring will silently keep using old, stale quartile bands
-              instead of the current table.
+              Go to <a href="/admin/events" className="underline">Match Events</a>, pick that gameweek, and click <strong>Sync from FPL</strong>.
+              This fills in goalscorers, assists, own goals automatically. Wait roughly an hour after the last match
+              finishes before doing this — that&apos;s how long the Fantasy Premier League site takes to fully confirm
+              a match. If you click it too early it just skips anything not ready yet rather than pulling anything
+              wrong, so there&apos;s no harm trying.
             </li>
             <li>
-              Go to <a href="/admin/events" className="underline">Match Events</a>, pick this gameweek, and click <strong>Sync from FPL</strong>.
-              This fills in goalscorers, assists, own goals and scores automatically. Wait roughly an hour after the
-              last match of the gameweek finishes before doing this — that&apos;s how long the Fantasy Premier League
-              site takes to fully confirm a match. If you click it too early it just skips anything not ready yet
-              rather than pulling anything wrong, so there&apos;s no harm trying.
+              Go to <a href="/admin/gameweeks" className="underline">Gameweeks</a>, find that gameweek, and set its status to <strong>completed</strong>.
+              This is what actually calculates everyone&apos;s points for it — it takes a permanent snapshot of
+              whatever quartile bands are <em>currently</em> set and works out points from the results and any
+              goals/assists against that snapshot. (The Scoring page is only for editing the points formula itself,
+              it doesn&apos;t calculate anything.) This is exactly why step 5 below has to happen <em>after</em> this,
+              not before — the snapshot needs to match what players actually picked against, i.e. the OLD bands, not
+              the ones about to be set for next week.
             </li>
             <li>
-              Go to <a href="/admin/gameweeks" className="underline">Gameweeks</a>, find this gameweek, and set its status to <strong>completed</strong>.
-              This is what actually calculates everyone’s points — it locks in a snapshot of the quartile bands you just
-              set, then works out points from the results and any goals/assists. (The Scoring page is only for editing
-              the points formula itself, it doesn’t calculate anything.)
+              Spot-check the <a href="/leaderboard" className="underline">Leaderboard</a> — does it look right?
             </li>
-            <li>Spot-check the <a href="/leaderboard" className="underline">Leaderboard</a> — does it look right?</li>
+            <li>
+              Now go to <a href="/admin/quartiles" className="underline">Quartiles</a> and click <strong>Reset to League Table</strong>.
+              This re-splits the 20 clubs into four bands based on the table you just synced in step 2 — <strong>this
+              is what the players picking the NEXT gameweek will see and use</strong>, so it needs to be done before
+              that gameweek opens, ideally right away as the last step of this cycle. <strong>This is the step that&apos;s
+              easy to get wrong</strong> — if you skip it, or do it too late, the next gameweek opens with stale bands
+              from two gameweeks ago instead of the current table.
+            </li>
           </ol>
+          <p className="text-sm text-gray-700 mt-3">
+            One thing to avoid: once a gameweek is open for picking, don&apos;t touch <a href="/admin/quartiles" className="underline">Quartiles</a> again
+            until it&apos;s locked and completed (step 4) — whatever the bands say at the exact moment you mark it
+            completed is what gets frozen and scored, so changing them mid-week would mean players are scored against
+            different bands to the ones they actually saw when picking.
+          </p>
         </div>
 
         <div className="bg-white border rounded-lg p-6">
