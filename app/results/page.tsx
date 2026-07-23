@@ -26,6 +26,16 @@ type PickRow = {
   is_autopick: boolean
   submitted_at: string
   provisional?: boolean
+  question_answer?: string | null
+}
+
+type Question = {
+  id: string
+  question: string
+  option_a: string
+  option_b: string
+  option_c: string | null
+  option_d: string | null
 }
 
 type PointsRow = {
@@ -80,6 +90,7 @@ export default function ResultsPage() {
   const [showRecap, setShowRecap] = useState(false)
   const [fixtures, setFixtures] = useState<FixtureRow[]>([])
   const [expandedFixture, setExpandedFixture] = useState<number | null>(null)
+  const [question, setQuestion] = useState<Question | null>(null)
 
   const supabase = createClient()
 
@@ -166,12 +177,15 @@ export default function ResultsPage() {
     setLoadingPicks(true)
     const gw = gameweeks.find(g => g.id === gwId)
 
-    const [{ data: picksData }, { data: pts }, { data: fixturesData }, previewRes] = await Promise.all([
-      supabase.from('picks').select('id, user_id, team_id, player1_id, player2_id, is_banker, is_autopick, submitted_at').eq('gameweek_id', gwId),
+    const [{ data: picksData }, { data: pts }, { data: fixturesData }, { data: questionData }, previewRes] = await Promise.all([
+      supabase.from('picks').select('id, user_id, team_id, player1_id, player2_id, is_banker, is_autopick, submitted_at, question_answer').eq('gameweek_id', gwId),
       supabase.from('points').select('pick_id, total_points, team_points, player1_points, player2_points, breakdown').eq('gameweek_id', gwId),
       supabase.from('fixtures').select('id, home_team_id, away_team_id, kickoff_time, status, home_score, away_score').eq('gameweek_id', gwId).order('kickoff_time'),
+      supabase.from('gameweek_questions').select('*').eq('gameweek_id', gwId).single(),
       fetch(`/api/autopick/preview?gameweek_id=${gwId}`)
     ])
+
+    setQuestion(questionData ?? null)
 
     const fixtureList = fixturesData ?? []
     setFixtures(fixtureList)
@@ -249,6 +263,23 @@ export default function ResultsPage() {
   })
 
   const gwPotwUserId = isScored && sortedPicks.length > 0 ? sortedPicks[0].user_id : null
+
+  // Autopicked/provisional entries never have a question_answer, so they're
+  // naturally excluded here — the poll only reflects people who actually
+  // answered, same as the per-row "Answer" column being left blank for them.
+  const questionOptions = question
+    ? ([
+        ['A', question.option_a],
+        ['B', question.option_b],
+        ['C', question.option_c],
+        ['D', question.option_d],
+      ] as const).filter(([, label]) => !!label)
+    : []
+  const questionTally = questionOptions.map(([letter, label]) => ({
+    letter,
+    label,
+    count: sortedPicks.filter(p => p.question_answer === letter).length,
+  }))
 
   const recapWinner = showScoring && sortedPicks[0]
     ? { name: profiles[sortedPicks[0].user_id] ?? 'Unknown', points: pointsMap[sortedPicks[0].id]?.total_points ?? 0 }
@@ -435,6 +466,31 @@ export default function ResultsPage() {
                 </div>
               )}
 
+              {question && questionTally.length > 0 && (
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-4">
+                  <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold mb-2">{question.question}</p>
+                  <div className="space-y-1.5">
+                    {(() => {
+                      const totalAnswered = questionTally.reduce((sum, t) => sum + t.count, 0)
+                      return questionTally.map(t => {
+                        const pct = totalAnswered > 0 ? Math.round((t.count / totalAnswered) * 100) : 0
+                        return (
+                          <div key={t.letter}>
+                            <div className="flex items-center justify-between text-xs mb-0.5">
+                              <span className="uppercase text-[#F5ECD9]/80">{t.label}</span>
+                              <span className="text-[#F5ECD9]/50">{t.count}</span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: '#D9A441' }} />
+                            </div>
+                          </div>
+                        )
+                      })
+                    })()}
+                  </div>
+                </div>
+              )}
+
               {loadingPicks ? (
                 <p className="text-[#F5ECD9]/50 text-sm uppercase tracking-wider">Loading picks...</p>
               ) : sortedPicks.length === 0 ? (
@@ -458,6 +514,7 @@ export default function ResultsPage() {
                             <th className="py-2 px-1 text-right font-bold">Tot</th>
                           </>
                         )}
+                        {question && <th className="py-2 px-1 sm:px-2">Answer</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -521,6 +578,13 @@ export default function ResultsPage() {
                                 <td className="py-1.5 px-1 text-right text-[#F5ECD9]/50">{pts?.player2_points ?? '—'}</td>
                                 <td className="py-1.5 px-1 text-right font-bold" style={{ color: '#D9A441' }}>{pts?.total_points ?? '—'}</td>
                               </>
+                            )}
+                            {question && (
+                              <td className="py-1.5 px-1 sm:px-2 uppercase text-[#F5ECD9]/60">
+                                {pick.question_answer
+                                  ? questionOptions.find(([letter]) => letter === pick.question_answer)?.[1] ?? pick.question_answer
+                                  : '—'}
+                              </td>
                             )}
                           </tr>
                         )
