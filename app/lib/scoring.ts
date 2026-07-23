@@ -6,7 +6,7 @@ export type ScoringResult =
   | { message: string; points_calculated: 0 }
   | { success: true; points_calculated: number; picks_processed: number }
 
-type Pick = {
+export type Pick = {
   id: string
   user_id: string
   team_id: number
@@ -17,7 +17,7 @@ type Pick = {
   competition_id: string
 }
 
-type Fixture = {
+export type Fixture = {
   id: number
   home_team_id: number
   away_team_id: number
@@ -26,9 +26,9 @@ type Fixture = {
   status: string
 }
 
-type ScoringRule = { result_type: string; quartile_diff: number; points: number }
-type PlayerScoringRule = { event_type: string; points: number }
-type MatchEvent = { player_id: number | null; event_type: string; fixture_id: number }
+export type ScoringRule = { result_type: string; quartile_diff: number; points: number }
+export type PlayerScoringRule = { event_type: string; points: number }
+export type MatchEvent = { player_id: number | null; event_type: string; fixture_id: number }
 
 export type PickScoreRow = {
   pick_id: string
@@ -59,8 +59,9 @@ export type PickScoreRow = {
 
 // The actual maths, shared by both the real scoring run (frozen quartiles,
 // writes to the database) and the live preview (current quartiles, read-only)
-// — one calculation, two different quartile sources.
-function computePickScores(
+// — one calculation, two different quartile sources. Exported so it can be
+// unit tested directly without needing a real (or mocked) Supabase client.
+export function computePickScores(
   gameweek_id: string,
   picks: Pick[],
   fixtures: Fixture[],
