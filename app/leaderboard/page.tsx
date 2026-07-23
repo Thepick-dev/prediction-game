@@ -489,12 +489,25 @@ export default function LeaderboardPage() {
                                 <tbody>
                                   {allGameweeks.map(gw => {
                                     const d = pickDetails[player.user_id]?.find(pd => pd.gw === gw.number)
+                                    const deadlinePassed = new Date() > new Date(gw.deadline)
+                                    const isOwnRow = user?.id === player.user_id
                                     if (!d) {
-                                      const notYetDue = new Date(gw.deadline) > new Date()
                                       return (
                                         <tr key={gw.id} className="border-b border-white/5 last:border-0 text-[#F5ECD9]/30">
                                           <td className="py-1 pr-1 font-bold">{gw.number}</td>
-                                          <td className="py-1 pr-1 uppercase" colSpan={6}>{notYetDue ? 'Not yet due' : 'No pick'}</td>
+                                          <td className="py-1 pr-1 uppercase" colSpan={6}>{!deadlinePassed ? 'Not yet due' : 'No pick'}</td>
+                                          <td className="py-1 text-right font-bold">—</td>
+                                        </tr>
+                                      )
+                                    }
+                                    // Someone else's real pick, before their deadline's passed — show that
+                                    // they've picked, never what they picked. Only the viewer's own row
+                                    // (isOwnRow) or a gameweek whose deadline has passed shows the detail.
+                                    if (!isOwnRow && !deadlinePassed) {
+                                      return (
+                                        <tr key={gw.id} className="border-b border-white/5 last:border-0 text-[#F5ECD9]/30">
+                                          <td className="py-1 pr-1 font-bold">{gw.number}</td>
+                                          <td className="py-1 pr-1 uppercase" colSpan={6}>Picked — hidden until deadline</td>
                                           <td className="py-1 text-right font-bold">—</td>
                                         </tr>
                                       )

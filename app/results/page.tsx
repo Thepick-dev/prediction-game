@@ -250,16 +250,16 @@ export default function ResultsPage() {
 
   const gwPotwUserId = isScored && sortedPicks.length > 0 ? sortedPicks[0].user_id : null
 
-  const recapWinner = isScored && sortedPicks[0]
+  const recapWinner = showScoring && sortedPicks[0]
     ? { name: profiles[sortedPicks[0].user_id] ?? 'Unknown', points: pointsMap[sortedPicks[0].id]?.total_points ?? 0 }
     : null
-  const recapRunnerUp = isScored && sortedPicks[1]
+  const recapRunnerUp = showScoring && sortedPicks[1]
     ? { name: profiles[sortedPicks[1].user_id] ?? 'Unknown', points: pointsMap[sortedPicks[1].id]?.total_points ?? 0 }
     : null
-  const recapTotalPoints = isScored
+  const recapTotalPoints = showScoring
     ? sortedPicks.reduce((sum, p) => sum + (pointsMap[p.id]?.total_points ?? 0), 0)
     : 0
-  const recapBestResult = isScored
+  const recapBestResult = showScoring
     ? sortedPicks
         .map(p => ({ pick: p, detail: pointsMap[p.id]?.breakdown?.team_detail, teamPts: pointsMap[p.id]?.team_points ?? 0 }))
         .filter(r => r.detail?.opponent_team_id != null && r.detail?.team_score != null)
@@ -273,6 +273,9 @@ export default function ResultsPage() {
     isHome: !!recapBestResult.detail.is_home,
     teamPoints: Math.round(recapBestResult.teamPts),
   } : null
+  const recapFullScores = showScoring
+    ? sortedPicks.map(p => ({ name: profiles[p.user_id] ?? 'Unknown', points: pointsMap[p.id]?.total_points ?? 0 }))
+    : []
 
   if (loading) {
     return (
@@ -351,7 +354,7 @@ export default function ResultsPage() {
                       GW Winner: {profiles[gwPotwUserId]}
                     </span>
                   )}
-                  {isScored && (
+                  {showScoring && (
                     <button
                       onClick={() => setShowRecap(true)}
                       className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded border border-[#D9A441]/50 text-[#D9A441] hover:bg-[#D9A441]/10 transition-colors ml-auto"
@@ -553,6 +556,8 @@ export default function ResultsPage() {
           runnerUp={recapRunnerUp}
           totalPoints={recapTotalPoints}
           bestResult={recapBestResultData}
+          fullScores={recapFullScores}
+          isFinal={isScored}
           onClose={() => setShowRecap(false)}
         />
       )}

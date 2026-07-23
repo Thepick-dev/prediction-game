@@ -12,6 +12,8 @@ type BestResult = {
   teamPoints: number
 } | null
 
+type ScoreRow = { name: string; points: number }
+
 type Props = {
   competitionName: string
   gameweekNumber: number
@@ -19,10 +21,12 @@ type Props = {
   runnerUp: { name: string; points: number } | null
   totalPoints: number
   bestResult: BestResult
+  fullScores: ScoreRow[]
+  isFinal: boolean
   onClose: () => void
 }
 
-export default function GameweekRecapCard({ competitionName, gameweekNumber, winner, runnerUp, totalPoints, bestResult, onClose }: Props) {
+export default function GameweekRecapCard({ competitionName, gameweekNumber, winner, runnerUp, totalPoints, bestResult, fullScores, isFinal, onClose }: Props) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -74,6 +78,9 @@ export default function GameweekRecapCard({ competitionName, gameweekNumber, win
             <p className="text-[10px] uppercase tracking-[0.2em] mb-1" style={{ color: '#B5493C' }}>{competitionName}</p>
             <p className="text-xl font-bold uppercase tracking-wider" style={{ fontFamily: 'var(--font-heading), serif' }}>Gameweek Recap</p>
             <p className="text-xs uppercase tracking-widest mt-1" style={{ color: '#241a1799' }}>Gameweek {gameweekNumber}</p>
+            {!isFinal && (
+              <p className="text-[9px] uppercase tracking-widest mt-1 font-bold" style={{ color: '#B5493C' }}>Live — not final</p>
+            )}
           </div>
 
           <div className="px-5 py-4 space-y-3">
@@ -103,6 +110,20 @@ export default function GameweekRecapCard({ competitionName, gameweekNumber, win
               </div>
             )}
           </div>
+
+          {fullScores.length > 0 && (
+            <div className="px-5 pb-4 pt-1 border-t-2 border-dashed" style={{ borderColor: '#241a1733' }}>
+              <p className="text-[10px] uppercase tracking-widest mt-3 mb-2 font-bold" style={{ color: '#241a1799' }}>Full Scores</p>
+              <div className="space-y-1">
+                {fullScores.map((row, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="uppercase">{i + 1}. {row.name}</span>
+                    <span className="font-bold">{row.points}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="relative border-t-2 border-dashed" style={{ borderColor: '#241a1733' }}>
             <div className="absolute -left-2 -top-2 rounded-full" style={{ width: '16px', height: '16px', backgroundColor: '#1e1914' }} />
