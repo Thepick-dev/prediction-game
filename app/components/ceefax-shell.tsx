@@ -15,6 +15,7 @@ const navItems = [
   { label: 'PICKS', href: '/picks' },
   { label: 'LEADERBOARD', href: '/leaderboard' },
   { label: 'RESULTS', href: '/results' },
+  { label: 'STATS HUB', href: '/stats' },
   { label: 'LAWS OF THE GAME', href: '/rules' },
   { label: 'MATCHDAY PROGRAMME', href: '/news' },
   { label: 'TROPHY ROOM', href: '/archive' },
