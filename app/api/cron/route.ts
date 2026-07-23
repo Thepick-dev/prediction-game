@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { createAdminSupabaseClient } from '../../lib/supabase-admin'
 import { runAutopickForGameweek } from '../../lib/autopick'
 import { NextResponse } from 'next/server'
 
@@ -8,7 +8,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = await createServerSupabaseClient()
+  // No Supabase user session exists here at all (this is authenticated via
+  // CRON_SECRET above, not a login) — use the service role client rather
+  // than one keyed to a cookie session that will never be present.
+  const supabase = createAdminSupabaseClient()
   const now = new Date()
 
   // Catch any gameweek whose deadline has passed and hasn't been locked
