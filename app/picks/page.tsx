@@ -721,10 +721,10 @@ export default function PicksPage() {
               <table className="w-full" style={{ fontSize: '11px' }}>
                 <thead>
                   <tr className="text-left border-b border-white/10 uppercase tracking-wider text-[#F5ECD9]/50" style={{ fontSize: '10px' }}>
-                    <th className="py-2 px-3">GW</th>
-                    <th className="py-2 px-3">Team</th>
-                    <th className="py-2 px-3">Players</th>
-                    <th className="py-2 px-3 text-right">Pts</th>
+                    <th className="py-2 px-1.5 sm:px-3">GW</th>
+                    <th className="py-2 px-1.5 sm:px-3">Team</th>
+                    <th className="py-2 px-1.5 sm:px-3">Players</th>
+                    <th className="py-2 px-1.5 sm:px-3 text-right">Pts</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -732,8 +732,8 @@ export default function PicksPage() {
                     const t = getTeam(pick.team_id)
                     return (
                       <tr key={pick.id} className="border-b border-white/5 last:border-0">
-                        <td className="py-2 px-3 font-bold">{pick.gameweeks?.number}</td>
-                        <td className="py-2 px-3 uppercase">
+                        <td className="py-2 px-1.5 sm:px-3 font-bold">{pick.gameweeks?.number}</td>
+                        <td className="py-2 px-1.5 sm:px-3 uppercase">
                           <div className="flex items-center gap-1.5">
                             <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={16} />
                             {teamDisplayName(t)}
@@ -741,8 +741,8 @@ export default function PicksPage() {
                             {(pick.provisional || pick.is_autopick) && <span className="ml-1 text-[10px] bg-white/20 px-1 py-0.5 rounded" title="No pick was made in time, so the computer picked automatically">AUTOPICK</span>}
                           </div>
                         </td>
-                        <td className="py-2 px-3 text-[#F5ECD9]/50 uppercase" style={{ fontSize: '10px' }}>{playerName(pick.player1_id)} & {playerName(pick.player2_id)}</td>
-                        <td className="py-2 px-3 text-right font-bold">{pointsByPick[pick.id] ?? '—'}</td>
+                        <td className="py-2 px-1.5 sm:px-3 text-[#F5ECD9]/50 uppercase" style={{ fontSize: '10px' }}>{playerName(pick.player1_id)} & {playerName(pick.player2_id)}</td>
+                        <td className="py-2 px-1.5 sm:px-3 text-right font-bold">{pointsByPick[pick.id] ?? '—'}</td>
                       </tr>
                     )
                   })}

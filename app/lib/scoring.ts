@@ -298,12 +298,20 @@ export type PreviewScoringResult =
 export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_id: string): Promise<PreviewScoringResult> {
   const { data: gameweek } = await supabase
     .from('gameweeks')
-    .select('id, competition_id')
+    .select('id, competition_id, deadline')
     .eq('id', gameweek_id)
     .single()
 
   if (!gameweek) {
     return { error: 'Gameweek not found' }
+  }
+
+  // Independent of whatever `status` says — an admin can set that field
+  // ahead of the real deadline (as happened during testing), and callers
+  // shouldn't have to gate this correctly themselves. Nothing about a
+  // gameweek, autopick included, is shown before its deadline actually passes.
+  if (new Date() < new Date(gameweek.deadline)) {
+    return { rows: [] }
   }
 
   const { picks, fixtures, scoringRules, playerScoringRules, matchEvents } = await loadCommonScoringData(supabase, gameweek_id, gameweek.competition_id)

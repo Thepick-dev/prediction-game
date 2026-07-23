@@ -414,14 +414,14 @@ export default function LeaderboardPage() {
             <table className="w-full" style={{ fontSize: '12px' }}>
               <thead>
                 <tr className="text-left border-b border-white/10 text-[#F5ECD9]/50" style={{ fontSize: '10px' }}>
-                  <th className="py-2 px-2 uppercase tracking-wider">#</th>
-                  <th className="py-2 px-2 uppercase tracking-wider">Player</th>
-                  <th className="py-2 px-2 text-center uppercase tracking-wider">HW</th>
-                  <th className="py-2 px-2 text-center uppercase tracking-wider">AW</th>
-                  <th className="py-2 px-2 text-right uppercase tracking-wider">Tm</th>
-                  <th className="py-2 px-2 text-right uppercase tracking-wider">Pl</th>
-                  <th className="py-2 px-2 text-right uppercase tracking-wider">Bk</th>
-                  <th className="py-2 px-2 text-right uppercase tracking-wider font-bold">Tot</th>
+                  <th className="py-2 px-1 sm:px-2 uppercase tracking-wider">#</th>
+                  <th className="py-2 px-1 sm:px-2 uppercase tracking-wider">Player</th>
+                  <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider">HW</th>
+                  <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider">AW</th>
+                  <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Tm</th>
+                  <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Pl</th>
+                  <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Bk</th>
+                  <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider font-bold">Tot</th>
                 </tr>
               </thead>
               <tbody>
@@ -434,8 +434,8 @@ export default function LeaderboardPage() {
                         onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
                         className="border-b border-white/5 cursor-pointer hover:bg-white/5"
                       >
-                        <td className="py-2 px-2 text-[#F5ECD9]/40">{index + 1}</td>
-                        <td className="py-2 px-2 font-bold uppercase">
+                        <td className="py-2 px-1 sm:px-2 text-[#F5ECD9]/40">{index + 1}</td>
+                        <td className="py-2 px-1 sm:px-2 font-bold uppercase">
                           <div className="flex items-center gap-1.5">
                             <KitBadge
                               pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
@@ -449,16 +449,16 @@ export default function LeaderboardPage() {
                             <span className="text-[#F5ECD9]/30" style={{ fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                           </div>
                         </td>
-                        <td className="py-2 px-2 text-center text-[#F5ECD9]/60">{player.home_wins}</td>
-                        <td className="py-2 px-2 text-center text-[#F5ECD9]/60">{player.away_wins}</td>
-                        <td className="py-2 px-2 text-right text-[#F5ECD9]/60">{Math.round(player.team_points)}</td>
-                        <td className="py-2 px-2 text-right text-[#F5ECD9]/60">{Math.round(player.player_points)}</td>
-                        <td className="py-2 px-2 text-right text-[#F5ECD9]/60">{Math.round(player.banker_points)}</td>
-                        <td className="py-2 px-2 text-right font-bold" style={{ color: '#D9A441' }}>{player.total_points}</td>
+                        <td className="py-2 px-1 sm:px-2 text-center text-[#F5ECD9]/60">{player.home_wins}</td>
+                        <td className="py-2 px-1 sm:px-2 text-center text-[#F5ECD9]/60">{player.away_wins}</td>
+                        <td className="py-2 px-1 sm:px-2 text-right text-[#F5ECD9]/60">{Math.round(player.team_points)}</td>
+                        <td className="py-2 px-1 sm:px-2 text-right text-[#F5ECD9]/60">{Math.round(player.player_points)}</td>
+                        <td className="py-2 px-1 sm:px-2 text-right text-[#F5ECD9]/60">{Math.round(player.banker_points)}</td>
+                        <td className="py-2 px-1 sm:px-2 text-right font-bold" style={{ color: '#D9A441' }}>{player.total_points}</td>
                       </tr>
                       {expandedUser === player.user_id && (
                         <tr>
-                          <td colSpan={8} className="bg-black/20 px-3 py-3">
+                          <td colSpan={8} className="bg-black/20 px-1.5 sm:px-3 py-3">
                             <div className="flex items-center gap-3 mb-4 pb-3 border-b border-white/10">
                               <KitBadge
                                 pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}

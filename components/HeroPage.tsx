@@ -62,9 +62,13 @@ export default function HeroPage({ children, wide = false, noImage = true }: Her
         </>
       )}
 
-      <div className="relative z-10 min-h-screen flex items-start justify-center px-3 py-8">
+      {/* Wide (table-heavy) pages get noticeably tighter side padding on
+          mobile — every pixel matters when a table has 6+ columns on a
+          360px screen. Non-wide pages (forms, settings) keep the roomier
+          padding since they're not fighting for horizontal space. */}
+      <div className={`relative z-10 min-h-screen flex items-start justify-center py-8 ${wide ? 'px-1.5 sm:px-3' : 'px-3'}`}>
         <div
-          className={`w-full ${wide ? 'max-w-2xl' : 'max-w-md'} rounded-lg shadow-2xl p-5 transition-all duration-700 ease-out border border-[#D9A441]/30 ${
+          className={`w-full ${wide ? 'max-w-2xl' : 'max-w-md'} rounded-lg shadow-2xl transition-all duration-700 ease-out border border-[#D9A441]/30 ${wide ? 'p-2.5 sm:p-5' : 'p-5'} ${
             showCard ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}
           style={{ backgroundColor: 'rgba(30, 25, 20, 0.88)' }}

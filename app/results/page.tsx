@@ -313,10 +313,10 @@ export default function ResultsPage() {
                   <table className="w-full" style={{ fontSize: '10px' }}>
                     <thead>
                       <tr className="text-left border-b border-white/10 uppercase tracking-wider text-[#F5ECD9]/50" style={{ fontSize: '9px' }}>
-                        <th className="py-2 px-2">Player</th>
-                        <th className="py-2 px-2">Team</th>
-                        <th className="py-2 px-2">P1</th>
-                        <th className="py-2 px-2">P2</th>
+                        <th className="py-2 px-1 sm:px-2">Player</th>
+                        <th className="py-2 px-1 sm:px-2">Team</th>
+                        <th className="py-2 px-1 sm:px-2">P1</th>
+                        <th className="py-2 px-1 sm:px-2">P2</th>
                         {showScoring && (
                           <>
                             <th className="py-2 px-1 text-right">Tm</th>
@@ -335,7 +335,7 @@ export default function ResultsPage() {
 
                         return (
                           <tr key={pick.id} className={`border-b border-white/5 last:border-0 ${isWinner ? 'bg-[#D9A441]/10' : ''}`}>
-                            <td className="py-1.5 px-2 font-bold uppercase">
+                            <td className="py-1.5 px-1 sm:px-2 font-bold uppercase">
                               <div className="flex items-center gap-1.5">
                                 <KitBadge
                                   pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
@@ -347,7 +347,7 @@ export default function ResultsPage() {
                                 {(pick.provisional || pick.is_autopick) && <span className="bg-white/20 px-0.5 rounded" style={{ fontSize: '8px' }} title="No pick was made in time, so the computer picked automatically">AUTOPICK</span>}
                               </div>
                             </td>
-                            <td className="py-1.5 px-2 uppercase">
+                            <td className="py-1.5 px-1 sm:px-2 uppercase">
                               <div className="flex items-center gap-1">
                                 <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={16} />
                                 {teamDisplayName(t)}
@@ -371,12 +371,12 @@ export default function ResultsPage() {
                                 </div>
                               )}
                             </td>
-                            <td className="py-1.5 px-2 uppercase">
+                            <td className="py-1.5 px-1 sm:px-2 uppercase">
                               {players[pick.player1_id] ?? 'Unknown'}
                               {goalPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>G</span>}
                               {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
                             </td>
-                            <td className="py-1.5 px-2 uppercase">
+                            <td className="py-1.5 px-1 sm:px-2 uppercase">
                               {players[pick.player2_id] ?? 'Unknown'}
                               {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>G</span>}
                               {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '8px' }}>A</span>}
