@@ -101,13 +101,13 @@ export default function Shell({ children, active, user, displayName }: Props) {
               </button>
             </div>
           </div>
-          <nav className="hidden md:flex gap-1 -mb-px overflow-x-auto">
+          <nav className="hidden md:flex flex-wrap gap-x-1">
             {navItems.map(item => (
               <Link
                 key={item.label}
                 href={item.href}
                 style={{ color: active === item.label ? '#D9A441' : '#F5ECD9' }}
-                className={`px-3 py-2.5 text-xs font-bold tracking-widest whitespace-nowrap border-b-2 transition-colors uppercase ${
+                className={`px-2.5 lg:px-3 py-2.5 text-xs font-bold tracking-widest whitespace-nowrap border-b-2 transition-colors uppercase ${
                   active === item.label
                     ? 'border-[#D9A441]'
                     : 'border-transparent opacity-70 hover:opacity-100'
