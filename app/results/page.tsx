@@ -40,6 +40,18 @@ type PointsRow = {
 type MatchEvent = {
   player_id: number
   event_type: string
+  fixture_id: number
+  minute: number | null
+}
+
+type FixtureRow = {
+  id: number
+  home_team_id: number
+  away_team_id: number
+  kickoff_time: string
+  status: string
+  home_score: number | null
+  away_score: number | null
 }
 
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
@@ -66,6 +78,8 @@ export default function ResultsPage() {
   const [loading, setLoading] = useState(true)
   const [loadingPicks, setLoadingPicks] = useState(false)
   const [showRecap, setShowRecap] = useState(false)
+  const [fixtures, setFixtures] = useState<FixtureRow[]>([])
+  const [expandedFixture, setExpandedFixture] = useState<number | null>(null)
 
   const supabase = createClient()
 
@@ -152,12 +166,24 @@ export default function ResultsPage() {
     setLoadingPicks(true)
     const gw = gameweeks.find(g => g.id === gwId)
 
-    const [{ data: picksData }, { data: pts }, { data: events }, previewRes] = await Promise.all([
+    const [{ data: picksData }, { data: pts }, { data: fixturesData }, previewRes] = await Promise.all([
       supabase.from('picks').select('id, user_id, team_id, player1_id, player2_id, is_banker, is_autopick, submitted_at').eq('gameweek_id', gwId),
       supabase.from('points').select('pick_id, total_points, team_points, player1_points, player2_points, breakdown').eq('gameweek_id', gwId),
-      supabase.from('match_events').select('player_id, event_type'),
+      supabase.from('fixtures').select('id, home_team_id, away_team_id, kickoff_time, status, home_score, away_score').eq('gameweek_id', gwId).order('kickoff_time'),
       fetch(`/api/autopick/preview?gameweek_id=${gwId}`)
     ])
+
+    const fixtureList = fixturesData ?? []
+    setFixtures(fixtureList)
+    setExpandedFixture(null)
+
+    // Scoped to this gameweek's own fixtures — without this, "who scored"
+    // badges and the match-events panel would mix in goals from every
+    // other gameweek and competition ever played.
+    const fixtureIds = fixtureList.map(f => f.id)
+    const { data: events } = fixtureIds.length > 0
+      ? await supabase.from('match_events').select('player_id, event_type, fixture_id, minute').in('fixture_id', fixtureIds)
+      : { data: [] as MatchEvent[] }
 
     const realPicks = picksData ?? []
     const realPickUserIds = new Set(realPicks.map(p => p.user_id))
@@ -333,6 +359,76 @@ export default function ResultsPage() {
                       Share Recap
                     </button>
                   )}
+                </div>
+              )}
+
+              {fixtures.length > 0 && (
+                <div className="bg-white/5 border border-white/10 rounded-lg overflow-hidden mb-4">
+                  <div className="px-3 py-2 border-b border-white/10 text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold">
+                    Fixtures &amp; Match Events
+                  </div>
+                  <div className="divide-y divide-white/5">
+                    {fixtures.map(f => {
+                      const isExpanded = expandedFixture === f.id
+                      const fixtureEvents = matchEvents.filter(e => e.fixture_id === f.id)
+                      const goals = fixtureEvents.filter(e => e.event_type === 'goal')
+                      const assists = fixtureEvents.filter(e => e.event_type === 'assist')
+                      const ownGoals = fixtureEvents.filter(e => e.event_type === 'own_goal')
+                      const played = f.home_score != null && f.away_score != null
+
+                      return (
+                        <div key={f.id}>
+                          <button
+                            onClick={() => setExpandedFixture(isExpanded ? null : f.id)}
+                            className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-white/5 transition-colors"
+                          >
+                            <div className="flex items-center gap-2 text-xs uppercase">
+                              <TeamCrest crestUrl={teams[f.home_team_id]?.crest_url ?? null} teamName={teams[f.home_team_id]?.name ?? ''} size={16} />
+                              <span className="font-bold">{teamDisplayName(teams[f.home_team_id])}</span>
+                              <span className="text-[#F5ECD9]/40 font-bold">
+                                {played ? `${f.home_score} - ${f.away_score}` : 'vs'}
+                              </span>
+                              <span className="font-bold">{teamDisplayName(teams[f.away_team_id])}</span>
+                              <TeamCrest crestUrl={teams[f.away_team_id]?.crest_url ?? null} teamName={teams[f.away_team_id]?.name ?? ''} size={16} />
+                              {!played && <span className="text-[#F5ECD9]/30 normal-case" style={{ fontSize: '9px' }}>Not played yet</span>}
+                            </div>
+                            <span className="text-[#F5ECD9]/30 text-xs">{isExpanded ? '▲' : '▼'}</span>
+                          </button>
+                          {isExpanded && (
+                            <div className="px-3 pb-3 text-xs space-y-1">
+                              {fixtureEvents.length === 0 ? (
+                                <p className="text-[#F5ECD9]/40">No goals or assists recorded yet.</p>
+                              ) : (
+                                <>
+                                  {goals.map((e, i) => (
+                                    <div key={`g${i}`} className="flex items-center gap-1.5">
+                                      <span className="bg-green-600 text-white px-1 rounded font-bold" style={{ fontSize: '9px' }}>G</span>
+                                      <span className="uppercase">{players[e.player_id] ?? 'Unknown'}</span>
+                                      {e.minute != null && <span className="text-[#F5ECD9]/40">{e.minute}&apos;</span>}
+                                    </div>
+                                  ))}
+                                  {assists.map((e, i) => (
+                                    <div key={`a${i}`} className="flex items-center gap-1.5">
+                                      <span className="bg-green-500/30 text-green-300 px-1 rounded font-bold" style={{ fontSize: '9px' }}>A</span>
+                                      <span className="uppercase">{players[e.player_id] ?? 'Unknown'}</span>
+                                      {e.minute != null && <span className="text-[#F5ECD9]/40">{e.minute}&apos;</span>}
+                                    </div>
+                                  ))}
+                                  {ownGoals.map((e, i) => (
+                                    <div key={`og${i}`} className="flex items-center gap-1.5">
+                                      <span className="bg-red-600/60 text-white px-1 rounded font-bold" style={{ fontSize: '9px' }}>OG</span>
+                                      <span className="uppercase">{players[e.player_id] ?? 'Unknown'}</span>
+                                      {e.minute != null && <span className="text-[#F5ECD9]/40">{e.minute}&apos;</span>}
+                                    </div>
+                                  ))}
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
 

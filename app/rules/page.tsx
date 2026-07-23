@@ -164,6 +164,13 @@ export default async function RulesPage() {
               <p className="text-sm text-[#F5ECD9]/80 mt-4">
                 <strong className="text-[#D9A441]">Player points:</strong> Goal = {goalPts}pts. Assist = {assistPts}pts.
               </p>
+              <p className="text-sm text-[#F5ECD9]/60 mt-2 leading-relaxed">
+                Assists here follow the Fantasy Premier League&apos;s own official definition, since that&apos;s where our
+                match data comes from — it&apos;s a bit broader than what you might see credited on TV or in a matchday
+                report. It can include things like a blocked or deflected effort that a teammate follows up and scores
+                from, or winning a penalty or free-kick that a teammate then converts, not just a clean final pass. If
+                a player&apos;s assist tally here doesn&apos;t match what you saw in the highlights, this is usually why.
+              </p>
             </section>
 
             <section className={cardClass}>

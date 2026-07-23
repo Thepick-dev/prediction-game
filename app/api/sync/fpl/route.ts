@@ -29,6 +29,18 @@ const FPL_CODE_TO_OUR_SHORT_NAME: Record<string, string> = {
   TOT: 'Tottenham',
   WHU: 'West Ham',
   WOL: 'Wolves',
+  // 2026/27 promoted clubs. FPL's own site hasn't switched over to the new
+  // season's team list yet (as of adding this, it still returns 2025/26's
+  // 20 clubs), so these codes are our best-confidence expectation, not yet
+  // confirmed against a live FPL response — HUL and IPS match their codes
+  // from each club's last Premier League stint; COV is a standard-format
+  // guess since Coventry haven't been in the Prem since before FPL existed
+  // in its current form. If any of these turn out wrong, the sync simply
+  // skips that club's players (reported in unmapped_teams) rather than
+  // failing — safe to leave in and correct once FPL updates their data.
+  COV: 'Coventry',
+  HUL: 'Hull',
+  IPS: 'Ipswich',
 }
 
 export async function POST() {

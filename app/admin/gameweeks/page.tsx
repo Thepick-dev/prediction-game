@@ -187,6 +187,7 @@ export default async function GameweeksPage() {
                     <div className="flex items-center gap-3">
                       <span className="font-bold">GW{gw.number}</span>
                       <span className="text-gray-500 text-sm">{(gw.competitions as any)?.name}</span>
+                      <span className="text-gray-400 text-xs font-mono" title="Gameweek ID">{gw.id}</span>
                       <span className={`px-2 py-0.5 rounded text-xs ${
                         gw.status === 'open' ? 'bg-green-100 text-green-700' :
                         gw.status === 'locked' ? 'bg-red-100 text-red-700' :

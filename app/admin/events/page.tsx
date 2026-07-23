@@ -176,6 +176,9 @@ export default function EventsPage() {
             <option key={gw.id} value={gw.id}>Gameweek {gw.number}</option>
           ))}
         </select>
+        {selectedGameweek && (
+          <p className="text-gray-400 text-xs font-mono mt-2" title="Gameweek ID">{selectedGameweek}</p>
+        )}
       </div>
 
       {selectedGameweek && (

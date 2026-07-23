@@ -35,6 +35,13 @@ export default function WeeklyHelpPage() {
               instead of the current table.
             </li>
             <li>
+              Go to <a href="/admin/events" className="underline">Match Events</a>, pick this gameweek, and click <strong>Sync from FPL</strong>.
+              This fills in goalscorers, assists, own goals and scores automatically. Wait roughly an hour after the
+              last match of the gameweek finishes before doing this — that&apos;s how long the Fantasy Premier League
+              site takes to fully confirm a match. If you click it too early it just skips anything not ready yet
+              rather than pulling anything wrong, so there&apos;s no harm trying.
+            </li>
+            <li>
               Go to <a href="/admin/gameweeks" className="underline">Gameweeks</a>, find this gameweek, and set its status to <strong>completed</strong>.
               This is what actually calculates everyone’s points — it locks in a snapshot of the quartile bands you just
               set, then works out points from the results and any goals/assists. (The Scoring page is only for editing
@@ -46,8 +53,14 @@ export default function WeeklyHelpPage() {
 
         <div className="bg-white border rounded-lg p-6">
           <h2 className="font-bold mb-2">Fixing a mistake</h2>
+          <p className="text-sm text-gray-700 mb-2">
+            If a goal or assist was wrong, go back to <a href="/admin/events" className="underline">Match Events</a> and click
+            <strong> Sync from FPL</strong> again for that gameweek — it replaces that gameweek&apos;s events with a fresh pull rather
+            than adding on top, so it&apos;s safe to re-run. You can also add or delete individual events by hand on that
+            same page if something needs a manual correction FPL wouldn&apos;t reflect.
+          </p>
           <p className="text-sm text-gray-700">
-            If a result or a goal was wrong and you’ve since fixed it, use the <strong>Recalculate Scoring</strong> box
+            Once the events are right, use the <strong>Recalculate Scoring</strong> box
             on <a href="/admin/sync" className="underline">the Sync page</a> to re-run points for that gameweek — safe to run as many times as
             you need, it always recalculates from scratch. Note this does <em>not</em> refresh the quartile snapshot — if
             the quartiles themselves were wrong for that week, you’d need to fix that gameweek’s row directly, or ask

@@ -29,7 +29,6 @@ type PlayerStat = {
   displayName: string
   goals: number
   assists: number
-  realWorldPoints: number
   timesPicked: number
   totalPickPoints: number
   avgPickPoints: number
@@ -107,7 +106,7 @@ export default function StatsHubPage() {
       const [
         { data: teams }, { data: players }, { data: gameweeks },
         { data: entries }, { data: picks }, { data: points }, { data: events },
-        { data: fixtures }, { data: playerRules }
+        { data: fixtures }
       ] = await Promise.all([
         supabase.from('teams').select('id, name, short_name, short_code, crest_url, active'),
         supabase.from('players').select('id, name, web_name, team_id, position'),
@@ -117,7 +116,6 @@ export default function StatsHubPage() {
         supabase.from('points').select('user_id, pick_id, gameweek_id, total_points, team_points, player1_points, player2_points, breakdown').eq('competition_id', comp.id),
         supabase.from('match_events').select('player_id, event_type, fixture_id'),
         supabase.from('fixtures').select('id, gameweek_id'),
-        supabase.from('player_scoring_rules').select('event_type, points').eq('competition_id', comp.id),
       ])
 
       const tMap: Record<number, Team> = {}
@@ -140,9 +138,6 @@ export default function StatsHubPage() {
 
       const pickById: Record<string, { user_id: string; team_id: number; player1_id: number; player2_id: number; is_banker: boolean; is_autopick: boolean; gameweek_id: string }> = {}
       picks?.forEach(p => { pickById[p.id] = p })
-
-      const goalRule = playerRules?.find(r => r.event_type === 'goal')?.points ?? 0
-      const assistRule = playerRules?.find(r => r.event_type === 'assist')?.points ?? 0
 
       // --- Team stats ---
       const teamAgg: Record<number, { picked: number; banked: number; total: number }> = {}
@@ -191,29 +186,28 @@ export default function StatsHubPage() {
         })
       })
 
-      const allPlayerIds = new Set<number>([
-        ...Object.keys(goalCount).map(Number),
-        ...Object.keys(assistCount).map(Number),
-        ...Object.keys(playerPickAgg).map(Number)
-      ])
-      const playerStatList: PlayerStat[] = Array.from(allPlayerIds)
+      // Ranked by points earned for the users who picked them, not by raw
+      // real-world goals/assists — this is a game stats page, not a general
+      // football stats site, so it's scoped to players who were actually
+      // picked in this competition.
+      const playerStatList: PlayerStat[] = Object.keys(playerPickAgg)
+        .map(Number)
         .filter(id => pMap[id])
         .map(id => {
           const goals = goalCount[id] ?? 0
           const assists = assistCount[id] ?? 0
-          const pickAgg = playerPickAgg[id] ?? { picked: 0, total: 0 }
+          const pickAgg = playerPickAgg[id]
           return {
             player: pMap[id],
             displayName: displayNames[id] ?? 'Unknown',
             goals,
             assists,
-            realWorldPoints: goals * goalRule + assists * assistRule,
             timesPicked: pickAgg.picked,
             totalPickPoints: Math.round(pickAgg.total),
             avgPickPoints: pickAgg.picked > 0 ? Math.round((pickAgg.total / pickAgg.picked) * 10) / 10 : 0
           }
         })
-        .sort((a, b) => b.realWorldPoints - a.realWorldPoints)
+        .sort((a, b) => b.totalPickPoints - a.totalPickPoints)
       setPlayerStats(playerStatList)
 
       // --- League trends ---
@@ -438,9 +432,9 @@ export default function StatsHubPage() {
           {tab === 'players' && (
             <div>
               <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4" style={{ height: 260 }}>
-                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Top 12 players by real-world points (goals &amp; assists)</p>
+                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Top 12 players by points earned for the users who picked them</p>
                 <ResponsiveContainer width="100%" height="90%">
-                  <BarChart data={playerStats.slice(0, 12).map(p => ({ name: p.displayName, points: p.realWorldPoints }))}>
+                  <BarChart data={playerStats.slice(0, 12).map(p => ({ name: p.displayName, points: p.totalPickPoints }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
                     <XAxis dataKey="name" {...axisProps()} interval={0} angle={-35} textAnchor="end" height={60} />
                     <YAxis {...axisProps()} />
@@ -476,22 +470,22 @@ export default function StatsHubPage() {
                   <thead>
                     <tr className="text-left border-b border-white/10 text-[#F5ECD9]/50" style={{ fontSize: '10px' }}>
                       <th className="py-2 px-2 uppercase tracking-wider">Player</th>
+                      <th className="py-2 px-2 text-right uppercase tracking-wider">Picked</th>
+                      <th className="py-2 px-2 text-right uppercase tracking-wider font-bold">Total Pts</th>
+                      <th className="py-2 px-2 text-right uppercase tracking-wider">Avg / Pick</th>
                       <th className="py-2 px-2 text-right uppercase tracking-wider">Goals</th>
                       <th className="py-2 px-2 text-right uppercase tracking-wider">Assists</th>
-                      <th className="py-2 px-2 text-right uppercase tracking-wider">Real Pts</th>
-                      <th className="py-2 px-2 text-right uppercase tracking-wider">Picked</th>
-                      <th className="py-2 px-2 text-right uppercase tracking-wider font-bold">Avg Pick Pts</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredPlayerStats.slice(0, 100).map(p => (
                       <tr key={p.player.id} className="border-b border-white/5 last:border-0">
                         <td className="py-2 px-2 font-bold uppercase">{p.displayName}</td>
+                        <td className="py-2 px-2 text-right text-[#F5ECD9]/60">{p.timesPicked}</td>
+                        <td className="py-2 px-2 text-right font-bold" style={{ color: GOLD }}>{p.totalPickPoints}</td>
+                        <td className="py-2 px-2 text-right text-[#F5ECD9]/60">{p.avgPickPoints}</td>
                         <td className="py-2 px-2 text-right text-[#F5ECD9]/60">{p.goals}</td>
                         <td className="py-2 px-2 text-right text-[#F5ECD9]/60">{p.assists}</td>
-                        <td className="py-2 px-2 text-right font-bold" style={{ color: GOLD }}>{p.realWorldPoints}</td>
-                        <td className="py-2 px-2 text-right text-[#F5ECD9]/60">{p.timesPicked}</td>
-                        <td className="py-2 px-2 text-right text-[#F5ECD9]/60">{p.timesPicked > 0 ? p.avgPickPoints : '—'}</td>
                       </tr>
                     ))}
                     {filteredPlayerStats.length === 0 && (
