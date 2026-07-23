@@ -1,8 +1,12 @@
 import { createServerSupabaseClient } from '../../../lib/supabase-server'
+import { requireAdmin } from '../../../lib/require-admin'
 import { NextResponse } from 'next/server'
 
 export async function POST() {
   const supabase = await createServerSupabaseClient()
+  if (!(await requireAdmin(supabase))) {
+    return NextResponse.json({ error: 'Not authorised' }, { status: 403 })
+  }
 
   const matchesRes = await fetch(
     'https://api.football-data.org/v4/competitions/PL/matches?season=2026&status=FINISHED',

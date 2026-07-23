@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '../../../lib/supabase-server'
 import { previewGameweekScoring } from '../../../lib/scoring'
+import { requireUser } from '../../../lib/require-admin'
 import { NextResponse } from 'next/server'
 
 // Live, read-only scoring preview for a gameweek that's locked (deadline
@@ -7,6 +8,9 @@ import { NextResponse } from 'next/server'
 // why this uses current quartiles rather than a frozen snapshot.
 export async function GET(request: Request) {
   const supabase = await createServerSupabaseClient()
+  if (!(await requireUser(supabase))) {
+    return NextResponse.json({ error: 'Not authorised' }, { status: 401 })
+  }
 
   const { searchParams } = new URL(request.url)
   const gameweek_id = searchParams.get('gameweek_id')

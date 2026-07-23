@@ -1,9 +1,13 @@
 import { createServerSupabaseClient } from '../../../lib/supabase-server'
 import { deriveAutopick } from '../../../lib/autopick'
+import { requireUser } from '../../../lib/require-admin'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
   const supabase = await createServerSupabaseClient()
+  if (!(await requireUser(supabase))) {
+    return NextResponse.json({ error: 'Not authorised' }, { status: 401 })
+  }
 
   const { searchParams } = new URL(request.url)
   const gameweek_id = searchParams.get('gameweek_id')

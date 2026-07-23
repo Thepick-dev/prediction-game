@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '../../../lib/supabase-server'
+import { requireAdmin } from '../../../lib/require-admin'
 import { NextResponse } from 'next/server'
 
 // FPL's bootstrap-static team ids (1-20, reassigned each season) have no
@@ -45,6 +46,9 @@ const FPL_CODE_TO_OUR_SHORT_NAME: Record<string, string> = {
 
 export async function POST() {
   const supabase = await createServerSupabaseClient()
+  if (!(await requireAdmin(supabase))) {
+    return NextResponse.json({ error: 'Not authorised' }, { status: 403 })
+  }
 
   const response = await fetch(
     'https://fantasy.premierleague.com/api/bootstrap-static/',

@@ -106,7 +106,7 @@ export default function Shell({ children, active, user, displayName }: Props) {
                     <KitBadge
                       pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2}
                       stars={kit.stars} earths={kit.earths}
-                      size={30} iconTextClass="text-[10px] sm:text-sm"
+                      size={36} iconTextClass="text-[10px] sm:text-sm"
                     />
                   )}
                   <span className="text-[10px] text-[#D9A441] uppercase font-medium tracking-wider leading-none">

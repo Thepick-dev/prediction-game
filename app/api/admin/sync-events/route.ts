@@ -1,12 +1,6 @@
 import { createServerSupabaseClient } from '../../../lib/supabase-server'
+import { requireAdmin } from '../../../lib/require-admin'
 import { NextResponse } from 'next/server'
-
-async function requireAdmin(supabase: any) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
-  return profile?.is_admin ? user : null
-}
 
 // FPL's fixture-stats endpoint reports goals/assists/own-goals per player,
 // identified by FPL's own player id — which is exactly what we already

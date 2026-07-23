@@ -1,9 +1,13 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { calculateScoring } from '../../lib/scoring'
+import { requireAdmin } from '../../lib/require-admin'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabaseClient()
+  if (!(await requireAdmin(supabase))) {
+    return NextResponse.json({ error: 'Not authorised' }, { status: 403 })
+  }
 
   const { gameweek_id } = await request.json()
 
