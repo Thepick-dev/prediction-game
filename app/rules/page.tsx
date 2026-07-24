@@ -174,6 +174,12 @@ export default async function RulesPage() {
                 from, or winning a penalty or free-kick that a teammate then converts, not just a clean final pass. If
                 a player&apos;s assist tally here doesn&apos;t match what you saw in the highlights, this is usually why.
               </p>
+              <p className="text-sm text-[#F5ECD9]/60 mt-2 leading-relaxed">
+                <strong className="text-[#D9A441]/80">Double gameweeks:</strong> occasionally a rearranged fixture means a
+                club plays twice in the same gameweek. If a player you&apos;ve picked is affected, you&apos;ll be asked to
+                choose which of the two matches your pick counts for — you don&apos;t get both games&apos; goals/assists added
+                together. If that choice isn&apos;t made, the pick scores zero for that player rather than guessing.
+              </p>
             </section>
 
             <section className={cardClass}>

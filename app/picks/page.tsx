@@ -93,6 +93,8 @@ export default function PicksPage() {
   const [selectedFixture, setSelectedFixture] = useState<number | null>(null)
   const [player1, setPlayer1] = useState<number | null>(null)
   const [player2, setPlayer2] = useState<number | null>(null)
+  const [player1Fixture, setPlayer1Fixture] = useState<number | null>(null)
+  const [player2Fixture, setPlayer2Fixture] = useState<number | null>(null)
   const [isBanker, setIsBanker] = useState(false)
 
   const [usedTeams, setUsedTeams] = useState<number[]>([])
@@ -185,6 +187,8 @@ export default function PicksPage() {
         setSelectedFixture(pickData.pick.fixture_id ?? null)
         setPlayer1(pickData.pick.player1_id)
         setPlayer2(pickData.pick.player2_id)
+        setPlayer1Fixture(pickData.pick.player1_fixture_id ?? null)
+        setPlayer2Fixture(pickData.pick.player2_fixture_id ?? null)
         setIsBanker(pickData.pick.is_banker)
         setQuestionAnswer(pickData.pick.question_answer ?? '')
         setComments(pickData.pick.comments ?? '')
@@ -281,6 +285,16 @@ export default function PicksPage() {
       setMessage('Please pick two different players')
       return
     }
+    const p1Team = players.find(p => p.id === player1)?.team_id ?? null
+    const p2Team = players.find(p => p.id === player2)?.team_id ?? null
+    if (fixturesForTeam(p1Team).length >= 2 && !player1Fixture) {
+      setMessage(`${playerName(player1)}'s team plays twice this gameweek — choose which match this pick is for`)
+      return
+    }
+    if (fixturesForTeam(p2Team).length >= 2 && !player2Fixture) {
+      setMessage(`${playerName(player2)}'s team plays twice this gameweek — choose which match this pick is for`)
+      return
+    }
     setSaving(true)
     setMessage('')
     const res = await fetch('/api/picks', {
@@ -293,6 +307,8 @@ export default function PicksPage() {
         fixture_id: selectedFixture,
         player1_id: player1,
         player2_id: player2,
+        player1_fixture_id: player1Fixture,
+        player2_fixture_id: player2Fixture,
         is_banker: isBanker,
         question_answer: questionAnswer,
         comments: comments.trim() || null
@@ -310,6 +326,21 @@ export default function PicksPage() {
   }
 
   const getTeam = (id: number | null) => teams.find(t => t.id === id)
+
+  // Fixtures this gameweek for a given team — normally just one, but a
+  // rearranged fixture can occasionally land a team two matches in the same
+  // gameweek. When that happens for a picked player's team, which match the
+  // pick is "for" is genuinely ambiguous and has to be nominated explicitly.
+  function fixturesForTeam(teamId: number | null): Fixture[] {
+    if (teamId == null) return []
+    return fixtures.filter(f => f.home_team_id === teamId || f.away_team_id === teamId)
+  }
+
+  function opponentLabel(fixture: Fixture, teamId: number) {
+    const isHome = fixture.home_team_id === teamId
+    const opponent = getTeam(isHome ? fixture.away_team_id : fixture.home_team_id)
+    return `${isHome ? 'H' : 'A'} vs ${teamDisplayName(opponent)}`
+  }
 
   const teamMap: Record<number, Team> = {}
   teams.forEach(t => { teamMap[t.id] = t })
@@ -543,7 +574,7 @@ export default function PicksPage() {
                       {player1 ? (
                         <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg px-3 py-2">
                           <span className="text-sm uppercase">{playerName(player1)}</span>
-                          <button onClick={() => setPlayer1(null)} className="text-xs text-red-400">✕</button>
+                          <button onClick={() => { setPlayer1(null); setPlayer1Fixture(null) }} className="text-xs text-red-400">✕</button>
                         </div>
                       ) : (
                         <>
@@ -562,7 +593,7 @@ export default function PicksPage() {
                                 return (
                                   <button
                                     key={p.id}
-                                    onClick={() => { if (!maxed) { setPlayer1(p.id); setPlayerSearch1('') } }}
+                                    onClick={() => { if (!maxed) { setPlayer1(p.id); setPlayer1Fixture(null); setPlayerSearch1('') } }}
                                     disabled={maxed}
                                     className={`block w-full text-left px-3 py-2 text-sm ${maxed ? 'text-[#F5ECD9]/30 line-through cursor-not-allowed' : 'hover:bg-white/10'}`}
                                   >
@@ -575,6 +606,28 @@ export default function PicksPage() {
                           )}
                         </>
                       )}
+                      {player1 && fixturesForTeam(players.find(p => p.id === player1)?.team_id ?? null).length >= 2 && (
+                        <div className="mt-2 bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-2.5">
+                          <p className="text-[10px] uppercase tracking-wider text-yellow-300 font-bold mb-1.5">
+                            {playerName(player1)}&apos;s team plays twice this gameweek — which match is this pick for?
+                          </p>
+                          <div className="flex flex-col gap-1.5">
+                            {fixturesForTeam(players.find(p => p.id === player1)?.team_id ?? null).map(f => (
+                              <button
+                                key={f.id}
+                                onClick={() => setPlayer1Fixture(f.id)}
+                                className={`text-left px-2.5 py-1.5 rounded text-xs border ${
+                                  player1Fixture === f.id
+                                    ? 'bg-[#D9A441]/15 border-[#D9A441] text-[#D9A441]'
+                                    : 'bg-white/5 border-white/10 hover:border-[#D9A441]/50'
+                                }`}
+                              >
+                                {opponentLabel(f, players.find(p => p.id === player1)?.team_id ?? 0)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -582,7 +635,7 @@ export default function PicksPage() {
                       {player2 ? (
                         <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg px-3 py-2">
                           <span className="text-sm uppercase">{playerName(player2)}</span>
-                          <button onClick={() => setPlayer2(null)} className="text-xs text-red-400">✕</button>
+                          <button onClick={() => { setPlayer2(null); setPlayer2Fixture(null) }} className="text-xs text-red-400">✕</button>
                         </div>
                       ) : (
                         <>
@@ -601,7 +654,7 @@ export default function PicksPage() {
                                 return (
                                   <button
                                     key={p.id}
-                                    onClick={() => { if (!maxed) { setPlayer2(p.id); setPlayerSearch2('') } }}
+                                    onClick={() => { if (!maxed) { setPlayer2(p.id); setPlayer2Fixture(null); setPlayerSearch2('') } }}
                                     disabled={maxed}
                                     className={`block w-full text-left px-3 py-2 text-sm ${maxed ? 'text-[#F5ECD9]/30 line-through cursor-not-allowed' : 'hover:bg-white/10'}`}
                                   >
@@ -613,6 +666,28 @@ export default function PicksPage() {
                             </div>
                           )}
                         </>
+                      )}
+                      {player2 && fixturesForTeam(players.find(p => p.id === player2)?.team_id ?? null).length >= 2 && (
+                        <div className="mt-2 bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-2.5">
+                          <p className="text-[10px] uppercase tracking-wider text-yellow-300 font-bold mb-1.5">
+                            {playerName(player2)}&apos;s team plays twice this gameweek — which match is this pick for?
+                          </p>
+                          <div className="flex flex-col gap-1.5">
+                            {fixturesForTeam(players.find(p => p.id === player2)?.team_id ?? null).map(f => (
+                              <button
+                                key={f.id}
+                                onClick={() => setPlayer2Fixture(f.id)}
+                                className={`text-left px-2.5 py-1.5 rounded text-xs border ${
+                                  player2Fixture === f.id
+                                    ? 'bg-[#D9A441]/15 border-[#D9A441] text-[#D9A441]'
+                                    : 'bg-white/5 border-white/10 hover:border-[#D9A441]/50'
+                                }`}
+                              >
+                                {opponentLabel(f, players.find(p => p.id === player2)?.team_id ?? 0)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -756,11 +831,25 @@ export default function PicksPage() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase tracking-widest" style={{ color: '#241a1799' }}>Player 1</span>
-              <span className="font-bold uppercase text-sm">{playerName(player1)}</span>
+              <span className="font-bold uppercase text-sm text-right">
+                {playerName(player1)}
+                {player1Fixture && (
+                  <span className="block font-normal normal-case" style={{ fontSize: '10px', color: '#241a1799' }}>
+                    {opponentLabel(fixtures.find(f => f.id === player1Fixture)!, players.find(p => p.id === player1)?.team_id ?? 0)}
+                  </span>
+                )}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase tracking-widest" style={{ color: '#241a1799' }}>Player 2</span>
-              <span className="font-bold uppercase text-sm">{playerName(player2)}</span>
+              <span className="font-bold uppercase text-sm text-right">
+                {playerName(player2)}
+                {player2Fixture && (
+                  <span className="block font-normal normal-case" style={{ fontSize: '10px', color: '#241a1799' }}>
+                    {opponentLabel(fixtures.find(f => f.id === player2Fixture)!, players.find(p => p.id === player2)?.team_id ?? 0)}
+                  </span>
+                )}
+              </span>
             </div>
             {isBanker && (
               <div className="flex items-center justify-between pt-1">

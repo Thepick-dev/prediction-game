@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  const { gameweek_id, competition_id, team_id, player1_id, player2_id, is_banker, question_answer, comments } = await request.json()
+  const { gameweek_id, competition_id, team_id, player1_id, player2_id, player1_fixture_id, player2_fixture_id, is_banker, question_answer, comments } = await request.json()
 
   if (player1_id === player2_id) {
     return NextResponse.json({ error: 'Please pick two different players' }, { status: 400 })
@@ -56,6 +56,41 @@ export async function POST(request: Request) {
 
   if (!bothPlayersActive) {
     return NextResponse.json({ error: 'One of the selected players is not on an active team' }, { status: 400 })
+  }
+
+  // Double gameweek check: if a picked player's team has more than one
+  // fixture in this gameweek, which match the pick counts for is genuinely
+  // ambiguous — require it to be nominated explicitly rather than silently
+  // guessing (or, worse, letting both games' goals count).
+  const { data: gwFixtures } = await supabase
+    .from('fixtures')
+    .select('id, home_team_id, away_team_id')
+    .eq('gameweek_id', gameweek_id)
+
+  const fixturesByTeam: Record<number, number[]> = {}
+  gwFixtures?.forEach(f => {
+    ;(fixturesByTeam[f.home_team_id] ??= []).push(f.id)
+    ;(fixturesByTeam[f.away_team_id] ??= []).push(f.id)
+  })
+
+  const player1Team = pickedPlayers?.find(p => p.id === player1_id)?.team_id
+  const player2Team = pickedPlayers?.find(p => p.id === player2_id)?.team_id
+
+  for (const [label, playerTeam, nominatedFixtureId] of [
+    ['Player 1', player1Team, player1_fixture_id],
+    ['Player 2', player2Team, player2_fixture_id],
+  ] as const) {
+    const teamFixtures = playerTeam != null ? (fixturesByTeam[playerTeam] ?? []) : []
+    if (teamFixtures.length >= 2) {
+      if (nominatedFixtureId == null || !teamFixtures.includes(nominatedFixtureId)) {
+        return NextResponse.json({
+          error: `${label}'s team plays twice this gameweek — you need to choose which match this pick is for.`,
+          double_gameweek: true,
+          player: label === 'Player 1' ? 'player1' : 'player2',
+          fixture_ids: teamFixtures,
+        }, { status: 400 })
+      }
+    }
   }
 
   const { data: gameweek } = await supabase
@@ -130,6 +165,14 @@ export async function POST(request: Request) {
     }
   }
 
+  // Only ever persist a nominated fixture for a player actually in a double
+  // gameweek — anything sent for a single-fixture player is meaningless and
+  // discarded here rather than trusted from the client.
+  const player1FixturesCount = player1Team != null ? (fixturesByTeam[player1Team]?.length ?? 0) : 0
+  const player2FixturesCount = player2Team != null ? (fixturesByTeam[player2Team]?.length ?? 0) : 0
+  const player1FixtureToStore = player1FixturesCount >= 2 ? player1_fixture_id : null
+  const player2FixtureToStore = player2FixturesCount >= 2 ? player2_fixture_id : null
+
   const { data: existingPick } = await supabase
     .from('picks')
     .select('id, is_banker')
@@ -145,6 +188,8 @@ export async function POST(request: Request) {
         team_id,
         player1_id,
         player2_id,
+        player1_fixture_id: player1FixtureToStore,
+        player2_fixture_id: player2FixtureToStore,
         is_banker,
         is_autopick: false,
         submitted_at: new Date().toISOString(),
@@ -163,6 +208,8 @@ export async function POST(request: Request) {
         team_id,
         player1_id,
         player2_id,
+        player1_fixture_id: player1FixtureToStore,
+        player2_fixture_id: player2FixtureToStore,
         is_banker,
         is_autopick: false,
         question_answer: question_answer ?? null,

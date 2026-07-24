@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computePickScores, type Pick, type Fixture, type ScoringRule, type PlayerScoringRule, type MatchEvent } from '../scoring'
+import { computePickScores, type Pick, type Fixture, type ScoringRule, type PlayerScoringRule, type MatchEvent, type PlayerInfo } from '../scoring'
 
 function makePick(overrides: Partial<Pick> = {}): Pick {
   return {
@@ -9,6 +9,8 @@ function makePick(overrides: Partial<Pick> = {}): Pick {
     fixture_id: 100,
     player1_id: 10,
     player2_id: 20,
+    player1_fixture_id: null,
+    player2_fixture_id: null,
     is_banker: false,
     competition_id: 'comp-1',
     ...overrides,
@@ -145,5 +147,46 @@ describe('computePickScores — other core behaviour', () => {
     expect(row.team_points).toBe(0)
     expect(row.breakdown.team).toBe('No fixture')
     expect(row.breakdown.team_detail.opponent_team_id).toBeNull()
+  })
+})
+
+describe('computePickScores — double gameweeks (a player\'s team plays twice)', () => {
+  // Player 10 is on team 1, which plays twice this gameweek: fixture 100
+  // (scores) and fixture 200 (also scores). Without nominating which match
+  // the pick is "for", the two shouldn't ever be silently added together.
+  const quartileMap = { 1: 2, 2: 2, 3: 2 }
+  const fixtureA = makeFixture({ id: 100, home_team_id: 1, away_team_id: 2, home_score: 1, away_score: 0 })
+  const fixtureB = makeFixture({ id: 200, home_team_id: 3, away_team_id: 1, home_score: 0, away_score: 2 })
+  const players: PlayerInfo[] = [{ id: 10, team_id: 1 }, { id: 20, team_id: 2 }]
+  const rules: PlayerScoringRule[] = [{ event_type: 'goal', points: 12 }, { event_type: 'assist', points: 6 }]
+  const events: MatchEvent[] = [
+    { player_id: 10, event_type: 'goal', fixture_id: 100 }, // scores in match A
+    { player_id: 10, event_type: 'goal', fixture_id: 200 }, // and again in match B
+  ]
+
+  it('scores zero for a double-gameweek player when no fixture was nominated', () => {
+    const pick = makePick({ team_id: 1, fixture_id: 100, player1_id: 10, player1_fixture_id: null })
+    const [row] = computePickScores('gw-1', [pick], [fixtureA, fixtureB], quartileMap, homeWinScoringRules, rules, events, players)
+    expect(row.player1_points).toBe(0)
+  })
+
+  it('only counts the nominated fixture\'s goals, not both games combined', () => {
+    const pick = makePick({ team_id: 1, fixture_id: 100, player1_id: 10, player1_fixture_id: 100 })
+    const [row] = computePickScores('gw-1', [pick], [fixtureA, fixtureB], quartileMap, homeWinScoringRules, rules, events, players)
+    expect(row.player1_points).toBe(12) // just fixture 100's goal, not fixture 200's too
+  })
+
+  it('picking the other nominated fixture scores that game\'s goal instead', () => {
+    const pick = makePick({ team_id: 1, fixture_id: 100, player1_id: 10, player1_fixture_id: 200 })
+    const [row] = computePickScores('gw-1', [pick], [fixtureA, fixtureB], quartileMap, homeWinScoringRules, rules, events, players)
+    expect(row.player1_points).toBe(12) // fixture 200's goal
+  })
+
+  it('scores normally with no nomination needed when the player\'s team only plays once', () => {
+    // Player 20 is on team 2, which only appears in fixture 100 (not a double gameweek).
+    const pick = makePick({ team_id: 1, fixture_id: 100, player2_id: 20, player2_fixture_id: null })
+    const singleGameEvents: MatchEvent[] = [{ player_id: 20, event_type: 'assist', fixture_id: 100 }]
+    const [row] = computePickScores('gw-1', [pick], [fixtureA, fixtureB], quartileMap, homeWinScoringRules, rules, singleGameEvents, players)
+    expect(row.player2_points).toBe(6)
   })
 })
