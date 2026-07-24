@@ -119,8 +119,11 @@ export default async function RulesPage() {
                 Quartiles are used to calculate team points based on the difficulty of the result.
               </p>
               <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
-                For the first six gameweeks of each competition, quartiles are fixed based on outright betting odds at the start of the season.
-                From gameweek seven onwards, quartiles are determined by the current league table.
+                Betting odds only ever set the quartiles once: gameweek 1 of the very first competition of a season, before
+                a ball&apos;s been kicked and there&apos;s no league table yet to go on. Every gameweek after that — including
+                gameweek 2 of that same competition, and the whole of any later competition in the same season (e.g. a
+                second half starting in January) — uses the current real league table instead. The table doesn&apos;t reset
+                between competitions; a new competition simply carries on from wherever the table stood when it started.
               </p>
               <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">
                 Quartiles are locked at the point each gameweek deadline passes — past scores are never affected by future quartile changes.
@@ -181,6 +184,7 @@ export default async function RulesPage() {
               <ol className="text-sm text-[#F5ECD9]/80 leading-relaxed list-decimal pl-5 space-y-1">
                 <li>Total points</li>
                 <li>Points with banker multiplier removed</li>
+                <li>Highest score in a single gameweek (banker included)</li>
                 <li>Most away wins from picked teams</li>
                 <li>Most goals from picked players</li>
                 <li>Earliest competition entry</li>

@@ -17,6 +17,7 @@ type RankedPlayer = {
   banker_points: number
   total_points: number
   points_without_banker: number
+  best_gameweek_score: number
 }
 
 type PickDetail = {
@@ -68,7 +69,7 @@ export default function ArchivedCompetitionPage() {
     const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: picks }, { data: teams }, { data: players }, { data: gameweeks }] = await Promise.all([
       supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id),
       supabase.from('profiles').select('id, display_name'),
-      supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown').eq('competition_id', comp.id),
+      supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
       supabase.from('picks').select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('competition_id', comp.id),
       supabase.from('teams').select('id, name'),
       supabase.from('players').select('id, name'),
@@ -103,9 +104,12 @@ export default function ArchivedCompetitionPage() {
         player_points: 0,
         banker_points: 0,
         total_points: 0,
-        points_without_banker: 0
+        points_without_banker: 0,
+        best_gameweek_score: 0
       }
     })
+
+    const weeklyByUser: Record<string, number[]> = {}
 
     pointsData?.forEach(p => {
       const t = totals[p.user_id]
@@ -128,11 +132,20 @@ export default function ArchivedCompetitionPage() {
 
       if (breakdown?.team?.includes('home_win')) t.home_wins += 1
       if (breakdown?.team?.includes('away_win')) t.away_wins += 1
+
+      if (!weeklyByUser[p.user_id]) weeklyByUser[p.user_id] = []
+      weeklyByUser[p.user_id].push(p.total_points ?? 0)
+    })
+
+    Object.values(totals).forEach(t => {
+      const weekly = weeklyByUser[t.user_id] ?? []
+      t.best_gameweek_score = weekly.length > 0 ? Math.max(...weekly) : 0
     })
 
     const rankedList = Object.values(totals).sort((a, b) => {
       if (b.total_points !== a.total_points) return b.total_points - a.total_points
       if (b.points_without_banker !== a.points_without_banker) return b.points_without_banker - a.points_without_banker
+      if (b.best_gameweek_score !== a.best_gameweek_score) return b.best_gameweek_score - a.best_gameweek_score
       if (b.away_wins !== a.away_wins) return b.away_wins - a.away_wins
       return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime()
     })

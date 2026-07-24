@@ -22,6 +22,7 @@ type RankedPlayer = {
   points_without_banker: number
   goals: number
   weekly_points: number[]
+  best_gameweek_score: number
 }
 
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
@@ -271,7 +272,8 @@ export default function LeaderboardPage() {
         total_points: 0,
         points_without_banker: 0,
         goals: 0,
-        weekly_points: []
+        weekly_points: [],
+        best_gameweek_score: 0
       }
     })
 
@@ -307,9 +309,20 @@ export default function LeaderboardPage() {
       if (gwNum) t.weekly_points[gwNum] = p.total_points ?? 0
     })
 
+    // Tiebreaker #3: best single gameweek score, banker included — already
+    // exactly what weekly_points holds (the final, banker-doubled total),
+    // so no separate tracking needed. weekly_points is sparse (indexed by
+    // gameweek number, gaps for gameweeks with no pick yet), so filter
+    // those out before taking the max.
+    Object.values(totals).forEach(t => {
+      const scored = t.weekly_points.filter(v => v !== undefined)
+      t.best_gameweek_score = scored.length > 0 ? Math.max(...scored) : 0
+    })
+
     const rankedList = Object.values(totals).sort((a, b) => {
       if (b.total_points !== a.total_points) return b.total_points - a.total_points
       if (b.points_without_banker !== a.points_without_banker) return b.points_without_banker - a.points_without_banker
+      if (b.best_gameweek_score !== a.best_gameweek_score) return b.best_gameweek_score - a.best_gameweek_score
       if (b.away_wins !== a.away_wins) return b.away_wins - a.away_wins
       if (b.goals !== a.goals) return b.goals - a.goals
       return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime()
@@ -362,6 +375,42 @@ export default function LeaderboardPage() {
       else break
     }
     return streak >= 3 ? streak : null
+  }
+
+  type GwRow =
+    | { kind: 'run'; from: number; to: number; label: string }
+    | { kind: 'gw'; gw: { id: string; number: number; deadline: string } }
+
+  // Collapses consecutive gameweeks with genuinely nothing to show (no pick
+  // at all yet, same "not yet due"/"no pick" status) into a single row —
+  // with 19+ gameweeks in a season, most of a player's history is blank
+  // rows for a long stretch, and that shouldn't cost 19 lines of table.
+  function buildGwRows(playerId: string): GwRow[] {
+    const rows: GwRow[] = []
+    let run: { from: number; to: number; label: string } | null = null
+
+    function flush() {
+      if (run) rows.push({ kind: 'run', ...run })
+      run = null
+    }
+
+    allGameweeks.forEach(gw => {
+      const d = pickDetails[playerId]?.find(pd => pd.gw === gw.number)
+      if (!d) {
+        const label = new Date() > new Date(gw.deadline) ? 'No pick' : 'Not yet due'
+        if (run && run.label === label) {
+          run.to = gw.number
+        } else {
+          flush()
+          run = { from: gw.number, to: gw.number, label }
+        }
+      } else {
+        flush()
+        rows.push({ kind: 'gw', gw })
+      }
+    })
+    flush()
+    return rows
   }
 
   function getTeamsWithAvailability(userId: string) {
@@ -471,7 +520,7 @@ export default function LeaderboardPage() {
                       {expandedUser === player.user_id && (
                         <tr>
                           <td colSpan={8} className="bg-black/20 px-1.5 sm:px-3 py-3">
-                            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-white/10">
+                            <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-white/10 flex-wrap">
                               <KitBadge
                                 pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
                                 colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
@@ -481,6 +530,10 @@ export default function LeaderboardPage() {
                                 size={40}
                                 iconTextClass="text-base sm:text-xl"
                               />
+                              <div className="text-right">
+                                <p className="text-[9px] uppercase tracking-widest text-[#F5ECD9]/40 font-bold">Best Gameweek (tiebreaker #3)</p>
+                                <p className="text-sm font-bold" style={{ color: '#D9A441' }}>{player.best_gameweek_score} pts</p>
+                              </div>
                             </div>
                             {allGameweeks.length === 0 ? (
                               <p className="text-[#F5ECD9]/40 mb-3" style={{ fontSize: '10px' }}>No picks yet.</p>
@@ -499,19 +552,30 @@ export default function LeaderboardPage() {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {allGameweeks.map(gw => {
-                                    const d = pickDetails[player.user_id]?.find(pd => pd.gw === gw.number)
-                                    const deadlinePassed = new Date() > new Date(gw.deadline)
-                                    const isOwnRow = user?.id === player.user_id
-                                    if (!d) {
+                                  {buildGwRows(player.user_id).map(row => {
+                                    if (row.kind === 'run') {
+                                      if (row.from === row.to) {
+                                        return (
+                                          <tr key={`gw-${row.from}`} className="border-b border-white/5 last:border-0 text-[#F5ECD9]/30">
+                                            <td className="py-1 pr-1 font-bold">{row.from}</td>
+                                            <td className="py-1 pr-1 uppercase" colSpan={6}>{row.label}</td>
+                                            <td className="py-1 text-right font-bold">—</td>
+                                          </tr>
+                                        )
+                                      }
                                       return (
-                                        <tr key={gw.id} className="border-b border-white/5 last:border-0 text-[#F5ECD9]/30">
-                                          <td className="py-1 pr-1 font-bold">{gw.number}</td>
-                                          <td className="py-1 pr-1 uppercase" colSpan={6}>{!deadlinePassed ? 'Not yet due' : 'No pick'}</td>
+                                        <tr key={`run-${row.from}-${row.to}`} className="border-b border-white/5 last:border-0 text-[#F5ECD9]/20">
+                                          <td className="py-1 pr-1 font-bold" colSpan={7}>
+                                            GW {row.from}&ndash;{row.to} <span className="normal-case text-[#F5ECD9]/30">({row.to - row.from + 1} gameweeks)</span> &mdash; {row.label}
+                                          </td>
                                           <td className="py-1 text-right font-bold">—</td>
                                         </tr>
                                       )
                                     }
+                                    const gw = row.gw
+                                    const d = pickDetails[player.user_id]?.find(pd => pd.gw === gw.number)!
+                                    const deadlinePassed = new Date() > new Date(gw.deadline)
+                                    const isOwnRow = user?.id === player.user_id
                                     // Someone else's real pick, before their deadline's passed — show that
                                     // they've picked, never what they picked. Only the viewer's own row
                                     // (isOwnRow) or a gameweek whose deadline has passed shows the detail.
