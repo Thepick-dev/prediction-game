@@ -16,7 +16,11 @@ interface HeroPageProps {
 // (see docs/SEASON-GUIDE.md) — until then it stays 0 so every page that
 // wants a photo safely falls back to the plain gradient instead of
 // requesting a file that doesn't exist yet.
-const TOTAL_HEROES = 0
+// Typed explicitly as `number` — as a bare `const`, TypeScript narrows this
+// to whatever literal value it's currently set to (e.g. the type `1`), which
+// then makes the `=== 0` check below a compile error every time this isn't
+// literally zero.
+const TOTAL_HEROES: number = 1
 
 export default function HeroPage({ children, wide = false, noImage = false, heroOverride }: HeroPageProps) {
   const [showCard, setShowCard] = useState(false)
