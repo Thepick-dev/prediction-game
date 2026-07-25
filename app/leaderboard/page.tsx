@@ -72,6 +72,7 @@ export default function LeaderboardPage() {
   const [usedTeamsByPlayer, setUsedTeamsByPlayer] = useState<Record<string, Record<number, number>>>({})
   const [doubleUseByPlayer, setDoubleUseByPlayer] = useState<Record<string, number[]>>({})
   const [avgByGw, setAvgByGw] = useState<Record<number, number>>({})
+  const [submittedKeys, setSubmittedKeys] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [showShare, setShowShare] = useState(false)
 
@@ -97,7 +98,7 @@ export default function LeaderboardPage() {
     if (!comp) { setLoading(false); return }
     setCompetition(comp)
 
-    const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: picks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }, { data: fixtures }] = await Promise.all([
+    const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: picks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }, { data: fixtures }, { data: submissions }] = await Promise.all([
       supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id).eq('removed', false),
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
@@ -107,7 +108,13 @@ export default function LeaderboardPage() {
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id),
       supabase.from('match_events').select('player_id, event_type, fixture_id'),
       supabase.from('tier_draft_picks').select('user_id, tier1_team_id, tier2_team_id, tier3_team_id').eq('competition_id', comp.id),
-      supabase.from('fixtures').select('id, gameweek_id')
+      supabase.from('fixtures').select('id, gameweek_id'),
+      // A separate, always-readable view (never the raw `picks` row) — the
+      // database now hides another user's actual pre-deadline selection
+      // entirely, so this is the only way left to know THAT they've picked,
+      // which is what lets the row below still say "Picked — hidden until
+      // deadline" instead of misreading a hidden pick as "Not yet due".
+      supabase.from('pick_submission_status').select('user_id, gameweek_id').eq('competition_id', comp.id)
     ])
 
     // Kept as its own request, deliberately separate from the profiles query
@@ -143,6 +150,8 @@ export default function LeaderboardPage() {
     const gwMap: Record<string, number> = {}
     gameweeks?.forEach(g => { gwMap[g.id] = g.number })
     setAllGameweeks((gameweeks ?? []).slice().sort((a, b) => a.number - b.number))
+
+    setSubmittedKeys(new Set((submissions ?? []).map(s => `${s.user_id}-${s.gameweek_id}`)))
 
     const pointsByPickId: Record<string, any> = {}
     pointsData?.forEach(p => { pointsByPickId[p.pick_id] = p })
@@ -380,6 +389,7 @@ export default function LeaderboardPage() {
   type GwRow =
     | { kind: 'run'; from: number; to: number; label: string }
     | { kind: 'gw'; gw: { id: string; number: number; deadline: string } }
+    | { kind: 'hidden'; gw: { id: string; number: number; deadline: string } }
 
   // Collapses consecutive gameweeks with genuinely nothing to show (no pick
   // at all yet, same "not yet due"/"no pick" status) into a single row —
@@ -397,7 +407,19 @@ export default function LeaderboardPage() {
     allGameweeks.forEach(gw => {
       const d = pickDetails[playerId]?.find(pd => pd.gw === gw.number)
       if (!d) {
-        const label = new Date() > new Date(gw.deadline) ? 'No pick' : 'Not yet due'
+        // Another user's pick for a still-open gameweek: the database no
+        // longer returns that row to us at all (RLS), so `d` is missing
+        // even though they've genuinely picked — the submission-status
+        // view is what tells us that's the case, so this doesn't get
+        // mistaken for "Not yet due".
+        const isOwnRow = user?.id === playerId
+        const deadlinePassed = new Date() > new Date(gw.deadline)
+        if (!isOwnRow && !deadlinePassed && submittedKeys.has(`${playerId}-${gw.id}`)) {
+          flush()
+          rows.push({ kind: 'hidden', gw })
+          return
+        }
+        const label = deadlinePassed ? 'No pick' : 'Not yet due'
         if (run && run.label === label) {
           run.to = gw.number
         } else {
@@ -574,13 +596,23 @@ export default function LeaderboardPage() {
                                         </tr>
                                       )
                                     }
+                                    if (row.kind === 'hidden') {
+                                      return (
+                                        <tr key={row.gw.id} className="border-b border-white/5 last:border-0 text-[#F5ECD9]/30">
+                                          <td className="py-1 pr-1 font-bold">{row.gw.number}</td>
+                                          <td className="py-1 pr-1 uppercase" colSpan={6}>Picked — hidden until deadline</td>
+                                          <td className="py-1 text-right font-bold">—</td>
+                                        </tr>
+                                      )
+                                    }
                                     const gw = row.gw
                                     const d = pickDetails[player.user_id]?.find(pd => pd.gw === gw.number)!
                                     const deadlinePassed = new Date() > new Date(gw.deadline)
                                     const isOwnRow = user?.id === player.user_id
-                                    // Someone else's real pick, before their deadline's passed — show that
-                                    // they've picked, never what they picked. Only the viewer's own row
-                                    // (isOwnRow) or a gameweek whose deadline has passed shows the detail.
+                                    // This only fires for an ADMIN viewer, who (per the RLS policy on
+                                    // `picks`) can still see the raw row even before deadline — everyone
+                                    // else never gets this far for someone else's still-open pick, since
+                                    // buildGwRows already routed that case to the 'hidden' branch above.
                                     if (!isOwnRow && !deadlinePassed) {
                                       return (
                                         <tr key={gw.id} className="border-b border-white/5 last:border-0 text-[#F5ECD9]/30">
