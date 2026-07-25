@@ -98,7 +98,7 @@ export default function LeaderboardPage() {
     if (!comp) { setLoading(false); return }
     setCompetition(comp)
 
-    const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: picks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }, { data: fixtures }, { data: submissions }] = await Promise.all([
+    const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: rawPicks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }, { data: fixtures }, { data: submissions }] = await Promise.all([
       supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id).eq('removed', false),
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
@@ -163,8 +163,22 @@ export default function LeaderboardPage() {
     })
     setDoubleUseByPlayer(doubleUseMap)
 
-    // Fetch provisional autopicks for any gameweek past deadline but not yet scored.
     const now = new Date()
+
+    // An admin session can read every row here (the RLS bypass on `picks`
+    // exists for the dedicated admin tooling — picks-log, edit-pick,
+    // print-grid, summary). The leaderboard isn't admin tooling, so it
+    // deliberately throws that extra visibility away before it reaches
+    // any component state: an admin browsing the leaderboard should see
+    // exactly what any other player sees, with full detail confined to
+    // the admin section proper.
+    const gwDeadlineById: Record<string, string> = {}
+    gameweeks?.forEach(g => { gwDeadlineById[g.id] = g.deadline })
+    const picks = (rawPicks ?? []).filter(p =>
+      p.user_id === user?.id || new Date(gwDeadlineById[p.gameweek_id]) < now
+    )
+
+    // Fetch provisional autopicks for any gameweek past deadline but not yet scored.
     const previewGameweeks = (gameweeks ?? []).filter(g =>
       new Date(g.deadline) < now && g.status !== 'completed'
     )
@@ -607,21 +621,6 @@ export default function LeaderboardPage() {
                                     }
                                     const gw = row.gw
                                     const d = pickDetails[player.user_id]?.find(pd => pd.gw === gw.number)!
-                                    const deadlinePassed = new Date() > new Date(gw.deadline)
-                                    const isOwnRow = user?.id === player.user_id
-                                    // This only fires for an ADMIN viewer, who (per the RLS policy on
-                                    // `picks`) can still see the raw row even before deadline — everyone
-                                    // else never gets this far for someone else's still-open pick, since
-                                    // buildGwRows already routed that case to the 'hidden' branch above.
-                                    if (!isOwnRow && !deadlinePassed) {
-                                      return (
-                                        <tr key={gw.id} className="border-b border-white/5 last:border-0 text-[#F5ECD9]/30">
-                                          <td className="py-1 pr-1 font-bold">{gw.number}</td>
-                                          <td className="py-1 pr-1 uppercase" colSpan={6}>Picked — hidden until deadline</td>
-                                          <td className="py-1 text-right font-bold">—</td>
-                                        </tr>
-                                      )
-                                    }
                                     return (
                                       <tr key={gw.id} className="border-b border-white/5 last:border-0">
                                         <td className="py-1 pr-1 font-bold">{d.gw}</td>
