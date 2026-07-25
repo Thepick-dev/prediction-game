@@ -86,17 +86,10 @@ export function computePickScores(
   const fixtureById: Record<number, Fixture> = {}
   fixtures.forEach(f => { fixtureById[f.id] = f })
 
-  const fixtureByTeamId: Record<number, Fixture> = {}
-  fixtures.forEach(f => {
-    if (f.home_team_id) fixtureByTeamId[f.home_team_id] = f
-    if (f.away_team_id) fixtureByTeamId[f.away_team_id] = f
-  })
-
   // A team can have more than one fixture in the same gameweek (a genuine
-  // "double gameweek" from rearranged fixtures) — unlike fixtureByTeamId
-  // above (which only keeps the last one seen, fine for the team pick since
-  // that always carries its own fixture_id), player scoring needs to know
-  // about ALL of a team's fixtures this gameweek to detect the ambiguous case.
+  // "double gameweek" from rearranged fixtures) — both team and player
+  // scoring need to know about ALL of a team's fixtures this gameweek to
+  // detect that ambiguous case, not just the last one seen.
   const fixturesByTeamId: Record<number, Fixture[]> = {}
   fixtures.forEach(f => {
     if (f.home_team_id) (fixturesByTeamId[f.home_team_id] ??= []).push(f)
@@ -121,9 +114,26 @@ export function computePickScores(
   type TeamPointsDetail = { points: number; breakdown: string; detail: PickScoreRow['breakdown']['team_detail'] }
 
   function getTeamPoints(teamId: number, fixtureId: number | null): TeamPointsDetail {
-    // Prefer the exact fixture the pick was made against. Fall back to team-based
-    // lookup only for old picks made before fixture_id existed.
-    const fixture = fixtureId ? fixtureById[fixtureId] : fixtureByTeamId[teamId]
+    // Prefer the exact fixture the pick was made against (always set for a
+    // real manual pick — the Picks page ties team selection to a specific
+    // fixture row). Without one — an autopick, or a pick made before
+    // fixture_id existed — fall back to the team's single fixture this
+    // gameweek. If the team has TWO (a double gameweek) and nothing was
+    // nominated, that's genuinely ambiguous — same principle as an
+    // unnominated double-gameweek player: score zero rather than
+    // arbitrarily picking whichever fixture happened to load first.
+    const teamFixtures = fixturesByTeamId[teamId] ?? []
+    const fixture = fixtureId
+      ? fixtureById[fixtureId]
+      : teamFixtures.length <= 1 ? teamFixtures[0] : undefined
+
+    if (fixtureId == null && teamFixtures.length >= 2) {
+      return {
+        points: 0,
+        breakdown: 'Double gameweek, no fixture nominated',
+        detail: { opponent_team_id: null, team_quartile: quartileMap[teamId] ?? 2, opponent_quartile: 2, quartile_diff: 0, result_type: 'double_gameweek_unresolved', team_score: null, opponent_score: null, is_home: null }
+      }
+    }
 
     if (!fixture) {
       return {

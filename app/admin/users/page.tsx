@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { createAdminSupabaseClient } from '../../lib/supabase-admin'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
 
@@ -23,7 +24,10 @@ export default async function UsersPage({
   const kitExtrasMap: Record<string, { kit_stars: number; kit_earths: number }> = {}
   kitExtras?.forEach(k => { kitExtrasMap[k.id] = { kit_stars: k.kit_stars ?? 0, kit_earths: k.kit_earths ?? 0 } })
 
-  const { data: authUsers } = await supabase.auth.admin.listUsers()
+  // auth.admin.* endpoints need the service role key — the regular client
+  // above (anon key + cookies) doesn't have permission to call them, which
+  // is why this silently returned nothing before.
+  const { data: authUsers } = await createAdminSupabaseClient().auth.admin.listUsers()
 
   const emailMap: Record<string, string> = {}
   authUsers?.users?.forEach(u => { emailMap[u.id] = u.email ?? '' })
@@ -70,9 +74,10 @@ export default async function UsersPage({
 
   async function deleteUser(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    // Same reason as listUsers above — this needs the service role client,
+    // not the regular per-request one, or it fails.
     const id = formData.get('id') as string
-    const { error } = await supabase.auth.admin.deleteUser(id)
+    const { error } = await createAdminSupabaseClient().auth.admin.deleteUser(id)
     if (error) {
       redirect(`/admin/users?error=${encodeURIComponent(error.message)}`)
     }

@@ -22,6 +22,11 @@ interface Props {
 }
 
 export default function FixtureManager({ teamMap, gameweeks }: Props) {
+  const [viewGameweek, setViewGameweek] = useState('')
+  const [gwFixtures, setGwFixtures] = useState<Fixture[]>([])
+  const [gwLoading, setGwLoading] = useState(false)
+  const [gwMessage, setGwMessage] = useState('')
+
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [fixtures, setFixtures] = useState<Fixture[]>([])
@@ -57,6 +62,42 @@ export default function FixtureManager({ teamMap, gameweeks }: Props) {
       }
     }
     setLoading(false)
+  }
+
+  async function loadGwFixtures(gwId: string) {
+    setViewGameweek(gwId)
+    setGwMessage('')
+    if (!gwId) { setGwFixtures([]); return }
+    setGwLoading(true)
+    const { data, error } = await supabase
+      .from('fixtures')
+      .select('id, home_team_id, away_team_id, kickoff_time, status, home_score, away_score, gameweek_id')
+      .eq('gameweek_id', gwId)
+      .order('kickoff_time', { ascending: true })
+    if (error) {
+      setGwMessage('Error: ' + error.message)
+    } else {
+      setGwFixtures(data ?? [])
+    }
+    setGwLoading(false)
+  }
+
+  // Unassigns rather than deletes — this is real synced match data, so
+  // "remove from gameweek" means it goes back to the unassigned pool
+  // (visible further down the page) ready to be reassigned, not gone.
+  async function removeFromGameweek(fixtureId: number) {
+    setGwLoading(true)
+    const { error } = await supabase
+      .from('fixtures')
+      .update({ gameweek_id: null })
+      .eq('id', fixtureId)
+    if (error) {
+      setGwMessage('Error: ' + error.message)
+    } else {
+      setGwFixtures(prev => prev.filter(f => f.id !== fixtureId))
+      setGwMessage('Removed from gameweek — it\'s back in the unassigned list below.')
+    }
+    setGwLoading(false)
   }
 
   function toggleSelect(id: number) {
@@ -103,6 +144,67 @@ export default function FixtureManager({ teamMap, gameweeks }: Props) {
   }
 
   return (
+    <>
+    <div className="bg-white border rounded-lg p-6 mb-8">
+      <h2 className="font-bold mb-4">View Fixtures by Gameweek</h2>
+      <p className="text-sm text-gray-500 mb-4">
+        Browse what&apos;s currently assigned to a gameweek, and remove any that shouldn&apos;t be there — removing
+        sends it back to the unassigned list at the bottom of this page rather than deleting it.
+      </p>
+
+      <select
+        value={viewGameweek}
+        onChange={e => loadGwFixtures(e.target.value)}
+        className="w-full max-w-xs border rounded px-3 py-2 text-sm mb-4"
+      >
+        <option value="">Select a gameweek</option>
+        {gameweeks.map(gw => (
+          <option key={gw.id} value={gw.id}>GW{gw.number} — {gw.competitionName}</option>
+        ))}
+      </select>
+
+      {gwMessage && (
+        <p className={`text-sm mb-4 ${gwMessage.startsWith('Error') ? 'text-red-600' : 'text-green-600'}`}>{gwMessage}</p>
+      )}
+
+      {viewGameweek && !gwLoading && gwFixtures.length === 0 && !gwMessage && (
+        <p className="text-sm text-gray-500">No fixtures assigned to this gameweek yet.</p>
+      )}
+
+      {gwFixtures.length > 0 && (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-gray-500 border-b">
+              <th className="pb-2">Kickoff</th>
+              <th className="pb-2">Match</th>
+              <th className="pb-2">Status</th>
+              <th className="pb-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {gwFixtures.map(f => (
+              <tr key={f.id} className="border-b last:border-0">
+                <td className="py-2 text-xs text-gray-500">
+                  {new Date(f.kickoff_time).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}
+                </td>
+                <td className="py-2">{teamMap[f.home_team_id]} vs {teamMap[f.away_team_id]}</td>
+                <td className="py-2 text-xs">{f.status}</td>
+                <td className="py-2 text-right">
+                  <button
+                    onClick={() => removeFromGameweek(f.id)}
+                    disabled={gwLoading}
+                    className="text-xs border border-red-300 text-red-600 rounded px-2 py-1 hover:bg-red-50"
+                  >
+                    Remove from gameweek
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+
     <div className="bg-white border rounded-lg p-6 mb-8">
       <h2 className="font-bold mb-4">Find Fixtures by Date Range</h2>
       <p className="text-sm text-gray-500 mb-4">
@@ -206,5 +308,6 @@ export default function FixtureManager({ teamMap, gameweeks }: Props) {
         </>
       )}
     </div>
+    </>
   )
 }

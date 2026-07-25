@@ -479,6 +479,7 @@ export default function LeaderboardPage() {
                   <th className="py-2 px-1 sm:px-2 uppercase tracking-wider">Player</th>
                   <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider">HW</th>
                   <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider">AW</th>
+                  <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" title="Best single-gameweek score (tiebreaker #3)">Best</th>
                   <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Tm</th>
                   <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Pl</th>
                   <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Bk</th>
@@ -512,6 +513,7 @@ export default function LeaderboardPage() {
                         </td>
                         <td className="py-2 px-1 sm:px-2 text-center text-[#F5ECD9]/60">{player.home_wins}</td>
                         <td className="py-2 px-1 sm:px-2 text-center text-[#F5ECD9]/60">{player.away_wins}</td>
+                        <td className="py-2 px-1 sm:px-2 text-right text-[#F5ECD9]/60">{player.best_gameweek_score}</td>
                         <td className="py-2 px-1 sm:px-2 text-right text-[#F5ECD9]/60">{Math.round(player.team_points)}</td>
                         <td className="py-2 px-1 sm:px-2 text-right text-[#F5ECD9]/60">{Math.round(player.player_points)}</td>
                         <td className="py-2 px-1 sm:px-2 text-right text-[#F5ECD9]/60">{Math.round(player.banker_points)}</td>
@@ -519,7 +521,7 @@ export default function LeaderboardPage() {
                       </tr>
                       {expandedUser === player.user_id && (
                         <tr>
-                          <td colSpan={8} className="bg-black/20 px-1.5 sm:px-3 py-3">
+                          <td colSpan={9} className="bg-black/20 px-1.5 sm:px-3 py-3">
                             <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-white/10 flex-wrap">
                               <KitBadge
                                 pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
@@ -673,7 +675,7 @@ export default function LeaderboardPage() {
                 })}
                 {ranked.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-[#F5ECD9]/40 uppercase tracking-wider" style={{ fontSize: '11px' }}>No players yet.</td>
+                    <td colSpan={9} className="py-8 text-center text-[#F5ECD9]/40 uppercase tracking-wider" style={{ fontSize: '11px' }}>No players yet.</td>
                   </tr>
                 )}
               </tbody>

@@ -26,12 +26,23 @@ export default function LoginPage() {
   async function handleMagicLinkLogin() {
     setLoading(true)
     setError('')
+    // shouldCreateUser: false — this is the LOG IN tab, for people who
+    // already have an account. Without this, Supabase silently creates a
+    // brand new account for any email typed here, with no username set at
+    // all, completely bypassing the Join flow's required username/email.
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback`, shouldCreateUser: false },
     })
-    if (error) setError(error.message)
-    else setSubmitted(true)
+    if (error) {
+      setError(
+        error.message.toLowerCase().includes('signup')
+          ? 'No account found with that email — use Join to create one.'
+          : error.message
+      )
+    } else {
+      setSubmitted(true)
+    }
     setLoading(false)
   }
 

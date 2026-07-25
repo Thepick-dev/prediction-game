@@ -190,3 +190,27 @@ describe('computePickScores — double gameweeks (a player\'s team plays twice)'
     expect(row.player2_points).toBe(6)
   })
 })
+
+describe('computePickScores — double gameweeks (a team plays twice)', () => {
+  // Team 1 plays twice: a home win in fixture 100, an away win in fixture
+  // 200. A manual pick always carries its own fixture_id (set by the Picks
+  // page), so this is really about autopick, which never nominates one.
+  const quartileMap = { 1: 2, 2: 2, 3: 2 }
+  const fixtureA = makeFixture({ id: 100, home_team_id: 1, away_team_id: 2, home_score: 1, away_score: 0 })
+  const fixtureB = makeFixture({ id: 200, home_team_id: 3, away_team_id: 1, home_score: 0, away_score: 2 })
+
+  it('scores zero for the team when it has a double gameweek and no fixture was nominated', () => {
+    const pick = makePick({ team_id: 1, fixture_id: null })
+    const [row] = computePickScores('gw-1', [pick], [fixtureA, fixtureB], quartileMap, homeWinScoringRules, [], [])
+    expect(row.team_points).toBe(0)
+    expect(row.breakdown.team_detail.result_type).toBe('double_gameweek_unresolved')
+  })
+
+  it('scores the exact nominated fixture, not the other one, when the team has a double gameweek', () => {
+    const rules: ScoringRule[] = [...homeWinScoringRules, { result_type: 'away_win', quartile_diff: 0, points: 40 }]
+    const pick = makePick({ team_id: 1, fixture_id: 200 })
+    const [row] = computePickScores('gw-1', [pick], [fixtureA, fixtureB], quartileMap, rules, [], [])
+    expect(row.breakdown.team_detail.result_type).toBe('away_win')
+    expect(row.team_points).toBe(40) // fixture 200's away win — not fixture 100's home_win rate
+  })
+})
