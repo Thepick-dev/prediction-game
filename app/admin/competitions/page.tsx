@@ -2,12 +2,54 @@ import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
 
-export default async function CompetitionsPage() {
+export default async function CompetitionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ comp?: string }>
+}) {
+  const { comp: compParam } = await searchParams
   const supabase = await createServerSupabaseClient()
   const { data: competitions } = await supabase
     .from('competitions')
     .select('*')
     .order('created_at', { ascending: false })
+
+  // Default the entries view to whichever competition is active, or just
+  // the most recent one if none is — a fresh visit to this page should
+  // show something useful, not an empty picker.
+  const selectedCompId = compParam
+    ?? competitions?.find(c => c.status === 'active')?.id
+    ?? competitions?.[0]?.id
+    ?? null
+
+  const [{ data: entries }, { data: profiles }] = await Promise.all([
+    selectedCompId
+      ? supabase
+          .from('competition_entries')
+          .select('id, user_id, joined_at, removed, removed_at')
+          .eq('competition_id', selectedCompId)
+          .order('joined_at', { ascending: true })
+      : Promise.resolve({ data: null }),
+    supabase.from('profiles').select('id, display_name'),
+  ])
+
+  const nameByUserId: Record<string, string> = {}
+  profiles?.forEach(p => { nameByUserId[p.id] = p.display_name ?? 'Unknown' })
+
+  async function toggleEntryRemoved(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    const entryId = formData.get('entry_id') as string
+    const nextRemoved = formData.get('next_removed') === 'true'
+    const compId = formData.get('comp_id') as string
+
+    await supabase
+      .from('competition_entries')
+      .update({ removed: nextRemoved, removed_at: nextRemoved ? new Date().toISOString() : null })
+      .eq('id', entryId)
+
+    redirect(`/admin/competitions?comp=${compId}`)
+  }
 
   async function createCompetition(formData: FormData) {
     'use server'
@@ -165,6 +207,12 @@ export default async function CompetitionsPage() {
                   <td className="py-2">{comp.end_date ?? '—'}</td>
                   <td className="py-2">
                     <div className="flex gap-2 flex-wrap items-center">
+                      <a
+                        href={`/admin/competitions?comp=${comp.id}#entries`}
+                        className={`text-xs rounded px-2 py-1 ${selectedCompId === comp.id ? 'bg-black text-white' : 'border'}`}
+                      >
+                        Entries
+                      </a>
                       {comp.status !== 'active' && (
                         <form action={activateCompetition}>
                           <input type="hidden" name="id" value={comp.id} />
@@ -196,6 +244,61 @@ export default async function CompetitionsPage() {
           <p className="text-gray-500 text-sm">No competitions yet.</p>
         )}
       </div>
+
+      {selectedCompId && (
+        <div id="entries" className="bg-white border rounded-lg p-6 mt-8">
+          <h2 className="font-bold mb-1">
+            Entries — {competitions?.find(c => c.id === selectedCompId)?.name ?? 'Competition'}
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Removing someone here only takes them out of this one competition — their account, login,
+            and any other competition they&apos;re in are untouched. They can&apos;t submit new picks
+            for this competition while removed, and they drop off its leaderboard. Re-add at any time.
+          </p>
+          {entries && entries.length > 0 ? (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500 border-b">
+                  <th className="pb-2">Player</th>
+                  <th className="pb-2">Joined</th>
+                  <th className="pb-2">Status</th>
+                  <th className="pb-2">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map(entry => (
+                  <tr key={entry.id} className="border-b last:border-0">
+                    <td className="py-2 font-medium">{nameByUserId[entry.user_id] ?? 'Unknown'}</td>
+                    <td className="py-2 text-gray-500">
+                      {new Date(entry.joined_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </td>
+                    <td className="py-2">
+                      <span className={`px-2 py-0.5 rounded text-xs ${entry.removed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                        {entry.removed ? 'Removed' : 'Active'}
+                      </span>
+                    </td>
+                    <td className="py-2">
+                      <form action={toggleEntryRemoved}>
+                        <input type="hidden" name="entry_id" value={entry.id} />
+                        <input type="hidden" name="comp_id" value={selectedCompId} />
+                        <input type="hidden" name="next_removed" value={(!entry.removed).toString()} />
+                        <button
+                          type="submit"
+                          className={`text-xs rounded px-2 py-1 ${entry.removed ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
+                        >
+                          {entry.removed ? 'Re-add' : 'Remove'}
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="text-gray-500 text-sm">No one has entered this competition yet.</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
