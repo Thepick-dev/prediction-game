@@ -98,10 +98,16 @@ export default async function RulesPage() {
                 has run too low for you specifically late in a season, it falls back to any available player rather
                 than skip your pick entirely.)
               </p>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
                 Autopicks are marked clearly wherever they appear, and a banker is never applied to one. What you see
                 previewed before the deadline is exactly what gets saved once it passes — it&apos;s fully determined
                 the moment the deadline arrives, never a guess that might later change.
+              </p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">
+                If an autopicked team or player has a double gameweek, the pick defaults to whichever of the two
+                matches is against the higher-placed opponent — the tougher game, in keeping with the rest of the
+                scoring rewarding an upset. This only applies to autopick: if you pick a double-gameweek team or
+                player yourself, you choose the match it&apos;s for.
               </p>
             </section>
 

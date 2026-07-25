@@ -93,6 +93,73 @@ describe('deriveAutopick — player value threshold', () => {
   })
 })
 
+describe('deriveAutopick — double gameweek fixture resolution', () => {
+  it("resolves the selected team's fixture to the one against the higher-placed opponent", async () => {
+    const supabase = fakeFor({
+      teams: [
+        { id: 1, name: 'Team A' },
+        { id: 3, name: 'Team C' }, // worst-placed (20th) — gets selected
+        { id: 4, name: 'Team D' }, // top of the league
+      ],
+      team_league_positions: [
+        { team_id: 3, position: 20, recorded_at: '2026-05-03' },
+        { team_id: 1, position: 10, recorded_at: '2026-05-03' },
+        { team_id: 4, position: 1, recorded_at: '2026-05-03' },
+      ],
+      fixtures: [
+        { id: 900, home_team_id: 3, away_team_id: 1 }, // vs 10th place
+        { id: 901, home_team_id: 3, away_team_id: 4 }, // vs 1st place — the tougher game
+      ],
+    })
+    const result = await deriveAutopick(supabase, 'user-1', 'gw-1', 'comp-1')
+    expect(result?.team_id).toBe(3)
+    expect(result?.fixture_id).toBe(901)
+  })
+
+  it('resolves to the only fixture available when the team just has one this gameweek', async () => {
+    const supabase = fakeFor({
+      fixtures: [{ id: 900, home_team_id: 3, away_team_id: 1 }],
+    })
+    const result = await deriveAutopick(supabase, 'user-1', 'gw-1', 'comp-1')
+    expect(result?.fixture_id).toBe(900)
+  })
+
+  it('resolves null when the selected team has no fixture in this gameweek at all', async () => {
+    const supabase = fakeFor({ fixtures: [] })
+    const result = await deriveAutopick(supabase, 'user-1', 'gw-1', 'comp-1')
+    expect(result?.fixture_id).toBeNull()
+  })
+
+  it("resolves a picked player's own double gameweek independently, the same way", async () => {
+    // Both candidate players are on team 3 (the only players supplied), so
+    // whichever the shuffle picks, they're guaranteed to face team 3's own
+    // double gameweek — same rule, applied per-player rather than per-pick.
+    const supabase = fakeFor({
+      teams: [
+        { id: 1, name: 'Team A' },
+        { id: 3, name: 'Team C' },
+        { id: 4, name: 'Team D' },
+      ],
+      team_league_positions: [
+        { team_id: 3, position: 20, recorded_at: '2026-05-03' },
+        { team_id: 1, position: 10, recorded_at: '2026-05-03' },
+        { team_id: 4, position: 1, recorded_at: '2026-05-03' },
+      ],
+      fixtures: [
+        { id: 900, home_team_id: 3, away_team_id: 1 },
+        { id: 901, home_team_id: 3, away_team_id: 4 },
+      ],
+      players: [
+        { id: 201, name: 'Player X', team_id: 3, value: 8.0 },
+        { id: 202, name: 'Player Y', team_id: 3, value: 8.0 },
+      ],
+    })
+    const result = await deriveAutopick(supabase, 'user-1', 'gw-1', 'comp-1')
+    expect(result?.player1_fixture_id).toBe(901)
+    expect(result?.player2_fixture_id).toBe(901)
+  })
+})
+
 describe('deriveAutopick — edge cases', () => {
   it('returns null when there are no active teams at all', async () => {
     const supabase = fakeFor({ teams: [] })

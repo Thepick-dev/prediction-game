@@ -40,12 +40,13 @@ export default function ApproveArticlesPage() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('display_name, is_super_admin, is_admin')
+      .select('display_name, is_super_admin')
       .eq('id', authUser.id)
       .single()
 
     setDisplayName(profile?.display_name ?? '')
-    const canApprove = !!(profile?.is_super_admin || profile?.is_admin)
+    // Deliberately super-admin-only — see the same note on the News page.
+    const canApprove = !!profile?.is_super_admin
     setAllowed(canApprove)
     if (!canApprove) return
 
@@ -71,7 +72,7 @@ export default function ApproveArticlesPage() {
     setMessage('')
     const { error } = await supabase
       .from('dispatches')
-      .update({ approved: true, published: true, published_at: new Date().toISOString() })
+      .update({ approved: true, published: true, published_at: new Date().toISOString(), approved_by: user.id })
       .eq('id', d.id)
     if (error) setMessage('Error: ' + error.message)
     load()

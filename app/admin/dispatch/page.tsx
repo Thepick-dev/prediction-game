@@ -14,6 +14,7 @@ type Dispatch = {
 }
 
 export default function DispatchAdminPage() {
+  const [userId, setUserId] = useState<string | null>(null)
   const [dispatches, setDispatches] = useState<Dispatch[]>([])
   const [editing, setEditing] = useState<Dispatch | null>(null)
   const [title, setTitle] = useState('')
@@ -25,7 +26,10 @@ export default function DispatchAdminPage() {
 
   const supabase = createClient()
 
-  useEffect(() => { loadDispatches() }, [])
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
+    loadDispatches()
+  }, [])
 
   async function loadDispatches() {
     const { data } = await supabase.from('dispatches').select('*').order('created_at', { ascending: false })
@@ -69,9 +73,15 @@ export default function DispatchAdminPage() {
       published_at: publish ? new Date().toISOString() : null
     }
     if (editing) {
+      // Deliberately doesn't touch author_id on an edit — credit stays with
+      // whoever originally wrote it, even if a different admin tidies it up.
       await supabase.from('dispatches').update(data).eq('id', editing.id)
     } else {
-      await supabase.from('dispatches').insert(data)
+      // A directly-admin-posted article is still "written by" someone —
+      // approved is left at its default (false); this flow bypasses the
+      // separate approval step entirely since a full admin can already
+      // publish directly, same as before.
+      await supabase.from('dispatches').insert({ ...data, author_id: userId })
     }
     setMessage(publish ? 'Published' : 'Saved as draft')
     setSaving(false)

@@ -2,8 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type DerivedPick = {
   team_id: number
+  fixture_id: number | null
   player1_id: number
   player2_id: number
+  player1_fixture_id: number | null
+  player2_fixture_id: number | null
 }
 
 // Prefer recognisable, higher-value players for autopicks rather than
@@ -44,6 +47,35 @@ function seededShuffle<T>(array: T[], seed: number): T[] {
   return result
 }
 
+// When a team has a double gameweek, autopick can't leave it ambiguous like
+// an unnominated manual pick would (that scores zero, by design, for a human
+// who genuinely didn't choose) — autopick always has to produce a complete,
+// resolved pick. The rule: default to the fixture against the higher-placed
+// (better league position) of the two opponents — the tougher, more
+// prestigious match-up, consistent with the game's own "beating a stronger
+// side is worth more" philosophy. Ties (equal/unknown position) break on
+// fixture id, purely for determinism, not for any real reason.
+function pickFixtureAgainstHigherPlacedOpponent(
+  teamId: number,
+  fixturesByTeamId: Record<number, { id: number; opponentId: number }[]>,
+  latestPositions: Record<number, number>
+): number | null {
+  const teamFixtures = fixturesByTeamId[teamId] ?? []
+  if (teamFixtures.length === 0) return null
+  if (teamFixtures.length === 1) return teamFixtures[0].id
+
+  const sorted = [...teamFixtures].sort((a, b) => {
+    const posA = latestPositions[a.opponentId]
+    const posB = latestPositions[b.opponentId]
+    // Lower position number = higher placed = the tougher opponent to pick.
+    if (posA != null && posB != null) return posA - posB
+    if (posA != null) return -1
+    if (posB != null) return 1
+    return a.id - b.id
+  })
+  return sorted[0].id
+}
+
 /**
  * Derives a player's autopick deterministically. Writes nothing.
  * Same inputs always yield the same result, so the on-read preview and the
@@ -54,6 +86,9 @@ function seededShuffle<T>(array: T[], seed: number): T[] {
  *    used-team counts and double-use (tier) teams.
  *  - Players: two available players (used < 2 times each), preferring two from
  *    different teams, chosen via seeded shuffle.
+ *  - Double gameweeks (team or player's team playing twice): resolved against
+ *    the higher-placed of the two opponents — see
+ *    pickFixtureAgainstHigherPlacedOpponent above.
  */
 export async function deriveAutopick(
   supabase: SupabaseClient,
@@ -61,12 +96,13 @@ export async function deriveAutopick(
   gameweekId: string,
   competitionId: string
 ): Promise<DerivedPick | null> {
-  const [{ data: activeTeams }, { data: leaguePositions }, { data: allPlayers }, { data: userPicks }, { data: tierPicks }] = await Promise.all([
+  const [{ data: activeTeams }, { data: leaguePositions }, { data: allPlayers }, { data: userPicks }, { data: tierPicks }, { data: gwFixtures }] = await Promise.all([
     supabase.from('teams').select('id, name').eq('active', true),
     supabase.from('team_league_positions').select('team_id, position, recorded_at').order('recorded_at', { ascending: false }),
     supabase.from('players').select('id, name, team_id'),
     supabase.from('picks').select('team_id, player1_id, player2_id').eq('user_id', userId).eq('competition_id', competitionId),
     supabase.from('tier_draft_picks').select('tier1_team_id, tier2_team_id, tier3_team_id, tier4_team_id').eq('competition_id', competitionId).eq('user_id', userId).single(),
+    supabase.from('fixtures').select('id, home_team_id, away_team_id').eq('gameweek_id', gameweekId),
   ])
 
   // Kept as its own request, deliberately separate from the players query
@@ -87,6 +123,14 @@ export async function deriveAutopick(
       seen.add(lp.team_id)
       latestPositions[lp.team_id] = lp.position
     }
+  })
+
+  // Every fixture each team has this gameweek, with who they're playing —
+  // usually just one, occasionally two for a rearranged double gameweek.
+  const fixturesByTeamId: Record<number, { id: number; opponentId: number }[]> = {}
+  gwFixtures?.forEach(f => {
+    ;(fixturesByTeamId[f.home_team_id] ??= []).push({ id: f.id, opponentId: f.away_team_id })
+    ;(fixturesByTeamId[f.away_team_id] ??= []).push({ id: f.id, opponentId: f.home_team_id })
   })
 
   // Double-use teams from the CORRECT table (tier_draft_picks)
@@ -145,8 +189,11 @@ export async function deriveAutopick(
 
   return {
     team_id: selectedTeam.id,
+    fixture_id: pickFixtureAgainstHigherPlacedOpponent(selectedTeam.id, fixturesByTeamId, latestPositions),
     player1_id: player1.id,
     player2_id: player2.id,
+    player1_fixture_id: pickFixtureAgainstHigherPlacedOpponent(player1.team_id, fixturesByTeamId, latestPositions),
+    player2_fixture_id: pickFixtureAgainstHigherPlacedOpponent(player2.team_id, fixturesByTeamId, latestPositions),
   }
 }
 
@@ -205,8 +252,11 @@ export async function runAutopickForGameweek(supabase: SupabaseClient, gameweek_
         competition_id: gameweek.competition_id,
         gameweek_id,
         team_id: derived.team_id,
+        fixture_id: derived.fixture_id,
         player1_id: derived.player1_id,
         player2_id: derived.player2_id,
+        player1_fixture_id: derived.player1_fixture_id,
+        player2_fixture_id: derived.player2_fixture_id,
         is_banker: false,
         is_autopick: true
       })

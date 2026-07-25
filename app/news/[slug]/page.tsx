@@ -48,6 +48,20 @@ export default async function NewsPostPage({ params }: { params: Promise<{ slug:
 
   if (!post) notFound()
 
+  const byline: string[] = []
+  if (post.author_id || post.approved_by) {
+    const { data: bylineProfiles } = await supabase
+      .from('profiles')
+      .select('id, display_name')
+      .in('id', [post.author_id, post.approved_by].filter(Boolean))
+    const nameById: Record<string, string> = {}
+    bylineProfiles?.forEach(p => { nameById[p.id] = p.display_name ?? 'Unknown' })
+    if (post.author_id) byline.push(`By ${nameById[post.author_id] ?? 'Unknown'}`)
+    if (post.approved_by && post.approved_by !== post.author_id) {
+      byline.push(`Published by ${nameById[post.approved_by] ?? 'Unknown'}`)
+    }
+  }
+
   const paragraphs = post.content.split('\n\n').filter((p: string) => p.trim())
 
   return (
@@ -59,7 +73,10 @@ export default async function NewsPostPage({ params }: { params: Promise<{ slug:
               day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London'
             }) : ''}
           </p>
-          <h1 className="text-3xl font-bold mb-6" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>{post.title}</h1>
+          <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>{post.title}</h1>
+          <p className="text-xs text-[#F5ECD9]/50 mb-6 uppercase tracking-wider min-h-[1em]">
+            {byline.length > 0 ? byline.join(' · ') : ' '}
+          </p>
 
           <div className="bg-white/5 border border-white/10 rounded-lg p-6 space-y-4">
             {paragraphs.map((para: string, i: number) => (

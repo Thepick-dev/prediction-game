@@ -12,7 +12,10 @@ export default async function NewsListPage() {
     : { data: null }
 
   const canWrite = !!(profile?.can_post_news || profile?.is_admin)
-  const canApprove = !!(profile?.is_super_admin || profile?.is_admin)
+  // Deliberately super-admin-only, not admin-inclusive — approving articles
+  // is the one thing that distinguishes a Super Admin from a regular Admin,
+  // who otherwise has identical access everywhere else on the site.
+  const canApprove = !!profile?.is_super_admin
 
   let pendingCount = 0
   if (canApprove) {
@@ -26,9 +29,16 @@ export default async function NewsListPage() {
 
   const { data: posts } = await supabase
     .from('dispatches')
-    .select('slug, title, excerpt, published_at')
+    .select('slug, title, excerpt, published_at, author_id')
     .eq('published', true)
     .order('published_at', { ascending: false })
+
+  const authorIds = [...new Set((posts ?? []).map(p => p.author_id).filter(Boolean))]
+  const authorNames: Record<string, string> = {}
+  if (authorIds.length > 0) {
+    const { data: authorProfiles } = await supabase.from('profiles').select('id, display_name').in('id', authorIds)
+    authorProfiles?.forEach(p => { authorNames[p.id] = p.display_name ?? 'Unknown' })
+  }
 
   return (
     <Shell active="MATCHDAY PROGRAMME" user={user} displayName={profile?.display_name ?? undefined}>
@@ -76,6 +86,9 @@ export default async function NewsListPage() {
                     }) : ''}
                   </p>
                   <h2 className="text-lg font-bold mb-1" style={{ fontFamily: 'var(--font-heading), serif' }}>{post.title}</h2>
+                  {post.author_id && authorNames[post.author_id] && (
+                    <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/40 mb-1.5">By {authorNames[post.author_id]}</p>
+                  )}
                   {post.excerpt && (
                     <p className="text-sm text-[#F5ECD9]/70 leading-relaxed">{post.excerpt}</p>
                   )}
