@@ -91,15 +91,26 @@ The right-hand side (in quotes) must exactly match that club's **Short Name** as
 
 *Coventry, Hull and Ipswich's codes (`COV`, `HUL`, `IPS`) are already added for the 2026/27 season* — but FPL's own site hadn't switched over to the new season's team list yet when these were added, so they're a best-confidence guess, not yet confirmed against real data. After running Import Players once FPL updates, check the result message doesn't list any of the three under "unmapped teams" — if it does, the guessed code was wrong for that club and needs a one-line fix here.
 
-**3. Adding new hero background images.** The pool is currently empty (`TOTAL_HEROES = 0`) — every page just shows the plain dark background until this is done.
-1. Crop two versions of each new photo — a wide landscape one for desktop, a taller portrait one for mobile (they're shown with `background-size: cover`, so exact pixel dimensions aren't critical, just the general shape). Photopea or any image editor works fine.
-2. Add the files into `private/hero-images/` (note: `private/`, not `public/` — images live outside the public folder on purpose, served only through a login-checked route, so nothing here is ever reachable or reverse-image-searchable without an account). Name them `hero-01-desktop.png` / `hero-01-mobile.png`, `hero-02-desktop.png` / `hero-02-mobile.png`, and so on.
+**3. Adding new hero background images.** There are 14 in the rotation as of writing this — every page picks one at random.
+1. Crop two versions of each new photo in Photopea (or any image editor) — landscape for desktop (roughly 1920×1080), portrait for mobile (roughly 1080×1920, a bit taller if you want extra safety margin). They're shown with `background-size: cover` and centred, so exact pixel dimensions aren't critical, just the general shape — keep whatever matters most in the shot centred, since that's the part guaranteed to stay visible regardless of screen size.
+2. Save the files into:
+   ```
+   c:\Users\k_hut\prediction-game\private\hero-images\
+   ```
+   (note: `private\`, not `public\` — images live outside the public folder on purpose, served only through a login-checked route, so nothing here is ever reachable or reverse-image-searchable without an account). Name them in numbered pairs, continuing from whatever the highest existing number is — e.g. `hero-15-desktop.png` / `hero-15-mobile.png`, `hero-16-desktop.png` / `hero-16-mobile.png`, and so on.
 3. Open `components/HeroPage.tsx` and find:
    ```js
-   const TOTAL_HEROES = 0
+   const TOTAL_HEROES: number = 14
    ```
-   Change `0` to however many numbered pairs you've added — this is what actually turns the photos on.
-4. Save and publish using the steps above. This can be done any time, not just pre-season.
+   Change `14` to however many numbered pairs you now have in total — this is what actually turns the new photos on.
+4. Push it live. Open a terminal in the project folder and run:
+   ```powershell
+   cd "c:\Users\k_hut\prediction-game"
+   git add private\hero-images components\HeroPage.tsx
+   git commit -m "Add new hero images"
+   git push
+   ```
+   No separate Vercel command is needed — pushing to `main` deploys automatically. Give it 1–2 minutes, then refresh the site. This can be done any time, not just pre-season.
 
 **Two pages are photo-free on purpose and always will be**, regardless of `TOTAL_HEROES`: Login and the individual News article page (`app/login/page.tsx` and `app/news/[slug]/page.tsx`) both pass `noImage` explicitly, since those are reachable without logging in — nothing photo-based should ever be servable to a logged-out visitor. Don't remove that prop from either page.
 

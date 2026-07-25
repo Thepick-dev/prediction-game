@@ -39,17 +39,28 @@ export default function HeroPage({ children, wide = false, noImage = false, hero
       setHeroNumber(random)
     }
 
-    const timer = setTimeout(() => setShowCard(true), 600)
+    // A full second so visitors actually get to see the photo behind the
+    // header before the content card slides in over it — the whole point
+    // of having a hero image at all.
+    const timer = setTimeout(() => setShowCard(true), 1000)
     return () => clearTimeout(timer)
   }, [effectiveNoImage, heroOverride])
 
-  if (!effectiveNoImage && !heroOverride && heroNumber === null) {
-    return null
-  }
-
-  const heroSlug = heroOverride ?? String(heroNumber).padStart(2, '0')
-  const desktopImage = `/api/hero-image/hero-${heroSlug}-desktop.png`
-  const mobileImage = `/api/hero-image/hero-${heroSlug}-mobile.png`
+  // The random pick only exists client-side (picking it during the server
+  // render would mean the server and the browser's first paint disagree on
+  // which photo to show, which React flags as a hydration error) — so
+  // there's an unavoidable one-frame gap before heroNumber lands. Previously
+  // this whole component rendered nothing at all during that gap (a blank
+  // flash before the header/hero/card all suddenly appeared together).
+  // Instead, that gap now shows the same plain gradient as a true "no
+  // image" page, so the header and *a* background always appear on the
+  // very first paint, with the actual photo swapping in moments later —
+  // never a blank page. A heroOverride (fixed slug, not random) needs no
+  // such gap and resolves immediately on every render.
+  const showGradientOnly = effectiveNoImage || (!heroOverride && heroNumber === null)
+  const heroSlug = heroOverride ?? (heroNumber !== null ? String(heroNumber).padStart(2, '0') : null)
+  const desktopImage = heroSlug ? `/api/hero-image/hero-${heroSlug}-desktop.png` : null
+  const mobileImage = heroSlug ? `/api/hero-image/hero-${heroSlug}-mobile.png` : null
 
   // isolate is load-bearing, not decorative: without it, this div's own
   // backgroundColor has no stacking context of its own, so the -z-10 image
@@ -62,11 +73,12 @@ export default function HeroPage({ children, wide = false, noImage = false, hero
   // doesn't clip it.
   return (
     <div className="relative isolate overflow-hidden min-h-screen w-full" style={{ backgroundColor: '#1a120b' }}>
-      {effectiveNoImage ? (
+      {showGradientOnly || !desktopImage || !mobileImage ? (
         // Plain themed background — no photo. Used on pages reachable
-        // without logging in (login, news), and anywhere the pool is
-        // currently empty, so there's nothing publicly reverse-
-        // image-searchable back to an uncertain source/licence.
+        // without logging in (login, news), anywhere the pool is
+        // currently empty (nothing publicly reverse-image-searchable back
+        // to an uncertain source/licence), and briefly on every other page
+        // while the random pick above resolves.
         <div
           className="hero-bg-height fixed top-0 left-0 right-0 -z-10"
           style={{ background: 'linear-gradient(160deg, #2A1F17 0%, #1a120b 55%, #241a12 100%)' }}

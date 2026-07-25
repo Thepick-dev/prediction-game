@@ -93,30 +93,35 @@ export default function PreSeasonHelpPage() {
             <div className="border-t border-red-100 pt-4">
               <h3 className="font-bold text-sm mb-1">3. Adding new hero background images</h3>
               <p className="text-sm text-gray-700 mb-2">
-                The pool is currently empty (<code className="bg-gray-100 px-1 rounded">TOTAL_HEROES = 0</code>) — every page just shows
-                the plain dark background until this is done.
+                There are 14 in the rotation as of writing this — every page picks one at random.
               </p>
               <ol className="list-decimal pl-5 text-sm text-gray-700 space-y-1.5">
                 <li>
-                  Crop two versions of each new photo — a wide landscape one for desktop, a taller portrait one for mobile
-                  (they&rsquo;re shown with &ldquo;cover&rdquo; sizing, so exact pixel dimensions don&rsquo;t matter much, just the general shape).
-                  Photopea or any image editor works fine.
+                  Crop two versions of each new photo in Photopea (or any image editor) — landscape for desktop (roughly
+                  1920×1080), portrait for mobile (roughly 1080×1920, a bit taller for extra safety margin). They&rsquo;re shown
+                  with &ldquo;cover&rdquo; sizing and centred, so exact pixel dimensions don&rsquo;t matter much — just keep whatever
+                  matters most in the shot centred, since that&rsquo;s the part guaranteed to stay visible on any screen size.
                 </li>
                 <li>
-                  Add the files into the <code className="bg-gray-100 px-1 rounded">private/hero-images/</code> folder
-                  (in VS Code&rsquo;s file explorer on the left, or by dragging files into that folder on your computer) — note
-                  this is <code className="bg-gray-100 px-1 rounded">private/</code>, not <code className="bg-gray-100 px-1 rounded">public/</code>; images
+                  Save the files into:
+                  <pre className="bg-gray-900 text-gray-100 text-xs rounded p-3 my-2 overflow-x-auto"><code>{`c:\\Users\\k_hut\\prediction-game\\private\\hero-images\\`}</code></pre>
+                  (note this is <code className="bg-gray-100 px-1 rounded">private\</code>, not <code className="bg-gray-100 px-1 rounded">public\</code>; images
                   live outside the public folder on purpose, served only through a login-checked route, so nothing here is
-                  ever reachable or reverse-image-searchable without an account.
-                  Name them <code className="bg-gray-100 px-1 rounded">hero-01-desktop.png</code> / <code className="bg-gray-100 px-1 rounded">hero-01-mobile.png</code>,
-                  then <code className="bg-gray-100 px-1 rounded">hero-02-desktop.png</code> / <code className="bg-gray-100 px-1 rounded">hero-02-mobile.png</code>, and so on.
+                  ever reachable or reverse-image-searchable without an account).
+                  Name them in numbered pairs, continuing from whatever the highest existing number is — e.g. <code className="bg-gray-100 px-1 rounded">hero-15-desktop.png</code> / <code className="bg-gray-100 px-1 rounded">hero-15-mobile.png</code>,
+                  then <code className="bg-gray-100 px-1 rounded">hero-16-desktop.png</code> / <code className="bg-gray-100 px-1 rounded">hero-16-mobile.png</code>, and so on.
                 </li>
                 <li>
                   Open <code className="bg-gray-100 px-1 rounded">components/HeroPage.tsx</code> and find this line near the top:
-                  <pre className="bg-gray-900 text-gray-100 text-xs rounded p-3 my-2 overflow-x-auto"><code>{`const TOTAL_HEROES = 0`}</code></pre>
-                  Change <code className="bg-gray-100 px-1 rounded">0</code> to however many numbered pairs you&rsquo;ve added — this is what actually turns the photos on.
+                  <pre className="bg-gray-900 text-gray-100 text-xs rounded p-3 my-2 overflow-x-auto"><code>{`const TOTAL_HEROES: number = 14`}</code></pre>
+                  Change <code className="bg-gray-100 px-1 rounded">14</code> to however many numbered pairs you now have in total — this is what actually turns the new photos on.
                 </li>
-                <li>Save, then publish using the same steps as above. This can be done any time, not just pre-season.</li>
+                <li>
+                  Push it live. Open a terminal in the project folder and run:
+                  <pre className="bg-gray-900 text-gray-100 text-xs rounded p-3 my-2 overflow-x-auto"><code>{`cd "c:\\Users\\k_hut\\prediction-game"\ngit add private\\hero-images components\\HeroPage.tsx\ngit commit -m "Add new hero images"\ngit push`}</code></pre>
+                  No separate Vercel command is needed — pushing to <code className="bg-gray-100 px-1 rounded">main</code> deploys
+                  automatically. Give it 1–2 minutes, then refresh the site. This can be done any time, not just pre-season.
+                </li>
               </ol>
               <p className="text-sm text-gray-700 mt-3">
                 <strong>Two pages are photo-free on purpose and always will be</strong>, no matter how many images are in the pool:
