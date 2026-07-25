@@ -6,6 +6,7 @@ import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import KitBadge from '../../components/KitBadge'
 import KitPreview from '../../components/KitPreview'
+import PasswordInput from '../../components/PasswordInput'
 
 const PATTERNS = [
   { value: 'solid', label: 'Solid' },
@@ -256,8 +257,7 @@ export default function SettingsPage() {
               <p className={subClass}>
                 Set or change your password to log in with username + password instead of a magic link. Forgotten it? Use a magic link to get back in, then set a new one here.
               </p>
-              <input
-                type="password"
+              <PasswordInput
                 placeholder="New password"
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}

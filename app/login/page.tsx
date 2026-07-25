@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '../lib/supabase'
 import HeroPage from '../../components/HeroPage'
 import RulesModal from '../../components/RulesModal'
+import PasswordInput from '../../components/PasswordInput'
 
 type Mode = 'login' | 'join'
 type LoginMethod = 'magiclink' | 'password'
@@ -191,7 +192,7 @@ export default function LoginPage() {
             ) : (
               <>
                 <input type="text" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} className={inputClass} />
-                <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className={inputClass} />
+                <PasswordInput placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className={inputClass} />
                 <button onClick={handlePasswordLogin} disabled={loading || !username || !password} className="w-full rounded px-4 py-2 font-bold" style={{ backgroundColor: '#D9A441', color: '#241a12' }}>
                   {loading ? 'Logging in...' : 'Log In'}
                 </button>
@@ -202,7 +203,7 @@ export default function LoginPage() {
           <>
             <input type="text" placeholder="Choose a username" value={username} onChange={e => setUsername(e.target.value)} className={inputClass} />
             <input type="email" placeholder="Your email" value={email} onChange={e => setEmail(e.target.value)} className={inputClass} />
-            <input type="password" placeholder="Set a password (optional — 6 digit PIN works)" value={password} onChange={e => setPassword(e.target.value)} className={inputClass} />
+            <PasswordInput placeholder="Set a password (optional — 6 digit PIN works)" value={password} onChange={e => setPassword(e.target.value)} className={inputClass} />
             <p className="text-xs text-[#F5ECD9]/50 mb-4">
               Set a password to log in instantly next time. Leave it blank to always use a magic link email instead.
             </p>
