@@ -60,7 +60,13 @@ export default function HeroPage({ children, wide = false, noImage = false, hero
   // reproducing the exact bug, then confirming isolate fixes it, before
   // shipping this.
   return (
-    <div className="relative isolate min-h-screen w-full overflow-hidden" style={{ backgroundColor: '#1a120b' }}>
+    // No overflow-hidden here — the mobile background below deliberately
+    // extends beyond this div's own edges (a full-bleed breakout out of
+    // Shell's padded <main>), and overflow-hidden would clip exactly that,
+    // right back to a bordered box. Confirmed directly: adding it back
+    // reproduces the border, removing it removes the border, with nothing
+    // else in this component relying on it to look right.
+    <div className="relative isolate min-h-screen w-full" style={{ backgroundColor: '#1a120b' }}>
       {effectiveNoImage ? (
         // Plain themed background — no photo. Used on pages reachable
         // without logging in (login, news), and anywhere the pool is
