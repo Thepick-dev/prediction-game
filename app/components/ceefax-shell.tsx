@@ -27,7 +27,22 @@ export default function Shell({ children, active, user, displayName }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [kit, setKit] = useState<{ pattern: string; colour1: string; colour2: string; stars: number; earths: number } | null>(null)
   const [nextDeadline, setNextDeadline] = useState<{ number: number; deadline: string } | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const countdown = useCountdown(nextDeadline?.deadline ?? null)
+
+  // Its own query, same defensive-isolation reason as the others in this
+  // file — if this ever has a problem, it should only mean the Admin link
+  // doesn't show, never take the rest of the header with it.
+  useEffect(() => {
+    if (!user?.id) return
+    const supabase = createClient()
+    supabase
+      .from('profiles')
+      .select('is_admin, is_super_admin')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => setIsAdmin(!!(data?.is_admin || data?.is_super_admin)))
+  }, [user?.id])
 
   // Deliberately its own query, independent of the kit fetch below — if the
   // competition/gameweek lookup ever fails, it should only mean no deadline
@@ -112,6 +127,14 @@ export default function Shell({ children, active, user, displayName }: Props) {
                   <span className="text-[10px] text-[#D9A441] uppercase font-medium tracking-wider leading-none">
                     {displayName ?? ''}
                   </span>
+                  <form action="/auth/signout" method="POST">
+                    <button
+                      type="submit"
+                      className="text-[9px] text-[#F5ECD9]/40 hover:text-[#F5ECD9] uppercase tracking-wider leading-none"
+                    >
+                      Log Out
+                    </button>
+                  </form>
                 </div>
               )}
               <button
@@ -140,6 +163,17 @@ export default function Shell({ children, active, user, displayName }: Props) {
                 {item.label}
               </Link>
             ))}
+            {isAdmin && (
+              <a
+                href="/admin"
+                style={{ color: active === 'ADMIN' ? '#D9A441' : '#F5ECD9' }}
+                className={`px-2.5 lg:px-3 py-2.5 text-xs font-bold tracking-widest whitespace-nowrap border-b-2 transition-colors uppercase ${
+                  active === 'ADMIN' ? 'border-[#D9A441]' : 'border-transparent opacity-70 hover:opacity-100'
+                }`}
+              >
+                Admin
+              </a>
+            )}
           </nav>
         </div>
         {nextDeadline && countdown && !countdown.expired && (
@@ -171,10 +205,33 @@ export default function Shell({ children, active, user, displayName }: Props) {
                 {item.label}
               </Link>
             ))}
+            {isAdmin && (
+              <a
+                href="/admin"
+                onClick={() => setMenuOpen(false)}
+                style={{
+                  color: active === 'ADMIN' ? '#2A1F17' : '#F5ECD9',
+                  backgroundColor: active === 'ADMIN' ? '#D9A441' : 'transparent'
+                }}
+                className="block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-[#3d2f22]"
+              >
+                Admin
+              </a>
+            )}
             {user && (
-              <div className="px-6 py-3 text-xs text-[#D9A441] uppercase tracking-wider">
-                {displayName ?? ''}
-              </div>
+              <>
+                <div className="px-6 py-3 text-xs text-[#D9A441] uppercase tracking-wider">
+                  {displayName ?? ''}
+                </div>
+                <form action="/auth/signout" method="POST">
+                  <button
+                    type="submit"
+                    className="block w-full text-left px-6 py-4 text-sm font-bold tracking-widest uppercase text-[#F5ECD9]/60 hover:text-[#F5ECD9]"
+                  >
+                    Log Out
+                  </button>
+                </form>
+              </>
             )}
           </div>
         )}

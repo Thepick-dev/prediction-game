@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '../app/lib/supabase'
 import KitBadge from './KitBadge'
 
@@ -17,12 +18,32 @@ type Member = {
 // on the page doesn't re-fetch.
 let cachedMembers: Member[] | null = null
 
+const POPOVER_WIDTH = 288
+const MARGIN = 8
+const ESTIMATED_HEIGHT = 260
+
 export default function SportingPanelLink({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   const [members, setMembers] = useState<Member[] | null>(cachedMembers)
   const [loading, setLoading] = useState(false)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
+
+  function reposition() {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    let left = Math.min(rect.left, window.innerWidth - POPOVER_WIDTH - MARGIN)
+    left = Math.max(left, MARGIN)
+    const spaceBelow = window.innerHeight - rect.bottom
+    const top = spaceBelow > ESTIMATED_HEIGHT + MARGIN
+      ? rect.bottom + MARGIN
+      : Math.max(MARGIN, rect.top - ESTIMATED_HEIGHT - MARGIN)
+    setPos({ top, left })
+  }
 
   async function openPopup() {
+    reposition()
     setOpen(true)
     if (cachedMembers !== null) return
     setLoading(true)
@@ -43,9 +64,43 @@ export default function SportingPanelLink({ children }: { children: React.ReactN
     setLoading(false)
   }
 
+  // Close on a click outside, Escape, or the page scrolling/resizing under
+  // it — a popover that drifts away from its trigger is worse than one that
+  // just closes.
+  useEffect(() => {
+    if (!open) return
+
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        popoverRef.current && !popoverRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false)
+      }
+    }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    function handleScrollOrResize() {
+      setOpen(false)
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    window.addEventListener('scroll', handleScrollOrResize, true)
+    window.addEventListener('resize', handleScrollOrResize)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+      window.removeEventListener('scroll', handleScrollOrResize, true)
+      window.removeEventListener('resize', handleScrollOrResize)
+    }
+  }, [open])
+
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={openPopup}
         className="underline decoration-dotted underline-offset-2 font-bold"
@@ -53,45 +108,57 @@ export default function SportingPanelLink({ children }: { children: React.ReactN
       >
         {children}
       </button>
-      {open && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4" onClick={() => setOpen(false)}>
-          <div
-            className="w-full max-w-sm rounded-lg p-5 border"
-            style={{ backgroundColor: '#1e1914', borderColor: 'rgba(217,164,65,0.3)' }}
-            onClick={e => e.stopPropagation()}
+      {open && pos && typeof document !== 'undefined' && createPortal(
+        // Portalled straight to <body> — rendering this in place would put
+        // it inside HeroPage's animated card, which has a CSS transform on
+        // it. A transformed ancestor becomes the containing block for any
+        // `fixed` descendant (a real CSS quirk, not a bug in this component
+        // specifically), which is exactly why the old centered version could
+        // end up positioned against that card instead of the actual screen.
+        <div
+          ref={popoverRef}
+          className="fixed z-50 rounded-lg p-4 border shadow-2xl"
+          style={{
+            top: pos.top,
+            left: pos.left,
+            width: POPOVER_WIDTH,
+            maxWidth: `calc(100vw - ${MARGIN * 2}px)`,
+            backgroundColor: '#1e1914',
+            borderColor: 'rgba(217,164,65,0.3)',
+          }}
+        >
+          <h3
+            className="text-xs font-bold uppercase tracking-wider mb-1 leading-snug"
+            style={{ color: '#D9A441', fontFamily: 'var(--font-heading), serif' }}
           >
-            <h3
-              className="text-sm font-bold uppercase tracking-wider mb-1 leading-snug"
-              style={{ color: '#D9A441', fontFamily: 'var(--font-heading), serif' }}
-            >
-              The Sporting Panel for the Avoidance of Manifestly Unfair Outcomes
-            </h3>
-            <p className="text-xs text-[#F5ECD9]/50 mb-4 uppercase tracking-wider">Current members</p>
+            The Sporting Panel for the Avoidance of Manifestly Unfair Outcomes
+          </h3>
+          <p className="text-[10px] text-[#F5ECD9]/50 mb-3 uppercase tracking-wider">Current members</p>
 
-            {loading ? (
-              <p className="text-sm text-[#F5ECD9]/50">Loading...</p>
-            ) : members && members.length > 0 ? (
-              <div className="space-y-2.5">
-                {members.map((m, i) => (
-                  <div key={i} className="flex items-center gap-2.5">
-                    <KitBadge pattern={m.kit_pattern} colour1={m.kit_colour_1} colour2={m.kit_colour_2} size={26} />
-                    <span className="text-sm font-bold uppercase text-[#F5ECD9]">{m.display_name}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-[#F5ECD9]/50">No panel members have been appointed yet.</p>
-            )}
+          {loading ? (
+            <p className="text-sm text-[#F5ECD9]/50">Loading...</p>
+          ) : members && members.length > 0 ? (
+            <div className="space-y-2">
+              {members.map((m, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <KitBadge pattern={m.kit_pattern} colour1={m.kit_colour_1} colour2={m.kit_colour_2} size={22} />
+                  <span className="text-sm font-bold uppercase text-[#F5ECD9]">{m.display_name}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-[#F5ECD9]/50">No panel members have been appointed yet.</p>
+          )}
 
-            <button
-              onClick={() => setOpen(false)}
-              className="w-full mt-5 rounded-lg py-2 text-xs font-bold uppercase tracking-wider"
-              style={{ backgroundColor: '#D9A441', color: '#241a12' }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
+          <button
+            onClick={() => setOpen(false)}
+            className="w-full mt-3 rounded-lg py-1.5 text-xs font-bold uppercase tracking-wider"
+            style={{ backgroundColor: '#D9A441', color: '#241a12' }}
+          >
+            Close
+          </button>
+        </div>,
+        document.body
       )}
     </>
   )
