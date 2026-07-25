@@ -20,7 +20,7 @@ interface HeroPageProps {
 // to whatever literal value it's currently set to (e.g. the type `1`), which
 // then makes the `=== 0` check below a compile error every time this isn't
 // literally zero.
-const TOTAL_HEROES: number = 14
+const TOTAL_HEROES: number = 20
 
 export default function HeroPage({ children, wide = false, noImage = false, heroOverride }: HeroPageProps) {
   const [showCard, setShowCard] = useState(false)
