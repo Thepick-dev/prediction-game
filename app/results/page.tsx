@@ -81,7 +81,7 @@ export default function ResultsPage() {
   const [pointsData, setPointsData] = useState<PointsRow[]>([])
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
   const [profiles, setProfiles] = useState<Record<string, string>>({})
-  const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; stars: number; earths: number }>>({})
+  const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }>>({})
   const [teams, setTeams] = useState<Record<number, Team>>({})
   const [players, setPlayers] = useState<Record<number, string>>({})
   const [potwUserId, setPotwUserId] = useState<string | null>(null)
@@ -121,7 +121,7 @@ export default function ResultsPage() {
       // browsable ahead of time; loadPicksForGw is what actually keeps any
       // picks data from ever being fetched for one that isn't due yet.
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).order('number', { ascending: true }),
-      supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
+      supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2, kit_colour_3'),
       supabase.from('teams').select('id, name, short_name, short_code, crest_url'),
       supabase.from('players').select('id, name, web_name, team_id')
     ])
@@ -134,13 +134,14 @@ export default function ResultsPage() {
     kitExtras?.forEach(k => { kitExtrasMap[k.id] = { stars: k.kit_stars ?? 0, earths: k.kit_earths ?? 0 } })
 
     const profileMap: Record<string, string> = {}
-    const kitMap: Record<string, { pattern: string; colour1: string; colour2: string; stars: number; earths: number }> = {}
+    const kitMap: Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }> = {}
     profilesData?.forEach(p => {
       profileMap[p.id] = p.display_name ?? 'Unknown'
       kitMap[p.id] = {
         pattern: p.kit_pattern ?? 'solid',
         colour1: p.kit_colour_1 ?? '#1E4D6B',
         colour2: p.kit_colour_2 ?? '#F5ECD9',
+        colour3: p.kit_colour_3 ?? null,
         stars: kitExtrasMap[p.id]?.stars ?? 0,
         earths: kitExtrasMap[p.id]?.earths ?? 0
       }
@@ -558,6 +559,7 @@ export default function ResultsPage() {
                               pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
                               colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
                               colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
+                              colour3={kitByUser[pick.user_id]?.colour3}
                               size={14}
                             />
                             <span className="truncate">{profiles[pick.user_id] ?? 'Unknown'}</span>

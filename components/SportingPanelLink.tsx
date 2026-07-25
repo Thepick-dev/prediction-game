@@ -10,6 +10,7 @@ type Member = {
   kit_pattern: string
   kit_colour_1: string
   kit_colour_2: string
+  kit_colour_3: string | null
 }
 
 // Wraps any mention of "the Sporting Panel" in the rules text — click it and
@@ -50,7 +51,7 @@ export default function SportingPanelLink({ children }: { children: React.ReactN
     const supabase = createClient()
     const { data } = await supabase
       .from('profiles')
-      .select('display_name, kit_pattern, kit_colour_1, kit_colour_2')
+      .select('display_name, kit_pattern, kit_colour_1, kit_colour_2, kit_colour_3')
       .eq('is_sporting_panel', true)
       .order('display_name')
     const result = (data ?? []).map(m => ({
@@ -58,6 +59,7 @@ export default function SportingPanelLink({ children }: { children: React.ReactN
       kit_pattern: m.kit_pattern ?? 'solid',
       kit_colour_1: m.kit_colour_1 ?? '#1E4D6B',
       kit_colour_2: m.kit_colour_2 ?? '#F5ECD9',
+      kit_colour_3: m.kit_colour_3 ?? null,
     }))
     cachedMembers = result
     setMembers(result)
@@ -141,7 +143,7 @@ export default function SportingPanelLink({ children }: { children: React.ReactN
             <div className="space-y-2">
               {members.map((m, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <KitBadge pattern={m.kit_pattern} colour1={m.kit_colour_1} colour2={m.kit_colour_2} size={22} />
+                  <KitBadge pattern={m.kit_pattern} colour1={m.kit_colour_1} colour2={m.kit_colour_2} colour3={m.kit_colour_3} size={22} />
                   <span className="text-sm font-bold uppercase text-[#F5ECD9]">{m.display_name}</span>
                 </div>
               ))}

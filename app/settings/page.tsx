@@ -40,6 +40,7 @@ export default function SettingsPage() {
   const [kitPattern, setKitPattern] = useState('solid')
   const [kitColour1, setKitColour1] = useState('#1E4D6B')
   const [kitColour2, setKitColour2] = useState('#F5ECD9')
+  const [kitColour3, setKitColour3] = useState<string | null>(null)
   const [kitStars, setKitStars] = useState(0)
   const [kitEarths, setKitEarths] = useState(0)
 
@@ -69,7 +70,7 @@ export default function SettingsPage() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('display_name, kit_pattern, kit_colour_1, kit_colour_2')
+      .select('display_name, kit_pattern, kit_colour_1, kit_colour_2, kit_colour_3')
       .eq('id', user.id)
       .single()
 
@@ -88,6 +89,7 @@ export default function SettingsPage() {
       setKitPattern(profile.kit_pattern ?? 'solid')
       setKitColour1(profile.kit_colour_1 ?? '#1E4D6B')
       setKitColour2(profile.kit_colour_2 ?? '#F5ECD9')
+      setKitColour3(profile.kit_colour_3 ?? null)
       setKitStars(kitExtras?.kit_stars ?? 0)
       setKitEarths(kitExtras?.kit_earths ?? 0)
     }
@@ -175,7 +177,7 @@ export default function SettingsPage() {
 
     const { error } = await supabase
       .from('profiles')
-      .update({ kit_pattern: kitPattern, kit_colour_1: kitColour1, kit_colour_2: kitColour2 })
+      .update({ kit_pattern: kitPattern, kit_colour_1: kitColour1, kit_colour_2: kitColour2, kit_colour_3: kitColour3 })
       .eq('id', user.id)
 
     if (error) {
@@ -184,6 +186,22 @@ export default function SettingsPage() {
       setKitMessage('Kit saved')
     }
     setSavingKit(false)
+  }
+
+  // A one-click random kit for anyone who doesn't want to work through 9
+  // patterns times 24x24x(24+no-trim) colour combinations by hand — pure
+  // client-side randomisation, nothing saved until they hit Save Kit same
+  // as any other change here.
+  function shuffleKit() {
+    const randomPattern = PATTERNS[Math.floor(Math.random() * PATTERNS.length)].value
+    const randomSwatch = () => SWATCHES[Math.floor(Math.random() * SWATCHES.length)]
+    setKitPattern(randomPattern)
+    setKitColour1(randomSwatch())
+    setKitColour2(randomSwatch())
+    // One time in three, no trim — keeps "no trim" a genuinely common,
+    // deliberate-looking result rather than the shuffle always adding one.
+    setKitColour3(Math.random() < 0.33 ? null : randomSwatch())
+    setKitMessage('')
   }
 
   async function logOut() {
@@ -276,11 +294,21 @@ export default function SettingsPage() {
               <p className={subClass}>Shown next to your name on the leaderboard and results.</p>
 
               <div className="flex justify-center mb-3">
-                <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} stars={kitStars} earths={kitEarths} size={140} />
+                <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={140} />
               </div>
               {(kitStars > 0 || kitEarths > 0) && (
                 <p className="text-xs text-center text-[#F5ECD9]/40 mb-3">Awarded by the league admin.</p>
               )}
+
+              <div className="flex justify-center mb-4">
+                <button
+                  onClick={shuffleKit}
+                  type="button"
+                  className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded border border-[#D9A441]/50 text-[#D9A441] hover:bg-[#D9A441]/10 transition-colors"
+                >
+                  🎲 Shuffle
+                </button>
+              </div>
 
               <p className="text-xs font-bold uppercase tracking-wider text-[#F5ECD9]/50 mb-2">Pattern</p>
               <div className="grid grid-cols-3 gap-2 mb-4">
@@ -292,7 +320,7 @@ export default function SettingsPage() {
                       kitPattern === p.value ? 'border-[#D9A441] bg-[#D9A441]/10 font-bold' : 'border-white/10'
                     }`}
                   >
-                    <KitBadge pattern={p.value} colour1={kitColour1} colour2={kitColour2} size={28} />
+                    <KitBadge pattern={p.value} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} size={28} />
                     <span className="text-center">{p.label}</span>
                   </button>
                 ))}
@@ -317,6 +345,28 @@ export default function SettingsPage() {
                     key={colour}
                     onClick={() => setKitColour2(colour)}
                     className={`w-8 h-8 rounded-full border-2 ${kitColour2 === colour ? 'border-[#D9A441]' : 'border-transparent'}`}
+                    style={{ backgroundColor: colour }}
+                  />
+                ))}
+              </div>
+
+              <p className="text-xs font-bold uppercase tracking-wider text-[#F5ECD9]/50 mb-2">Trim (collar &amp; cuffs, optional)</p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button
+                  onClick={() => setKitColour3(null)}
+                  className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[#F5ECD9]/60 ${
+                    kitColour3 === null ? 'border-[#D9A441]' : 'border-white/10'
+                  }`}
+                  style={{ backgroundColor: 'transparent' }}
+                  title="No trim"
+                >
+                  ✕
+                </button>
+                {SWATCHES.map(colour => (
+                  <button
+                    key={colour}
+                    onClick={() => setKitColour3(colour)}
+                    className={`w-8 h-8 rounded-full border-2 ${kitColour3 === colour ? 'border-[#D9A441]' : 'border-transparent'}`}
                     style={{ backgroundColor: colour }}
                   />
                 ))}

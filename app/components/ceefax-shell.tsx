@@ -25,7 +25,7 @@ const navItems = [
 
 export default function Shell({ children, active, user, displayName }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [kit, setKit] = useState<{ pattern: string; colour1: string; colour2: string; stars: number; earths: number } | null>(null)
+  const [kit, setKit] = useState<{ pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number } | null>(null)
   const [nextDeadline, setNextDeadline] = useState<{ number: number; deadline: string } | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const countdown = useCountdown(nextDeadline?.deadline ?? null)
@@ -70,7 +70,7 @@ export default function Shell({ children, active, user, displayName }: Props) {
     const supabase = createClient()
     supabase
       .from('profiles')
-      .select('kit_pattern, kit_colour_1, kit_colour_2')
+      .select('kit_pattern, kit_colour_1, kit_colour_2, kit_colour_3')
       .eq('id', user.id)
       .single()
       .then(({ data }) => {
@@ -79,6 +79,7 @@ export default function Shell({ children, active, user, displayName }: Props) {
             pattern: data.kit_pattern ?? 'solid',
             colour1: data.kit_colour_1 ?? '#1E4D6B',
             colour2: data.kit_colour_2 ?? '#F5ECD9',
+            colour3: data.kit_colour_3 ?? null,
             stars: 0,
             earths: 0,
           })
@@ -119,7 +120,7 @@ export default function Shell({ children, active, user, displayName }: Props) {
                       while still growing a bit on wider screens. */}
                   {kit && (
                     <KitBadge
-                      pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2}
+                      pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} colour3={kit.colour3}
                       stars={kit.stars} earths={kit.earths}
                       size={36} iconTextClass="text-[10px] sm:text-sm"
                     />

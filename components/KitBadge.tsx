@@ -2,6 +2,10 @@ interface KitBadgeProps {
   pattern: string
   colour1: string
   colour2: string
+  // Optional trim (collar + cuffs) — omitted entirely (no colour3) renders
+  // exactly as before, so every existing kit looks unchanged unless its
+  // owner deliberately picks a trim colour in Settings.
+  colour3?: string | null
   stars?: number
   earths?: number
   size?: number
@@ -24,7 +28,7 @@ function GlobeIcons({ earths, className }: { earths: number; className: string }
   return <span className={`leading-none ${className}`}>{'🌍'.repeat(earths)}</span>
 }
 
-export default function KitBadge({ pattern, colour1, colour2, stars = 0, earths = 0, size = 28, iconTextClass = 'text-sm' }: KitBadgeProps) {
+export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0, earths = 0, size = 28, iconTextClass = 'text-sm' }: KitBadgeProps) {
   const shirtPath = "M8 2 L11 2 L12 4 L16 4 L17 2 L20 2 L26 7 L23 11 L20 9 L20 24 L8 24 L8 9 L5 11 L2 7 Z"
 
   const clipId = `kit-clip-${pattern}-${colour1.replace('#', '')}-${colour2.replace('#', '')}`
@@ -128,6 +132,13 @@ export default function KitBadge({ pattern, colour1, colour2, stars = 0, earths 
           </clipPath>
         </defs>
         {renderFill()}
+        {colour3 && (
+          <g>
+            <path d="M11 2 L12 4 L16 4 L17 2" fill="none" stroke={colour3} strokeWidth="1.4" strokeLinejoin="round" />
+            <path d="M2 7 L5 11" fill="none" stroke={colour3} strokeWidth="1.4" />
+            <path d="M26 7 L23 11" fill="none" stroke={colour3} strokeWidth="1.4" />
+          </g>
+        )}
         <path d={shirtPath} fill="none" stroke="#2A1F17" strokeWidth="1" strokeLinejoin="round" />
       </svg>
       <GlobeIcons earths={earths} className={iconTextClass} />
