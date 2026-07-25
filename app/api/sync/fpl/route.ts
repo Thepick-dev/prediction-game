@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '../../../lib/supabase-server'
+import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { requireAdmin } from '../../../lib/require-admin'
 import { NextResponse } from 'next/server'
 
@@ -142,7 +143,16 @@ export async function POST() {
   })
   const incomingIds = new Set(players.map((p: any) => p.id))
 
-  const { data: existingPlayers } = await supabase.from('players').select('id, web_name, team_id')
+  // Uses the service-role client for this whole block, not the logged-in
+  // admin's session client — deleting a player row and repointing another
+  // user's picks/match_events isn't something the RLS policies on those
+  // tables are written to allow a regular session to do, even an admin one.
+  // Without this, the update/delete calls below just silently affect zero
+  // rows: no error, but nothing actually changes (confirmed happened here —
+  // three "successful" syncs in a row left every duplicate in place).
+  const adminSupabase = createAdminSupabaseClient()
+
+  const { data: existingPlayers } = await adminSupabase.from('players').select('id, web_name, team_id')
   const staleToCurrentId = new Map<number, number>()
   existingPlayers?.forEach(existing => {
     if (incomingIds.has(existing.id) || !existing.web_name) return
@@ -158,13 +168,13 @@ export async function POST() {
   // leave the sync looking permanently stuck.
   await Promise.all(
     Array.from(staleToCurrentId.entries()).flatMap(([staleId, currentId]) => [
-      supabase.from('picks').update({ player1_id: currentId }).eq('player1_id', staleId),
-      supabase.from('picks').update({ player2_id: currentId }).eq('player2_id', staleId),
-      supabase.from('match_events').update({ player_id: currentId }).eq('player_id', staleId),
+      adminSupabase.from('picks').update({ player1_id: currentId }).eq('player1_id', staleId),
+      adminSupabase.from('picks').update({ player2_id: currentId }).eq('player2_id', staleId),
+      adminSupabase.from('match_events').update({ player_id: currentId }).eq('player_id', staleId),
     ])
   )
   if (staleToCurrentId.size > 0) {
-    await supabase.from('players').delete().in('id', Array.from(staleToCurrentId.keys()))
+    await adminSupabase.from('players').delete().in('id', Array.from(staleToCurrentId.keys()))
   }
 
   await supabase.from('api_sync_log').insert({
