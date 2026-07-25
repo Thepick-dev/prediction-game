@@ -128,6 +128,37 @@ export async function POST() {
     return NextResponse.json({ error: playersError.message }, { status: 500 })
   }
 
+  // FPL occasionally reissues a player's id (seen going into 2026/27) while
+  // they're still at the same club under the same web_name — upsert-by-id
+  // then just inserts a second row for the same real person and leaves the
+  // old id behind forever, which is exactly how ~100 players ended up
+  // duplicated in the picker. Detect any pre-existing row that's the same
+  // club + web_name as one of today's incoming players but under a
+  // different, no-longer-current id, repoint anything that referenced the
+  // old id onto the new one, then remove the old row.
+  const incomingIdByTeamAndWebName = new Map<string, number>()
+  players.forEach((p: any) => {
+    if (p.web_name) incomingIdByTeamAndWebName.set(`${p.team_id}|${p.web_name.toLowerCase()}`, p.id)
+  })
+  const incomingIds = new Set(players.map((p: any) => p.id))
+
+  const { data: existingPlayers } = await supabase.from('players').select('id, web_name, team_id')
+  const staleToCurrentId = new Map<number, number>()
+  existingPlayers?.forEach(existing => {
+    if (incomingIds.has(existing.id) || !existing.web_name) return
+    const currentId = incomingIdByTeamAndWebName.get(`${existing.team_id}|${existing.web_name.toLowerCase()}`)
+    if (currentId && currentId !== existing.id) {
+      staleToCurrentId.set(existing.id, currentId)
+    }
+  })
+
+  for (const [staleId, currentId] of staleToCurrentId) {
+    await supabase.from('picks').update({ player1_id: currentId }).eq('player1_id', staleId)
+    await supabase.from('picks').update({ player2_id: currentId }).eq('player2_id', staleId)
+    await supabase.from('match_events').update({ player_id: currentId }).eq('player_id', staleId)
+    await supabase.from('players').delete().eq('id', staleId)
+  }
+
   await supabase.from('api_sync_log').insert({
     sync_type: 'fpl',
     status: 'success',
@@ -139,6 +170,7 @@ export async function POST() {
     players_imported: players.length,
     skipped_unmapped_team: skippedNoTeam,
     unmapped_teams: unmappedFplTeams,
-    team_code_error: teamCodeError
+    team_code_error: teamCodeError,
+    stale_duplicates_cleaned: staleToCurrentId.size
   })
 }
