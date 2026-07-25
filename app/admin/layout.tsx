@@ -15,11 +15,13 @@ export default async function AdminLayout({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('is_admin')
+    .select('is_admin, is_super_admin')
     .eq('id', user.id)
     .single()
 
-  if (!profile?.is_admin) {
+  // Super Admin = full Admin access + article approval — not a narrower,
+  // separate permission. Everything under /admin is available to either.
+  if (!profile?.is_admin && !profile?.is_super_admin) {
     redirect('/')
   }
 

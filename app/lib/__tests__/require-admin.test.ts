@@ -32,6 +32,17 @@ describe('requireAdmin', () => {
     )
     expect(await requireAdmin(supabase)).toEqual(user)
   })
+
+  it('also returns the user when is_super_admin is true, even without is_admin', async () => {
+    // Super Admin includes everything Admin can do — it must pass every
+    // check that a regular admin passes, not just the article-approval one.
+    const user = { id: 'super-1' }
+    const supabase = createFakeSupabase(
+      { profiles: { is_admin: false, is_super_admin: true } },
+      { user }
+    )
+    expect(await requireAdmin(supabase)).toEqual(user)
+  })
 })
 
 describe('requireUser', () => {
