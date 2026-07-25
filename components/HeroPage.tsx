@@ -56,17 +56,12 @@ export default function HeroPage({ children, wide = false, noImage = false, hero
   // children behind it resolve their stacking against the nearest ancestor
   // that DOES form one (way up at the document root) instead of just this
   // component — which put this backgroundColor ABOVE the image entirely,
-  // hiding it completely on both mobile and desktop. Confirmed by
-  // reproducing the exact bug, then confirming isolate fixes it, before
-  // shipping this.
+  // hiding it completely. overflow-hidden is safe alongside fixed
+  // positioning (unlike absolute) — a fixed element's containing block is
+  // the viewport itself, not this div, so an ancestor's overflow-hidden
+  // doesn't clip it.
   return (
-    // No overflow-hidden here — the mobile background below deliberately
-    // extends beyond this div's own edges (a full-bleed breakout out of
-    // Shell's padded <main>), and overflow-hidden would clip exactly that,
-    // right back to a bordered box. Confirmed directly: adding it back
-    // reproduces the border, removing it removes the border, with nothing
-    // else in this component relying on it to look right.
-    <div className="relative isolate min-h-screen w-full" style={{ backgroundColor: '#1a120b' }}>
+    <div className="relative isolate overflow-hidden min-h-screen w-full" style={{ backgroundColor: '#1a120b' }}>
       {effectiveNoImage ? (
         // Plain themed background — no photo. Used on pages reachable
         // without logging in (login, news), and anywhere the pool is
@@ -78,33 +73,22 @@ export default function HeroPage({ children, wide = false, noImage = false, hero
         />
       ) : (
         <>
+          {/* Both breakpoints use the exact same fixed inset-0 approach —
+              always exactly one viewport, always the true screen edges,
+              regardless of how tall the page's content is or how much
+              padding sits between this component and the viewport. This
+              is what desktop always did and always looked right; mobile
+              had three different bugs in a row from trying to avoid this
+              (a minor address-bar reflow on scroll) with `absolute`
+              instead — each fix uncovered a new problem. A fixed
+              background genuinely never scrolling is what was actually
+              wanted, and is far more robust than the alternatives tried. */}
           <div
             className="hidden md:block fixed inset-0 bg-cover bg-center -z-10"
             style={{ backgroundImage: `url(${desktopImage})` }}
           />
-          {/* absolute, not fixed — on mobile, `fixed` backgrounds visibly jump
-              when the browser's address bar shows/hides on scroll. But
-              `absolute` combined with `inset-0` stretches to match this
-              *whole* container, which grows to fit the page's content — on
-              anything taller than one screen (most pages, on a narrow
-              phone), that stretched the photo to "cover" several screens'
-              worth of height, burying the actual crop far down the page
-              and leaving only an unrecognisable sliver visible on load.
-              Pinning the height to exactly one screen (rather than
-              inset-0's full-container height) fixes that while keeping the
-              no-jump behaviour — the backgroundColor above covers anything
-              that scrolls past it.
-
-              left-1/2 + w-screen + -ml-[50vw] is a standard full-bleed
-              breakout: this component is nested inside Shell's
-              `<main class="... px-4">`, which is `absolute`'s actual
-              containing block (unlike the desktop layer above, which is
-              `fixed` and always escapes to the true viewport regardless).
-              Without the breakout, inset-x-0 only reaches that padded
-              main's edges, leaving a ~16px strip of the page's plain
-              background showing on each side. */}
           <div
-            className="block md:hidden absolute top-0 left-1/2 w-screen h-screen -ml-[50vw] bg-cover bg-center -z-10"
+            className="block md:hidden fixed inset-0 bg-cover bg-center -z-10"
             style={{ backgroundImage: `url(${mobileImage})` }}
           />
         </>

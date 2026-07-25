@@ -24,12 +24,6 @@ html, body {
   color: #111111;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   min-height: 100vh;
-  /* HeroPage's mobile background deliberately breaks out to the true
-     screen edge from inside a padded container (see HeroPage.tsx) using
-     a 100vw + negative-margin technique — this is the standard safety
-     net against that causing a stray 1px horizontal scrollbar on any
-     device where 100vw doesn't exactly match the visible width. */
-  overflow-x: hidden;
 }
 
 h1, h2, h3 {
