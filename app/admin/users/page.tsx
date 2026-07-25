@@ -17,6 +17,19 @@ export default async function UsersPage({
     .order('approved', { ascending: true })
     .order('pending_since', { ascending: true })
 
+  // Kept as its own request, same defensive-isolation reason as kit_extras
+  // below — if these columns ever have a problem, it should only affect
+  // these three toggles, never take down the whole page.
+  const { data: roleExtras } = await supabase.from('profiles').select('id, can_post_news, is_super_admin, is_sporting_panel')
+  const roleMap: Record<string, { can_post_news: boolean; is_super_admin: boolean; is_sporting_panel: boolean }> = {}
+  roleExtras?.forEach(r => {
+    roleMap[r.id] = {
+      can_post_news: r.can_post_news ?? false,
+      is_super_admin: r.is_super_admin ?? false,
+      is_sporting_panel: r.is_sporting_panel ?? false,
+    }
+  })
+
   // Kept as its own request, deliberately separate from the profiles query
   // above: if these columns ever have a problem, it should only affect kit
   // badges, never take down the whole Users page with it.
@@ -56,6 +69,16 @@ export default async function UsersPage({
     const id = formData.get('id') as string
     const is_admin = formData.get('is_admin') === 'true'
     await supabase.from('profiles').update({ is_admin: !is_admin }).eq('id', id)
+    redirect('/admin/users')
+  }
+
+  async function toggleFlag(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    const id = formData.get('id') as string
+    const field = formData.get('field') as 'can_post_news' | 'is_super_admin' | 'is_sporting_panel'
+    const current = formData.get('current') === 'true'
+    await supabase.from('profiles').update({ [field]: !current }).eq('id', id)
     redirect('/admin/users')
   }
 
@@ -153,13 +176,18 @@ export default async function UsersPage({
               <th className="pb-2">Display Name</th>
               <th className="pb-2">Approved</th>
               <th className="pb-2">Admin</th>
+              <th className="pb-2">News Author</th>
+              <th className="pb-2">Super Admin</th>
+              <th className="pb-2">Sporting Panel</th>
               <th className="pb-2">Edit Name</th>
               <th className="pb-2">Kit Badges</th>
               <th className="pb-2">Delete</th>
             </tr>
           </thead>
           <tbody>
-            {profiles?.map(profile => (
+            {profiles?.map(profile => {
+              const roles = roleMap[profile.id] ?? { can_post_news: false, is_super_admin: false, is_sporting_panel: false }
+              return (
               <tr key={profile.id} className="border-b last:border-0">
                 <td className="py-2 text-xs text-gray-500">{emailMap[profile.id] ?? '—'}</td>
                 <td className="py-2">{profile.display_name ?? <span className="text-gray-400">Not set</span>}</td>
@@ -178,6 +206,36 @@ export default async function UsersPage({
                     <input type="hidden" name="is_admin" value={String(profile.is_admin ?? false)} />
                     <button type="submit" className={`text-xs px-2 py-1 rounded border ${profile.is_admin ? 'bg-black text-white border-black' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>
                       {profile.is_admin ? 'Admin' : 'Player'}
+                    </button>
+                  </form>
+                </td>
+                <td className="py-2">
+                  <form action={toggleFlag}>
+                    <input type="hidden" name="id" value={profile.id} />
+                    <input type="hidden" name="field" value="can_post_news" />
+                    <input type="hidden" name="current" value={String(roles.can_post_news)} />
+                    <button type="submit" className={`text-xs px-2 py-1 rounded border ${roles.can_post_news ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                      {roles.can_post_news ? '✓ Author' : '— No'}
+                    </button>
+                  </form>
+                </td>
+                <td className="py-2">
+                  <form action={toggleFlag}>
+                    <input type="hidden" name="id" value={profile.id} />
+                    <input type="hidden" name="field" value="is_super_admin" />
+                    <input type="hidden" name="current" value={String(roles.is_super_admin)} />
+                    <button type="submit" className={`text-xs px-2 py-1 rounded border ${roles.is_super_admin ? 'bg-purple-50 text-purple-600 border-purple-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                      {roles.is_super_admin ? '✓ Super' : '— No'}
+                    </button>
+                  </form>
+                </td>
+                <td className="py-2">
+                  <form action={toggleFlag}>
+                    <input type="hidden" name="id" value={profile.id} />
+                    <input type="hidden" name="field" value="is_sporting_panel" />
+                    <input type="hidden" name="current" value={String(roles.is_sporting_panel)} />
+                    <button type="submit" className={`text-xs px-2 py-1 rounded border ${roles.is_sporting_panel ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                      {roles.is_sporting_panel ? '✓ Panel' : '— No'}
                     </button>
                   </form>
                 </td>
@@ -224,7 +282,8 @@ export default async function UsersPage({
                   />
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

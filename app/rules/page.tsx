@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '../lib/supabase-server'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
+import SportingPanelLink from '../../components/SportingPanelLink'
 
 export default async function RulesPage() {
   const supabase = await createServerSupabaseClient()
@@ -195,6 +196,29 @@ export default async function RulesPage() {
                 <li>Most goals from picked players</li>
                 <li>Earliest competition entry</li>
               </ol>
+            </section>
+
+            <section className={cardClass}>
+              <h2 className="text-lg font-bold mb-3 text-[#D9A441]">Gameweek Scheduling</h2>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">
+                Gameweeks here don&apos;t always follow the Fantasy Premier League&apos;s own gameweek boundaries
+                exactly. The guiding principle is to avoid a gameweek containing only a small handful of matches —
+                where sticking to FPL&apos;s own grouping would do that, <SportingPanelLink>the Sporting Panel</SportingPanelLink> may
+                group fixtures into gameweeks differently instead.
+              </p>
+            </section>
+
+            <section className={cardClass}>
+              <h2 className="text-lg font-bold mb-3 text-[#D9A441]">Postponements</h2>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-3">
+                What happens when a fixture is postponed is always at the discretion of <SportingPanelLink>the Sporting Panel</SportingPanelLink>.
+                As a general guide:
+              </p>
+              <ul className="text-sm text-[#F5ECD9]/80 leading-relaxed list-disc pl-5 space-y-2">
+                <li>If a game is cancelled well in advance, affected players will normally be given the chance to choose again — unless doing so would be manifestly unfair to everyone else.</li>
+                <li>If a relevant game is postponed at short notice, once a gameweek is already underway, the Panel will convene to vote on what happens.</li>
+                <li>Any Panel member with a strong personal interest in the outcome — for example, it&apos;s their own pick affected — must recuse themselves from that vote.</li>
+              </ul>
             </section>
 
           </div>

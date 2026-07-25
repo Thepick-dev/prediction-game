@@ -25,6 +25,8 @@ function makeFixture(overrides: Partial<Fixture> = {}): Fixture {
     home_score: null,
     away_score: null,
     status: 'scheduled',
+    postponed_handling: null,
+    postponed_points: null,
     ...overrides,
   }
 }
@@ -212,5 +214,31 @@ describe('computePickScores — double gameweeks (a team plays twice)', () => {
     const [row] = computePickScores('gw-1', [pick], [fixtureA, fixtureB], quartileMap, rules, [], [])
     expect(row.breakdown.team_detail.result_type).toBe('away_win')
     expect(row.team_points).toBe(40) // fixture 200's away win — not fixture 100's home_win rate
+  })
+})
+
+describe('computePickScores — postponements', () => {
+  const quartileMap = { 1: 2, 2: 2 }
+
+  it('awards zero points for a voided postponement', () => {
+    const fixture = makeFixture({ status: 'postponed', postponed_handling: 'void' })
+    const pick = makePick({ team_id: 1, fixture_id: fixture.id })
+    const [row] = computePickScores('gw-1', [pick], [fixture], quartileMap, homeWinScoringRules, [], [])
+    expect(row.team_points).toBe(0)
+    expect(row.breakdown.team_detail.result_type).toBe('postponed')
+  })
+
+  it('awards zero points when re-picks are offered (the pick itself scores nothing either way)', () => {
+    const fixture = makeFixture({ status: 'postponed', postponed_handling: 'repick' })
+    const pick = makePick({ team_id: 1, fixture_id: fixture.id })
+    const [row] = computePickScores('gw-1', [pick], [fixture], quartileMap, homeWinScoringRules, [], [])
+    expect(row.team_points).toBe(0)
+  })
+
+  it('awards the admin-set custom points for a postponement handled that way', () => {
+    const fixture = makeFixture({ status: 'postponed', postponed_handling: 'custom_points', postponed_points: 22 })
+    const pick = makePick({ team_id: 1, fixture_id: fixture.id, is_banker: true })
+    const [row] = computePickScores('gw-1', [pick], [fixture], quartileMap, homeWinScoringRules, [], [])
+    expect(row.team_points).toBe(44) // 22 * 2 for the banker, same as any other team score
   })
 })

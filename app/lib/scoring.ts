@@ -28,6 +28,8 @@ export type Fixture = {
   home_score: number | null
   away_score: number | null
   status: string
+  postponed_handling: 'void' | 'repick' | 'custom_points' | null
+  postponed_points: number | null
 }
 
 export type ScoringRule = { result_type: string; quartile_diff: number; points: number }
@@ -152,6 +154,27 @@ export function computePickScores(
     // or drawing a stronger opponent, which is worth more, not less.
     const quartileDiff = teamQuartile - opponentQuartile
     const clampedDiffForNoResult = Math.max(-3, Math.min(3, quartileDiff))
+
+    // Postponements: decided case-by-case by the Sporting Panel (see Rules),
+    // implemented on /admin/postponed. "custom_points" is the only handling
+    // that awards anything — void and repick both score zero here, with the
+    // actual "give the pick back" part done separately by an admin freeing
+    // up the affected picks, not by this scoring pass.
+    if (fixture.status === 'postponed') {
+      if (fixture.postponed_handling === 'custom_points') {
+        const points = fixture.postponed_points ?? 0
+        return {
+          points,
+          breakdown: `Postponed — custom points awarded (${points}pts)`,
+          detail: { opponent_team_id: opponentId, team_quartile: teamQuartile, opponent_quartile: opponentQuartile, quartile_diff: clampedDiffForNoResult, result_type: 'postponed_custom_points', team_score: null, opponent_score: null, is_home: isHome }
+        }
+      }
+      return {
+        points: 0,
+        breakdown: fixture.postponed_handling === 'repick' ? 'Postponed — re-pick offered' : 'Postponed — voided',
+        detail: { opponent_team_id: opponentId, team_quartile: teamQuartile, opponent_quartile: opponentQuartile, quartile_diff: clampedDiffForNoResult, result_type: 'postponed', team_score: null, opponent_score: null, is_home: isHome }
+      }
+    }
 
     // The fixture (and so the opponent/quartiles/home-away) is known well
     // before kickoff — only the scoreline itself is genuinely unknown until
@@ -279,7 +302,7 @@ async function loadCommonScoringData(supabase: SupabaseClient, gameweek_id: stri
       .eq('gameweek_id', gameweek_id),
     supabase
       .from('fixtures')
-      .select('id, home_team_id, away_team_id, home_score, away_score, status')
+      .select('id, home_team_id, away_team_id, home_score, away_score, status, postponed_handling, postponed_points')
       .eq('gameweek_id', gameweek_id),
     supabase
       .from('competition_scoring_rules')

@@ -1,7 +1,13 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { redirect } from 'next/navigation'
+import ConfirmDeleteButton from '../components/confirm-delete-button'
 
-export default async function PostponedPage() {
+export default async function PostponedPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ freed?: string }>
+}) {
+  const { freed } = await searchParams
   const supabase = await createServerSupabaseClient()
 
   const { data: gameweeks } = await supabase
@@ -34,6 +40,28 @@ export default async function PostponedPage() {
     redirect('/admin/postponed')
   }
 
+  // Matches what the "Void gameweek" / "Allow re-picks" text on this page
+  // already promises ("their team and player selections are not used up" /
+  // "their original pick is cleared") — deleting the pick is what actually
+  // frees up that team/player for both. Deliberately doesn't touch "custom
+  // points" fixtures — those picks are meant to keep counting as used.
+  async function freeUpAffectedPicks(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    const fixture_id = parseInt(formData.get('fixture_id') as string)
+    const gameweek_id = formData.get('gameweek_id') as string
+    const home_team_id = parseInt(formData.get('home_team_id') as string)
+    const away_team_id = parseInt(formData.get('away_team_id') as string)
+
+    await supabase
+      .from('picks')
+      .delete()
+      .eq('gameweek_id', gameweek_id)
+      .in('team_id', [home_team_id, away_team_id])
+
+    redirect(`/admin/postponed?freed=${fixture_id}`)
+  }
+
   async function clearPostponement(formData: FormData) {
     'use server'
     const supabase = await createServerSupabaseClient()
@@ -54,14 +82,21 @@ export default async function PostponedPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-2">Postponed Fixtures</h1>
-      <p className="text-gray-500 text-sm mb-8">Mark fixtures as postponed and choose how to handle scoring for players who picked that team.</p>
+      <p className="text-gray-500 text-sm mb-8">Mark fixtures as postponed and choose how to handle scoring for players who picked that team. What&apos;s actually decided is up to the Sporting Panel — see the Rules page — this is just the toolkit for carrying it out.</p>
+
+      {freed && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 text-sm text-green-700">
+          Affected picks were deleted — those players&apos; team and player selections are free to use again, and they can submit a new pick for this gameweek if it&apos;s still open (or use Edit Pick to set one for them directly).
+        </div>
+      )}
 
       <div className="bg-white border rounded-lg p-6 mb-6">
         <h2 className="font-bold mb-2">How postponement handling works</h2>
         <div className="space-y-2 text-sm text-gray-600">
-          <p><strong>Void gameweek</strong> — everyone who picked the postponed team scores zero for the whole gameweek. Their team and player selections are not used up.</p>
-          <p><strong>Allow re-picks</strong> — players who picked the postponed team can submit a new pick. Their original pick is cleared.</p>
-          <p><strong>Custom points</strong> — players who picked the postponed team receive a fixed number of points set by admin. Team and players count as used.</p>
+          <p><strong>Void gameweek</strong> — everyone who picked the postponed team scores zero for the whole gameweek. Use &quot;Free up affected picks&quot; below to also return their team and player selections, unused.</p>
+          <p><strong>Allow re-picks</strong> — same scoring as void. Use &quot;Free up affected picks&quot; to clear their original pick so they can submit a new one (or set one for them via Edit Pick).</p>
+          <p><strong>Custom points</strong> — players who picked the postponed team receive a fixed number of points set by admin. Their team and players stay counted as used — don&apos;t free up picks for this option.</p>
+          <p className="pt-1">For anything these three don&apos;t cover, <a href="/admin/edit-pick" className="underline">Edit Pick</a> gives full manual control over any individual pick, and a gameweek can always be rescored from scratch via <a href="/admin/sync" className="underline">Recalculate Scoring</a> on the Sync page once things are sorted.</p>
         </div>
       </div>
 
@@ -108,12 +143,27 @@ export default async function PostponedPage() {
                   <td className="py-2">
                     {fixture.status !== 'finished' && (
                       fixture.status === 'postponed' ? (
-                        <form action={clearPostponement}>
-                          <input type="hidden" name="fixture_id" value={fixture.id} />
-                          <button type="submit" className="text-xs bg-gray-600 text-white rounded px-2 py-1">
-                            Clear
-                          </button>
-                        </form>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <form action={clearPostponement}>
+                            <input type="hidden" name="fixture_id" value={fixture.id} />
+                            <button type="submit" className="text-xs bg-gray-600 text-white rounded px-2 py-1">
+                              Clear
+                            </button>
+                          </form>
+                          {(fixture.postponed_handling === 'void' || fixture.postponed_handling === 'repick') && (
+                            <ConfirmDeleteButton
+                              action={freeUpAffectedPicks}
+                              hiddenFields={{
+                                fixture_id: String(fixture.id),
+                                gameweek_id: fixture.gameweek_id ?? '',
+                                home_team_id: String(fixture.home_team_id),
+                                away_team_id: String(fixture.away_team_id),
+                              }}
+                              label="Free up affected picks"
+                              confirmText="Delete every pick for either team in this gameweek?"
+                            />
+                          )}
+                        </div>
                       ) : (
                         <form action={handlePostponement} className="flex gap-1 flex-wrap">
                           <input type="hidden" name="fixture_id" value={fixture.id} />
