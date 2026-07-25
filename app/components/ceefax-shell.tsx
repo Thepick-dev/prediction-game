@@ -127,14 +127,6 @@ export default function Shell({ children, active, user, displayName }: Props) {
                   <span className="text-[10px] text-[#D9A441] uppercase font-medium tracking-wider leading-none">
                     {displayName ?? ''}
                   </span>
-                  <form action="/auth/signout" method="POST">
-                    <button
-                      type="submit"
-                      className="text-[9px] text-[#F5ECD9]/40 hover:text-[#F5ECD9] uppercase tracking-wider leading-none"
-                    >
-                      Log Out
-                    </button>
-                  </form>
                 </div>
               )}
               <button
@@ -173,6 +165,17 @@ export default function Shell({ children, active, user, displayName }: Props) {
               >
                 Admin
               </a>
+            )}
+            {user && (
+              <form action="/auth/signout" method="POST">
+                <button
+                  type="submit"
+                  className="px-2.5 lg:px-3 py-2.5 text-xs font-bold tracking-widest whitespace-nowrap border-b-2 border-transparent opacity-70 hover:opacity-100 transition-colors uppercase"
+                  style={{ color: '#F5ECD9' }}
+                >
+                  Log Out
+                </button>
+              </form>
             )}
           </nav>
         </div>
@@ -226,7 +229,7 @@ export default function Shell({ children, active, user, displayName }: Props) {
                 <form action="/auth/signout" method="POST">
                   <button
                     type="submit"
-                    className="block w-full text-left px-6 py-4 text-sm font-bold tracking-widest uppercase text-[#F5ECD9]/60 hover:text-[#F5ECD9]"
+                    className="block w-full text-left px-6 py-4 text-sm font-bold tracking-widest uppercase text-[#F5ECD9]"
                   >
                     Log Out
                   </button>
