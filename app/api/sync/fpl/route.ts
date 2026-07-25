@@ -152,11 +152,19 @@ export async function POST() {
     }
   })
 
-  for (const [staleId, currentId] of staleToCurrentId) {
-    await supabase.from('picks').update({ player1_id: currentId }).eq('player1_id', staleId)
-    await supabase.from('picks').update({ player2_id: currentId }).eq('player2_id', staleId)
-    await supabase.from('match_events').update({ player_id: currentId }).eq('player_id', staleId)
-    await supabase.from('players').delete().eq('id', staleId)
+  // Run every stale id's repoint concurrently rather than one at a time —
+  // with 100+ pairs, awaiting each in sequence (4 round trips apiece) is
+  // slow enough to blow through the serverless function's timeout and
+  // leave the sync looking permanently stuck.
+  await Promise.all(
+    Array.from(staleToCurrentId.entries()).flatMap(([staleId, currentId]) => [
+      supabase.from('picks').update({ player1_id: currentId }).eq('player1_id', staleId),
+      supabase.from('picks').update({ player2_id: currentId }).eq('player2_id', staleId),
+      supabase.from('match_events').update({ player_id: currentId }).eq('player_id', staleId),
+    ])
+  )
+  if (staleToCurrentId.size > 0) {
+    await supabase.from('players').delete().in('id', Array.from(staleToCurrentId.keys()))
   }
 
   await supabase.from('api_sync_log').insert({
