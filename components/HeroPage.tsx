@@ -51,8 +51,16 @@ export default function HeroPage({ children, wide = false, noImage = false, hero
   const desktopImage = `/api/hero-image/hero-${heroSlug}-desktop.png`
   const mobileImage = `/api/hero-image/hero-${heroSlug}-mobile.png`
 
+  // isolate is load-bearing, not decorative: without it, this div's own
+  // backgroundColor has no stacking context of its own, so the -z-10 image
+  // children behind it resolve their stacking against the nearest ancestor
+  // that DOES form one (way up at the document root) instead of just this
+  // component — which put this backgroundColor ABOVE the image entirely,
+  // hiding it completely on both mobile and desktop. Confirmed by
+  // reproducing the exact bug, then confirming isolate fixes it, before
+  // shipping this.
   return (
-    <div className="relative min-h-screen w-full overflow-hidden" style={{ backgroundColor: '#1a120b' }}>
+    <div className="relative isolate min-h-screen w-full overflow-hidden" style={{ backgroundColor: '#1a120b' }}>
       {effectiveNoImage ? (
         // Plain themed background — no photo. Used on pages reachable
         // without logging in (login, news), and anywhere the pool is
