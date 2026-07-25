@@ -81,6 +81,7 @@ export default function PicksPage() {
   const [players, setPlayers] = useState<Player[]>([])
   const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [quartileMap, setQuartileMap] = useState<Record<number, number>>({})
+  const [scoringMap, setScoringMap] = useState<Record<string, number>>({})
   const [historyPicks, setHistoryPicks] = useState<HistoryPick[]>([])
   const [pointsByPick, setPointsByPick] = useState<Record<string, number>>({})
   const [question, setQuestion] = useState<Question | null>(null)
@@ -163,7 +164,7 @@ export default function PicksPage() {
     setPlayers(playersData ?? [])
 
     if (gw) {
-      const [pickRes, { data: fixturesData }, { data: quartilesData }, { data: questionData }] = await Promise.all([
+      const [pickRes, { data: fixturesData }, { data: quartilesData }, { data: questionData }, { data: scoringRulesData }] = await Promise.all([
         fetch(`/api/picks?competition_id=${comp.id}&gameweek_id=${gw.id}`),
         supabase
           .from('fixtures')
@@ -178,7 +179,15 @@ export default function PicksPage() {
           .from('gameweek_questions')
           .select('*')
           .eq('gameweek_id', gw.id)
-          .single()
+          .single(),
+        // Same table the admin Scoring page edits — this is what lets each
+        // team's win/draw points shown below update the moment an admin
+        // changes the rules, with no separate copy of the numbers to
+        // keep in sync.
+        supabase
+          .from('competition_scoring_rules')
+          .select('result_type, quartile_diff, points')
+          .eq('competition_id', comp.id)
       ])
 
       const pickData = await pickRes.json()
@@ -203,6 +212,10 @@ export default function PicksPage() {
       const qMap: Record<number, number> = {}
       quartilesData?.forEach(q => { qMap[q.team_id] = q.tier })
       setQuartileMap(qMap)
+
+      const sMap: Record<string, number> = {}
+      scoringRulesData?.forEach(r => { sMap[`${r.result_type}_${r.quartile_diff}`] = r.points })
+      setScoringMap(sMap)
 
       if (questionData) setQuestion(questionData)
     }
@@ -385,6 +398,19 @@ export default function PicksPage() {
     return q ? `Q${q}` : null
   }
 
+  // Same maths as the real scoring engine (app/lib/scoring.ts) — quartile
+  // diff is "our team's quartile minus the opponent's", clamped to ±3, so a
+  // positive diff means we were the weaker side (beating/drawing a stronger
+  // opponent is worth more, not less).
+  function getWinDrawPoints(teamId: number, opponentId: number, isHome: boolean) {
+    const teamQ = quartileMap[teamId] ?? 2
+    const opponentQ = quartileMap[opponentId] ?? 2
+    const diff = Math.max(-3, Math.min(3, teamQ - opponentQ))
+    const win = scoringMap[`${isHome ? 'home_win' : 'away_win'}_${diff}`] ?? 0
+    const draw = scoringMap[`${isHome ? 'home_draw' : 'away_draw'}_${diff}`] ?? 0
+    return { win, draw }
+  }
+
   const quartileColours: Record<string, string> = {
     Q1: 'bg-blue-500/20 text-blue-300 border-blue-400/40',
     Q2: 'bg-green-500/20 text-green-300 border-green-400/40',
@@ -471,6 +497,8 @@ export default function PicksPage() {
                         const awayQ = getQuartileLabel(fixture.away_team_id)
                         const homeSelected = selectedTeam === fixture.home_team_id && selectedFixture === fixture.id
                         const awaySelected = selectedTeam === fixture.away_team_id && selectedFixture === fixture.id
+                        const homeWD = getWinDrawPoints(fixture.home_team_id, fixture.away_team_id, true)
+                        const awayWD = getWinDrawPoints(fixture.away_team_id, fixture.home_team_id, false)
 
                         return (
                           <div key={fixture.id} className="grid grid-cols-2 gap-2">
@@ -499,6 +527,9 @@ export default function PicksPage() {
                                     {homeStatus.isUsed ? 'Used' : `${homeStatus.remaining}/${homeStatus.maxUses} left`}
                                   </span>
                                 </div>
+                                <p className="text-[9px] text-[#F5ECD9]/40 mt-0.5">
+                                  Win +{homeWD.win} &middot; Draw +{homeWD.draw}
+                                </p>
                               </div>
                             </button>
                             <button
@@ -526,6 +557,9 @@ export default function PicksPage() {
                                     {awayStatus.isUsed ? 'Used' : `${awayStatus.remaining}/${awayStatus.maxUses} left`}
                                   </span>
                                 </div>
+                                <p className="text-[9px] text-[#F5ECD9]/40 mt-0.5">
+                                  Win +{awayWD.win} &middot; Draw +{awayWD.draw}
+                                </p>
                               </div>
                             </button>
                           </div>
