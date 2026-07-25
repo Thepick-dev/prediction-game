@@ -87,9 +87,18 @@ export default function HeroPage({ children, wide = false, noImage = false, hero
               Pinning the height to exactly one screen (rather than
               inset-0's full-container height) fixes that while keeping the
               no-jump behaviour — the backgroundColor above covers anything
-              that scrolls past it. */}
+              that scrolls past it.
+
+              left-1/2 + w-screen + -ml-[50vw] is a standard full-bleed
+              breakout: this component is nested inside Shell's
+              `<main class="... px-4">`, which is `absolute`'s actual
+              containing block (unlike the desktop layer above, which is
+              `fixed` and always escapes to the true viewport regardless).
+              Without the breakout, inset-x-0 only reaches that padded
+              main's edges, leaving a ~16px strip of the page's plain
+              background showing on each side. */}
           <div
-            className="block md:hidden absolute inset-x-0 top-0 h-screen bg-cover bg-center -z-10"
+            className="block md:hidden absolute top-0 left-1/2 w-screen h-screen -ml-[50vw] bg-cover bg-center -z-10"
             style={{ backgroundImage: `url(${mobileImage})` }}
           />
         </>
