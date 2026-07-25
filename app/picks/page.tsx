@@ -27,6 +27,7 @@ type HistoryPick = {
 type Question = {
   id: string
   question: string
+  question_type: 'multiple_choice' | 'freetext' | null
   option_a: string
   option_b: string
   option_c: string | null
@@ -362,6 +363,7 @@ export default function PicksPage() {
 
   const questionAnswerLabel = (() => {
     if (!question || !questionAnswer) return ''
+    if (question.question_type === 'freetext') return questionAnswer
     const options: Record<string, string | null> = {
       A: question.option_a, B: question.option_b, C: question.option_c, D: question.option_d
     }
@@ -747,26 +749,37 @@ export default function PicksPage() {
                     <div className="mb-5 bg-white/5 border border-white/10 rounded-lg p-4">
                       <p className="text-xs font-bold uppercase tracking-wider mb-2 text-[#D9A441]">This Week's Question</p>
                       <p className="text-sm text-[#F5ECD9]/90 mb-3">{question.question}</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { key: 'A', label: question.option_a },
-                          { key: 'B', label: question.option_b },
-                          question.option_c ? { key: 'C', label: question.option_c } : null,
-                          question.option_d ? { key: 'D', label: question.option_d } : null,
-                        ].filter(Boolean).map((opt: any) => (
-                          <button
-                            key={opt.key}
-                            onClick={() => setQuestionAnswer(opt.key)}
-                            className={`px-3 py-2 rounded-lg border text-sm font-medium ${
-                              questionAnswer === opt.key
-                                ? 'bg-[#D9A441] border-[#D9A441] text-[#241a12]'
-                                : 'bg-white/5 border-white/10 hover:border-[#D9A441]/50'
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
+                      {question.question_type === 'freetext' ? (
+                        <input
+                          type="text"
+                          value={questionAnswer}
+                          onChange={e => setQuestionAnswer(e.target.value)}
+                          placeholder="Type your answer..."
+                          maxLength={200}
+                          className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-[#F5ECD9] placeholder:text-[#F5ECD9]/40"
+                        />
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { key: 'A', label: question.option_a },
+                            { key: 'B', label: question.option_b },
+                            question.option_c ? { key: 'C', label: question.option_c } : null,
+                            question.option_d ? { key: 'D', label: question.option_d } : null,
+                          ].filter(Boolean).map((opt: any) => (
+                            <button
+                              key={opt.key}
+                              onClick={() => setQuestionAnswer(opt.key)}
+                              className={`px-3 py-2 rounded-lg border text-sm font-medium ${
+                                questionAnswer === opt.key
+                                  ? 'bg-[#D9A441] border-[#D9A441] text-[#241a12]'
+                                  : 'bg-white/5 border-white/10 hover:border-[#D9A441]/50'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 

@@ -3,6 +3,7 @@ import { calculateScoring } from '../../lib/scoring'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
 import CompetitionFilter from '../components/competition-filter'
+import GameweekQuestionForm from '../components/gameweek-question-form'
 
 export default async function GameweeksPage({ searchParams }: { searchParams: Promise<{ competition_id?: string }> }) {
   const { competition_id: selectedCompetitionId } = await searchParams
@@ -111,19 +112,24 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
     const supabase = await createServerSupabaseClient()
     const gameweek_id = formData.get('gameweek_id') as string
     const question = formData.get('question') as string
-    const option_a = formData.get('option_a') as string
-    const option_b = formData.get('option_b') as string
-    const option_c = formData.get('option_c') as string || null
-    const option_d = formData.get('option_d') as string || null
+    const question_type = (formData.get('question_type') as string) === 'freetext' ? 'freetext' : 'multiple_choice'
     const existing_id = formData.get('existing_id') as string
+
+    // Options are meaningless for a freetext question — nulled out rather
+    // than saved as whatever was left in the (hidden) fields, so a type
+    // switch can't leave stale multiple-choice options behind it.
+    const option_a = question_type === 'freetext' ? null : (formData.get('option_a') as string)
+    const option_b = question_type === 'freetext' ? null : (formData.get('option_b') as string)
+    const option_c = question_type === 'freetext' ? null : (formData.get('option_c') as string || null)
+    const option_d = question_type === 'freetext' ? null : (formData.get('option_d') as string || null)
 
     if (existing_id) {
       await supabase.from('gameweek_questions').update({
-        question, option_a, option_b, option_c, option_d
+        question, question_type, option_a, option_b, option_c, option_d
       }).eq('id', existing_id)
     } else {
       await supabase.from('gameweek_questions').insert({
-        gameweek_id, question, option_a, option_b, option_c, option_d
+        gameweek_id, question, question_type, option_a, option_b, option_c, option_d
       })
     }
     redirect('/admin/gameweeks')
@@ -242,55 +248,11 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
                     <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">
                       Gameweek Question {existingQuestion ? '(set)' : '(not set)'}
                     </p>
-                    <form action={saveQuestion} className="space-y-2">
-                      <input type="hidden" name="gameweek_id" value={gw.id} />
-                      {existingQuestion && <input type="hidden" name="existing_id" value={existingQuestion.id} />}
-                      <input
-                        type="text"
-                        name="question"
-                        defaultValue={existingQuestion?.question ?? ''}
-                        placeholder="e.g. Pizza or Burgers?"
-                        className="w-full border rounded px-3 py-2 text-sm"
-                        required
-                      />
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          name="option_a"
-                          defaultValue={existingQuestion?.option_a ?? ''}
-                          placeholder="Option A"
-                          className="border rounded px-3 py-2 text-sm"
-                          required
-                        />
-                        <input
-                          type="text"
-                          name="option_b"
-                          defaultValue={existingQuestion?.option_b ?? ''}
-                          placeholder="Option B"
-                          className="border rounded px-3 py-2 text-sm"
-                          required
-                        />
-                        <input
-                          type="text"
-                          name="option_c"
-                          defaultValue={existingQuestion?.option_c ?? ''}
-                          placeholder="Option C (optional)"
-                          className="border rounded px-3 py-2 text-sm"
-                        />
-                        <input
-                          type="text"
-                          name="option_d"
-                          defaultValue={existingQuestion?.option_d ?? ''}
-                          placeholder="Option D (optional)"
-                          className="border rounded px-3 py-2 text-sm"
-                        />
-                      </div>
-                      <div className="flex gap-2 items-center">
-                        <button type="submit" className="text-xs bg-black text-white rounded px-3 py-1.5">
-                          {existingQuestion ? 'Update Question' : 'Save Question'}
-                        </button>
-                      </div>
-                    </form>
+                    <GameweekQuestionForm
+                      gameweekId={gw.id}
+                      existingQuestion={existingQuestion ?? null}
+                      saveQuestion={saveQuestion}
+                    />
                     {existingQuestion && (
                       <div className="mt-2">
                         <ConfirmDeleteButton

@@ -271,7 +271,28 @@ export default function AdminSummaryPage() {
             </div>
           </div>
 
-          {question && questionResults && (
+          {question && question.question_type === 'freetext' && (
+            <div className="bg-white border rounded-xl overflow-hidden mb-6">
+              <div className="bg-gray-900 text-white px-6 py-3">
+                <p className="text-xs uppercase tracking-widest text-gray-400 mb-0.5">This Week's Question</p>
+                <p className="font-bold">{question.question}</p>
+              </div>
+              <div className="p-6 space-y-2 text-sm">
+                {picks.filter(p => p.question_answer).length > 0 ? (
+                  picks.filter(p => p.question_answer).map(p => (
+                    <div key={p.id} className="flex gap-2">
+                      <span className="font-bold">{profiles[p.user_id] ?? 'Unknown'}:</span>
+                      <span className="text-gray-600 break-words">{p.question_answer}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-400">No one has answered yet.</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {question && question.question_type !== 'freetext' && questionResults && (
             <div className="bg-white border rounded-xl overflow-hidden mb-6">
               <div className="bg-gray-900 text-white px-6 py-3">
                 <p className="text-xs uppercase tracking-widest text-gray-400 mb-0.5">This Week's Question</p>

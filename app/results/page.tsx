@@ -32,6 +32,7 @@ type PickRow = {
 type Question = {
   id: string
   question: string
+  question_type: 'multiple_choice' | 'freetext' | null
   option_a: string
   option_b: string
   option_c: string | null
@@ -319,6 +320,14 @@ export default function ResultsPage() {
     count: sortedPicks.filter(p => p.question_answer === letter).length,
   }))
 
+  // A percentage-bar poll doesn't mean anything for freetext — answers are
+  // rarely identical — so this is a plain "who said what" list instead.
+  const freetextAnswers = question?.question_type === 'freetext'
+    ? sortedPicks
+        .filter(p => p.question_answer)
+        .map(p => ({ name: profiles[p.user_id] ?? 'Unknown', answer: p.question_answer as string }))
+    : []
+
   const recapWinner = showScoring && sortedPicks[0]
     ? { name: profiles[sortedPicks[0].user_id] ?? 'Unknown', points: pointsMap[sortedPicks[0].id]?.total_points ?? 0 }
     : null
@@ -531,6 +540,20 @@ export default function ResultsPage() {
                         )
                       })
                     })()}
+                  </div>
+                </div>
+              )}
+
+              {question && question.question_type === 'freetext' && freetextAnswers.length > 0 && (
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-4">
+                  <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold mb-2">{question.question}</p>
+                  <div className="space-y-1 text-xs">
+                    {freetextAnswers.map((a, i) => (
+                      <div key={i} className="flex gap-2">
+                        <span className="font-bold uppercase text-[#F5ECD9]/70">{a.name}:</span>
+                        <span className="text-[#F5ECD9]/90 break-words">{a.answer}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
