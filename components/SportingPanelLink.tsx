@@ -51,15 +51,21 @@ export default function SportingPanelLink({ children }: { children: React.ReactN
     const supabase = createClient()
     const { data } = await supabase
       .from('profiles')
-      .select('display_name, kit_pattern, kit_colour_1, kit_colour_2, kit_colour_3')
+      .select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2')
       .eq('is_sporting_panel', true)
       .order('display_name')
+    // Its own request, same reason as everywhere else this session — the
+    // trim colour is a newer, optional column, and a problem with it must
+    // never be able to take the rest of this popup's member list down too.
+    const { data: kitTrims } = await supabase.from('profiles').select('id, kit_colour_3').eq('is_sporting_panel', true)
+    const kitTrimMap: Record<string, string | null> = {}
+    kitTrims?.forEach(k => { kitTrimMap[k.id] = k.kit_colour_3 ?? null })
     const result = (data ?? []).map(m => ({
       display_name: m.display_name ?? 'Unknown',
       kit_pattern: m.kit_pattern ?? 'solid',
       kit_colour_1: m.kit_colour_1 ?? '#1E4D6B',
       kit_colour_2: m.kit_colour_2 ?? '#F5ECD9',
-      kit_colour_3: m.kit_colour_3 ?? null,
+      kit_colour_3: kitTrimMap[m.id] ?? null,
     }))
     cachedMembers = result
     setMembers(result)

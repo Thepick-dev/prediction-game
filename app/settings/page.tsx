@@ -70,7 +70,7 @@ export default function SettingsPage() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('display_name, kit_pattern, kit_colour_1, kit_colour_2, kit_colour_3')
+      .select('display_name, kit_pattern, kit_colour_1, kit_colour_2')
       .eq('id', user.id)
       .single()
 
@@ -83,13 +83,22 @@ export default function SettingsPage() {
       .eq('id', user.id)
       .single()
 
+    // Also its own request, same reason — the trim colour is a newer,
+    // optional column, and this must never be able to take the rest of
+    // the kit editor (or the display name above it) down with it.
+    const { data: kitTrim } = await supabase
+      .from('profiles')
+      .select('kit_colour_3')
+      .eq('id', user.id)
+      .single()
+
     if (profile) {
       setDisplayName(profile.display_name ?? '')
       setCurrentName(profile.display_name ?? '')
       setKitPattern(profile.kit_pattern ?? 'solid')
       setKitColour1(profile.kit_colour_1 ?? '#1E4D6B')
       setKitColour2(profile.kit_colour_2 ?? '#F5ECD9')
-      setKitColour3(profile.kit_colour_3 ?? null)
+      setKitColour3(kitTrim?.kit_colour_3 ?? null)
       setKitStars(kitExtras?.kit_stars ?? 0)
       setKitEarths(kitExtras?.kit_earths ?? 0)
     }
@@ -177,14 +186,25 @@ export default function SettingsPage() {
 
     const { error } = await supabase
       .from('profiles')
-      .update({ kit_pattern: kitPattern, kit_colour_1: kitColour1, kit_colour_2: kitColour2, kit_colour_3: kitColour3 })
+      .update({ kit_pattern: kitPattern, kit_colour_1: kitColour1, kit_colour_2: kitColour2 })
       .eq('id', user.id)
 
     if (error) {
       setKitMessage(error.message)
-    } else {
-      setKitMessage('Kit saved')
+      setSavingKit(false)
+      return
     }
+
+    // Saved as its own update, deliberately separate from the one above:
+    // the trim colour is a newer, optional column, so if it isn't there
+    // yet in the database this shouldn't block saving pattern/colour
+    // changes, which have worked here all along.
+    const { error: trimError } = await supabase
+      .from('profiles')
+      .update({ kit_colour_3: kitColour3 })
+      .eq('id', user.id)
+
+    setKitMessage(trimError ? 'Kit saved (trim colour not saved — ask the admin to check the database)' : 'Kit saved')
     setSavingKit(false)
   }
 

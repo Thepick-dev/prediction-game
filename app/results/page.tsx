@@ -121,7 +121,7 @@ export default function ResultsPage() {
       // browsable ahead of time; loadPicksForGw is what actually keeps any
       // picks data from ever being fetched for one that isn't due yet.
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).order('number', { ascending: true }),
-      supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2, kit_colour_3'),
+      supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('teams').select('id, name, short_name, short_code, crest_url'),
       supabase.from('players').select('id, name, web_name, team_id')
     ])
@@ -133,6 +133,13 @@ export default function ResultsPage() {
     const kitExtrasMap: Record<string, { stars: number; earths: number }> = {}
     kitExtras?.forEach(k => { kitExtrasMap[k.id] = { stars: k.kit_stars ?? 0, earths: k.kit_earths ?? 0 } })
 
+    // Also its own request, same reason — the trim colour is a newer,
+    // optional column, and this must never be able to take display names
+    // or the rest of the kit badge down with it if it's missing.
+    const { data: kitTrims } = await supabase.from('profiles').select('id, kit_colour_3')
+    const kitTrimMap: Record<string, string | null> = {}
+    kitTrims?.forEach(k => { kitTrimMap[k.id] = k.kit_colour_3 ?? null })
+
     const profileMap: Record<string, string> = {}
     const kitMap: Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }> = {}
     profilesData?.forEach(p => {
@@ -141,7 +148,7 @@ export default function ResultsPage() {
         pattern: p.kit_pattern ?? 'solid',
         colour1: p.kit_colour_1 ?? '#1E4D6B',
         colour2: p.kit_colour_2 ?? '#F5ECD9',
-        colour3: p.kit_colour_3 ?? null,
+        colour3: kitTrimMap[p.id] ?? null,
         stars: kitExtrasMap[p.id]?.stars ?? 0,
         earths: kitExtrasMap[p.id]?.earths ?? 0
       }

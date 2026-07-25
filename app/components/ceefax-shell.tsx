@@ -70,7 +70,7 @@ export default function Shell({ children, active, user, displayName }: Props) {
     const supabase = createClient()
     supabase
       .from('profiles')
-      .select('kit_pattern, kit_colour_1, kit_colour_2, kit_colour_3')
+      .select('kit_pattern, kit_colour_1, kit_colour_2')
       .eq('id', user.id)
       .single()
       .then(({ data }) => {
@@ -79,7 +79,7 @@ export default function Shell({ children, active, user, displayName }: Props) {
             pattern: data.kit_pattern ?? 'solid',
             colour1: data.kit_colour_1 ?? '#1E4D6B',
             colour2: data.kit_colour_2 ?? '#F5ECD9',
-            colour3: data.kit_colour_3 ?? null,
+            colour3: null,
             stars: 0,
             earths: 0,
           })
@@ -96,6 +96,19 @@ export default function Shell({ children, active, user, displayName }: Props) {
       .then(({ data }) => {
         if (data) {
           setKit(prev => prev ? { ...prev, stars: data.kit_stars ?? 0, earths: data.kit_earths ?? 0 } : prev)
+        }
+      })
+    // Also its own request, same reason as kit_stars/kit_earths above — the
+    // trim colour is a newer, optional column, and this must never be able
+    // to take the shirt/stars/earths down with it if it's missing.
+    supabase
+      .from('profiles')
+      .select('kit_colour_3')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setKit(prev => prev ? { ...prev, colour3: data.kit_colour_3 ?? null } : prev)
         }
       })
   }, [user?.id])
