@@ -20,7 +20,7 @@ interface HeroPageProps {
 // to whatever literal value it's currently set to (e.g. the type `1`), which
 // then makes the `=== 0` check below a compile error every time this isn't
 // literally zero.
-const TOTAL_HEROES: number = 4
+const TOTAL_HEROES: number = 14
 
 export default function HeroPage({ children, wide = false, noImage = false, heroOverride }: HeroPageProps) {
   const [showCard, setShowCard] = useState(false)
@@ -68,27 +68,30 @@ export default function HeroPage({ children, wide = false, noImage = false, hero
         // currently empty, so there's nothing publicly reverse-
         // image-searchable back to an uncertain source/licence.
         <div
-          className="fixed inset-0 -z-10"
+          className="hero-bg-height fixed top-0 left-0 right-0 -z-10"
           style={{ background: 'linear-gradient(160deg, #2A1F17 0%, #1a120b 55%, #241a12 100%)' }}
         />
       ) : (
         <>
-          {/* Both breakpoints use the exact same fixed inset-0 approach —
-              always exactly one viewport, always the true screen edges,
-              regardless of how tall the page's content is or how much
-              padding sits between this component and the viewport. This
-              is what desktop always did and always looked right; mobile
-              had three different bugs in a row from trying to avoid this
-              (a minor address-bar reflow on scroll) with `absolute`
-              instead — each fix uncovered a new problem. A fixed
-              background genuinely never scrolling is what was actually
-              wanted, and is far more robust than the alternatives tried. */}
+          {/* Both breakpoints use the exact same fixed positioning —
+              always the true screen edges, regardless of how tall the
+              page's content is or how much padding sits between this
+              component and the viewport. This is what desktop always did
+              and always looked right.
+
+              Height comes from the hero-bg-height class (see globals.css),
+              not `inset-0` — on mobile, the browser's address bar resizes
+              the viewport as it animates in/out on scroll, and a plain
+              vh-based height recalculates every frame of that animation,
+              which is exactly what showed up as the background visibly
+              hopping while scrolling. hero-bg-height uses the static
+              `lvh` unit instead, which doesn't recalculate mid-scroll. */}
           <div
-            className="hidden md:block fixed inset-0 bg-cover bg-center -z-10"
+            className="hero-bg-height hidden md:block fixed top-0 left-0 right-0 bg-cover bg-center -z-10"
             style={{ backgroundImage: `url(${desktopImage})` }}
           />
           <div
-            className="block md:hidden fixed inset-0 bg-cover bg-center -z-10"
+            className="hero-bg-height block md:hidden fixed top-0 left-0 right-0 bg-cover bg-center -z-10"
             style={{ backgroundImage: `url(${mobileImage})` }}
           />
         </>

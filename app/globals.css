@@ -26,6 +26,22 @@ html, body {
   min-height: 100vh;
 }
 
+/* Used by HeroPage's fixed background layers. On mobile, the browser's
+   own address bar animates in/out as you scroll, dynamically resizing
+   the visible viewport — a plain 100vh (or dvh) height recalculates on
+   every frame of that animation, which is exactly what shows up as the
+   background "hopping" while scrolling. lvh is a static value (sized to
+   the viewport with the browser UI fully hidden) that never recalculates
+   mid-scroll, so there's nothing to visibly jump — it's just slightly
+   taller than the visible area when the address bar happens to be
+   showing, which is invisible for a full-bleed background. 100vh first
+   as a fallback for the ~5% of browsers that don't understand lvh yet;
+   the second declaration simply doesn't apply on those. */
+.hero-bg-height {
+  height: 100vh;
+  height: 100lvh;
+}
+
 h1, h2, h3 {
   text-transform: uppercase;
   letter-spacing: 0.02em;
