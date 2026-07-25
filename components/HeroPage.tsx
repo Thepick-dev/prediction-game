@@ -52,7 +52,7 @@ export default function HeroPage({ children, wide = false, noImage = false, hero
   const mobileImage = `/api/hero-image/hero-${heroSlug}-mobile.png`
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden">
+    <div className="relative min-h-screen w-full overflow-hidden" style={{ backgroundColor: '#1a120b' }}>
       {effectiveNoImage ? (
         // Plain themed background — no photo. Used on pages reachable
         // without logging in (login, news), and anywhere the pool is
@@ -69,9 +69,19 @@ export default function HeroPage({ children, wide = false, noImage = false, hero
             style={{ backgroundImage: `url(${desktopImage})` }}
           />
           {/* absolute, not fixed — on mobile, `fixed` backgrounds visibly jump
-              when the browser's address bar shows/hides on scroll */}
+              when the browser's address bar shows/hides on scroll. But
+              `absolute` combined with `inset-0` stretches to match this
+              *whole* container, which grows to fit the page's content — on
+              anything taller than one screen (most pages, on a narrow
+              phone), that stretched the photo to "cover" several screens'
+              worth of height, burying the actual crop far down the page
+              and leaving only an unrecognisable sliver visible on load.
+              Pinning the height to exactly one screen (rather than
+              inset-0's full-container height) fixes that while keeping the
+              no-jump behaviour — the backgroundColor above covers anything
+              that scrolls past it. */}
           <div
-            className="block md:hidden absolute inset-0 bg-cover bg-center -z-10"
+            className="block md:hidden absolute inset-x-0 top-0 h-screen bg-cover bg-center -z-10"
             style={{ backgroundImage: `url(${mobileImage})` }}
           />
         </>
