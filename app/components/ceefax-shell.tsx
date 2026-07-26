@@ -69,18 +69,20 @@ export default function Shell({ children, active, user, displayName }: Props) {
     function handleEscape(e: KeyboardEvent) {
       if (e.key === 'Escape') setKitPopupOpen(false)
     }
-    function handleScrollOrResize() {
-      setKitPopupOpen(false)
-    }
+    // Deliberately no scroll/resize-to-close here (unlike the Sporting Panel
+    // popup this pattern is borrowed from) — this popup's own content can
+    // be taller than the screen and needs to scroll internally, and a
+    // capturing window scroll listener can't tell that apart from the page
+    // itself scrolling, so it was closing the popup the instant anyone
+    // tried to scroll inside it. It's `position: fixed` (and the header
+    // it's anchored to is `sticky`), so it stays put regardless of scroll
+    // position anyway — only clicking outside, Escape, or Save should
+    // close it now.
     document.addEventListener('mousedown', handleClickOutside)
     document.addEventListener('keydown', handleEscape)
-    window.addEventListener('scroll', handleScrollOrResize, true)
-    window.addEventListener('resize', handleScrollOrResize)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
       document.removeEventListener('keydown', handleEscape)
-      window.removeEventListener('scroll', handleScrollOrResize, true)
-      window.removeEventListener('resize', handleScrollOrResize)
     }
   }, [kitPopupOpen])
 
@@ -341,7 +343,10 @@ export default function Shell({ children, active, user, displayName }: Props) {
           <KitEditor
             userId={user.id}
             compact
-            onSaved={newKit => setKit(prev => (prev ? { ...prev, ...newKit } : prev))}
+            onSaved={newKit => {
+              setKit(prev => (prev ? { ...prev, ...newKit } : prev))
+              setKitPopupOpen(false)
+            }}
           />
           <button
             onClick={() => setKitPopupOpen(false)}
