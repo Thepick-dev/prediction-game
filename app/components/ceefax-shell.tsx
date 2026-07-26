@@ -1,9 +1,14 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { createClient } from '../lib/supabase'
 import KitBadge from '../../components/KitBadge'
+import KitEditor from '../../components/KitEditor'
 import { useCountdown } from '../lib/useCountdown'
+
+const KIT_POPUP_WIDTH = 288
+const KIT_POPUP_MARGIN = 8
 
 type Props = {
   children: React.ReactNode
@@ -29,6 +34,55 @@ export default function Shell({ children, active, user, displayName }: Props) {
   const [nextDeadline, setNextDeadline] = useState<{ number: number; deadline: string } | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const countdown = useCountdown(nextDeadline?.deadline ?? null)
+
+  const [kitPopupOpen, setKitPopupOpen] = useState(false)
+  const [kitPopupPos, setKitPopupPos] = useState<{ top: number; left: number } | null>(null)
+  const kitTriggerRef = useRef<HTMLButtonElement>(null)
+  const kitPopupRef = useRef<HTMLDivElement>(null)
+
+  function openKitPopup() {
+    const rect = kitTriggerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    let left = Math.min(rect.left, window.innerWidth - KIT_POPUP_WIDTH - KIT_POPUP_MARGIN)
+    left = Math.max(left, KIT_POPUP_MARGIN)
+    setKitPopupPos({ top: rect.bottom + KIT_POPUP_MARGIN, left })
+    setKitPopupOpen(true)
+  }
+
+  // Same click-outside/Escape/scroll-to-close behaviour as the Sporting
+  // Panel popup, and the same reason for portalling to document.body: a
+  // `position: fixed` popup nested inside an animated (transformed)
+  // ancestor is positioned relative to THAT ancestor, not the real
+  // viewport — this header isn't inside one, but the pages it sits above
+  // (HeroPage's entrance-animated card) are, so staying consistent here
+  // avoids re-discovering that bug in a different component.
+  useEffect(() => {
+    if (!kitPopupOpen) return
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        kitPopupRef.current && !kitPopupRef.current.contains(e.target as Node) &&
+        kitTriggerRef.current && !kitTriggerRef.current.contains(e.target as Node)
+      ) {
+        setKitPopupOpen(false)
+      }
+    }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') setKitPopupOpen(false)
+    }
+    function handleScrollOrResize() {
+      setKitPopupOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    window.addEventListener('scroll', handleScrollOrResize, true)
+    window.addEventListener('resize', handleScrollOrResize)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+      window.removeEventListener('scroll', handleScrollOrResize, true)
+      window.removeEventListener('resize', handleScrollOrResize)
+    }
+  }, [kitPopupOpen])
 
   // Its own query, same defensive-isolation reason as the others in this
   // file — if this ever has a problem, it should only mean the Admin link
@@ -132,11 +186,13 @@ export default function Shell({ children, active, user, displayName }: Props) {
                       Leaderboard), sized to fit this narrow bar on mobile
                       while still growing a bit on wider screens. */}
                   {kit && (
-                    <KitBadge
-                      pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} colour3={kit.colour3}
-                      stars={kit.stars} earths={kit.earths}
-                      size={36} iconTextClass="text-[10px] sm:text-sm"
-                    />
+                    <button ref={kitTriggerRef} type="button" onClick={openKitPopup} aria-label="Change your kit">
+                      <KitBadge
+                        pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} colour3={kit.colour3}
+                        stars={kit.stars} earths={kit.earths}
+                        size={36} iconTextClass="text-[10px] sm:text-sm"
+                      />
+                    </button>
                   )}
                   <span className="text-[10px] text-[#D9A441] uppercase font-medium tracking-wider leading-none">
                     {displayName ?? ''}
@@ -261,6 +317,42 @@ export default function Shell({ children, active, user, displayName }: Props) {
           LMS All-Stars Predictions
         </span>
       </footer>
+      {kitPopupOpen && kitPopupPos && user && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={kitPopupRef}
+          className="fixed z-50 rounded-lg p-4 border shadow-2xl"
+          style={{
+            top: kitPopupPos.top,
+            left: kitPopupPos.left,
+            width: KIT_POPUP_WIDTH,
+            maxWidth: `calc(100vw - ${KIT_POPUP_MARGIN * 2}px)`,
+            maxHeight: `calc(100vh - ${KIT_POPUP_MARGIN * 2}px)`,
+            overflowY: 'auto',
+            backgroundColor: '#1e1914',
+            borderColor: 'rgba(217,164,65,0.3)',
+          }}
+        >
+          <h3
+            className="text-xs font-bold uppercase tracking-wider mb-3"
+            style={{ color: '#D9A441', fontFamily: 'var(--font-heading), serif' }}
+          >
+            Change Your Kit
+          </h3>
+          <KitEditor
+            userId={user.id}
+            compact
+            onSaved={newKit => setKit(prev => (prev ? { ...prev, ...newKit } : prev))}
+          />
+          <button
+            onClick={() => setKitPopupOpen(false)}
+            className="w-full mt-3 rounded-lg py-1.5 text-xs font-bold uppercase tracking-wider"
+            style={{ backgroundColor: 'rgba(245,236,217,0.1)', color: '#F5ECD9' }}
+          >
+            Close
+          </button>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

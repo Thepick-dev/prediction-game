@@ -70,10 +70,10 @@ export default function HeroPage({ children, wide = false, noImage = false, hero
       return
     }
     if (!imageReady) return
-    // 1.5 seconds so visitors actually get to see the photo behind the
+    // 1.25 seconds so visitors actually get to see the photo behind the
     // header before the content card slides in over it — the whole point
     // of having a hero image at all.
-    const timer = setTimeout(() => setShowCard(true), 1500)
+    const timer = setTimeout(() => setShowCard(true), 1250)
     return () => clearTimeout(timer)
   }, [effectiveNoImage, imageReady])
 
