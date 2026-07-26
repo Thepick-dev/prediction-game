@@ -115,7 +115,11 @@ export async function POST() {
       team_id: fplTeamIdToOurTeamId[player.team] ?? null,
       minutes_played: player.minutes ?? 0,
       // FPL prices are in tenths of £1m (e.g. 73 -> £7.3m).
-      value: typeof player.now_cost === 'number' ? player.now_cost / 10 : null
+      value: typeof player.now_cost === 'number' ? player.now_cost / 10 : null,
+      // Explicitly true for everyone in today's feed — this is also what
+      // reactivates someone who'd previously been marked inactive below,
+      // if they ever reappear in a later sync.
+      active: true
     }))
     .filter((p: any) => p.team_id !== null)
 
@@ -162,6 +166,28 @@ export async function POST() {
     }
   })
 
+  // Anyone left over — not in today's feed, and not matched to a renamed/
+  // reissued id above — has genuinely left the club or the league (e.g. a
+  // summer departure FPL has dropped entirely, not just renumbered).
+  // Marked inactive rather than deleted, so they disappear from the Picks
+  // page's club filter (see app/picks/page.tsx) while any historical
+  // picks/match_events referencing them keep resolving correctly.
+  //
+  // Restricted to teams that mapped successfully THIS run (syncedOurTeamIds)
+  // — if a club's FPL code fails to match (the Coventry/Hull/Ipswich
+  // situation noted above), every one of its players is also absent from
+  // the incoming feed, but that's a mapping gap, not evidence they've all
+  // left. Without this guard, a single failed team mapping would wrongly
+  // wipe out an entire squad from the picker.
+  const syncedOurTeamIds = new Set(Object.values(fplTeamIdToOurTeamId))
+  const goneIds = (existingPlayers ?? [])
+    .filter(existing =>
+      !incomingIds.has(existing.id) &&
+      !staleToCurrentId.has(existing.id) &&
+      syncedOurTeamIds.has(existing.team_id)
+    )
+    .map(existing => existing.id)
+
   // Run every stale id's repoint concurrently rather than one at a time —
   // with 100+ pairs, awaiting each in sequence (4 round trips apiece) is
   // slow enough to blow through the serverless function's timeout and
@@ -176,6 +202,9 @@ export async function POST() {
   if (staleToCurrentId.size > 0) {
     await adminSupabase.from('players').delete().in('id', Array.from(staleToCurrentId.keys()))
   }
+  if (goneIds.length > 0) {
+    await adminSupabase.from('players').update({ active: false }).in('id', goneIds)
+  }
 
   await supabase.from('api_sync_log').insert({
     sync_type: 'fpl',
@@ -189,6 +218,7 @@ export async function POST() {
     skipped_unmapped_team: skippedNoTeam,
     unmapped_teams: unmappedFplTeams,
     team_code_error: teamCodeError,
-    stale_duplicates_cleaned: staleToCurrentId.size
+    stale_duplicates_cleaned: staleToCurrentId.size,
+    players_marked_inactive: goneIds.length
   })
 }

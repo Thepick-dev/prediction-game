@@ -10,7 +10,7 @@ import { useCountdown, type CountdownTime } from '../lib/useCountdown'
 import TicketModal from '../../components/TicketModal'
 
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
-type Player = { id: number; name: string; web_name: string | null; team_id: number; value: number | null }
+type Player = { id: number; name: string; web_name: string | null; team_id: number; value: number | null; active: boolean | null }
 type Gameweek = { id: string; number: number; deadline: string; status: string }
 type Fixture = { id: number; home_team_id: number; away_team_id: number; kickoff_time: string; home_score: number | null; away_score: number | null; status: string }
 type HistoryPick = {
@@ -164,7 +164,17 @@ export default function PicksPage() {
       supabase.from('players').select('id, name, web_name, team_id, value').order('name')
     ])
     setTeams(teamsData ?? [])
-    setPlayers(playersData ?? [])
+
+    // Its own query, deliberately separate from the one above: `active` is
+    // a newer column, and this must never be able to take the whole Picks
+    // page down with it if it's missing (see the kit_colour_3 lesson —
+    // that exact mistake broke the header/leaderboard/settings kit badges
+    // earlier this session by sharing one query for an optional column).
+    const { data: playerActive } = await supabase.from('players').select('id, active')
+    const activeByPlayerId: Record<number, boolean | null> = {}
+    playerActive?.forEach(p => { activeByPlayerId[p.id] = p.active })
+
+    setPlayers((playersData ?? []).map(p => ({ ...p, active: activeByPlayerId[p.id] ?? true })))
 
     if (gw) {
       const [pickRes, { data: fixturesData }, { data: quartilesData }, { data: questionData }, { data: scoringRulesData }] = await Promise.all([
@@ -372,12 +382,13 @@ export default function PicksPage() {
     return options[questionAnswer] ?? ''
   })()
 
-  // Only players on currently active teams can be newly selected — teamMap
-  // only holds active teams (players.team_id now correctly matches teams.id,
-  // since the fpl sync route maps FPL's team codes onto our teams table).
-  // This hides players from clubs no longer in the competition without
-  // touching past picks/history display, which still resolve every player.
-  const selectablePlayers = players.filter(p => teamMap[p.team_id])
+  // Only players on currently active teams, who are themselves still active
+  // (not departed the club/league entirely per the FPL sync — see
+  // app/api/sync/fpl/route.ts), can be newly selected. Neither filter
+  // touches past picks/history display elsewhere, which still resolve
+  // every player regardless — this only narrows what's offered for a NEW
+  // pick.
+  const selectablePlayers = players.filter(p => teamMap[p.team_id] && p.active !== false)
 
   // With a club chosen, show that whole squad — highest FPL price first
   // (the price itself is never shown, just used to order the list) — the
