@@ -10,7 +10,7 @@ import { useCountdown, type CountdownTime } from '../lib/useCountdown'
 import TicketModal from '../../components/TicketModal'
 
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
-type Player = { id: number; name: string; web_name: string | null; team_id: number }
+type Player = { id: number; name: string; web_name: string | null; team_id: number; value: number | null }
 type Gameweek = { id: string; number: number; deadline: string; status: string }
 type Fixture = { id: number; home_team_id: number; away_team_id: number; kickoff_time: string; home_score: number | null; away_score: number | null; status: string }
 type HistoryPick = {
@@ -106,6 +106,8 @@ export default function PicksPage() {
 
   const [playerSearch1, setPlayerSearch1] = useState('')
   const [playerSearch2, setPlayerSearch2] = useState('')
+  const [player1Club, setPlayer1Club] = useState<number | null>(null)
+  const [player2Club, setPlayer2Club] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -159,7 +161,7 @@ export default function PicksPage() {
 
     const [{ data: teamsData }, { data: playersData }] = await Promise.all([
       supabase.from('teams').select('id, name, short_name, short_code, crest_url').eq('active', true).order('name'),
-      supabase.from('players').select('id, name, web_name, team_id').order('name')
+      supabase.from('players').select('id, name, web_name, team_id, value').order('name')
     ])
     setTeams(teamsData ?? [])
     setPlayers(playersData ?? [])
@@ -377,10 +379,26 @@ export default function PicksPage() {
   // touching past picks/history display, which still resolve every player.
   const selectablePlayers = players.filter(p => teamMap[p.team_id])
 
-  const filteredPlayers1 = playerSearch1.length >= 2
+  // With a club chosen, show that whole squad — highest FPL price first
+  // (the price itself is never shown, just used to order the list) — the
+  // typed search then narrows within that club instead of searching all
+  // clubs. With no club chosen, fall back to the original any-club name
+  // search once at least 2 characters are typed.
+  function playersForClub(teamId: number, search: string) {
+    return selectablePlayers
+      .filter(p => p.team_id === teamId && (search.length === 0 || p.name.toLowerCase().includes(search.toLowerCase())))
+      .slice()
+      .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
+  }
+
+  const filteredPlayers1 = player1Club != null
+    ? playersForClub(player1Club, playerSearch1)
+    : playerSearch1.length >= 2
     ? selectablePlayers.filter(p => p.name.toLowerCase().includes(playerSearch1.toLowerCase())).slice(0, 8)
     : []
-  const filteredPlayers2 = playerSearch2.length >= 2
+  const filteredPlayers2 = player2Club != null
+    ? playersForClub(player2Club, playerSearch2)
+    : playerSearch2.length >= 2
     ? selectablePlayers.filter(p => p.name.toLowerCase().includes(playerSearch2.toLowerCase())).slice(0, 8)
     : []
 
@@ -610,15 +628,25 @@ export default function PicksPage() {
                       {player1 ? (
                         <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg px-3 py-2">
                           <span className="text-sm uppercase">{playerName(player1)}</span>
-                          <button onClick={() => { setPlayer1(null); setPlayer1Fixture(null) }} className="text-xs text-red-400">✕</button>
+                          <button onClick={() => { setPlayer1(null); setPlayer1Fixture(null); setPlayer1Club(null) }} className="text-xs text-red-400">✕</button>
                         </div>
                       ) : (
                         <>
+                          <select
+                            value={player1Club ?? ''}
+                            onChange={e => setPlayer1Club(e.target.value ? Number(e.target.value) : null)}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 mb-1.5 text-sm text-[#F5ECD9]"
+                          >
+                            <option value="" style={{ color: '#241a12' }}>Filter by club...</option>
+                            {teams.map(t => (
+                              <option key={t.id} value={t.id} style={{ color: '#241a12' }}>{teamDisplayName(t)}</option>
+                            ))}
+                          </select>
                           <input
                             type="text"
                             value={playerSearch1}
                             onChange={e => setPlayerSearch1(e.target.value)}
-                            placeholder="Search players..."
+                            placeholder={player1Club != null ? 'Narrow down within this club...' : 'Search players...'}
                             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-[#F5ECD9] placeholder:text-[#F5ECD9]/40"
                           />
                           {filteredPlayers1.length > 0 && (
@@ -629,7 +657,7 @@ export default function PicksPage() {
                                 return (
                                   <button
                                     key={p.id}
-                                    onClick={() => { if (!maxed) { setPlayer1(p.id); setPlayer1Fixture(null); setPlayerSearch1('') } }}
+                                    onClick={() => { if (!maxed) { setPlayer1(p.id); setPlayer1Fixture(null); setPlayerSearch1(''); setPlayer1Club(null) } }}
                                     disabled={maxed}
                                     className={`block w-full text-left px-3 py-2 text-sm ${maxed ? 'text-[#F5ECD9]/30 line-through cursor-not-allowed' : 'hover:bg-white/10'}`}
                                   >
@@ -671,15 +699,25 @@ export default function PicksPage() {
                       {player2 ? (
                         <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg px-3 py-2">
                           <span className="text-sm uppercase">{playerName(player2)}</span>
-                          <button onClick={() => { setPlayer2(null); setPlayer2Fixture(null) }} className="text-xs text-red-400">✕</button>
+                          <button onClick={() => { setPlayer2(null); setPlayer2Fixture(null); setPlayer2Club(null) }} className="text-xs text-red-400">✕</button>
                         </div>
                       ) : (
                         <>
+                          <select
+                            value={player2Club ?? ''}
+                            onChange={e => setPlayer2Club(e.target.value ? Number(e.target.value) : null)}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 mb-1.5 text-sm text-[#F5ECD9]"
+                          >
+                            <option value="" style={{ color: '#241a12' }}>Filter by club...</option>
+                            {teams.map(t => (
+                              <option key={t.id} value={t.id} style={{ color: '#241a12' }}>{teamDisplayName(t)}</option>
+                            ))}
+                          </select>
                           <input
                             type="text"
                             value={playerSearch2}
                             onChange={e => setPlayerSearch2(e.target.value)}
-                            placeholder="Search players..."
+                            placeholder={player2Club != null ? 'Narrow down within this club...' : 'Search players...'}
                             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-[#F5ECD9] placeholder:text-[#F5ECD9]/40"
                           />
                           {filteredPlayers2.length > 0 && (
@@ -690,7 +728,7 @@ export default function PicksPage() {
                                 return (
                                   <button
                                     key={p.id}
-                                    onClick={() => { if (!maxed) { setPlayer2(p.id); setPlayer2Fixture(null); setPlayerSearch2('') } }}
+                                    onClick={() => { if (!maxed) { setPlayer2(p.id); setPlayer2Fixture(null); setPlayerSearch2(''); setPlayer2Club(null) } }}
                                     disabled={maxed}
                                     className={`block w-full text-left px-3 py-2 text-sm ${maxed ? 'text-[#F5ECD9]/30 line-through cursor-not-allowed' : 'hover:bg-white/10'}`}
                                   >

@@ -25,42 +25,57 @@ const TOTAL_HEROES: number = 20
 export default function HeroPage({ children, wide = false, noImage = false, heroOverride }: HeroPageProps) {
   const [showCard, setShowCard] = useState(false)
   const [heroNumber, setHeroNumber] = useState<number | null>(null)
+  const [imageReady, setImageReady] = useState(false)
 
   const poolEmpty = !heroOverride && TOTAL_HEROES === 0
   const effectiveNoImage = noImage || poolEmpty
+
+  useEffect(() => {
+    if (!effectiveNoImage && !heroOverride) {
+      const random = Math.floor(Math.random() * TOTAL_HEROES) + 1
+      setHeroNumber(random)
+    }
+  }, [effectiveNoImage, heroOverride])
+
+  // The random pick only exists client-side (picking it during the server
+  // render would mean the server and the browser's first paint disagree on
+  // which photo to show, which React flags as a hydration error) — so
+  // there's an unavoidable gap before heroNumber lands. A heroOverride
+  // (fixed slug, not random) needs no such gap and resolves immediately.
+  const heroSlug = heroOverride ?? (heroNumber !== null ? String(heroNumber).padStart(2, '0') : null)
+  const desktopImage = !effectiveNoImage && heroSlug ? `/api/hero-image/hero-${heroSlug}-desktop.png` : null
+  const mobileImage = !effectiveNoImage && heroSlug ? `/api/hero-image/hero-${heroSlug}-mobile.png` : null
+
+  // A CSS background-image has no load event of its own — without this,
+  // the photo div would sit there fully transparent (showing the plain
+  // dark backgroundColor beneath it) for however long the download took,
+  // which is exactly what read as a stuck dark patch rather than a smooth
+  // reveal. This preloads whichever image this screen will actually show
+  // and only flips imageReady once it's genuinely finished, so the fade-in
+  // below only starts once there's really something to fade in.
+  useEffect(() => {
+    if (!desktopImage || !mobileImage) return
+    setImageReady(false)
+    const isDesktop = window.matchMedia('(min-width: 768px)').matches
+    const img = new Image()
+    img.onload = () => setImageReady(true)
+    img.onerror = () => setImageReady(true) // don't get stuck on the gradient forever if a photo fails to load
+    img.src = isDesktop ? desktopImage : mobileImage
+    return () => { img.onload = null; img.onerror = null }
+  }, [desktopImage, mobileImage])
 
   useEffect(() => {
     if (effectiveNoImage) {
       setShowCard(true)
       return
     }
-    if (!heroOverride) {
-      const random = Math.floor(Math.random() * TOTAL_HEROES) + 1
-      setHeroNumber(random)
-    }
-
+    if (!imageReady) return
     // A full second so visitors actually get to see the photo behind the
     // header before the content card slides in over it — the whole point
     // of having a hero image at all.
     const timer = setTimeout(() => setShowCard(true), 1000)
     return () => clearTimeout(timer)
-  }, [effectiveNoImage, heroOverride])
-
-  // The random pick only exists client-side (picking it during the server
-  // render would mean the server and the browser's first paint disagree on
-  // which photo to show, which React flags as a hydration error) — so
-  // there's an unavoidable one-frame gap before heroNumber lands. Previously
-  // this whole component rendered nothing at all during that gap (a blank
-  // flash before the header/hero/card all suddenly appeared together).
-  // Instead, that gap now shows the same plain gradient as a true "no
-  // image" page, so the header and *a* background always appear on the
-  // very first paint, with the actual photo swapping in moments later —
-  // never a blank page. A heroOverride (fixed slug, not random) needs no
-  // such gap and resolves immediately on every render.
-  const showGradientOnly = effectiveNoImage || (!heroOverride && heroNumber === null)
-  const heroSlug = heroOverride ?? (heroNumber !== null ? String(heroNumber).padStart(2, '0') : null)
-  const desktopImage = heroSlug ? `/api/hero-image/hero-${heroSlug}-desktop.png` : null
-  const mobileImage = heroSlug ? `/api/hero-image/hero-${heroSlug}-mobile.png` : null
+  }, [effectiveNoImage, imageReady])
 
   // isolate is load-bearing, not decorative: without it, this div's own
   // backgroundColor has no stacking context of its own, so the -z-10 image
@@ -73,17 +88,18 @@ export default function HeroPage({ children, wide = false, noImage = false, hero
   // doesn't clip it.
   return (
     <div className="relative isolate overflow-hidden min-h-screen w-full" style={{ backgroundColor: '#1a120b' }}>
-      {showGradientOnly || !desktopImage || !mobileImage ? (
-        // Plain themed background — no photo. Used on pages reachable
-        // without logging in (login, news), anywhere the pool is
-        // currently empty (nothing publicly reverse-image-searchable back
-        // to an uncertain source/licence), and briefly on every other page
-        // while the random pick above resolves.
-        <div
-          className="hero-bg-height fixed top-0 left-0 right-0 -z-10"
-          style={{ background: 'linear-gradient(160deg, #2A1F17 0%, #1a120b 55%, #241a12 100%)' }}
-        />
-      ) : (
+      {/* The themed gradient is a permanent base layer, not just a "no
+          image" fallback — it's what shows on the very first paint (before
+          the random pick even lands), and it stays put underneath the
+          photo layer below while that's still downloading, fading out of
+          view only once the real photo has actually faded in on top of
+          it. That's what keeps the header and *some* background appearing
+          together instantly, with nothing ever looking like a stuck gap. */}
+      <div
+        className="hero-bg-height fixed top-0 left-0 right-0 -z-10"
+        style={{ background: 'linear-gradient(160deg, #2A1F17 0%, #1a120b 55%, #241a12 100%)' }}
+      />
+      {desktopImage && mobileImage && (
         <>
           {/* Both breakpoints use the exact same fixed positioning —
               always the true screen edges, regardless of how tall the
@@ -99,11 +115,11 @@ export default function HeroPage({ children, wide = false, noImage = false, hero
               hopping while scrolling. hero-bg-height uses the static
               `lvh` unit instead, which doesn't recalculate mid-scroll. */}
           <div
-            className="hero-bg-height hidden md:block fixed top-0 left-0 right-0 bg-cover bg-center -z-10"
+            className={`hero-bg-height hidden md:block fixed top-0 left-0 right-0 bg-cover bg-center -z-10 transition-opacity duration-700 ${imageReady ? 'opacity-100' : 'opacity-0'}`}
             style={{ backgroundImage: `url(${desktopImage})` }}
           />
           <div
-            className="hero-bg-height block md:hidden fixed top-0 left-0 right-0 bg-cover bg-center -z-10"
+            className={`hero-bg-height block md:hidden fixed top-0 left-0 right-0 bg-cover bg-center -z-10 transition-opacity duration-700 ${imageReady ? 'opacity-100' : 'opacity-0'}`}
             style={{ backgroundImage: `url(${mobileImage})` }}
           />
         </>
