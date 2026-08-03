@@ -198,7 +198,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
   const barColor = isPopArt ? 'var(--pop-black)' : '#D9A441'
 
   return (
-    <div className={`min-h-screen ${isPopArt ? 'pop-art-theme' : ''}`}>
+    <div className={`min-h-screen ${isPopArt ? 'pop-art-theme pop-solid-bg--black' : ''}`}>
       <header
         className={isPopArt ? 'pop-halftone-bg--yellow sticky top-0 z-50' : 'bg-[#2A1F17] border-b-4 border-[#D9A441] sticky top-0 z-50'}
         style={isPopArt ? { borderBottom: '6px solid var(--pop-black)' } : undefined}
@@ -419,8 +419,14 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
       <main className="max-w-4xl mx-auto px-4 py-6">
         {children}
       </main>
-      <footer className="border-t border-gray-200 py-4 mt-8 text-center">
-        <span className="text-gray-400 text-xs uppercase tracking-widest">
+      <footer
+        className={isPopArt ? 'py-4 mt-8 text-center' : 'border-t border-gray-200 py-4 mt-8 text-center'}
+        style={isPopArt ? { borderTop: '3px solid var(--pop-black)' } : undefined}
+      >
+        <span
+          className={isPopArt ? 'text-xs uppercase tracking-widest' : 'text-gray-400 text-xs uppercase tracking-widest'}
+          style={isPopArt ? { color: 'var(--pop-white)', fontFamily: 'var(--font-comic), sans-serif' } : undefined}
+        >
           LMS All-Stars Predictions
         </span>
       </footer>

@@ -555,9 +555,9 @@ export default function PicksPage() {
       <>
         {popArtToggleButton}
         <Shell active="PICKS" user={user} displayName={displayName} theme="pop-art">
-          <div className="pop-art-theme pop-solid-bg--black rounded-2xl p-4 sm:p-6" style={{ border: '6px solid var(--pop-black)' }}>
+          <div className="pop-art-theme pop-halftone-bg rounded-2xl p-4 sm:p-6" style={{ border: '6px solid var(--pop-black)' }}>
 
-            <div className="pop-panel pop-panel--pink pop-rotate-l rounded-xl p-5 sm:p-6 mb-6 text-center">
+            <div className="pop-panel pop-panel--black pop-rotate-l rounded-xl p-5 sm:p-6 mb-6 text-center">
               <h1 className="pop-headline text-5xl sm:text-6xl">Picks!</h1>
             </div>
 
