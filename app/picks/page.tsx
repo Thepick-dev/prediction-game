@@ -555,11 +555,10 @@ export default function PicksPage() {
       <>
         {popArtToggleButton}
         <Shell active="PICKS" user={user} displayName={displayName} theme="pop-art">
-          <div className="pop-art-theme pop-halftone-bg rounded-2xl p-4 sm:p-6" style={{ border: '6px solid var(--pop-black)' }}>
+          <div className="pop-art-theme pop-solid-bg--black rounded-2xl p-4 sm:p-6" style={{ border: '6px solid var(--pop-black)' }}>
 
-            <div className="pop-panel pop-panel--pink pop-rotate-l rounded-xl p-5 sm:p-6 mb-6">
-              <h1 className="pop-headline text-5xl sm:text-6xl mb-1">Picks!</h1>
-              <p className="font-black uppercase text-xs sm:text-sm">{competition.name}</p>
+            <div className="pop-panel pop-panel--pink pop-rotate-l rounded-xl p-5 sm:p-6 mb-6 text-center">
+              <h1 className="pop-headline text-5xl sm:text-6xl">Picks!</h1>
             </div>
 
             {gameweek && (
@@ -604,9 +603,11 @@ export default function PicksPage() {
                             className={`pop-select-btn rounded-lg p-3 flex flex-col items-center justify-between text-center gap-1.5 h-32 sm:h-36 ${homeSelected ? 'pop-pop-in' : ''}`}
                             style={{
                               border: '4px solid var(--pop-black)',
-                              background: homeSelected ? 'var(--pop-black)' : 'var(--pop-white)',
-                              color: homeSelected ? 'var(--pop-white)' : 'var(--pop-black)',
-                              opacity: homeStatus.isUsed && !homeSelected ? 0.4 : 1,
+                              // Solid colours only, deliberately no opacity here —
+                              // a translucent overlay on top of the halftone dots
+                              // is exactly what read as "filmy"/"faded" before.
+                              background: homeSelected ? 'var(--pop-black)' : homeStatus.isUsed ? '#D6D6D6' : 'var(--pop-white)',
+                              color: homeSelected ? 'var(--pop-white)' : homeStatus.isUsed ? '#8A8A8A' : 'var(--pop-black)',
                             }}
                           >
                             <TeamCrest crestUrl={homeTeam?.crest_url ?? null} teamName={teamDisplayName(homeTeam)} size={52} />
@@ -622,9 +623,8 @@ export default function PicksPage() {
                             className={`pop-select-btn rounded-lg p-3 flex flex-col items-center justify-between text-center gap-1.5 h-32 sm:h-36 ${awaySelected ? 'pop-pop-in' : ''}`}
                             style={{
                               border: '4px solid var(--pop-black)',
-                              background: awaySelected ? 'var(--pop-black)' : 'var(--pop-white)',
-                              color: awaySelected ? 'var(--pop-white)' : 'var(--pop-black)',
-                              opacity: awayStatus.isUsed && !awaySelected ? 0.4 : 1,
+                              background: awaySelected ? 'var(--pop-black)' : awayStatus.isUsed ? '#D6D6D6' : 'var(--pop-white)',
+                              color: awaySelected ? 'var(--pop-white)' : awayStatus.isUsed ? '#8A8A8A' : 'var(--pop-black)',
                             }}
                           >
                             <TeamCrest crestUrl={awayTeam?.crest_url ?? null} teamName={teamDisplayName(awayTeam)} size={52} />
@@ -822,7 +822,10 @@ export default function PicksPage() {
                 <button
                   onClick={savePick}
                   disabled={saving}
-                  className={`pop-button ${justSaved ? 'pop-button--green pop-celebrate' : ''} w-full py-4 text-xl`}
+                  className={`pop-button ${saving ? '' : justSaved ? 'pop-button--green pop-celebrate' : 'pop-button--yellow'} w-full py-4 text-xl`}
+                  style={saving
+                    ? { background: '#CCCCCC', color: 'var(--pop-black)', opacity: 1 }
+                    : { opacity: 1 }}
                 >
                   {saving ? 'Saving...' : justSaved ? '🎉 Locked In!' : hasPick ? 'Update Pick!' : 'Submit Pick!'}
                 </button>

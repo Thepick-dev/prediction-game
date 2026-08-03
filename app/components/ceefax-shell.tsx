@@ -427,7 +427,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
       {kitPopupOpen && kitPopupPos && user && typeof document !== 'undefined' && createPortal(
         <div
           ref={kitPopupRef}
-          className={isPopArt ? 'pop-art-theme fixed z-50 rounded-lg p-4 pop-panel pop-halftone-bg--yellow' : 'fixed z-50 rounded-lg p-4 border shadow-2xl'}
+          className={isPopArt ? 'pop-art-theme fixed z-50 rounded-lg p-4 pop-halftone-bg--yellow' : 'fixed z-50 rounded-lg p-4 border shadow-2xl'}
           style={{
             top: kitPopupPos.top,
             left: kitPopupPos.left,
@@ -435,7 +435,14 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             maxWidth: `calc(100vw - ${KIT_POPUP_MARGIN * 2}px)`,
             maxHeight: `calc(100vh - ${KIT_POPUP_MARGIN * 2}px)`,
             overflowY: 'auto',
-            ...(isPopArt ? {} : { backgroundColor: '#1e1914', borderColor: 'rgba(217,164,65,0.3)' }),
+            // Deliberately NOT the .pop-panel class here — it sets
+            // position: relative, which (being defined later in the
+            // cascade than Tailwind's .fixed utility) would silently
+            // override this popup's fixed positioning and break it. Same
+            // visual look via explicit styles instead.
+            ...(isPopArt
+              ? { border: '5px solid var(--pop-black)', boxShadow: '8px 8px 0 var(--pop-black)', borderRadius: '6px' }
+              : { backgroundColor: '#1e1914', borderColor: 'rgba(217,164,65,0.3)' }),
           }}
         >
           <h3
