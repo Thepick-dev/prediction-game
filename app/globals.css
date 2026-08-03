@@ -90,6 +90,12 @@ thead th {
   --pop-red: #E8262A;
   --pop-black: #111111;
   color: var(--pop-black);
+  /* Without this, a browser/OS in dark mode can silently re-skin native
+     <input>/<select>/<textarea> controls with its own dark palette (often
+     white text) regardless of this theme's own colours — which is what
+     made the comment box and player search read as white-on-white. This
+     pins native controls to the light rendering this theme always uses. */
+  color-scheme: light;
   /* The comic panels below are deliberately rotated a few degrees each,
      which can nudge their rendered box a little wider than their own
      column — this is what stops that turning into a page-level

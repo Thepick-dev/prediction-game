@@ -557,9 +557,9 @@ export default function PicksPage() {
         <Shell active="PICKS" user={user} displayName={displayName} theme="pop-art">
           <div className="pop-art-theme pop-halftone-bg rounded-2xl p-4 sm:p-6" style={{ border: '6px solid var(--pop-black)' }}>
 
-            <div className="pop-sunburst-bg pop-rotate-l rounded-xl p-5 sm:p-6 mb-6" style={{ border: '5px solid var(--pop-black)', boxShadow: '8px 8px 0 var(--pop-black)' }}>
+            <div className="pop-panel pop-panel--pink pop-rotate-l rounded-xl p-5 sm:p-6 mb-6">
               <h1 className="pop-headline text-5xl sm:text-6xl mb-1">Picks!</h1>
-              <p className="font-black uppercase text-xs sm:text-sm" style={{ color: 'var(--pop-black)' }}>{competition.name}</p>
+              <p className="font-black uppercase text-xs sm:text-sm">{competition.name}</p>
             </div>
 
             {gameweek && (
@@ -600,13 +600,13 @@ export default function PicksPage() {
                         <div key={fixture.id} className={`pop-panel ${rowPanel} ${rotate} p-3 grid grid-cols-2 gap-3`}>
                           <button
                             onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
-                            disabled={homeStatus.isUsed}
+                            disabled={homeStatus.isUsed && !homeSelected}
                             className={`pop-select-btn rounded-lg p-3 flex flex-col items-center justify-between text-center gap-1.5 h-32 sm:h-36 ${homeSelected ? 'pop-pop-in' : ''}`}
                             style={{
                               border: '4px solid var(--pop-black)',
                               background: homeSelected ? 'var(--pop-black)' : 'var(--pop-white)',
                               color: homeSelected ? 'var(--pop-white)' : 'var(--pop-black)',
-                              opacity: homeStatus.isUsed ? 0.4 : 1,
+                              opacity: homeStatus.isUsed && !homeSelected ? 0.4 : 1,
                             }}
                           >
                             <TeamCrest crestUrl={homeTeam?.crest_url ?? null} teamName={teamDisplayName(homeTeam)} size={52} />
@@ -618,13 +618,13 @@ export default function PicksPage() {
                           </button>
                           <button
                             onClick={() => !awayStatus.isUsed && selectTeamInFixture(fixture.away_team_id, fixture.id)}
-                            disabled={awayStatus.isUsed}
+                            disabled={awayStatus.isUsed && !awaySelected}
                             className={`pop-select-btn rounded-lg p-3 flex flex-col items-center justify-between text-center gap-1.5 h-32 sm:h-36 ${awaySelected ? 'pop-pop-in' : ''}`}
                             style={{
                               border: '4px solid var(--pop-black)',
                               background: awaySelected ? 'var(--pop-black)' : 'var(--pop-white)',
                               color: awaySelected ? 'var(--pop-white)' : 'var(--pop-black)',
-                              opacity: awayStatus.isUsed ? 0.4 : 1,
+                              opacity: awayStatus.isUsed && !awaySelected ? 0.4 : 1,
                             }}
                           >
                             <TeamCrest crestUrl={awayTeam?.crest_url ?? null} teamName={teamDisplayName(awayTeam)} size={52} />
@@ -661,7 +661,7 @@ export default function PicksPage() {
                           value={player1Club ?? ''}
                           onChange={e => setPlayer1Club(e.target.value ? Number(e.target.value) : null)}
                           className="w-full rounded-lg p-2 mb-2 font-bold text-sm"
-                          style={{ border: '3px solid var(--pop-black)' }}
+                          style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-white)', color: 'var(--pop-black)' }}
                         >
                           <option value="">Filter by club...</option>
                           {teams.map(t => <option key={t.id} value={t.id}>{teamDisplayName(t)}</option>)}
@@ -672,7 +672,7 @@ export default function PicksPage() {
                           onChange={e => setPlayerSearch1(e.target.value)}
                           placeholder={player1Club != null ? 'Narrow down...' : 'Search players...'}
                           className="w-full rounded-lg p-2 mb-2 font-bold text-sm"
-                          style={{ border: '3px solid var(--pop-black)' }}
+                          style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-white)', color: 'var(--pop-black)' }}
                         />
                         {filteredPlayers1.length > 0 && (
                           <div className="rounded-lg overflow-hidden max-h-48 overflow-y-auto" style={{ border: '3px solid var(--pop-black)' }}>
@@ -685,7 +685,7 @@ export default function PicksPage() {
                                   onClick={() => { if (!maxed) { setPlayer1(p.id); setPlayer1Fixture(null); setPlayerSearch1(''); setPlayer1Club(null) } }}
                                   disabled={maxed}
                                   className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
-                                  style={{ background: maxed ? '#eee' : 'var(--pop-white)', opacity: maxed ? 0.5 : 1, borderColor: 'var(--pop-black)' }}
+                                  style={{ background: maxed ? '#eee' : 'var(--pop-white)', color: 'var(--pop-black)', opacity: maxed ? 0.5 : 1, borderColor: 'var(--pop-black)' }}
                                 >
                                   {playerName(p.id)} <span className="text-xs">({count}/2)</span>
                                 </button>
@@ -715,7 +715,7 @@ export default function PicksPage() {
                           value={player2Club ?? ''}
                           onChange={e => setPlayer2Club(e.target.value ? Number(e.target.value) : null)}
                           className="w-full rounded-lg p-2 mb-2 font-bold text-sm"
-                          style={{ border: '3px solid var(--pop-black)' }}
+                          style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-white)', color: 'var(--pop-black)' }}
                         >
                           <option value="">Filter by club...</option>
                           {teams.map(t => <option key={t.id} value={t.id}>{teamDisplayName(t)}</option>)}
@@ -726,7 +726,7 @@ export default function PicksPage() {
                           onChange={e => setPlayerSearch2(e.target.value)}
                           placeholder={player2Club != null ? 'Narrow down...' : 'Search players...'}
                           className="w-full rounded-lg p-2 mb-2 font-bold text-sm"
-                          style={{ border: '3px solid var(--pop-black)' }}
+                          style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-white)', color: 'var(--pop-black)' }}
                         />
                         {filteredPlayers2.length > 0 && (
                           <div className="rounded-lg overflow-hidden max-h-48 overflow-y-auto" style={{ border: '3px solid var(--pop-black)' }}>
@@ -739,7 +739,7 @@ export default function PicksPage() {
                                   onClick={() => { if (!maxed) { setPlayer2(p.id); setPlayer2Fixture(null); setPlayerSearch2(''); setPlayer2Club(null) } }}
                                   disabled={maxed}
                                   className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
-                                  style={{ background: maxed ? '#eee' : 'var(--pop-white)', opacity: maxed ? 0.5 : 1, borderColor: 'var(--pop-black)' }}
+                                  style={{ background: maxed ? '#eee' : 'var(--pop-white)', color: 'var(--pop-black)', opacity: maxed ? 0.5 : 1, borderColor: 'var(--pop-black)' }}
                                 >
                                   {playerName(p.id)} <span className="text-xs">({count}/2)</span>
                                 </button>
@@ -775,7 +775,7 @@ export default function PicksPage() {
                         placeholder="Type your answer..."
                         maxLength={200}
                         className="w-full rounded-lg p-2 font-bold text-sm"
-                        style={{ border: '3px solid var(--pop-black)' }}
+                        style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-white)', color: 'var(--pop-black)' }}
                       />
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
@@ -811,7 +811,7 @@ export default function PicksPage() {
                     rows={3}
                     placeholder="Banter, a prediction, whatever..."
                     className="w-full rounded-lg p-2 font-bold text-sm"
-                    style={{ border: '3px solid var(--pop-black)' }}
+                    style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-white)', color: 'var(--pop-black)' }}
                   />
                 </div>
 
