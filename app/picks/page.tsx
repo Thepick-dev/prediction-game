@@ -506,6 +506,11 @@ export default function PicksPage() {
     Q4: 'pop-badge--red',
   }
 
+  // Cycled across fixture rows so the pick grid reads as a wall of colour
+  // rather than repeating white boxes — yellow left out since it's harder
+  // to read the black quartile/used badges against.
+  const popFixturePanelClass = ['pop-panel--pink', 'pop-panel--blue', 'pop-panel--green']
+
   if (loading) {
     return (
       <Shell active="PICKS">
@@ -588,12 +593,13 @@ export default function PicksPage() {
                       const homeWD = homeWinDraw(fixture)
                       const awayWD = awayWinDraw(fixture)
                       const rotate = i % 2 === 0 ? 'pop-rotate-l' : 'pop-rotate-r'
+                      const rowPanel = popFixturePanelClass[i % popFixturePanelClass.length]
                       return (
-                        <div key={fixture.id} className={`pop-panel ${rotate} p-3 grid grid-cols-2 gap-3`}>
+                        <div key={fixture.id} className={`pop-panel ${rowPanel} ${rotate} p-3 grid grid-cols-2 gap-3`}>
                           <button
                             onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
                             disabled={homeStatus.isUsed}
-                            className={`rounded-lg p-2.5 text-left ${homeSelected ? 'pop-pop-in' : ''}`}
+                            className={`rounded-lg p-3 flex flex-col items-center justify-between text-center gap-1.5 h-32 sm:h-36 ${homeSelected ? 'pop-pop-in' : ''}`}
                             style={{
                               border: '4px solid var(--pop-black)',
                               background: homeSelected ? 'var(--pop-pink)' : 'var(--pop-white)',
@@ -601,12 +607,8 @@ export default function PicksPage() {
                               opacity: homeStatus.isUsed ? 0.4 : 1,
                             }}
                           >
-                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                              <TeamCrest crestUrl={homeTeam?.crest_url ?? null} teamName={homeTeam?.name ?? ''} size={24} />
-                              <span className="font-black uppercase text-xs sm:text-sm">{teamDisplayName(homeTeam)}</span>
-                              {homeStatus.isDouble && <span>⭐</span>}
-                            </div>
-                            <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                            <TeamCrest crestUrl={homeTeam?.crest_url ?? null} teamName={teamDisplayName(homeTeam)} size={52} />
+                            <div className="flex items-center gap-1.5 flex-wrap justify-center min-h-[18px]">
                               {homeQ && <span className={`pop-badge ${popQuartileBadgeClass[homeQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{homeQ}</span>}
                               <span className="text-[9px] font-bold uppercase">{homeStatus.isUsed ? 'Used' : `${homeStatus.remaining}/${homeStatus.maxUses} left`}</span>
                             </div>
@@ -615,7 +617,7 @@ export default function PicksPage() {
                           <button
                             onClick={() => !awayStatus.isUsed && selectTeamInFixture(fixture.away_team_id, fixture.id)}
                             disabled={awayStatus.isUsed}
-                            className={`rounded-lg p-2.5 text-left ${awaySelected ? 'pop-pop-in' : ''}`}
+                            className={`rounded-lg p-3 flex flex-col items-center justify-between text-center gap-1.5 h-32 sm:h-36 ${awaySelected ? 'pop-pop-in' : ''}`}
                             style={{
                               border: '4px solid var(--pop-black)',
                               background: awaySelected ? 'var(--pop-pink)' : 'var(--pop-white)',
@@ -623,12 +625,8 @@ export default function PicksPage() {
                               opacity: awayStatus.isUsed ? 0.4 : 1,
                             }}
                           >
-                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                              <TeamCrest crestUrl={awayTeam?.crest_url ?? null} teamName={awayTeam?.name ?? ''} size={24} />
-                              <span className="font-black uppercase text-xs sm:text-sm">{teamDisplayName(awayTeam)}</span>
-                              {awayStatus.isDouble && <span>⭐</span>}
-                            </div>
-                            <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                            <TeamCrest crestUrl={awayTeam?.crest_url ?? null} teamName={teamDisplayName(awayTeam)} size={52} />
+                            <div className="flex items-center gap-1.5 flex-wrap justify-center min-h-[18px]">
                               {awayQ && <span className={`pop-badge ${popQuartileBadgeClass[awayQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{awayQ}</span>}
                               <span className="text-[9px] font-bold uppercase">{awayStatus.isUsed ? 'Used' : `${awayStatus.remaining}/${awayStatus.maxUses} left`}</span>
                             </div>
