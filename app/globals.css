@@ -345,3 +345,15 @@ thead th {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.6; transform: scale(0.92); }
 }
+
+/* One full spin on the kit shuffle button, re-triggered every shuffle the
+   same way .pop-pop-in re-triggers on selection. */
+.pop-shuffle-spin {
+  animation: pop-shuffle-spin 0.5s ease;
+}
+
+@keyframes pop-shuffle-spin {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.15); }
+  100% { transform: rotate(360deg) scale(1); }
+}

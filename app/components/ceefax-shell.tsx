@@ -427,7 +427,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
       {kitPopupOpen && kitPopupPos && user && typeof document !== 'undefined' && createPortal(
         <div
           ref={kitPopupRef}
-          className="fixed z-50 rounded-lg p-4 border shadow-2xl"
+          className={isPopArt ? 'pop-art-theme fixed z-50 rounded-lg p-4 pop-panel pop-halftone-bg--yellow' : 'fixed z-50 rounded-lg p-4 border shadow-2xl'}
           style={{
             top: kitPopupPos.top,
             left: kitPopupPos.left,
@@ -435,29 +435,36 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             maxWidth: `calc(100vw - ${KIT_POPUP_MARGIN * 2}px)`,
             maxHeight: `calc(100vh - ${KIT_POPUP_MARGIN * 2}px)`,
             overflowY: 'auto',
-            backgroundColor: '#1e1914',
-            borderColor: 'rgba(217,164,65,0.3)',
+            ...(isPopArt ? {} : { backgroundColor: '#1e1914', borderColor: 'rgba(217,164,65,0.3)' }),
           }}
         >
           <h3
-            className="text-xs font-bold uppercase tracking-wider mb-3"
-            style={{ color: '#D9A441', fontFamily: 'var(--font-heading), serif' }}
+            className={isPopArt ? 'pop-headline text-lg mb-3' : 'text-xs font-bold uppercase tracking-wider mb-3'}
+            style={isPopArt ? undefined : { color: '#D9A441', fontFamily: 'var(--font-heading), serif' }}
           >
             Change Your Kit
           </h3>
           <KitEditor
             userId={user.id}
             compact
+            theme={theme}
             onSaved={newKit => {
               setKitBase({ pattern: newKit.pattern, colour1: newKit.colour1, colour2: newKit.colour2 })
               setKitColour3(newKit.colour3 ?? null)
-              setKitPopupOpen(false)
+              // Comic Mode gets a beat to show its "Kit Saved!" celebration
+              // before the popup vanishes — closing instantly would mean
+              // nobody ever sees it.
+              if (isPopArt) {
+                setTimeout(() => setKitPopupOpen(false), 1200)
+              } else {
+                setKitPopupOpen(false)
+              }
             }}
           />
           <button
             onClick={() => setKitPopupOpen(false)}
-            className="w-full mt-3 rounded-lg py-1.5 text-xs font-bold uppercase tracking-wider"
-            style={{ backgroundColor: 'rgba(245,236,217,0.1)', color: '#F5ECD9' }}
+            className={isPopArt ? 'pop-button pop-button--blue w-full mt-3 py-1.5 text-xs' : 'w-full mt-3 rounded-lg py-1.5 text-xs font-bold uppercase tracking-wider'}
+            style={isPopArt ? undefined : { backgroundColor: 'rgba(245,236,217,0.1)', color: '#F5ECD9' }}
           >
             Close
           </button>

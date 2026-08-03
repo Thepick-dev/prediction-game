@@ -35,11 +35,17 @@ export default function KitEditor({
   userId,
   onSaved,
   compact = false,
+  theme = 'classic',
 }: {
   userId: string
   onSaved?: (kit: Kit) => void
   compact?: boolean
+  // Only the header's popup passes 'pop-art' (mirrors Shell's own theme
+  // prop) — the Settings page's embedded editor never does, so it always
+  // renders exactly as before.
+  theme?: 'classic' | 'pop-art'
 }) {
+  const isPopArt = theme === 'pop-art'
   const [kitPattern, setKitPattern] = useState('solid')
   const [kitColour1, setKitColour1] = useState('#1E4D6B')
   const [kitColour2, setKitColour2] = useState('#F5ECD9')
@@ -49,6 +55,8 @@ export default function KitEditor({
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [shuffleSpin, setShuffleSpin] = useState(false)
+  const [justSaved, setJustSaved] = useState(false)
 
   const supabase = createClient()
 
@@ -117,6 +125,10 @@ export default function KitEditor({
 
     setMessage(trimError ? 'Kit saved (trim colour not saved — ask the admin to check the database)' : 'Kit saved')
     setSaving(false)
+    if (isPopArt && !trimError) {
+      setJustSaved(true)
+      setTimeout(() => setJustSaved(false), 1400)
+    }
     onSaved?.({ pattern: kitPattern, colour1: kitColour1, colour2: kitColour2, colour3: kitColour3 })
   }
 
@@ -133,6 +145,10 @@ export default function KitEditor({
     // deliberate-looking result rather than the shuffle always adding one.
     setKitColour3(Math.random() < 0.33 ? null : randomSwatch())
     setMessage('')
+    if (isPopArt) {
+      setShuffleSpin(true)
+      setTimeout(() => setShuffleSpin(false), 500)
+    }
   }
 
   if (loading) {
@@ -142,94 +158,132 @@ export default function KitEditor({
   const swatchSize = compact ? 'w-6 h-6' : 'w-8 h-8'
   const btnClass = "w-full rounded px-4 py-2 text-sm font-bold disabled:opacity-50"
   const btnStyle = { backgroundColor: '#D9A441', color: '#241a12' }
+  const labelClass = isPopArt
+    ? 'text-xs font-black uppercase tracking-wider mb-2'
+    : 'text-xs font-bold uppercase tracking-wider text-[#F5ECD9]/50 mb-2'
+  const labelStyle = isPopArt ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-black)' } : undefined
+
+  function swatchProps(selected: boolean, colour: string) {
+    return isPopArt
+      ? {
+          className: `${swatchSize} rounded-full ${selected ? 'pop-pop-in' : ''}`,
+          style: {
+            backgroundColor: colour,
+            border: selected ? '3px solid var(--pop-black)' : '3px solid rgba(17,17,17,0.15)',
+            boxShadow: selected ? '2px 2px 0 var(--pop-black)' : 'none',
+          },
+        }
+      : {
+          className: `${swatchSize} rounded-full border-2 ${selected ? 'border-[#D9A441]' : 'border-transparent'}`,
+          style: { backgroundColor: colour },
+        }
+  }
 
   return (
     <div>
-      <div className="flex justify-center mb-3">
+      <div className={isPopArt ? 'pop-panel pop-halftone-bg--white rounded-xl p-4 mb-3 flex justify-center' : 'flex justify-center mb-3'}>
         <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={compact ? 100 : 140} />
       </div>
       {(kitStars > 0 || kitEarths > 0) && (
-        <p className="text-xs text-center text-[#F5ECD9]/40 mb-3">Awarded by the league admin.</p>
+        <p
+          className={isPopArt ? 'text-xs text-center mb-3 font-bold' : 'text-xs text-center text-[#F5ECD9]/40 mb-3'}
+          style={isPopArt ? { color: 'var(--pop-black)' } : undefined}
+        >
+          Awarded by the league admin.
+        </p>
       )}
 
       <div className="flex justify-center mb-4">
         <button
           onClick={shuffleKit}
           type="button"
-          className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded border border-[#D9A441]/50 text-[#D9A441] hover:bg-[#D9A441]/10 transition-colors"
+          className={isPopArt
+            ? `pop-button pop-button--yellow px-3 py-1.5 text-xs ${shuffleSpin ? 'pop-shuffle-spin' : ''}`
+            : 'text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded border border-[#D9A441]/50 text-[#D9A441] hover:bg-[#D9A441]/10 transition-colors'}
         >
           🎲 Shuffle
         </button>
       </div>
 
-      <p className="text-xs font-bold uppercase tracking-wider text-[#F5ECD9]/50 mb-2">Pattern</p>
+      <p className={labelClass} style={labelStyle}>Pattern</p>
       <div className="grid grid-cols-3 gap-2 mb-4">
-        {PATTERNS.map(p => (
-          <button
-            key={p.value}
-            onClick={() => setKitPattern(p.value)}
-            className={`flex flex-col items-center gap-1 p-2 rounded border text-xs ${
-              kitPattern === p.value ? 'border-[#D9A441] bg-[#D9A441]/10 font-bold' : 'border-white/10'
-            }`}
-          >
-            <KitBadge pattern={p.value} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} size={28} />
-            {!compact && <span className="text-center">{p.label}</span>}
-          </button>
-        ))}
+        {PATTERNS.map(p => {
+          const selected = kitPattern === p.value
+          return (
+            <button
+              key={p.value}
+              onClick={() => setKitPattern(p.value)}
+              className={isPopArt
+                ? `flex flex-col items-center gap-1 p-2 rounded-lg text-xs ${selected ? 'pop-pop-in' : ''}`
+                : `flex flex-col items-center gap-1 p-2 rounded border text-xs ${selected ? 'border-[#D9A441] bg-[#D9A441]/10 font-bold' : 'border-white/10'}`}
+              style={isPopArt ? {
+                border: '3px solid var(--pop-black)',
+                background: selected ? 'var(--pop-black)' : 'var(--pop-white)',
+                color: selected ? 'var(--pop-white)' : 'var(--pop-black)',
+              } : undefined}
+            >
+              <KitBadge pattern={p.value} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} size={28} />
+              {!compact && <span className="text-center">{p.label}</span>}
+            </button>
+          )
+        })}
       </div>
 
-      <p className="text-xs font-bold uppercase tracking-wider text-[#F5ECD9]/50 mb-2">Colour 1</p>
+      <p className={labelClass} style={labelStyle}>Colour 1</p>
       <div className="flex flex-wrap gap-2 mb-4">
         {SWATCHES.map(colour => (
-          <button
-            key={colour}
-            onClick={() => setKitColour1(colour)}
-            className={`${swatchSize} rounded-full border-2 ${kitColour1 === colour ? 'border-[#D9A441]' : 'border-transparent'}`}
-            style={{ backgroundColor: colour }}
-          />
+          <button key={colour} onClick={() => setKitColour1(colour)} {...swatchProps(kitColour1 === colour, colour)} />
         ))}
       </div>
 
-      <p className="text-xs font-bold uppercase tracking-wider text-[#F5ECD9]/50 mb-2">Colour 2</p>
+      <p className={labelClass} style={labelStyle}>Colour 2</p>
       <div className="flex flex-wrap gap-2 mb-4">
         {SWATCHES.map(colour => (
-          <button
-            key={colour}
-            onClick={() => setKitColour2(colour)}
-            className={`${swatchSize} rounded-full border-2 ${kitColour2 === colour ? 'border-[#D9A441]' : 'border-transparent'}`}
-            style={{ backgroundColor: colour }}
-          />
+          <button key={colour} onClick={() => setKitColour2(colour)} {...swatchProps(kitColour2 === colour, colour)} />
         ))}
       </div>
 
-      <p className="text-xs font-bold uppercase tracking-wider text-[#F5ECD9]/50 mb-2">Trim (collar &amp; cuffs, optional)</p>
+      <p className={labelClass} style={labelStyle}>Trim (collar &amp; cuffs, optional)</p>
       <div className="flex flex-wrap gap-2 mb-4">
         <button
           onClick={() => setKitColour3(null)}
-          className={`${swatchSize} rounded-full border-2 flex items-center justify-center text-[#F5ECD9]/60 ${
-            kitColour3 === null ? 'border-[#D9A441]' : 'border-white/10'
-          }`}
-          style={{ backgroundColor: 'transparent' }}
+          className={isPopArt
+            ? `${swatchSize} rounded-full flex items-center justify-center text-[10px] font-black ${kitColour3 === null ? 'pop-pop-in' : ''}`
+            : `${swatchSize} rounded-full border-2 flex items-center justify-center text-[#F5ECD9]/60 ${kitColour3 === null ? 'border-[#D9A441]' : 'border-white/10'}`}
+          style={isPopArt ? {
+            background: kitColour3 === null ? 'var(--pop-black)' : 'var(--pop-white)',
+            color: kitColour3 === null ? 'var(--pop-white)' : 'var(--pop-black)',
+            border: '3px solid var(--pop-black)',
+          } : { backgroundColor: 'transparent' }}
           title="No trim"
         >
           ✕
         </button>
         {SWATCHES.map(colour => (
-          <button
-            key={colour}
-            onClick={() => setKitColour3(colour)}
-            className={`${swatchSize} rounded-full border-2 ${kitColour3 === colour ? 'border-[#D9A441]' : 'border-transparent'}`}
-            style={{ backgroundColor: colour }}
-          />
+          <button key={colour} onClick={() => setKitColour3(colour)} {...swatchProps(kitColour3 === colour, colour)} />
         ))}
       </div>
 
       {message && (
-        <p className={`text-sm mb-3 ${message.startsWith('Kit saved') ? 'text-green-400' : 'text-red-400'}`}>{message}</p>
+        isPopArt ? (
+          <p className={`pop-badge ${message.startsWith('Kit saved') ? 'pop-badge--green' : 'pop-badge--red'} px-2.5 py-1 text-xs mb-3 inline-block`}>{message}</p>
+        ) : (
+          <p className={`text-sm mb-3 ${message.startsWith('Kit saved') ? 'text-green-400' : 'text-red-400'}`}>{message}</p>
+        )
       )}
-      <button onClick={saveKit} disabled={saving} className={btnClass} style={btnStyle}>
-        {saving ? 'Saving...' : 'Save Kit'}
-      </button>
+      {isPopArt ? (
+        <button
+          onClick={saveKit}
+          disabled={saving}
+          className={`pop-button ${justSaved ? 'pop-button--green pop-celebrate' : ''} w-full py-2.5 text-sm`}
+        >
+          {saving ? 'Saving...' : justSaved ? '🎉 Kit Saved!' : 'Save Kit'}
+        </button>
+      ) : (
+        <button onClick={saveKit} disabled={saving} className={btnClass} style={btnStyle}>
+          {saving ? 'Saving...' : 'Save Kit'}
+        </button>
+      )}
     </div>
   )
 }
