@@ -39,9 +39,33 @@ function teamDisplayName(team: Team | undefined) {
   return team.short_name ?? team.name.replace(' FC', '').replace(' AFC', '')
 }
 
-// A ceefax-teletext-style flip clock, in keeping with the rest of the site.
-function CountdownClock({ time }: { time: CountdownTime | null }) {
+// A ceefax-teletext-style flip clock in classic mode; a bold comic
+// countdown badge in pop-art mode.
+function CountdownClock({ time, theme = 'classic' }: { time: CountdownTime | null; theme?: 'classic' | 'pop-art' }) {
   if (!time) return null
+
+  if (theme === 'pop-art') {
+    if (time.expired) {
+      return <span className="pop-badge pop-badge--red px-3 py-1.5 text-xs">Deadline passed</span>
+    }
+    const units = [
+      { label: 'D', value: time.days },
+      { label: 'H', value: time.hours },
+      { label: 'M', value: time.mins },
+      { label: 'S', value: time.secs },
+    ]
+    return (
+      <div className="flex items-center gap-1.5">
+        {units.map(u => (
+          <div key={u.label} className="pop-badge flex flex-col items-center px-2 py-1 leading-tight">
+            <span className="text-sm">{String(u.value).padStart(2, '0')}</span>
+            <span className="text-[8px]">{u.label}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   if (time.expired) {
     return <span className="text-xs uppercase tracking-wider font-bold" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Deadline passed</span>
   }
@@ -110,6 +134,7 @@ export default function PicksPage() {
   const [player2Club, setPlayer2Club] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [justSaved, setJustSaved] = useState(false)
   const [message, setMessage] = useState('')
   const [deadlinePassed, setDeadlinePassed] = useState(false)
 
@@ -362,6 +387,12 @@ export default function PicksPage() {
     } else {
       setHasPick(true)
       setShowSlip(true)
+      // Comic-mode-only celebration flash (see popArt render below) — a
+      // brief "that worked!" moment on the submit button rather than a
+      // silent state change. Harmless to set unconditionally; the classic
+      // view never reads this state.
+      setJustSaved(true)
+      setTimeout(() => setJustSaved(false), 1400)
       loadData()
     }
     setSaving(false)
@@ -465,6 +496,16 @@ export default function PicksPage() {
     Q4: 'bg-red-500/20 text-red-300 border-red-400/40',
   }
 
+  // Same Q1-4 colour meaning as the classic badges above, just in the
+  // comic palette — gives blue and green genuine, functional presence
+  // on the page rather than being decorative extras.
+  const popQuartileBadgeClass: Record<string, string> = {
+    Q1: 'pop-badge--blue',
+    Q2: 'pop-badge--green',
+    Q3: '',
+    Q4: 'pop-badge--red',
+  }
+
   if (loading) {
     return (
       <Shell active="PICKS">
@@ -506,7 +547,7 @@ export default function PicksPage() {
     return (
       <>
         {popArtToggleButton}
-        <Shell active="PICKS" user={user} displayName={displayName}>
+        <Shell active="PICKS" user={user} displayName={displayName} theme="pop-art">
           <div className="pop-art-theme pop-halftone-bg rounded-2xl p-4 sm:p-6" style={{ border: '6px solid var(--pop-black)' }}>
 
             <div className="pop-sunburst-bg pop-rotate-l rounded-xl p-5 sm:p-6 mb-6" style={{ border: '5px solid var(--pop-black)', boxShadow: '8px 8px 0 var(--pop-black)' }}>
@@ -522,7 +563,7 @@ export default function PicksPage() {
                     {deadlinePassed ? 'Deadline passed' : hasPick ? 'Pick submitted!' : 'Pick required!'}
                   </p>
                 </div>
-                {!deadlinePassed && <CountdownClock time={countdown} />}
+                {!deadlinePassed && <CountdownClock time={countdown} theme="pop-art" />}
               </div>
             )}
 
@@ -552,7 +593,7 @@ export default function PicksPage() {
                           <button
                             onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
                             disabled={homeStatus.isUsed}
-                            className="rounded-lg p-2.5 text-left"
+                            className={`rounded-lg p-2.5 text-left ${homeSelected ? 'pop-pop-in' : ''}`}
                             style={{
                               border: '4px solid var(--pop-black)',
                               background: homeSelected ? 'var(--pop-pink)' : 'var(--pop-white)',
@@ -566,7 +607,7 @@ export default function PicksPage() {
                               {homeStatus.isDouble && <span>⭐</span>}
                             </div>
                             <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                              {homeQ && <span className="pop-badge px-1.5 py-0.5 text-[9px]">{homeQ}</span>}
+                              {homeQ && <span className={`pop-badge ${popQuartileBadgeClass[homeQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{homeQ}</span>}
                               <span className="text-[9px] font-bold uppercase">{homeStatus.isUsed ? 'Used' : `${homeStatus.remaining}/${homeStatus.maxUses} left`}</span>
                             </div>
                             <p className="text-[9px] font-bold uppercase">Win +{homeWD.win} &middot; Draw +{homeWD.draw}</p>
@@ -574,7 +615,7 @@ export default function PicksPage() {
                           <button
                             onClick={() => !awayStatus.isUsed && selectTeamInFixture(fixture.away_team_id, fixture.id)}
                             disabled={awayStatus.isUsed}
-                            className="rounded-lg p-2.5 text-left"
+                            className={`rounded-lg p-2.5 text-left ${awaySelected ? 'pop-pop-in' : ''}`}
                             style={{
                               border: '4px solid var(--pop-black)',
                               background: awaySelected ? 'var(--pop-pink)' : 'var(--pop-white)',
@@ -588,7 +629,7 @@ export default function PicksPage() {
                               {awayStatus.isDouble && <span>⭐</span>}
                             </div>
                             <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                              {awayQ && <span className="pop-badge px-1.5 py-0.5 text-[9px]">{awayQ}</span>}
+                              {awayQ && <span className={`pop-badge ${popQuartileBadgeClass[awayQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{awayQ}</span>}
                               <span className="text-[9px] font-bold uppercase">{awayStatus.isUsed ? 'Used' : `${awayStatus.remaining}/${awayStatus.maxUses} left`}</span>
                             </div>
                             <p className="text-[9px] font-bold uppercase">Win +{awayWD.win} &middot; Draw +{awayWD.draw}</p>
@@ -605,7 +646,7 @@ export default function PicksPage() {
                   <div className="pop-panel pop-rotate-r p-4">
                     <p className="pop-headline text-xl mb-2">Player 1</p>
                     {player1 ? (
-                      <div className="flex items-center justify-between rounded-lg p-2.5" style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-yellow)' }}>
+                      <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5" style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-yellow)' }}>
                         <span className="font-black uppercase text-sm">{playerName(player1)}</span>
                         <button
                           onClick={() => { setPlayer1(null); setPlayer1Fixture(null); setPlayer1Club(null) }}
@@ -659,7 +700,7 @@ export default function PicksPage() {
                   <div className="pop-panel pop-rotate-l p-4">
                     <p className="pop-headline text-xl mb-2">Player 2</p>
                     {player2 ? (
-                      <div className="flex items-center justify-between rounded-lg p-2.5" style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-yellow)' }}>
+                      <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5" style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-yellow)' }}>
                         <span className="font-black uppercase text-sm">{playerName(player2)}</span>
                         <button
                           onClick={() => { setPlayer2(null); setPlayer2Fixture(null); setPlayer2Club(null) }}
@@ -715,11 +756,11 @@ export default function PicksPage() {
                   <button
                     onClick={() => setIsBanker(!isBanker)}
                     disabled={!isBanker && bankersUsed >= 2}
-                    className={`pop-button ${isBanker ? '' : 'pop-button--yellow'} px-4 py-2.5`}
+                    className={`pop-button ${isBanker ? 'pop-button--green pop-pop-in' : 'pop-button--yellow'} px-4 py-2.5`}
                   >
                     {isBanker ? '★ Banker Declared' : 'Declare Banker'}
                   </button>
-                  <span className="pop-badge px-2.5 py-1.5 text-xs">{bankersUsed} of 2 used</span>
+                  <span className="pop-badge pop-badge--blue px-2.5 py-1.5 text-xs">{bankersUsed} of 2 used</span>
                 </div>
 
                 {question && (
@@ -778,8 +819,12 @@ export default function PicksPage() {
                   <p className="pop-badge pop-badge--red px-3 py-2 mb-4 inline-block text-xs">{message}</p>
                 )}
 
-                <button onClick={savePick} disabled={saving} className="pop-button w-full py-4 text-xl">
-                  {saving ? 'Saving...' : hasPick ? 'Update Pick!' : 'Submit Pick!'}
+                <button
+                  onClick={savePick}
+                  disabled={saving}
+                  className={`pop-button ${justSaved ? 'pop-button--green pop-celebrate' : ''} w-full py-4 text-xl`}
+                >
+                  {saving ? 'Saving...' : justSaved ? '🎉 Locked In!' : hasPick ? 'Update Pick!' : 'Submit Pick!'}
                 </button>
               </>
             )}

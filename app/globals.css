@@ -77,10 +77,11 @@ thead th {
 
 .pop-art-theme {
   --pop-pink: #F0328C;
-  --pop-yellow: #F5C518;
+  --pop-yellow: #FFD400;
   --pop-white: #FFFFFF;
   --pop-orange: #F58220;
-  --pop-blue: #1B4F9C;
+  --pop-blue: #0091D9;
+  --pop-green: #2FB350;
   --pop-red: #E8262A;
   --pop-black: #111111;
   color: var(--pop-black);
@@ -146,10 +147,20 @@ thead th {
   background: var(--pop-yellow);
 }
 
-.pop-rotate-l { transform: rotate(-2.5deg); }
-.pop-rotate-r { transform: rotate(2.5deg); }
-.pop-rotate-l-lg { transform: rotate(-4deg); }
-.pop-rotate-r-lg { transform: rotate(4deg); }
+.pop-panel--blue {
+  background: var(--pop-blue);
+  color: var(--pop-white);
+}
+
+.pop-panel--green {
+  background: var(--pop-green);
+  color: var(--pop-white);
+}
+
+/* Panels sit flat now, not tilted — kept as (no-op) classes rather than
+   deleted, so nothing in the markup needs to change to turn rotation
+   back on later if that's ever wanted again. */
+.pop-rotate-l, .pop-rotate-r, .pop-rotate-l-lg, .pop-rotate-r-lg { transform: none; }
 
 .pop-badge {
   display: inline-flex;
@@ -168,6 +179,7 @@ thead th {
 
 .pop-badge--pink { background: var(--pop-pink); color: var(--pop-white); }
 .pop-badge--blue { background: var(--pop-blue); color: var(--pop-white); }
+.pop-badge--green { background: var(--pop-green); color: var(--pop-white); }
 .pop-badge--red { background: var(--pop-red); color: var(--pop-white); }
 
 .pop-button {
@@ -193,15 +205,31 @@ thead th {
   color: var(--pop-black);
 }
 
+.pop-button--blue {
+  background: var(--pop-blue);
+  color: var(--pop-white);
+}
+
+.pop-button--green {
+  background: var(--pop-green);
+  color: var(--pop-white);
+}
+
+/* Hover wobble — small, playful, doesn't wait for a click to feel alive. */
+.pop-button:not(:disabled):hover {
+  transform: rotate(-1deg) scale(1.03);
+}
+
 .pop-button:not(:disabled):active {
-  transform: translate(5px, 5px);
+  transform: translate(5px, 5px) rotate(0deg) scale(1);
   box-shadow: 1px 1px 0 var(--pop-black);
 }
 
 /* Jagged starburst "shout" badge — a genuine burst shape, not a rounded
    pill, via clip-path. Used for one-off callouts (e.g. the banker star,
    a "used" stamp) that are meant to punch over a panel's edge rather
-   than sit politely inside it. */
+   than sit politely inside it. Gently animated so it reads as "alive"
+   even when nobody's interacting with it. */
 .pop-burst {
   background: var(--pop-orange);
   clip-path: polygon(
@@ -217,6 +245,41 @@ thead th {
   font-family: var(--font-comic), sans-serif;
   text-transform: uppercase;
   color: var(--pop-black);
+  animation: pop-wiggle 2.4s ease-in-out infinite;
 }
 
 .pop-burst--pink { background: var(--pop-pink); color: var(--pop-white); }
+.pop-burst--blue { background: var(--pop-blue); color: var(--pop-white); }
+.pop-burst--green { background: var(--pop-green); color: var(--pop-white); }
+
+@keyframes pop-wiggle {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(4deg); }
+}
+
+/* A satisfying little bounce the instant something gets picked — a team,
+   a player, an answer — so choosing feels like it did something, not
+   just a colour change. Re-triggers every time this class is (re)added,
+   since React re-adding the same className restarts a CSS animation. */
+.pop-pop-in {
+  animation: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0.9); }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+/* Shown briefly over the submit button right after a successful save —
+   a small "that worked!" celebration rather than a silent state change. */
+.pop-celebrate {
+  animation: pop-celebrate 0.6s ease;
+}
+
+@keyframes pop-celebrate {
+  0% { transform: scale(1) rotate(0deg); }
+  30% { transform: scale(1.08) rotate(-2deg); }
+  60% { transform: scale(1.04) rotate(2deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}

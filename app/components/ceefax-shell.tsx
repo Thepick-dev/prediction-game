@@ -15,6 +15,11 @@ type Props = {
   active?: string
   user?: any
   displayName?: string
+  // 'pop-art' switches the whole header (title, nav, deadline strip) to
+  // match the Picks page's comic theme toggle — passed down from there,
+  // not stored here, so this component has no theme state of its own and
+  // every other page (which never passes it) renders exactly as before.
+  theme?: 'classic' | 'pop-art'
 }
 
 const navItems = [
@@ -28,9 +33,20 @@ const navItems = [
   { label: 'SETTINGS', href: '/settings' },
 ]
 
-export default function Shell({ children, active, user, displayName }: Props) {
+export default function Shell({ children, active, user, displayName, theme = 'classic' }: Props) {
+  const isPopArt = theme === 'pop-art'
   const [menuOpen, setMenuOpen] = useState(false)
-  const [kit, setKit] = useState<{ pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number } | null>(null)
+  // Each optional piece of the kit is tracked in its own slot rather than
+  // one merged object, because the three queries below race each other —
+  // whichever resolves first used to bail out via `setKit(prev => prev ? ... : prev)`
+  // when `prev` was still null, silently dropping stars/earths (or the trim
+  // colour) forever whenever that query happened to win the race. Deriving
+  // `kit` from independent slots means arrival order can never lose data.
+  const [kitBase, setKitBase] = useState<{ pattern: string; colour1: string; colour2: string } | null>(null)
+  const [kitColour3, setKitColour3] = useState<string | null>(null)
+  const [kitStars, setKitStars] = useState(0)
+  const [kitEarths, setKitEarths] = useState(0)
+  const kit = kitBase ? { ...kitBase, colour3: kitColour3, stars: kitStars, earths: kitEarths } : null
   const [nextDeadline, setNextDeadline] = useState<{ number: number; deadline: string } | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const countdown = useCountdown(nextDeadline?.deadline ?? null)
@@ -131,13 +147,10 @@ export default function Shell({ children, active, user, displayName }: Props) {
       .single()
       .then(({ data }) => {
         if (data) {
-          setKit({
+          setKitBase({
             pattern: data.kit_pattern ?? 'solid',
             colour1: data.kit_colour_1 ?? '#1E4D6B',
             colour2: data.kit_colour_2 ?? '#F5ECD9',
-            colour3: null,
-            stars: 0,
-            earths: 0,
           })
         }
       })
@@ -151,7 +164,8 @@ export default function Shell({ children, active, user, displayName }: Props) {
       .single()
       .then(({ data }) => {
         if (data) {
-          setKit(prev => prev ? { ...prev, stars: data.kit_stars ?? 0, earths: data.kit_earths ?? 0 } : prev)
+          setKitStars(data.kit_stars ?? 0)
+          setKitEarths(data.kit_earths ?? 0)
         }
       })
     // Also its own request, same reason as kit_stars/kit_earths above — the
@@ -164,20 +178,25 @@ export default function Shell({ children, active, user, displayName }: Props) {
       .single()
       .then(({ data }) => {
         if (data) {
-          setKit(prev => prev ? { ...prev, colour3: data.kit_colour_3 ?? null } : prev)
+          setKitColour3(data.kit_colour_3 ?? null)
         }
       })
   }, [user?.id])
 
+  const barColor = isPopArt ? 'var(--pop-black)' : '#D9A441'
+
   return (
-    <div className="min-h-screen">
-      <header className="bg-[#2A1F17] border-b-4 border-[#D9A441] sticky top-0 z-50">
+    <div className={`min-h-screen ${isPopArt ? 'pop-art-theme' : ''}`}>
+      <header
+        className={isPopArt ? 'pop-halftone-bg--yellow sticky top-0 z-50' : 'bg-[#2A1F17] border-b-4 border-[#D9A441] sticky top-0 z-50'}
+        style={isPopArt ? { borderBottom: '6px solid var(--pop-black)' } : undefined}
+      >
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex sm:grid sm:grid-cols-3 items-center justify-between h-14">
             <Link
               href="/"
-              className="text-base sm:text-2xl tracking-wide uppercase whitespace-nowrap sm:col-start-2 sm:text-center sm:justify-self-center"
-              style={{ fontFamily: 'var(--font-heading), serif', color: '#F5ECD9' }}
+              className={`${isPopArt ? 'text-lg sm:text-2xl pop-headline' : 'text-base sm:text-2xl'} tracking-wide uppercase whitespace-nowrap sm:col-start-2 sm:text-center sm:justify-self-center`}
+              style={isPopArt ? undefined : { fontFamily: 'var(--font-heading), serif', color: '#F5ECD9' }}
             >
               LMS All-Stars
             </Link>
@@ -196,7 +215,10 @@ export default function Shell({ children, active, user, displayName }: Props) {
                       />
                     </button>
                   )}
-                  <span className="text-[10px] text-[#D9A441] uppercase font-medium tracking-wider leading-none">
+                  <span
+                    className="text-[10px] uppercase font-medium tracking-wider leading-none"
+                    style={{ color: isPopArt ? 'var(--pop-black)' : '#D9A441', fontFamily: isPopArt ? 'var(--font-comic), sans-serif' : undefined }}
+                  >
                     {displayName ?? ''}
                   </span>
                 </div>
@@ -206,14 +228,52 @@ export default function Shell({ children, active, user, displayName }: Props) {
                 className="md:hidden flex flex-col justify-center items-center w-8 h-8 gap-1.5"
                 aria-label="Menu"
               >
-                <span className={`block w-5 h-0.5 bg-[#D9A441] transition-all duration-200 ${menuOpen ? 'rotate-45 translate-y-2' : ''}`}></span>
-                <span className={`block w-5 h-0.5 bg-[#D9A441] transition-all duration-200 ${menuOpen ? 'opacity-0' : ''}`}></span>
-                <span className={`block w-5 h-0.5 bg-[#D9A441] transition-all duration-200 ${menuOpen ? '-rotate-45 -translate-y-2' : ''}`}></span>
+                <span className="block w-5 h-0.5 transition-all duration-200" style={{ backgroundColor: barColor, transform: menuOpen ? 'rotate(45deg) translateY(8px)' : undefined }}></span>
+                <span className="block w-5 h-0.5 transition-all duration-200" style={{ backgroundColor: barColor, opacity: menuOpen ? 0 : 1 }}></span>
+                <span className="block w-5 h-0.5 transition-all duration-200" style={{ backgroundColor: barColor, transform: menuOpen ? 'rotate(-45deg) translateY(-8px)' : undefined }}></span>
               </button>
             </div>
           </div>
           <nav className="hidden md:flex flex-wrap justify-center gap-x-1">
-            {navItems.map(item => (
+            {isPopArt ? (
+              <>
+                {navItems.map(item => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="px-2.5 lg:px-3 py-1.5 my-1 mx-0.5 text-[10px] lg:text-xs font-black tracking-wide whitespace-nowrap uppercase rounded-full"
+                    style={{
+                      fontFamily: 'var(--font-comic), sans-serif',
+                      border: '3px solid var(--pop-black)',
+                      background: active === item.label ? 'var(--pop-pink)' : 'var(--pop-white)',
+                      color: active === item.label ? 'var(--pop-white)' : 'var(--pop-black)',
+                    }}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+                {isAdmin && (
+                  <a
+                    href="/admin"
+                    className="px-2.5 lg:px-3 py-1.5 my-1 mx-0.5 text-[10px] lg:text-xs font-black tracking-wide whitespace-nowrap uppercase rounded-full"
+                    style={{ fontFamily: 'var(--font-comic), sans-serif', border: '3px solid var(--pop-black)', background: 'var(--pop-blue)', color: 'var(--pop-white)' }}
+                  >
+                    Admin
+                  </a>
+                )}
+                {user && (
+                  <form action="/auth/signout" method="POST">
+                    <button
+                      type="submit"
+                      className="px-2.5 lg:px-3 py-1.5 my-1 mx-0.5 text-[10px] lg:text-xs font-black tracking-wide whitespace-nowrap uppercase rounded-full"
+                      style={{ fontFamily: 'var(--font-comic), sans-serif', border: '3px solid var(--pop-black)', background: 'var(--pop-red)', color: 'var(--pop-white)' }}
+                    >
+                      Log Out
+                    </button>
+                  </form>
+                )}
+              </>
+            ) : navItems.map(item => (
               <Link
                 key={item.label}
                 href={item.href}
@@ -227,7 +287,7 @@ export default function Shell({ children, active, user, displayName }: Props) {
                 {item.label}
               </Link>
             ))}
-            {isAdmin && (
+            {!isPopArt && isAdmin && (
               <a
                 href="/admin"
                 style={{ color: active === 'ADMIN' ? '#D9A441' : '#F5ECD9' }}
@@ -238,7 +298,7 @@ export default function Shell({ children, active, user, displayName }: Props) {
                 Admin
               </a>
             )}
-            {user && (
+            {!isPopArt && user && (
               <form action="/auth/signout" method="POST">
                 <button
                   type="submit"
@@ -252,11 +312,14 @@ export default function Shell({ children, active, user, displayName }: Props) {
           </nav>
         </div>
         {nextDeadline && countdown && !countdown.expired && (
-          <div className="bg-[#D9A441]/10 border-t border-[#D9A441]/20">
+          <div className={isPopArt ? 'border-t-4' : 'bg-[#D9A441]/10 border-t border-[#D9A441]/20'} style={isPopArt ? { background: 'var(--pop-white)', borderColor: 'var(--pop-black)' } : undefined}>
             <div className="max-w-4xl mx-auto px-4">
               <Link
                 href="/picks"
-                className="flex items-center justify-center gap-1.5 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#D9A441] hover:text-[#F5ECD9] transition-colors"
+                className={isPopArt
+                  ? 'flex items-center justify-center gap-1.5 py-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider'
+                  : 'flex items-center justify-center gap-1.5 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#D9A441] hover:text-[#F5ECD9] transition-colors'}
+                style={isPopArt ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-pink)' } : undefined}
               >
                 <span>⏱</span>
                 GW{nextDeadline.number} picks close in {countdown.days > 0 ? `${countdown.days}d ` : ''}{countdown.hours}h {countdown.mins}m
@@ -265,17 +328,25 @@ export default function Shell({ children, active, user, displayName }: Props) {
           </div>
         )}
         {menuOpen && (
-          <div className="md:hidden border-t border-[#D9A441] bg-[#2A1F17] shadow-lg">
+          <div className={isPopArt ? 'md:hidden border-t-4' : 'md:hidden border-t border-[#D9A441] bg-[#2A1F17] shadow-lg'} style={isPopArt ? { borderColor: 'var(--pop-black)', background: 'var(--pop-white)' } : undefined}>
             {navItems.map(item => (
               <Link
                 key={item.label}
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
-                style={{
-                  color: active === item.label ? '#2A1F17' : '#F5ECD9',
-                  backgroundColor: active === item.label ? '#D9A441' : 'transparent'
-                }}
-                className="block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-[#3d2f22]"
+                style={isPopArt
+                  ? {
+                      fontFamily: 'var(--font-comic), sans-serif',
+                      color: active === item.label ? 'var(--pop-white)' : 'var(--pop-black)',
+                      backgroundColor: active === item.label ? 'var(--pop-pink)' : 'transparent',
+                    }
+                  : {
+                      color: active === item.label ? '#2A1F17' : '#F5ECD9',
+                      backgroundColor: active === item.label ? '#D9A441' : 'transparent'
+                    }}
+                className={isPopArt
+                  ? 'block px-6 py-4 text-sm font-black tracking-widest uppercase border-b-2'
+                  : 'block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-[#3d2f22]'}
               >
                 {item.label}
               </Link>
@@ -284,24 +355,29 @@ export default function Shell({ children, active, user, displayName }: Props) {
               <a
                 href="/admin"
                 onClick={() => setMenuOpen(false)}
-                style={{
-                  color: active === 'ADMIN' ? '#2A1F17' : '#F5ECD9',
-                  backgroundColor: active === 'ADMIN' ? '#D9A441' : 'transparent'
-                }}
-                className="block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-[#3d2f22]"
+                style={isPopArt
+                  ? { fontFamily: 'var(--font-comic), sans-serif', color: active === 'ADMIN' ? 'var(--pop-white)' : 'var(--pop-black)', backgroundColor: active === 'ADMIN' ? 'var(--pop-blue)' : 'transparent' }
+                  : {
+                      color: active === 'ADMIN' ? '#2A1F17' : '#F5ECD9',
+                      backgroundColor: active === 'ADMIN' ? '#D9A441' : 'transparent'
+                    }}
+                className={isPopArt
+                  ? 'block px-6 py-4 text-sm font-black tracking-widest uppercase border-b-2'
+                  : 'block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-[#3d2f22]'}
               >
                 Admin
               </a>
             )}
             {user && (
               <>
-                <div className="px-6 py-3 text-xs text-[#D9A441] uppercase tracking-wider">
+                <div className={isPopArt ? 'px-6 py-3 text-xs uppercase tracking-wider' : 'px-6 py-3 text-xs text-[#D9A441] uppercase tracking-wider'} style={isPopArt ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-black)' } : undefined}>
                   {displayName ?? ''}
                 </div>
                 <form action="/auth/signout" method="POST">
                   <button
                     type="submit"
-                    className="block w-full text-left px-6 py-4 text-sm font-bold tracking-widest uppercase text-[#F5ECD9]"
+                    className={isPopArt ? 'block w-full text-left px-6 py-4 text-sm font-black tracking-widest uppercase' : 'block w-full text-left px-6 py-4 text-sm font-bold tracking-widest uppercase text-[#F5ECD9]'}
+                    style={isPopArt ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-red)' } : undefined}
                   >
                     Log Out
                   </button>
@@ -344,7 +420,8 @@ export default function Shell({ children, active, user, displayName }: Props) {
             userId={user.id}
             compact
             onSaved={newKit => {
-              setKit(prev => (prev ? { ...prev, ...newKit } : prev))
+              setKitBase({ pattern: newKit.pattern, colour1: newKit.colour1, colour2: newKit.colour2 })
+              setKitColour3(newKit.colour3 ?? null)
               setKitPopupOpen(false)
             }}
           />
