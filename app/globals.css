@@ -283,3 +283,43 @@ thead th {
   60% { transform: scale(1.04) rotate(2deg); }
   100% { transform: scale(1) rotate(0deg); }
 }
+
+/* Header title, boxed up as its own mini comic panel rather than plain
+   text on the bar — the emphatic treatment the flat headline was missing.
+   Gently tilts on a loop so the header reads as "alive" even at rest. */
+.pop-title-badge {
+  background: var(--pop-pink);
+  border: 4px solid var(--pop-black);
+  border-radius: 8px;
+  box-shadow: 4px 4px 0 var(--pop-black);
+  animation: pop-tilt 3.2s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes pop-tilt {
+  0%, 100% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.5deg); }
+}
+
+/* Nav pills wobble on hover, same language as .pop-button, so the whole
+   header feels consistently "clickable" rather than just the CTAs. */
+.pop-nav-pill {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pop-nav-pill:hover {
+  transform: rotate(-2deg) scale(1.06);
+}
+
+/* Star rating on the kit badge — twinkles gently so it reads as a genuine
+   little reward rather than a flat glyph, and gives it something other
+   than colour to catch the eye with once it's set to a colour that pops
+   off the header (see KitBadge's starColor prop). */
+.pop-star-twinkle {
+  animation: pop-twinkle 1.8s ease-in-out infinite;
+}
+
+@keyframes pop-twinkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.92); }
+}

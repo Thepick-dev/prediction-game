@@ -13,14 +13,21 @@ interface KitBadgeProps {
   // (e.g. "text-[9px] sm:text-sm") so mobile and desktop can each get a
   // sensible size without any JS, rather than one fixed pixel value.
   iconTextClass?: string
+  // Override the default gold star colour — the gold reads fine on the
+  // classic dark header, but disappears against the pop-art theme's yellow
+  // header bar, so that caller passes something with actual contrast.
+  starColor?: string
+  // Extra className applied to the star span (e.g. a twinkle animation) —
+  // kept opt-in so every other caller renders exactly as before.
+  starClassName?: string
 }
 
 // Actual repeated icons, not a "x3" count — genuinely readable, flanking
 // the shirt (stars on the left, globes on the right) rather than drawn on
 // it or listed after it.
-function StarIcons({ stars, className }: { stars: number; className: string }) {
+function StarIcons({ stars, className, color, extraClassName }: { stars: number; className: string; color: string; extraClassName?: string }) {
   if (!stars) return null
-  return <span className={`leading-none ${className}`} style={{ color: '#D9A441' }}>{'★'.repeat(stars)}</span>
+  return <span className={`leading-none ${className} ${extraClassName ?? ''}`} style={{ color }}>{'★'.repeat(stars)}</span>
 }
 
 function GlobeIcons({ earths, className }: { earths: number; className: string }) {
@@ -28,7 +35,7 @@ function GlobeIcons({ earths, className }: { earths: number; className: string }
   return <span className={`leading-none ${className}`}>{'🌍'.repeat(earths)}</span>
 }
 
-export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0, earths = 0, size = 28, iconTextClass = 'text-sm' }: KitBadgeProps) {
+export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0, earths = 0, size = 28, iconTextClass = 'text-sm', starColor = '#D9A441', starClassName }: KitBadgeProps) {
   const shirtPath = "M8 2 L11 2 L12 4 L16 4 L17 2 L20 2 L26 7 L23 11 L20 9 L20 24 L8 24 L8 9 L5 11 L2 7 Z"
 
   const clipId = `kit-clip-${pattern}-${colour1.replace('#', '')}-${colour2.replace('#', '')}`
@@ -124,7 +131,7 @@ export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0
 
   return (
     <div className="inline-flex items-center gap-1 sm:gap-1.5">
-      <StarIcons stars={stars} className={iconTextClass} />
+      <StarIcons stars={stars} className={iconTextClass} color={starColor} extraClassName={starClassName} />
       <svg width={size} height={size} viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
         <defs>
           <clipPath id={clipId}>

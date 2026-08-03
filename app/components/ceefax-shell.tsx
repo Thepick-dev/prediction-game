@@ -22,6 +22,11 @@ type Props = {
   theme?: 'classic' | 'pop-art'
 }
 
+// Cycled across nav items in Comic Mode so the whole bar reads as fun and
+// colourful rather than mostly-white with only the active item picked out —
+// yellow is left out since the header bar itself is already yellow.
+const popNavColors = ['var(--pop-pink)', 'var(--pop-blue)', 'var(--pop-green)', 'var(--pop-orange)']
+
 const navItems = [
   { label: 'PICKS', href: '/picks' },
   { label: 'LEADERBOARD', href: '/leaderboard' },
@@ -195,10 +200,14 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
           <div className="flex sm:grid sm:grid-cols-3 items-center justify-between h-14">
             <Link
               href="/"
-              className={`${isPopArt ? 'text-lg sm:text-2xl pop-headline' : 'text-base sm:text-2xl'} tracking-wide uppercase whitespace-nowrap sm:col-start-2 sm:text-center sm:justify-self-center`}
+              className={`whitespace-nowrap sm:col-start-2 sm:text-center sm:justify-self-center ${isPopArt ? '' : 'text-base sm:text-2xl tracking-wide uppercase'}`}
               style={isPopArt ? undefined : { fontFamily: 'var(--font-heading), serif', color: '#F5ECD9' }}
             >
-              LMS All-Stars
+              {isPopArt ? (
+                <span className="pop-headline pop-title-badge inline-block text-base sm:text-2xl tracking-wide uppercase px-3 py-1">
+                  LMS All-Stars
+                </span>
+              ) : 'LMS All-Stars'}
             </Link>
             <div className="flex items-center gap-3 sm:col-start-3 sm:justify-self-end">
               {user && (
@@ -212,6 +221,8 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                         pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} colour3={kit.colour3}
                         stars={kit.stars} earths={kit.earths}
                         size={36} iconTextClass="text-[10px] sm:text-sm"
+                        starColor={isPopArt ? 'var(--pop-pink)' : undefined}
+                        starClassName={isPopArt ? 'pop-star-twinkle' : undefined}
                       />
                     </button>
                   )}
@@ -237,25 +248,30 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
           <nav className="hidden md:flex flex-wrap justify-center gap-x-1">
             {isPopArt ? (
               <>
-                {navItems.map(item => (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="px-2.5 lg:px-3 py-1.5 my-1 mx-0.5 text-[10px] lg:text-xs font-black tracking-wide whitespace-nowrap uppercase rounded-full"
-                    style={{
-                      fontFamily: 'var(--font-comic), sans-serif',
-                      border: '3px solid var(--pop-black)',
-                      background: active === item.label ? 'var(--pop-pink)' : 'var(--pop-white)',
-                      color: active === item.label ? 'var(--pop-white)' : 'var(--pop-black)',
-                    }}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                {navItems.map((item, i) => {
+                  const isActive = active === item.label
+                  return (
+                    <Link
+                      key={item.label}
+                      href={item.href}
+                      className="pop-nav-pill px-2.5 lg:px-3 py-1.5 my-1 mx-0.5 text-[10px] lg:text-xs font-black tracking-wide whitespace-nowrap uppercase rounded-full"
+                      style={{
+                        fontFamily: 'var(--font-comic), sans-serif',
+                        border: '3px solid var(--pop-black)',
+                        background: popNavColors[i % popNavColors.length],
+                        color: 'var(--pop-white)',
+                        boxShadow: isActive ? '4px 4px 0 var(--pop-black)' : 'none',
+                        transform: isActive ? 'translate(-2px, -2px)' : undefined,
+                      }}
+                    >
+                      {item.label}
+                    </Link>
+                  )
+                })}
                 {isAdmin && (
                   <a
                     href="/admin"
-                    className="px-2.5 lg:px-3 py-1.5 my-1 mx-0.5 text-[10px] lg:text-xs font-black tracking-wide whitespace-nowrap uppercase rounded-full"
+                    className="pop-nav-pill px-2.5 lg:px-3 py-1.5 my-1 mx-0.5 text-[10px] lg:text-xs font-black tracking-wide whitespace-nowrap uppercase rounded-full"
                     style={{ fontFamily: 'var(--font-comic), sans-serif', border: '3px solid var(--pop-black)', background: 'var(--pop-blue)', color: 'var(--pop-white)' }}
                   >
                     Admin
@@ -265,7 +281,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                   <form action="/auth/signout" method="POST">
                     <button
                       type="submit"
-                      className="px-2.5 lg:px-3 py-1.5 my-1 mx-0.5 text-[10px] lg:text-xs font-black tracking-wide whitespace-nowrap uppercase rounded-full"
+                      className="pop-nav-pill px-2.5 lg:px-3 py-1.5 my-1 mx-0.5 text-[10px] lg:text-xs font-black tracking-wide whitespace-nowrap uppercase rounded-full"
                       style={{ fontFamily: 'var(--font-comic), sans-serif', border: '3px solid var(--pop-black)', background: 'var(--pop-red)', color: 'var(--pop-white)' }}
                     >
                       Log Out
@@ -312,14 +328,14 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
           </nav>
         </div>
         {nextDeadline && countdown && !countdown.expired && (
-          <div className={isPopArt ? 'border-t-4' : 'bg-[#D9A441]/10 border-t border-[#D9A441]/20'} style={isPopArt ? { background: 'var(--pop-white)', borderColor: 'var(--pop-black)' } : undefined}>
+          <div className={isPopArt ? 'border-t-4' : 'bg-[#D9A441]/10 border-t border-[#D9A441]/20'} style={isPopArt ? { background: 'var(--pop-black)', borderColor: 'var(--pop-black)' } : undefined}>
             <div className="max-w-4xl mx-auto px-4">
               <Link
                 href="/picks"
                 className={isPopArt
                   ? 'flex items-center justify-center gap-1.5 py-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider'
                   : 'flex items-center justify-center gap-1.5 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#D9A441] hover:text-[#F5ECD9] transition-colors'}
-                style={isPopArt ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-pink)' } : undefined}
+                style={isPopArt ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-yellow)' } : undefined}
               >
                 <span>⏱</span>
                 GW{nextDeadline.number} picks close in {countdown.days > 0 ? `${countdown.days}d ` : ''}{countdown.hours}h {countdown.mins}m
@@ -328,41 +344,45 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
           </div>
         )}
         {menuOpen && (
-          <div className={isPopArt ? 'md:hidden border-t-4' : 'md:hidden border-t border-[#D9A441] bg-[#2A1F17] shadow-lg'} style={isPopArt ? { borderColor: 'var(--pop-black)', background: 'var(--pop-white)' } : undefined}>
-            {navItems.map(item => (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={() => setMenuOpen(false)}
-                style={isPopArt
-                  ? {
-                      fontFamily: 'var(--font-comic), sans-serif',
-                      color: active === item.label ? 'var(--pop-white)' : 'var(--pop-black)',
-                      backgroundColor: active === item.label ? 'var(--pop-pink)' : 'transparent',
-                    }
-                  : {
-                      color: active === item.label ? '#2A1F17' : '#F5ECD9',
-                      backgroundColor: active === item.label ? '#D9A441' : 'transparent'
-                    }}
-                className={isPopArt
-                  ? 'block px-6 py-4 text-sm font-black tracking-widest uppercase border-b-2'
-                  : 'block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-[#3d2f22]'}
-              >
-                {item.label}
-              </Link>
-            ))}
+          <div className={isPopArt ? 'md:hidden border-t-4' : 'md:hidden border-t border-[#D9A441] bg-[#2A1F17] shadow-lg'} style={isPopArt ? { borderColor: 'var(--pop-black)', background: 'var(--pop-black)' } : undefined}>
+            {navItems.map((item, i) => {
+              const isActive = active === item.label
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={() => setMenuOpen(false)}
+                  style={isPopArt
+                    ? {
+                        fontFamily: 'var(--font-comic), sans-serif',
+                        color: 'var(--pop-white)',
+                        background: popNavColors[i % popNavColors.length],
+                        borderLeft: isActive ? '8px solid var(--pop-black)' : '8px solid transparent',
+                      }
+                    : {
+                        color: active === item.label ? '#2A1F17' : '#F5ECD9',
+                        backgroundColor: active === item.label ? '#D9A441' : 'transparent'
+                      }}
+                  className={isPopArt
+                    ? 'block px-6 py-4 text-sm font-black tracking-widest uppercase border-b-2 border-black'
+                    : 'block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-[#3d2f22]'}
+                >
+                  {item.label}
+                </Link>
+              )
+            })}
             {isAdmin && (
               <a
                 href="/admin"
                 onClick={() => setMenuOpen(false)}
                 style={isPopArt
-                  ? { fontFamily: 'var(--font-comic), sans-serif', color: active === 'ADMIN' ? 'var(--pop-white)' : 'var(--pop-black)', backgroundColor: active === 'ADMIN' ? 'var(--pop-blue)' : 'transparent' }
+                  ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-white)', background: 'var(--pop-blue)', borderLeft: active === 'ADMIN' ? '8px solid var(--pop-black)' : '8px solid transparent' }
                   : {
                       color: active === 'ADMIN' ? '#2A1F17' : '#F5ECD9',
                       backgroundColor: active === 'ADMIN' ? '#D9A441' : 'transparent'
                     }}
                 className={isPopArt
-                  ? 'block px-6 py-4 text-sm font-black tracking-widest uppercase border-b-2'
+                  ? 'block px-6 py-4 text-sm font-black tracking-widest uppercase border-b-2 border-black'
                   : 'block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-[#3d2f22]'}
               >
                 Admin
@@ -370,14 +390,14 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             )}
             {user && (
               <>
-                <div className={isPopArt ? 'px-6 py-3 text-xs uppercase tracking-wider' : 'px-6 py-3 text-xs text-[#D9A441] uppercase tracking-wider'} style={isPopArt ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-black)' } : undefined}>
+                <div className={isPopArt ? 'px-6 py-3 text-xs uppercase tracking-wider' : 'px-6 py-3 text-xs text-[#D9A441] uppercase tracking-wider'} style={isPopArt ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-yellow)' } : undefined}>
                   {displayName ?? ''}
                 </div>
                 <form action="/auth/signout" method="POST">
                   <button
                     type="submit"
                     className={isPopArt ? 'block w-full text-left px-6 py-4 text-sm font-black tracking-widest uppercase' : 'block w-full text-left px-6 py-4 text-sm font-bold tracking-widest uppercase text-[#F5ECD9]'}
-                    style={isPopArt ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-red)' } : undefined}
+                    style={isPopArt ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-white)', background: 'var(--pop-red)' } : undefined}
                   >
                     Log Out
                   </button>
