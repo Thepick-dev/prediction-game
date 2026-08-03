@@ -24,8 +24,15 @@ type Props = {
 
 // Cycled across nav items in Comic Mode so the whole bar reads as fun and
 // colourful rather than mostly-white with only the active item picked out —
-// yellow is left out since the header bar itself is already yellow.
-const popNavColors = ['var(--pop-pink)', 'var(--pop-blue)', 'var(--pop-green)', 'var(--pop-orange)']
+// yellow is left out since the header bar itself is already yellow. Text
+// colour is paired per background since the palette's blue/green are bright
+// enough that white text on them fails contrast — black reads far better.
+const popNavColors = [
+  { bg: 'var(--pop-pink)', text: 'var(--pop-white)' },
+  { bg: 'var(--pop-blue)', text: 'var(--pop-black)' },
+  { bg: 'var(--pop-green)', text: 'var(--pop-black)' },
+  { bg: 'var(--pop-orange)', text: 'var(--pop-white)' },
+]
 
 const navItems = [
   { label: 'PICKS', href: '/picks' },
@@ -250,6 +257,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
               <>
                 {navItems.map((item, i) => {
                   const isActive = active === item.label
+                  const navColor = popNavColors[i % popNavColors.length]
                   return (
                     <Link
                       key={item.label}
@@ -258,8 +266,8 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                       style={{
                         fontFamily: 'var(--font-comic), sans-serif',
                         border: '3px solid var(--pop-black)',
-                        background: popNavColors[i % popNavColors.length],
-                        color: 'var(--pop-white)',
+                        background: navColor.bg,
+                        color: navColor.text,
                         boxShadow: isActive ? '4px 4px 0 var(--pop-black)' : 'none',
                         transform: isActive ? 'translate(-2px, -2px)' : undefined,
                       }}
@@ -272,7 +280,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                   <a
                     href="/admin"
                     className="pop-nav-pill px-2.5 lg:px-3 py-1.5 my-1 mx-0.5 text-[10px] lg:text-xs font-black tracking-wide whitespace-nowrap uppercase rounded-full"
-                    style={{ fontFamily: 'var(--font-comic), sans-serif', border: '3px solid var(--pop-black)', background: 'var(--pop-blue)', color: 'var(--pop-white)' }}
+                    style={{ fontFamily: 'var(--font-comic), sans-serif', border: '3px solid var(--pop-black)', background: 'var(--pop-blue)', color: 'var(--pop-black)' }}
                   >
                     Admin
                   </a>
@@ -327,15 +335,15 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             )}
           </nav>
         </div>
-        {nextDeadline && countdown && !countdown.expired && (
-          <div className={isPopArt ? 'border-t-4' : 'bg-[#D9A441]/10 border-t border-[#D9A441]/20'} style={isPopArt ? { background: 'var(--pop-black)', borderColor: 'var(--pop-black)' } : undefined}>
+        {/* Comic Mode drops this strip entirely — the Picks page already
+            has its own big countdown clock front and centre, so this was
+            just a redundant sub-header eating space under the nav. */}
+        {!isPopArt && nextDeadline && countdown && !countdown.expired && (
+          <div className="bg-[#D9A441]/10 border-t border-[#D9A441]/20">
             <div className="max-w-4xl mx-auto px-4">
               <Link
                 href="/picks"
-                className={isPopArt
-                  ? 'flex items-center justify-center gap-1.5 py-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider'
-                  : 'flex items-center justify-center gap-1.5 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#D9A441] hover:text-[#F5ECD9] transition-colors'}
-                style={isPopArt ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-yellow)' } : undefined}
+                className="flex items-center justify-center gap-1.5 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#D9A441] hover:text-[#F5ECD9] transition-colors"
               >
                 <span>⏱</span>
                 GW{nextDeadline.number} picks close in {countdown.days > 0 ? `${countdown.days}d ` : ''}{countdown.hours}h {countdown.mins}m
@@ -347,6 +355,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
           <div className={isPopArt ? 'md:hidden border-t-4' : 'md:hidden border-t border-[#D9A441] bg-[#2A1F17] shadow-lg'} style={isPopArt ? { borderColor: 'var(--pop-black)', background: 'var(--pop-black)' } : undefined}>
             {navItems.map((item, i) => {
               const isActive = active === item.label
+              const navColor = popNavColors[i % popNavColors.length]
               return (
                 <Link
                   key={item.label}
@@ -355,8 +364,8 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                   style={isPopArt
                     ? {
                         fontFamily: 'var(--font-comic), sans-serif',
-                        color: 'var(--pop-white)',
-                        background: popNavColors[i % popNavColors.length],
+                        color: navColor.text,
+                        background: navColor.bg,
                         borderLeft: isActive ? '8px solid var(--pop-black)' : '8px solid transparent',
                       }
                     : {
@@ -376,7 +385,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                 href="/admin"
                 onClick={() => setMenuOpen(false)}
                 style={isPopArt
-                  ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-white)', background: 'var(--pop-blue)', borderLeft: active === 'ADMIN' ? '8px solid var(--pop-black)' : '8px solid transparent' }
+                  ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-black)', background: 'var(--pop-blue)', borderLeft: active === 'ADMIN' ? '8px solid var(--pop-black)' : '8px solid transparent' }
                   : {
                       color: active === 'ADMIN' ? '#2A1F17' : '#F5ECD9',
                       backgroundColor: active === 'ADMIN' ? '#D9A441' : 'transparent'

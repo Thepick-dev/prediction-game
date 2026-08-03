@@ -507,9 +507,11 @@ export default function PicksPage() {
   }
 
   // Cycled across fixture rows so the pick grid reads as a wall of colour
-  // rather than repeating white boxes — yellow left out since it's harder
-  // to read the black quartile/used badges against.
-  const popFixturePanelClass = ['pop-panel--pink', 'pop-panel--blue', 'pop-panel--green']
+  // rather than repeating white boxes. Pink is deliberately left out here —
+  // once a team inside a pink row was also selected (previously pink too)
+  // the two blurred into "pink on pink" — green/blue/white don't collide
+  // with the black-on-white "selected" treatment below.
+  const popFixturePanelClass = ['pop-panel--green', 'pop-panel--blue', '']
 
   if (loading) {
     return (
@@ -561,7 +563,7 @@ export default function PicksPage() {
             </div>
 
             {gameweek && (
-              <div className={`pop-panel ${!deadlinePassed && !hasPick ? 'pop-panel--yellow pop-rotate-r' : 'pop-panel--pink pop-rotate-l'} p-4 mb-6 flex items-center justify-between gap-3 flex-wrap`}>
+              <div className={`pop-panel ${!deadlinePassed && !hasPick ? 'pop-panel--yellow pop-rotate-r' : 'pop-panel--blue pop-rotate-l'} p-4 mb-6 flex items-center justify-between gap-3 flex-wrap`}>
                 <div>
                   <p className="pop-headline text-2xl sm:text-3xl mb-0.5">GW{gameweek.number}</p>
                   <p className="font-black text-xs uppercase">
@@ -573,7 +575,7 @@ export default function PicksPage() {
             )}
 
             {deadlinePassed ? (
-              <div className="pop-panel pop-panel--pink p-6 text-center">
+              <div className="pop-panel pop-panel--blue p-6 text-center">
                 <p className="pop-headline text-2xl">Locked — See You Next Gameweek!</p>
               </div>
             ) : (
@@ -599,10 +601,10 @@ export default function PicksPage() {
                           <button
                             onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
                             disabled={homeStatus.isUsed}
-                            className={`rounded-lg p-3 flex flex-col items-center justify-between text-center gap-1.5 h-32 sm:h-36 ${homeSelected ? 'pop-pop-in' : ''}`}
+                            className={`pop-select-btn rounded-lg p-3 flex flex-col items-center justify-between text-center gap-1.5 h-32 sm:h-36 ${homeSelected ? 'pop-pop-in' : ''}`}
                             style={{
                               border: '4px solid var(--pop-black)',
-                              background: homeSelected ? 'var(--pop-pink)' : 'var(--pop-white)',
+                              background: homeSelected ? 'var(--pop-black)' : 'var(--pop-white)',
                               color: homeSelected ? 'var(--pop-white)' : 'var(--pop-black)',
                               opacity: homeStatus.isUsed ? 0.4 : 1,
                             }}
@@ -617,10 +619,10 @@ export default function PicksPage() {
                           <button
                             onClick={() => !awayStatus.isUsed && selectTeamInFixture(fixture.away_team_id, fixture.id)}
                             disabled={awayStatus.isUsed}
-                            className={`rounded-lg p-3 flex flex-col items-center justify-between text-center gap-1.5 h-32 sm:h-36 ${awaySelected ? 'pop-pop-in' : ''}`}
+                            className={`pop-select-btn rounded-lg p-3 flex flex-col items-center justify-between text-center gap-1.5 h-32 sm:h-36 ${awaySelected ? 'pop-pop-in' : ''}`}
                             style={{
                               border: '4px solid var(--pop-black)',
-                              background: awaySelected ? 'var(--pop-pink)' : 'var(--pop-white)',
+                              background: awaySelected ? 'var(--pop-black)' : 'var(--pop-white)',
                               color: awaySelected ? 'var(--pop-white)' : 'var(--pop-black)',
                               opacity: awayStatus.isUsed ? 0.4 : 1,
                             }}
@@ -786,10 +788,10 @@ export default function PicksPage() {
                           <button
                             key={opt.key}
                             onClick={() => setQuestionAnswer(opt.key)}
-                            className="rounded-lg p-2 font-black uppercase text-sm"
+                            className="pop-select-btn rounded-lg p-2 font-black uppercase text-sm"
                             style={{
                               border: '3px solid var(--pop-black)',
-                              background: questionAnswer === opt.key ? 'var(--pop-pink)' : 'var(--pop-white)',
+                              background: questionAnswer === opt.key ? 'var(--pop-black)' : 'var(--pop-white)',
                               color: questionAnswer === opt.key ? 'var(--pop-white)' : 'var(--pop-black)',
                             }}
                           >

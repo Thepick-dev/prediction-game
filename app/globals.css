@@ -76,12 +76,17 @@ thead th {
    ============================================================ */
 
 .pop-art-theme {
-  --pop-pink: #F0328C;
-  --pop-yellow: #FFD400;
+  /* Fixed palette (user-specified) — orange/yellow/green/blue/pink, all at
+     matching saturation and brightness so nothing in the rotation reads as
+     more "washed out" than the others. Red is kept separate and outside
+     this palette on purpose — it's reserved for stop/danger actions
+     (Log Out, deadline passed, Q4) rather than decorative rotation. */
+  --pop-orange: #FF3D00;
+  --pop-yellow: #FFEA00;
+  --pop-green: #00E676;
+  --pop-blue: #00B0FF;
+  --pop-pink: #D5006D;
   --pop-white: #FFFFFF;
-  --pop-orange: #F58220;
-  --pop-blue: #0091D9;
-  --pop-green: #2FB350;
   --pop-red: #E8262A;
   --pop-black: #111111;
   color: var(--pop-black);
@@ -149,12 +154,10 @@ thead th {
 
 .pop-panel--blue {
   background: var(--pop-blue);
-  color: var(--pop-white);
 }
 
 .pop-panel--green {
   background: var(--pop-green);
-  color: var(--pop-white);
 }
 
 /* Panels sit flat now, not tilted — kept as (no-op) classes rather than
@@ -178,8 +181,8 @@ thead th {
 }
 
 .pop-badge--pink { background: var(--pop-pink); color: var(--pop-white); }
-.pop-badge--blue { background: var(--pop-blue); color: var(--pop-white); }
-.pop-badge--green { background: var(--pop-green); color: var(--pop-white); }
+.pop-badge--blue { background: var(--pop-blue); color: var(--pop-black); }
+.pop-badge--green { background: var(--pop-green); color: var(--pop-black); }
 .pop-badge--red { background: var(--pop-red); color: var(--pop-white); }
 
 .pop-button {
@@ -195,6 +198,19 @@ thead th {
   cursor: pointer;
 }
 
+/* Selection buttons (team picks, question answers) — the browser's own
+   default blue focus ring looks out of place next to the comic border, so
+   it's replaced with a black one that only shows for keyboard focus, not
+   every mouse click. */
+.pop-select-btn {
+  outline: none;
+}
+
+.pop-select-btn:focus-visible {
+  outline: 3px solid var(--pop-black);
+  outline-offset: 2px;
+}
+
 .pop-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -207,12 +223,12 @@ thead th {
 
 .pop-button--blue {
   background: var(--pop-blue);
-  color: var(--pop-white);
+  color: var(--pop-black);
 }
 
 .pop-button--green {
   background: var(--pop-green);
-  color: var(--pop-white);
+  color: var(--pop-black);
 }
 
 /* Hover wobble — small, playful, doesn't wait for a click to feel alive. */
@@ -249,8 +265,8 @@ thead th {
 }
 
 .pop-burst--pink { background: var(--pop-pink); color: var(--pop-white); }
-.pop-burst--blue { background: var(--pop-blue); color: var(--pop-white); }
-.pop-burst--green { background: var(--pop-green); color: var(--pop-white); }
+.pop-burst--blue { background: var(--pop-blue); color: var(--pop-black); }
+.pop-burst--green { background: var(--pop-green); color: var(--pop-black); }
 
 @keyframes pop-wiggle {
   0%, 100% { transform: rotate(-4deg); }
