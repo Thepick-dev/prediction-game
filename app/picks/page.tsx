@@ -113,6 +113,22 @@ export default function PicksPage() {
   const [message, setMessage] = useState('')
   const [deadlinePassed, setDeadlinePassed] = useState(false)
 
+  // Pop-art comic theme prototype — a pure presentation toggle, not a
+  // preference tied to the account, so it's fine to just live in this
+  // browser via localStorage. Lets anyone flip between this and the
+  // classic look instantly, with no code change needed to "revert".
+  const [popArt, setPopArt] = useState(false)
+  useEffect(() => {
+    if (localStorage.getItem('lms-pop-art-picks') === 'true') setPopArt(true)
+  }, [])
+  function togglePopArt() {
+    setPopArt(prev => {
+      const next = !prev
+      localStorage.setItem('lms-pop-art-picks', String(next))
+      return next
+    })
+  }
+
   const supabase = createClient()
   const countdown = useCountdown(gameweek?.deadline ?? null)
 
@@ -466,8 +482,317 @@ export default function PicksPage() {
     )
   }
 
+  // Always rendered regardless of which look is showing, so switching back
+  // to Classic never depends on remembering where a setting lives — it's
+  // right there on the page, in both modes.
+  const popArtToggleButton = (
+    <button
+      onClick={togglePopArt}
+      className="fixed bottom-4 right-4 z-40 rounded-full px-4 py-2.5 text-xs font-bold uppercase tracking-wider shadow-lg"
+      style={
+        popArt
+          ? { backgroundColor: '#F0328C', color: '#FFFFFF', border: '3px solid #111111', fontFamily: 'var(--font-comic), sans-serif', letterSpacing: '0.04em' }
+          : { backgroundColor: '#D9A441', color: '#241a12' }
+      }
+    >
+      {popArt ? '🎨 Comic Mode — Tap for Classic' : '🎨 Try Comic Mode'}
+    </button>
+  )
+
+  if (popArt) {
+    const homeWinDraw = (fixture: Fixture) => getWinDrawPoints(fixture.home_team_id, fixture.away_team_id, true)
+    const awayWinDraw = (fixture: Fixture) => getWinDrawPoints(fixture.away_team_id, fixture.home_team_id, false)
+
+    return (
+      <>
+        {popArtToggleButton}
+        <Shell active="PICKS" user={user} displayName={displayName}>
+          <div className="pop-art-theme pop-halftone-bg rounded-2xl p-4 sm:p-6" style={{ border: '6px solid var(--pop-black)' }}>
+
+            <div className="pop-sunburst-bg pop-rotate-l rounded-xl p-5 sm:p-6 mb-6" style={{ border: '5px solid var(--pop-black)', boxShadow: '8px 8px 0 var(--pop-black)' }}>
+              <h1 className="pop-headline text-5xl sm:text-6xl mb-1">Picks!</h1>
+              <p className="font-black uppercase text-xs sm:text-sm" style={{ color: 'var(--pop-black)' }}>{competition.name}</p>
+            </div>
+
+            {gameweek && (
+              <div className={`pop-panel ${!deadlinePassed && !hasPick ? 'pop-panel--yellow pop-rotate-r' : 'pop-panel--pink pop-rotate-l'} p-4 mb-6 flex items-center justify-between gap-3 flex-wrap`}>
+                <div>
+                  <p className="pop-headline text-2xl sm:text-3xl mb-0.5">GW{gameweek.number}</p>
+                  <p className="font-black text-xs uppercase">
+                    {deadlinePassed ? 'Deadline passed' : hasPick ? 'Pick submitted!' : 'Pick required!'}
+                  </p>
+                </div>
+                {!deadlinePassed && <CountdownClock time={countdown} />}
+              </div>
+            )}
+
+            {deadlinePassed ? (
+              <div className="pop-panel pop-panel--pink p-6 text-center">
+                <p className="pop-headline text-2xl">Locked — See You Next Gameweek!</p>
+              </div>
+            ) : (
+              <>
+                <p className="pop-headline text-2xl sm:text-3xl mb-3">Pick Your Team</p>
+                {hasFixtures ? (
+                  <div className="grid gap-4 mb-6">
+                    {fixtures.map((fixture, i) => {
+                      const homeStatus = getTeamStatus(fixture.home_team_id)
+                      const awayStatus = getTeamStatus(fixture.away_team_id)
+                      const homeTeam = getTeam(fixture.home_team_id)
+                      const awayTeam = getTeam(fixture.away_team_id)
+                      const homeQ = getQuartileLabel(fixture.home_team_id)
+                      const awayQ = getQuartileLabel(fixture.away_team_id)
+                      const homeSelected = selectedTeam === fixture.home_team_id && selectedFixture === fixture.id
+                      const awaySelected = selectedTeam === fixture.away_team_id && selectedFixture === fixture.id
+                      const homeWD = homeWinDraw(fixture)
+                      const awayWD = awayWinDraw(fixture)
+                      const rotate = i % 2 === 0 ? 'pop-rotate-l' : 'pop-rotate-r'
+                      return (
+                        <div key={fixture.id} className={`pop-panel ${rotate} p-3 grid grid-cols-2 gap-3`}>
+                          <button
+                            onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
+                            disabled={homeStatus.isUsed}
+                            className="rounded-lg p-2.5 text-left"
+                            style={{
+                              border: '4px solid var(--pop-black)',
+                              background: homeSelected ? 'var(--pop-pink)' : 'var(--pop-white)',
+                              color: homeSelected ? 'var(--pop-white)' : 'var(--pop-black)',
+                              opacity: homeStatus.isUsed ? 0.4 : 1,
+                            }}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                              <TeamCrest crestUrl={homeTeam?.crest_url ?? null} teamName={homeTeam?.name ?? ''} size={24} />
+                              <span className="font-black uppercase text-xs sm:text-sm">{teamDisplayName(homeTeam)}</span>
+                              {homeStatus.isDouble && <span>⭐</span>}
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                              {homeQ && <span className="pop-badge px-1.5 py-0.5 text-[9px]">{homeQ}</span>}
+                              <span className="text-[9px] font-bold uppercase">{homeStatus.isUsed ? 'Used' : `${homeStatus.remaining}/${homeStatus.maxUses} left`}</span>
+                            </div>
+                            <p className="text-[9px] font-bold uppercase">Win +{homeWD.win} &middot; Draw +{homeWD.draw}</p>
+                          </button>
+                          <button
+                            onClick={() => !awayStatus.isUsed && selectTeamInFixture(fixture.away_team_id, fixture.id)}
+                            disabled={awayStatus.isUsed}
+                            className="rounded-lg p-2.5 text-left"
+                            style={{
+                              border: '4px solid var(--pop-black)',
+                              background: awaySelected ? 'var(--pop-pink)' : 'var(--pop-white)',
+                              color: awaySelected ? 'var(--pop-white)' : 'var(--pop-black)',
+                              opacity: awayStatus.isUsed ? 0.4 : 1,
+                            }}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                              <TeamCrest crestUrl={awayTeam?.crest_url ?? null} teamName={awayTeam?.name ?? ''} size={24} />
+                              <span className="font-black uppercase text-xs sm:text-sm">{teamDisplayName(awayTeam)}</span>
+                              {awayStatus.isDouble && <span>⭐</span>}
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                              {awayQ && <span className="pop-badge px-1.5 py-0.5 text-[9px]">{awayQ}</span>}
+                              <span className="text-[9px] font-bold uppercase">{awayStatus.isUsed ? 'Used' : `${awayStatus.remaining}/${awayStatus.maxUses} left`}</span>
+                            </div>
+                            <p className="text-[9px] font-bold uppercase">Win +{awayWD.win} &middot; Draw +{awayWD.draw}</p>
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="pop-panel p-4 mb-6 font-bold">No fixtures yet.</p>
+                )}
+
+                <div className="grid md:grid-cols-2 gap-4 mb-6">
+                  <div className="pop-panel pop-rotate-r p-4">
+                    <p className="pop-headline text-xl mb-2">Player 1</p>
+                    {player1 ? (
+                      <div className="flex items-center justify-between rounded-lg p-2.5" style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-yellow)' }}>
+                        <span className="font-black uppercase text-sm">{playerName(player1)}</span>
+                        <button
+                          onClick={() => { setPlayer1(null); setPlayer1Fixture(null); setPlayer1Club(null) }}
+                          className="pop-burst w-8 h-8 text-[10px] font-black shrink-0"
+                        >
+                          X
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <select
+                          value={player1Club ?? ''}
+                          onChange={e => setPlayer1Club(e.target.value ? Number(e.target.value) : null)}
+                          className="w-full rounded-lg p-2 mb-2 font-bold text-sm"
+                          style={{ border: '3px solid var(--pop-black)' }}
+                        >
+                          <option value="">Filter by club...</option>
+                          {teams.map(t => <option key={t.id} value={t.id}>{teamDisplayName(t)}</option>)}
+                        </select>
+                        <input
+                          type="text"
+                          value={playerSearch1}
+                          onChange={e => setPlayerSearch1(e.target.value)}
+                          placeholder={player1Club != null ? 'Narrow down...' : 'Search players...'}
+                          className="w-full rounded-lg p-2 mb-2 font-bold text-sm"
+                          style={{ border: '3px solid var(--pop-black)' }}
+                        />
+                        {filteredPlayers1.length > 0 && (
+                          <div className="rounded-lg overflow-hidden max-h-48 overflow-y-auto" style={{ border: '3px solid var(--pop-black)' }}>
+                            {filteredPlayers1.map(p => {
+                              const count = playerCounts[p.id] ?? 0
+                              const maxed = count >= 2
+                              return (
+                                <button
+                                  key={p.id}
+                                  onClick={() => { if (!maxed) { setPlayer1(p.id); setPlayer1Fixture(null); setPlayerSearch1(''); setPlayer1Club(null) } }}
+                                  disabled={maxed}
+                                  className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
+                                  style={{ background: maxed ? '#eee' : 'var(--pop-white)', opacity: maxed ? 0.5 : 1, borderColor: 'var(--pop-black)' }}
+                                >
+                                  {playerName(p.id)} <span className="text-xs">({count}/2)</span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  <div className="pop-panel pop-rotate-l p-4">
+                    <p className="pop-headline text-xl mb-2">Player 2</p>
+                    {player2 ? (
+                      <div className="flex items-center justify-between rounded-lg p-2.5" style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-yellow)' }}>
+                        <span className="font-black uppercase text-sm">{playerName(player2)}</span>
+                        <button
+                          onClick={() => { setPlayer2(null); setPlayer2Fixture(null); setPlayer2Club(null) }}
+                          className="pop-burst w-8 h-8 text-[10px] font-black shrink-0"
+                        >
+                          X
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <select
+                          value={player2Club ?? ''}
+                          onChange={e => setPlayer2Club(e.target.value ? Number(e.target.value) : null)}
+                          className="w-full rounded-lg p-2 mb-2 font-bold text-sm"
+                          style={{ border: '3px solid var(--pop-black)' }}
+                        >
+                          <option value="">Filter by club...</option>
+                          {teams.map(t => <option key={t.id} value={t.id}>{teamDisplayName(t)}</option>)}
+                        </select>
+                        <input
+                          type="text"
+                          value={playerSearch2}
+                          onChange={e => setPlayerSearch2(e.target.value)}
+                          placeholder={player2Club != null ? 'Narrow down...' : 'Search players...'}
+                          className="w-full rounded-lg p-2 mb-2 font-bold text-sm"
+                          style={{ border: '3px solid var(--pop-black)' }}
+                        />
+                        {filteredPlayers2.length > 0 && (
+                          <div className="rounded-lg overflow-hidden max-h-48 overflow-y-auto" style={{ border: '3px solid var(--pop-black)' }}>
+                            {filteredPlayers2.map(p => {
+                              const count = playerCounts[p.id] ?? 0
+                              const maxed = count >= 2
+                              return (
+                                <button
+                                  key={p.id}
+                                  onClick={() => { if (!maxed) { setPlayer2(p.id); setPlayer2Fixture(null); setPlayerSearch2(''); setPlayer2Club(null) } }}
+                                  disabled={maxed}
+                                  className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
+                                  style={{ background: maxed ? '#eee' : 'var(--pop-white)', opacity: maxed ? 0.5 : 1, borderColor: 'var(--pop-black)' }}
+                                >
+                                  {playerName(p.id)} <span className="text-xs">({count}/2)</span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 mb-6 flex-wrap">
+                  <button
+                    onClick={() => setIsBanker(!isBanker)}
+                    disabled={!isBanker && bankersUsed >= 2}
+                    className={`pop-button ${isBanker ? '' : 'pop-button--yellow'} px-4 py-2.5`}
+                  >
+                    {isBanker ? '★ Banker Declared' : 'Declare Banker'}
+                  </button>
+                  <span className="pop-badge px-2.5 py-1.5 text-xs">{bankersUsed} of 2 used</span>
+                </div>
+
+                {question && (
+                  <div className="pop-panel pop-panel--yellow pop-rotate-r p-4 mb-6">
+                    <p className="pop-headline text-lg mb-2">This Week's Question</p>
+                    <p className="font-bold text-sm mb-3">{question.question}</p>
+                    {question.question_type === 'freetext' ? (
+                      <input
+                        type="text"
+                        value={questionAnswer}
+                        onChange={e => setQuestionAnswer(e.target.value)}
+                        placeholder="Type your answer..."
+                        maxLength={200}
+                        className="w-full rounded-lg p-2 font-bold text-sm"
+                        style={{ border: '3px solid var(--pop-black)' }}
+                      />
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { key: 'A', label: question.option_a },
+                          { key: 'B', label: question.option_b },
+                          question.option_c ? { key: 'C', label: question.option_c } : null,
+                          question.option_d ? { key: 'D', label: question.option_d } : null,
+                        ].filter(Boolean).map((opt: any) => (
+                          <button
+                            key={opt.key}
+                            onClick={() => setQuestionAnswer(opt.key)}
+                            className="rounded-lg p-2 font-black uppercase text-sm"
+                            style={{
+                              border: '3px solid var(--pop-black)',
+                              background: questionAnswer === opt.key ? 'var(--pop-pink)' : 'var(--pop-white)',
+                              color: questionAnswer === opt.key ? 'var(--pop-white)' : 'var(--pop-black)',
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="pop-panel p-4 mb-6">
+                  <p className="pop-headline text-lg mb-2">Any Comments</p>
+                  <textarea
+                    value={comments}
+                    onChange={e => setComments(e.target.value)}
+                    rows={3}
+                    placeholder="Banter, a prediction, whatever..."
+                    className="w-full rounded-lg p-2 font-bold text-sm"
+                    style={{ border: '3px solid var(--pop-black)' }}
+                  />
+                </div>
+
+                {message && (
+                  <p className="pop-badge pop-badge--red px-3 py-2 mb-4 inline-block text-xs">{message}</p>
+                )}
+
+                <button onClick={savePick} disabled={saving} className="pop-button w-full py-4 text-xl">
+                  {saving ? 'Saving...' : hasPick ? 'Update Pick!' : 'Submit Pick!'}
+                </button>
+              </>
+            )}
+          </div>
+        </Shell>
+      </>
+    )
+  }
+
   return (
-    <Shell active="PICKS" user={user} displayName={displayName}>
+    <>
+      {popArtToggleButton}
+      <Shell active="PICKS" user={user} displayName={displayName}>
       <HeroPage wide>
         <div className="w-full text-[#F5ECD9]">
 
@@ -973,6 +1298,7 @@ export default function PicksPage() {
           </div>
         </TicketModal>
       )}
-    </Shell>
+      </Shell>
+    </>
   )
 }

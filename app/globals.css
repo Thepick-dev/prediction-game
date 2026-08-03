@@ -57,3 +57,166 @@ thead th {
   letter-spacing: 0.05em;
   font-size: 11px;
 }
+
+/* ============================================================
+   POP-ART COMIC THEME (prototype — Picks page only, toggle-gated)
+   .pop-art-theme itself just defines the --pop-* custom properties and
+   an overflow-x safety net; the rest are plain classes (not nested
+   under .pop-art-theme via a descendant selector) since every one of
+   them is always applied inside a .pop-art-theme wrapper in practice,
+   and a descendant selector doesn't match when both classes land on
+   the SAME element (confirmed the hard way — that's why the halftone
+   background wasn't showing at all in the first version of this).
+   Reusable as panel/badge/button/burst/headline/halftone-bg/
+   sunburst-bg rather than one-off styles, so this is easy to lift onto
+   another page — or delete entirely — without hunting through inline
+   styles. Names are distinctive enough (checked) that this is safe to
+   leave unscoped rather than fighting the descendant-selector trap
+   again for a different element combination later.
+   ============================================================ */
+
+.pop-art-theme {
+  --pop-pink: #F0328C;
+  --pop-yellow: #F5C518;
+  --pop-white: #FFFFFF;
+  --pop-orange: #F58220;
+  --pop-blue: #1B4F9C;
+  --pop-red: #E8262A;
+  --pop-black: #111111;
+  color: var(--pop-black);
+  /* The comic panels below are deliberately rotated a few degrees each,
+     which can nudge their rendered box a little wider than their own
+     column — this is what stops that turning into a page-level
+     horizontal scrollbar (the "no overflow, ever" rule applies here
+     just as much as anywhere else on the site). */
+  overflow-x: hidden;
+}
+
+.pop-halftone-bg {
+  background-color: var(--pop-pink);
+  background-image: radial-gradient(var(--pop-black) 22%, transparent 23%);
+  background-size: 18px 18px;
+}
+
+.pop-halftone-bg--yellow {
+  background-color: var(--pop-yellow);
+}
+
+.pop-halftone-bg--white {
+  background-color: var(--pop-white);
+  background-image: radial-gradient(rgba(17, 17, 17, 0.35) 20%, transparent 21%);
+}
+
+/* Spotlight rays — reserved for one hero moment (the page headline),
+   never used as general wallpaper. Off-centre origin so it reads as a
+   burst of light, not a wheel. */
+.pop-sunburst-bg {
+  background-image: repeating-conic-gradient(
+    from 0deg at 30% 20%,
+    var(--pop-yellow) 0deg 9deg,
+    var(--pop-orange) 9deg 18deg
+  );
+}
+
+.pop-headline {
+  font-family: var(--font-comic), sans-serif;
+  color: var(--pop-white);
+  -webkit-text-stroke: 2px var(--pop-black);
+  paint-order: stroke fill;
+  text-shadow: 5px 5px 0 var(--pop-black);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+
+.pop-panel {
+  background: var(--pop-white);
+  border: 5px solid var(--pop-black);
+  box-shadow: 8px 8px 0 var(--pop-black);
+  border-radius: 6px;
+  position: relative;
+}
+
+.pop-panel--pink {
+  background: var(--pop-pink);
+  color: var(--pop-white);
+}
+
+.pop-panel--yellow {
+  background: var(--pop-yellow);
+}
+
+.pop-rotate-l { transform: rotate(-2.5deg); }
+.pop-rotate-r { transform: rotate(2.5deg); }
+.pop-rotate-l-lg { transform: rotate(-4deg); }
+.pop-rotate-r-lg { transform: rotate(4deg); }
+
+.pop-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--pop-yellow);
+  border: 3px solid var(--pop-black);
+  box-shadow: 3px 3px 0 var(--pop-black);
+  font-family: var(--font-comic), sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--pop-black);
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.pop-badge--pink { background: var(--pop-pink); color: var(--pop-white); }
+.pop-badge--blue { background: var(--pop-blue); color: var(--pop-white); }
+.pop-badge--red { background: var(--pop-red); color: var(--pop-white); }
+
+.pop-button {
+  font-family: var(--font-comic), sans-serif;
+  background: var(--pop-pink);
+  color: var(--pop-white);
+  border: 4px solid var(--pop-black);
+  box-shadow: 6px 6px 0 var(--pop-black);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 6px;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  cursor: pointer;
+}
+
+.pop-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pop-button--yellow {
+  background: var(--pop-yellow);
+  color: var(--pop-black);
+}
+
+.pop-button:not(:disabled):active {
+  transform: translate(5px, 5px);
+  box-shadow: 1px 1px 0 var(--pop-black);
+}
+
+/* Jagged starburst "shout" badge — a genuine burst shape, not a rounded
+   pill, via clip-path. Used for one-off callouts (e.g. the banker star,
+   a "used" stamp) that are meant to punch over a panel's edge rather
+   than sit politely inside it. */
+.pop-burst {
+  background: var(--pop-orange);
+  clip-path: polygon(
+    50% 0%, 61% 18%, 79% 8%, 78% 29%, 98% 33%, 87% 50%,
+    98% 67%, 78% 71%, 79% 92%, 61% 82%, 50% 100%, 39% 82%,
+    21% 92%, 22% 71%, 2% 67%, 13% 50%, 2% 33%, 22% 29%,
+    21% 8%, 39% 18%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-family: var(--font-comic), sans-serif;
+  text-transform: uppercase;
+  color: var(--pop-black);
+}
+
+.pop-burst--pink { background: var(--pop-pink); color: var(--pop-white); }
