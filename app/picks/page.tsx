@@ -613,9 +613,9 @@ export default function PicksPage() {
                             <TeamCrest crestUrl={homeTeam?.crest_url ?? null} teamName={teamDisplayName(homeTeam)} size={52} />
                             <div className="flex items-center gap-1.5 flex-wrap justify-center min-h-[18px]">
                               {homeQ && <span className={`pop-badge ${popQuartileBadgeClass[homeQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{homeQ}</span>}
-                              <span className="text-[9px] font-bold uppercase">{homeStatus.isUsed ? 'Used' : `${homeStatus.remaining}/${homeStatus.maxUses} left`}</span>
+                              <span className="font-mono text-[9px]" style={{ color: homeSelected ? '#CCCCCC' : '#666666' }}>{homeStatus.isUsed ? 'used' : `${homeStatus.remaining}/${homeStatus.maxUses} left`}</span>
                             </div>
-                            <p className="text-[9px] font-bold uppercase">Win +{homeWD.win} &middot; Draw +{homeWD.draw}</p>
+                            <p className="font-mono text-[10px] font-bold">WIN +{homeWD.win} · DRAW +{homeWD.draw}</p>
                           </button>
                           <button
                             onClick={() => !awayStatus.isUsed && selectTeamInFixture(fixture.away_team_id, fixture.id)}
@@ -630,9 +630,9 @@ export default function PicksPage() {
                             <TeamCrest crestUrl={awayTeam?.crest_url ?? null} teamName={teamDisplayName(awayTeam)} size={52} />
                             <div className="flex items-center gap-1.5 flex-wrap justify-center min-h-[18px]">
                               {awayQ && <span className={`pop-badge ${popQuartileBadgeClass[awayQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{awayQ}</span>}
-                              <span className="text-[9px] font-bold uppercase">{awayStatus.isUsed ? 'Used' : `${awayStatus.remaining}/${awayStatus.maxUses} left`}</span>
+                              <span className="font-mono text-[9px]" style={{ color: awaySelected ? '#CCCCCC' : '#666666' }}>{awayStatus.isUsed ? 'used' : `${awayStatus.remaining}/${awayStatus.maxUses} left`}</span>
                             </div>
-                            <p className="text-[9px] font-bold uppercase">Win +{awayWD.win} &middot; Draw +{awayWD.draw}</p>
+                            <p className="font-mono text-[10px] font-bold">WIN +{awayWD.win} · DRAW +{awayWD.draw}</p>
                           </button>
                         </div>
                       )
@@ -685,9 +685,9 @@ export default function PicksPage() {
                                   onClick={() => { if (!maxed) { setPlayer1(p.id); setPlayer1Fixture(null); setPlayerSearch1(''); setPlayer1Club(null) } }}
                                   disabled={maxed}
                                   className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
-                                  style={{ background: maxed ? '#eee' : 'var(--pop-white)', color: 'var(--pop-black)', opacity: maxed ? 0.5 : 1, borderColor: 'var(--pop-black)' }}
+                                  style={{ background: maxed ? '#D6D6D6' : 'var(--pop-white)', color: maxed ? '#8A8A8A' : 'var(--pop-black)', borderColor: 'var(--pop-black)' }}
                                 >
-                                  {playerName(p.id)} <span className="text-xs">({count}/2)</span>
+                                  {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#8A8A8A' : '#666666' }}>({count}/2)</span>
                                 </button>
                               )
                             })}
@@ -739,9 +739,9 @@ export default function PicksPage() {
                                   onClick={() => { if (!maxed) { setPlayer2(p.id); setPlayer2Fixture(null); setPlayerSearch2(''); setPlayer2Club(null) } }}
                                   disabled={maxed}
                                   className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
-                                  style={{ background: maxed ? '#eee' : 'var(--pop-white)', color: 'var(--pop-black)', opacity: maxed ? 0.5 : 1, borderColor: 'var(--pop-black)' }}
+                                  style={{ background: maxed ? '#D6D6D6' : 'var(--pop-white)', color: maxed ? '#8A8A8A' : 'var(--pop-black)', borderColor: 'var(--pop-black)' }}
                                 >
-                                  {playerName(p.id)} <span className="text-xs">({count}/2)</span>
+                                  {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#8A8A8A' : '#666666' }}>({count}/2)</span>
                                 </button>
                               )
                             })}

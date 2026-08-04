@@ -120,10 +120,14 @@ thead th {
   overflow-x: hidden;
 }
 
+/* Toned down from the original dense/solid-black dot grid, which read as
+   visual noise behind text-heavy content — bigger spacing and translucent
+   dots keep the halftone texture recognisable without fighting for
+   attention against the cards sitting on top of it. */
 .pop-halftone-bg {
   background-color: var(--pop-pink);
-  background-image: radial-gradient(var(--pop-black) 22%, transparent 23%);
-  background-size: 18px 18px;
+  background-image: radial-gradient(rgba(17, 17, 17, 0.35) 20%, transparent 21%);
+  background-size: 26px 26px;
 }
 
 .pop-halftone-bg--yellow {
