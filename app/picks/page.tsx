@@ -140,14 +140,26 @@ export default function PicksPage() {
   const [message, setMessage] = useState('')
   const [deadlinePassed, setDeadlinePassed] = useState(false)
 
-  // Pop-art comic theme prototype — a pure presentation toggle, not a
-  // preference tied to the account, so it's fine to just live in this
-  // browser via localStorage. Lets anyone flip between this and the
-  // classic look instantly, with no code change needed to "revert".
-  const [popArt, setPopArt] = useState(false)
+  // Pop-art is the real site now, not a prototype — every regular user
+  // always sees it, with no way to switch back. Only admins can still flip
+  // to Classic (for reference), and only their choice is remembered via
+  // localStorage; a non-admin's stored preference from back when this was
+  // a toggle anyone could hit is deliberately never read.
+  const [popArt, setPopArt] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
   useEffect(() => {
-    if (localStorage.getItem('lms-pop-art-picks') === 'true') setPopArt(true)
-  }, [])
+    if (!user?.id) return
+    supabase
+      .from('profiles')
+      .select('is_admin, is_super_admin')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        const admin = !!(data?.is_admin || data?.is_super_admin)
+        setIsAdmin(admin)
+        if (admin && localStorage.getItem('lms-pop-art-picks') === 'false') setPopArt(false)
+      })
+  }, [user?.id])
   function togglePopArt() {
     setPopArt(prev => {
       const next = !prev
@@ -541,10 +553,10 @@ export default function PicksPage() {
     )
   }
 
-  // Always rendered regardless of which look is showing, so switching back
-  // to Classic never depends on remembering where a setting lives — it's
-  // right there on the page, in both modes.
-  const popArtToggleButton = (
+  // Admin-only — everyone else always sees Pop Art with no way to revert,
+  // so this control (and the ability to switch back to Classic at all)
+  // only exists for admins, who can still flip to Classic for reference.
+  const popArtToggleButton = isAdmin && (
     <button
       onClick={togglePopArt}
       className={`pop-art-theme fixed bottom-4 right-4 z-40 px-4 py-2.5 text-xs font-black uppercase tracking-wider ${popArt ? 'pop-button pop-button--yellow' : 'rounded-full shadow-lg'}`}
