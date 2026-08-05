@@ -161,7 +161,7 @@ export default function KitEditor({
   const labelClass = isPopArt
     ? 'text-xs font-black uppercase tracking-wider mb-2'
     : 'text-xs font-bold uppercase tracking-wider text-[#F5ECD9]/50 mb-2'
-  const labelStyle = isPopArt ? { color: 'var(--pop-black)' } : undefined
+  const labelStyle = isPopArt ? { color: 'rgba(255,255,255,0.5)' } : undefined
 
   function swatchProps(selected: boolean, colour: string) {
     return isPopArt
@@ -169,8 +169,8 @@ export default function KitEditor({
           className: `${swatchSize} rounded-full ${selected ? 'pop-pop-in' : ''}`,
           style: {
             backgroundColor: colour,
-            border: selected ? '3px solid var(--pop-black)' : '3px solid rgba(17,17,17,0.15)',
-            boxShadow: selected ? '2px 2px 0 var(--pop-black)' : 'none',
+            border: selected ? '3px solid var(--pop-white)' : '3px solid rgba(255,255,255,0.2)',
+            boxShadow: selected ? '0 0 12px rgba(255,255,255,0.5)' : 'none',
           },
         }
       : {
@@ -181,13 +181,13 @@ export default function KitEditor({
 
   return (
     <div>
-      <div className={isPopArt ? 'pop-panel pop-halftone-bg--white rounded-xl p-4 mb-3 flex justify-center' : 'flex justify-center mb-3'}>
+      <div className={isPopArt ? 'pop-panel rounded-xl p-4 mb-3 flex justify-center' : 'flex justify-center mb-3'}>
         <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={compact ? 100 : 140} />
       </div>
       {(kitStars > 0 || kitEarths > 0) && (
         <p
           className={isPopArt ? 'text-xs text-center mb-3 font-bold' : 'text-xs text-center text-[#F5ECD9]/40 mb-3'}
-          style={isPopArt ? { color: 'var(--pop-black)' } : undefined}
+          style={isPopArt ? { color: 'rgba(255,255,255,0.5)' } : undefined}
         >
           Awarded by the league admin.
         </p>
@@ -217,9 +217,10 @@ export default function KitEditor({
                 ? `flex flex-col items-center gap-1 p-2 rounded-lg text-xs ${selected ? 'pop-pop-in' : ''}`
                 : `flex flex-col items-center gap-1 p-2 rounded border text-xs ${selected ? 'border-[#D9A441] bg-[#D9A441]/10 font-bold' : 'border-white/10'}`}
               style={isPopArt ? {
-                border: '3px solid var(--pop-black)',
-                background: selected ? 'var(--pop-black)' : 'var(--pop-white)',
-                color: selected ? 'var(--pop-white)' : 'var(--pop-black)',
+                border: selected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
+                boxShadow: selected ? '0 0 14px rgba(0,230,118,0.4)' : 'none',
+                background: selected ? 'rgba(0,230,118,0.12)' : 'transparent',
+                color: 'var(--pop-white)',
               } : undefined}
             >
               <KitBadge pattern={p.value} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} size={28} />
@@ -251,9 +252,10 @@ export default function KitEditor({
             ? `${swatchSize} rounded-full flex items-center justify-center text-[10px] font-black ${kitColour3 === null ? 'pop-pop-in' : ''}`
             : `${swatchSize} rounded-full border-2 flex items-center justify-center text-[#F5ECD9]/60 ${kitColour3 === null ? 'border-[#D9A441]' : 'border-white/10'}`}
           style={isPopArt ? {
-            background: kitColour3 === null ? 'var(--pop-black)' : 'var(--pop-white)',
-            color: kitColour3 === null ? 'var(--pop-white)' : 'var(--pop-black)',
-            border: '3px solid var(--pop-black)',
+            background: 'transparent',
+            color: 'var(--pop-white)',
+            border: kitColour3 === null ? '3px solid var(--pop-white)' : '3px solid rgba(255,255,255,0.2)',
+            boxShadow: kitColour3 === null ? '0 0 12px rgba(255,255,255,0.5)' : 'none',
           } : { backgroundColor: 'transparent' }}
           title="No trim"
         >

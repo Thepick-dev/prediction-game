@@ -506,12 +506,11 @@ export default function PicksPage() {
     Q4: 'pop-badge--red',
   }
 
-  // Cycled across fixture rows so the pick grid reads as a wall of colour
-  // rather than repeating white boxes. Pink is deliberately left out here —
-  // once a team inside a pink row was also selected (previously pink too)
-  // the two blurred into "pink on pink" — green/blue/white don't collide
-  // with the black-on-white "selected" treatment below.
-  const popFixturePanelClass = ['pop-panel--green', 'pop-panel--blue', '']
+  // Every fixture row uses the same plain dark card now — cycling a
+  // different accent colour per row was exactly the "jumble of colour
+  // boxes" that got called out. Colour still shows up functionally (the
+  // quartile badge, the bright fill on whichever team is selected), just
+  // not as decoration on the row container itself.
 
   if (loading) {
     return (
@@ -551,10 +550,15 @@ export default function PicksPage() {
       <>
         {popArtToggleButton}
         <Shell active="PICKS" user={user} displayName={displayName} theme="pop-art">
-          <div className="pop-art-theme pop-halftone-bg rounded-2xl p-4 sm:p-6" style={{ border: '6px solid var(--pop-black)' }}>
+          {/* No wrapping "card" here on purpose — the page already sits on
+              Shell's black background, and boxing all of this content in
+              ANOTHER bordered panel was exactly the "box inside a box"
+              clutter that got called out. Each section below is its own
+              card; the page itself is just the black canvas they sit on. */}
+          <div className="pop-art-theme">
 
-            <div className="pop-panel pop-panel--black pop-rotate-l rounded-xl p-5 sm:p-6 mb-6 text-center">
-              <h1 className="pop-hero text-5xl sm:text-6xl">Picks!</h1>
+            <div className="text-center mb-8 mt-2">
+              <h1 className="pop-hero pop-hero--pink text-6xl sm:text-7xl">Picks!</h1>
             </div>
 
             {gameweek && (
@@ -578,7 +582,7 @@ export default function PicksPage() {
                 <p className="pop-headline text-2xl sm:text-3xl mb-3">Pick Your Team</p>
                 {hasFixtures ? (
                   <div className="grid gap-4 mb-6">
-                    {fixtures.map((fixture, i) => {
+                    {fixtures.map((fixture) => {
                       const homeStatus = getTeamStatus(fixture.home_team_id)
                       const awayStatus = getTeamStatus(fixture.away_team_id)
                       const homeTeam = getTeam(fixture.home_team_id)
@@ -589,27 +593,23 @@ export default function PicksPage() {
                       const awaySelected = selectedTeam === fixture.away_team_id && selectedFixture === fixture.id
                       const homeWD = homeWinDraw(fixture)
                       const awayWD = awayWinDraw(fixture)
-                      const rotate = i % 2 === 0 ? 'pop-rotate-l' : 'pop-rotate-r'
-                      const rowPanel = popFixturePanelClass[i % popFixturePanelClass.length]
                       return (
-                        <div key={fixture.id} className={`pop-panel ${rowPanel} ${rotate} p-3 grid grid-cols-2 gap-3`}>
+                        <div key={fixture.id} className="pop-panel p-3 grid grid-cols-2 gap-3">
                           <button
                             onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
                             disabled={homeStatus.isUsed && !homeSelected}
                             className={`pop-select-btn rounded-lg p-3 flex flex-col items-center justify-between text-center gap-1.5 h-32 sm:h-36 ${homeSelected ? 'pop-pop-in' : ''}`}
                             style={{
-                              border: '4px solid var(--pop-black)',
-                              // Solid colours only, deliberately no opacity here —
-                              // a translucent overlay on top of the halftone dots
-                              // is exactly what read as "filmy"/"faded" before.
-                              background: homeSelected ? 'var(--pop-black)' : homeStatus.isUsed ? '#D6D6D6' : 'var(--pop-white)',
-                              color: homeSelected ? 'var(--pop-white)' : homeStatus.isUsed ? '#8A8A8A' : 'var(--pop-black)',
+                              border: homeSelected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
+                              boxShadow: homeSelected ? '0 0 20px rgba(0,230,118,0.5)' : 'none',
+                              background: homeSelected ? 'var(--pop-green)' : homeStatus.isUsed ? '#111111' : 'transparent',
+                              color: homeSelected ? 'var(--pop-black)' : homeStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
                             }}
                           >
                             <TeamCrest crestUrl={homeTeam?.crest_url ?? null} teamName={teamDisplayName(homeTeam)} size={52} />
                             <div className="flex items-center gap-1.5 flex-wrap justify-center min-h-[18px]">
                               {homeQ && <span className={`pop-badge ${popQuartileBadgeClass[homeQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{homeQ}</span>}
-                              <span className="font-mono text-[9px]" style={{ color: homeSelected ? '#CCCCCC' : '#666666' }}>{homeStatus.isUsed ? 'used' : `${homeStatus.remaining}/${homeStatus.maxUses} left`}</span>
+                              <span className="font-mono text-[9px]" style={{ color: homeSelected ? 'rgba(0,0,0,0.6)' : homeStatus.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.55)' }}>{homeStatus.isUsed ? 'used' : `${homeStatus.remaining}/${homeStatus.maxUses} left`}</span>
                             </div>
                             <p className="font-mono text-[10px] font-bold">WIN +{homeWD.win} · DRAW +{homeWD.draw}</p>
                           </button>
@@ -618,15 +618,16 @@ export default function PicksPage() {
                             disabled={awayStatus.isUsed && !awaySelected}
                             className={`pop-select-btn rounded-lg p-3 flex flex-col items-center justify-between text-center gap-1.5 h-32 sm:h-36 ${awaySelected ? 'pop-pop-in' : ''}`}
                             style={{
-                              border: '4px solid var(--pop-black)',
-                              background: awaySelected ? 'var(--pop-black)' : awayStatus.isUsed ? '#D6D6D6' : 'var(--pop-white)',
-                              color: awaySelected ? 'var(--pop-white)' : awayStatus.isUsed ? '#8A8A8A' : 'var(--pop-black)',
+                              border: awaySelected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
+                              boxShadow: awaySelected ? '0 0 20px rgba(0,230,118,0.5)' : 'none',
+                              background: awaySelected ? 'var(--pop-green)' : awayStatus.isUsed ? '#111111' : 'transparent',
+                              color: awaySelected ? 'var(--pop-black)' : awayStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
                             }}
                           >
                             <TeamCrest crestUrl={awayTeam?.crest_url ?? null} teamName={teamDisplayName(awayTeam)} size={52} />
                             <div className="flex items-center gap-1.5 flex-wrap justify-center min-h-[18px]">
                               {awayQ && <span className={`pop-badge ${popQuartileBadgeClass[awayQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{awayQ}</span>}
-                              <span className="font-mono text-[9px]" style={{ color: awaySelected ? '#CCCCCC' : '#666666' }}>{awayStatus.isUsed ? 'used' : `${awayStatus.remaining}/${awayStatus.maxUses} left`}</span>
+                              <span className="font-mono text-[9px]" style={{ color: awaySelected ? 'rgba(0,0,0,0.6)' : awayStatus.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.55)' }}>{awayStatus.isUsed ? 'used' : `${awayStatus.remaining}/${awayStatus.maxUses} left`}</span>
                             </div>
                             <p className="font-mono text-[10px] font-bold">WIN +{awayWD.win} · DRAW +{awayWD.draw}</p>
                           </button>
@@ -642,7 +643,7 @@ export default function PicksPage() {
                   <div className="pop-panel pop-rotate-r p-4">
                     <p className="pop-headline text-xl mb-2">Player 1</p>
                     {player1 ? (
-                      <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5" style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-yellow)' }}>
+                      <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5" style={{ border: '2px solid var(--pop-green)', boxShadow: '0 0 16px rgba(0,230,118,0.4)' }}>
                         <span className="font-black uppercase text-sm">{playerName(player1)}</span>
                         <button
                           onClick={() => { setPlayer1(null); setPlayer1Fixture(null); setPlayer1Club(null) }}
@@ -698,7 +699,7 @@ export default function PicksPage() {
                   <div className="pop-panel pop-rotate-l p-4">
                     <p className="pop-headline text-xl mb-2">Player 2</p>
                     {player2 ? (
-                      <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5" style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-yellow)' }}>
+                      <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5" style={{ border: '2px solid var(--pop-green)', boxShadow: '0 0 16px rgba(0,230,118,0.4)' }}>
                         <span className="font-black uppercase text-sm">{playerName(player2)}</span>
                         <button
                           onClick={() => { setPlayer2(null); setPlayer2Fixture(null); setPlayer2Club(null) }}
@@ -790,9 +791,10 @@ export default function PicksPage() {
                             onClick={() => setQuestionAnswer(opt.key)}
                             className="pop-select-btn rounded-lg p-2 font-black uppercase text-sm"
                             style={{
-                              border: '3px solid var(--pop-black)',
-                              background: questionAnswer === opt.key ? 'var(--pop-black)' : 'var(--pop-white)',
-                              color: questionAnswer === opt.key ? 'var(--pop-white)' : 'var(--pop-black)',
+                              border: questionAnswer === opt.key ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
+                              boxShadow: questionAnswer === opt.key ? '0 0 16px rgba(0,230,118,0.4)' : 'none',
+                              background: questionAnswer === opt.key ? 'var(--pop-green)' : 'transparent',
+                              color: questionAnswer === opt.key ? 'var(--pop-black)' : 'var(--pop-white)',
                             }}
                           >
                             {opt.label}

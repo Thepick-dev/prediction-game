@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Bangers } from 'next/font/google'
+import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Anton } from 'next/font/google'
 import './globals.css'
 
 const alfaSlabOne = Alfa_Slab_One({
@@ -9,14 +9,16 @@ const alfaSlabOne = Alfa_Slab_One({
   display: 'swap',
 })
 
-// Only used by the pop-art comic theme prototype (see globals.css,
-// .pop-art-theme) — loaded globally like the other fonts here since
-// next/font requires that, but it costs nothing on pages that never
-// reference --font-comic.
-const bangers = Bangers({
+// Only used by the pop-art theme (see globals.css, .pop-hero) — for the
+// one or two genuine hero moments (the "Picks!" title), never for body
+// copy or section labels. Bold condensed poster/sports-headline face,
+// swapped in for Bangers after "comic" was explicitly the wrong framing —
+// loaded globally like the other fonts here since next/font requires
+// that, but it costs nothing on pages that never reference --font-display.
+const anton = Anton({
   weight: '400',
   subsets: ['latin'],
-  variable: '--font-comic',
+  variable: '--font-display',
   display: 'swap',
 })
 
@@ -44,7 +46,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${bangers.variable}`}>
+    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${anton.variable}`}>
       <body>{children}</body>
     </html>
   )

@@ -59,28 +59,30 @@ thead th {
 }
 
 /* ============================================================
-   POP-ART COMIC THEME (prototype — Picks page only, toggle-gated)
-   .pop-art-theme itself just defines the --pop-* custom properties and
-   an overflow-x safety net; the rest are plain classes (not nested
-   under .pop-art-theme via a descendant selector) since every one of
-   them is always applied inside a .pop-art-theme wrapper in practice,
-   and a descendant selector doesn't match when both classes land on
-   the SAME element (confirmed the hard way — that's why the halftone
-   background wasn't showing at all in the first version of this).
-   Reusable as panel/badge/button/burst/headline/halftone-bg/
-   sunburst-bg rather than one-off styles, so this is easy to lift onto
-   another page — or delete entirely — without hunting through inline
-   styles. Names are distinctive enough (checked) that this is safe to
-   leave unscoped rather than fighting the descendant-selector trap
-   again for a different element combination later.
+   POP-ART THEME v3 — "black anchor, neon pops" (Picks page only,
+   toggle-gated). Rebuilt from scratch after v1/v2 (comic borders,
+   halftone dots, rainbow-filled boxes) read as cluttered/juvenile.
+
+   Rules this version follows:
+   - Black/near-black is the anchor colour everywhere — page, header,
+     every card's default surface.
+   - Bright colour is a POP, never a fill: it shows up as a border, a
+     glow, a small badge, or a button — never as a whole card/panel's
+     background. That was the single biggest source of "jumble of
+     colour boxes" complaints in earlier versions.
+   - One display font (Anton, --font-display), used only for the one or
+     two genuine hero moments. Everything else is a clean bold sans.
+   - Classes are not nested under .pop-art-theme via a descendant
+     selector, because a descendant selector doesn't match when both
+     classes land on the SAME element (confirmed the hard way in v1).
    ============================================================ */
 
 .pop-art-theme {
-  /* Fixed palette (user-specified) — orange/yellow/green/blue/pink, all at
-     matching saturation and brightness so nothing in the rotation reads as
-     more "washed out" than the others. Red is kept separate and outside
-     this palette on purpose — it's reserved for stop/danger actions
-     (Log Out, deadline passed, Q4) rather than decorative rotation. */
+  --pop-black: #0A0A0A;
+  /* Card/panel surface — a shade above the page's own black so cards
+     read as "lifted" off the background without needing a coloured
+     fill to separate them. */
+  --pop-surface: #1B1B1B;
   --pop-orange: #FF3D00;
   --pop-yellow: #FFEA00;
   --pop-green: #00E676;
@@ -88,82 +90,41 @@ thead th {
   --pop-pink: #D5006D;
   --pop-white: #FFFFFF;
   --pop-red: #E8262A;
-  --pop-black: #111111;
-  color: var(--pop-black);
-  /* Without this, a browser/OS in dark mode can silently re-skin native
-     <input>/<select>/<textarea> controls with its own dark palette (often
-     white text) regardless of this theme's own colours — which is what
-     made the comment box and player search read as white-on-white. This
-     pins native controls to the light rendering this theme always uses. */
+  background: var(--pop-black);
+  color: var(--pop-white);
+  /* Deliberately light, even though the theme around it is dark — this
+     pins native <input>/<select>/<textarea> controls to light styling
+     (white surface, dark text) regardless of the visitor's OS/browser
+     dark-mode setting, which is the contrast we actually want for
+     legible form fields sitting on dark cards. Without this, a
+     browser/OS in dark mode can silently re-skin native controls with
+     ITS OWN dark palette (often white-on-white) independent of this
+     theme's own colours. */
   color-scheme: light;
+  /* Cards below can sit close to the edge on small screens — this is
+     what stops any of them turning into a page-level horizontal
+     scrollbar (the "no overflow, ever" rule applies here too). */
+  overflow-x: hidden;
 }
 
 /* color-scheme/explicit colours above fix the typed-text colour, but
-   ::placeholder is a separate pseudo-element that inline styles can never
-   reach (React's style prop can't target pseudo-elements) — this was the
-   part still rendering white-on-white with nothing typed yet. Scoped to
-   real form elements only, so it can't collide with the class-on-class
-   trap noted above (that only bit when both classes land on ONE element;
-   this is a genuine ancestor-to-descendant selector). */
+   ::placeholder is a separate pseudo-element that inline styles can
+   never reach (React's style prop can't target pseudo-elements). Scoped
+   to real form elements only, so it can't collide with the class-on-
+   class trap noted above (that only bit when both classes land on ONE
+   element; this is a genuine ancestor-to-descendant selector). */
 .pop-art-theme input::placeholder,
 .pop-art-theme textarea::placeholder {
   color: rgba(17, 17, 17, 0.55);
   opacity: 1;
 }
 
-.pop-art-theme {
-  /* The comic panels below are deliberately rotated a few degrees each,
-     which can nudge their rendered box a little wider than their own
-     column — this is what stops that turning into a page-level
-     horizontal scrollbar (the "no overflow, ever" rule applies here
-     just as much as anywhere else on the site). */
-  overflow-x: hidden;
-}
-
-/* Flat colour, not a dot texture — the halftone-everywhere look was the
-   single biggest source of "cluttered/juvenile": dots tiled behind dense
-   text read as noise, not style. Kept the class name (nothing lifting
-   this class needs to change) but dropped the background-image; the dot
-   motif survives only in .pop-halftone-bg--white, a genuinely decorative
-   zone (behind the kit shirt preview) with no text sitting on it. */
-.pop-halftone-bg {
-  background-color: var(--pop-pink);
-}
-
-.pop-halftone-bg--yellow {
-  background-color: var(--pop-yellow);
-}
-
-.pop-halftone-bg--white {
-  background-color: var(--pop-white);
-  background-image: radial-gradient(rgba(17, 17, 17, 0.35) 20%, transparent 21%);
-}
-
-/* Page-level backdrop — solid rather than another halftone/colour, so it
-   reads as the black "gutter" a comic page's panels sit in rather than
-   another coloured surface a panel could clash against. */
-.pop-solid-bg--black {
-  background-color: var(--pop-black);
-  color: var(--pop-white);
-}
-
-/* Spotlight rays — reserved for one hero moment (the page headline),
-   never used as general wallpaper. Off-centre origin so it reads as a
-   burst of light, not a wheel. */
-.pop-sunburst-bg {
-  background-image: repeating-conic-gradient(
-    from 0deg at 30% 20%,
-    var(--pop-yellow) 0deg 9deg,
-    var(--pop-orange) 9deg 18deg
-  );
-}
-
 /* Clean, bold, poster-style label — used for every section heading, card
-   title, and popup title. Colour is deliberately NOT set here: every
-   .pop-panel variant sets its own explicit text colour, so this always
-   inherits the right one for whatever it's sitting on. This is what most
-   things use; only .pop-hero below gets the comic-display treatment, and
-   only for the one or two moments that actually earn it. */
+   title, and popup title. Colour is deliberately NOT set here: it just
+   inherits white from .pop-art-theme/.pop-panel, so it always reads
+   correctly regardless of what it's sitting on. This is what most things
+   use; only .pop-hero below gets the display-font treatment, and only
+   for the one or two moments that actually earn it. */
 .pop-headline {
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-weight: 800;
@@ -173,58 +134,41 @@ thead th {
 }
 
 /* Reserved for genuine hero moments only (the "Picks!" title, the header
-   wordmark) — the comic display font, stroke and drop-shadow read as fun
-   in small doses and juvenile everywhere, so this is deliberately not the
-   default the way .pop-headline used to be. */
+   wordmark) — a bold condensed poster/sports-headline face with a soft
+   neon glow instead of a boxed background. No frame, no box: on a black
+   page, big glowing type IS the emphasis, it doesn't need a panel around
+   it too. */
 .pop-hero {
-  font-family: var(--font-comic), sans-serif;
+  font-family: var(--font-display), sans-serif;
   color: var(--pop-white);
-  -webkit-text-stroke: 2px var(--pop-black);
-  paint-order: stroke fill;
-  text-shadow: 4px 4px 0 var(--pop-black);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  line-height: 1;
+  letter-spacing: 0.01em;
+  line-height: 0.95;
 }
 
-/* Every variant below sets its own explicit colour rather than relying on
-   inheriting from whatever the panel happens to sit inside — the page
-   background isn't always the same colour as .pop-art-theme's own default
-   text colour, so a panel that only "worked" via inheritance would silently
-   break the moment its surrounding context changed. */
+.pop-hero--pink { text-shadow: 0 0 6px var(--pop-pink), 0 0 22px var(--pop-pink); }
+.pop-hero--blue { text-shadow: 0 0 6px var(--pop-blue), 0 0 22px var(--pop-blue); }
+.pop-hero--green { text-shadow: 0 0 6px var(--pop-green), 0 0 22px var(--pop-green); }
+
+/* Base card — dark surface, thin neutral border, soft ordinary shadow
+   for depth. No hard offset "comic" shadow, no coloured fill: colour
+   only ever shows up here as a border + glow (the --accent-* variants
+   below), never as the card's own background. */
 .pop-panel {
-  background: var(--pop-white);
-  color: var(--pop-black);
-  border: 3px solid var(--pop-black);
-  box-shadow: 5px 5px 0 var(--pop-black);
-  border-radius: 12px;
+  background: var(--pop-surface);
+  color: var(--pop-white);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
   position: relative;
 }
 
-.pop-panel--pink {
-  background: var(--pop-pink);
-  color: var(--pop-white);
-}
-
-.pop-panel--black {
-  background: var(--pop-black);
-  color: var(--pop-white);
-}
-
-.pop-panel--yellow {
-  background: var(--pop-yellow);
-  color: var(--pop-black);
-}
-
-.pop-panel--blue {
-  background: var(--pop-blue);
-  color: var(--pop-black);
-}
-
-.pop-panel--green {
-  background: var(--pop-green);
-  color: var(--pop-black);
-}
+/* Accent variants: a coloured border and matching glow, surface stays
+   dark. This is the "pop of colour" — never a filled box. */
+.pop-panel--pink { border-color: var(--pop-pink); box-shadow: 0 0 18px rgba(213, 0, 109, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+.pop-panel--blue { border-color: var(--pop-blue); box-shadow: 0 0 18px rgba(0, 176, 255, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+.pop-panel--green { border-color: var(--pop-green); box-shadow: 0 0 18px rgba(0, 230, 118, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+.pop-panel--yellow { border-color: var(--pop-yellow); box-shadow: 0 0 18px rgba(255, 234, 0, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
 
 /* Panels sit flat now, not tilted — kept as (no-op) classes rather than
    deleted, so nothing in the markup needs to change to turn rotation
@@ -232,10 +176,9 @@ thead th {
 .pop-rotate-l, .pop-rotate-r, .pop-rotate-l-lg, .pop-rotate-r-lg { transform: none; }
 
 /* Flat pills — no border, no drop-shadow. Badges are secondary/tertiary
-   information (a quartile tag, a "used" stamp); giving every one of them
-   the same heavy chrome as a full panel is what made the fixture cards
-   read as "borders stacked on borders." Colour alone still carries the
-   meaning. */
+   information (a quartile tag, a "used" stamp) that reads as a genuine
+   accent chip sitting on a dark card, not another boxed element
+   competing for attention. */
 .pop-badge {
   display: inline-flex;
   align-items: center;
@@ -255,30 +198,31 @@ thead th {
 .pop-badge--green { background: var(--pop-green); color: var(--pop-black); }
 .pop-badge--red { background: var(--pop-red); color: var(--pop-white); }
 
+/* Buttons are actions, not passive content — a bold filled colour here
+   is expected, not part of the "boxed content" clutter problem. */
 .pop-button {
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-weight: 800;
   background: var(--pop-pink);
   color: var(--pop-white);
-  border: 3px solid var(--pop-black);
-  box-shadow: 5px 5px 0 var(--pop-black);
+  border: none;
+  border-radius: 10px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  border-radius: 10px;
-  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.08s ease;
   cursor: pointer;
 }
 
 /* Selection buttons (team picks, question answers) — the browser's own
-   default blue focus ring looks out of place next to the comic border, so
-   it's replaced with a black one that only shows for keyboard focus, not
-   every mouse click. */
+   default blue focus ring looks out of place here, so it's replaced
+   with a white one that only shows for keyboard focus, not every mouse
+   click (a dark UI needs a light focus ring to be visible at all). */
 .pop-select-btn {
   outline: none;
 }
 
 .pop-select-btn:focus-visible {
-  outline: 3px solid var(--pop-black);
+  outline: 3px solid var(--pop-white);
   outline-offset: 2px;
 }
 
@@ -287,33 +231,20 @@ thead th {
   cursor: not-allowed;
 }
 
-.pop-button--yellow {
-  background: var(--pop-yellow);
-  color: var(--pop-black);
-}
+.pop-button--yellow { background: var(--pop-yellow); color: var(--pop-black); }
+.pop-button--blue { background: var(--pop-blue); color: var(--pop-black); }
+.pop-button--green { background: var(--pop-green); color: var(--pop-black); }
 
-.pop-button--blue {
-  background: var(--pop-blue);
-  color: var(--pop-black);
-}
-
-.pop-button--green {
-  background: var(--pop-green);
-  color: var(--pop-black);
-}
-
-/* A confident lift on hover and a press on click — the same physical
-   metaphor as the offset drop-shadow itself (the shadow grows as the
-   button "lifts" toward you), rather than a rotating wobble that read as
-   more toy than tool. */
+/* A confident lift + brighten on hover, a press on click — physical
+   feedback without the rotating wobble that read as more toy than tool. */
 .pop-button:not(:disabled):hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 7px 7px 0 var(--pop-black);
+  transform: translateY(-2px);
+  filter: brightness(1.1);
 }
 
 .pop-button:not(:disabled):active {
-  transform: translate(3px, 3px);
-  box-shadow: 2px 2px 0 var(--pop-black);
+  transform: translateY(0);
+  filter: brightness(0.95);
 }
 
 /* A satisfying little bounce the instant something gets picked — a team,
@@ -342,24 +273,20 @@ thead th {
   100% { transform: scale(1); }
 }
 
-/* Header title, boxed up as its own mini panel rather than plain text on
-   the bar. No longer tilts at rest — a static badge reads as a confident
-   piece of branding; a constantly-tilting one read as fidgety. */
-.pop-title-badge {
-  background: var(--pop-pink);
-  border: 3px solid var(--pop-black);
-  border-radius: 8px;
-  box-shadow: 3px 3px 0 var(--pop-black);
+/* Nav links brighten and get a coloured underline on the active page —
+   no pill, no fill, so the header nav stays quiet until you look at it. */
+.pop-nav-link {
+  color: rgba(255, 255, 255, 0.65);
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-/* Nav pills lift on hover, same language as .pop-button — consistently
-   "clickable" across the header without the rotating wobble. */
-.pop-nav-pill {
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+.pop-nav-link:hover {
+  color: var(--pop-white);
 }
 
-.pop-nav-pill:hover {
-  transform: translate(-2px, -2px);
+.pop-nav-link--active {
+  color: var(--pop-white);
 }
 
 /* One full spin on the kit shuffle button, re-triggered every shuffle the
