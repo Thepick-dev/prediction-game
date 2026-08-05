@@ -8,12 +8,12 @@ import { createClient } from '../app/lib/supabase'
 // aim marker sweeps faster and the scoring zone shrinks each goal, so it
 // gets genuinely hard to keep a long run alive rather than being winnable
 // by mashing the button.
-const BASE_DURATION = 1.5
-const MIN_DURATION = 0.5
-const DURATION_STEP = 0.07
-const BASE_ZONE_WIDTH = 34
-const MIN_ZONE_WIDTH = 11
-const ZONE_STEP = 1.8
+const BASE_DURATION = 1.3
+const MIN_DURATION = 0.45
+const DURATION_STEP = 0.14
+const BASE_ZONE_WIDTH = 30
+const MIN_ZONE_WIDTH = 10
+const ZONE_STEP = 3.2
 // Kept in sync with globals.css's .pop-shoot-sweep keyframe by hand (it
 // animates left: 0% -> 95%, i.e. 100 - this value) — the sweep path is a
 // static CSS animation for smooth GPU-composited motion, so it can't read

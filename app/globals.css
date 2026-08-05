@@ -305,12 +305,12 @@ thead th {
    spin. A spinning crest reads as "broken record"; a breathing glow
    reads as "alive and working" without being frantic. */
 .pop-logo-pulse {
-  animation: pop-logo-pulse 1.8s ease-in-out infinite;
+  animation: pop-logo-pulse 1.3s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
 @keyframes pop-logo-pulse {
-  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(213, 0, 109, 0.35)); }
-  50% { transform: scale(1.05); filter: drop-shadow(0 0 22px rgba(213, 0, 109, 0.75)); }
+  0%, 100% { transform: scale(0.92); filter: drop-shadow(0 0 8px rgba(213, 0, 109, 0.4)); }
+  50% { transform: scale(1.12); filter: drop-shadow(0 0 40px rgba(213, 0, 109, 0.95)); }
 }
 
 /* Penalty shootout aim marker — sweeps the width of the track and back.
