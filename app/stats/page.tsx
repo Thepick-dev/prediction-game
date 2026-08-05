@@ -10,6 +10,8 @@ import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import { buildPlayerDisplayNames } from '../lib/players'
+import PopArtLoading from '../../components/PopArtLoading'
+import { usePopArtTheme } from '../lib/usePopArtTheme'
 
 type Tab = 'teams' | 'players' | 'me' | 'trends'
 
@@ -50,6 +52,22 @@ function tooltipStyle() {
   }
 }
 
+// Pop-art equivalents of the two helpers above — same shape, different
+// palette, so every chart just switches which pair it calls rather than
+// duplicating the chart JSX itself.
+const POP_ACCENT = 'var(--pop-blue)'
+const POP_GRID = 'rgba(255,255,255,0.1)'
+function popAxisProps() {
+  return { tick: { fill: '#ffffff', fontSize: 10, opacity: 0.6 }, stroke: 'rgba(255,255,255,0.2)' }
+}
+function popTooltipStyle() {
+  return {
+    contentStyle: { background: '#1B1B1B', border: '1px solid rgba(0,176,255,0.4)', borderRadius: 10, fontSize: 12 },
+    labelStyle: { color: POP_ACCENT },
+    itemStyle: { color: '#ffffff' }
+  }
+}
+
 function teamDisplayName(team: Team | undefined) {
   if (!team) return 'Unknown'
   return team.short_name ?? team.name.replace(' FC', '').replace(' AFC', '')
@@ -81,6 +99,7 @@ export default function StatsHubPage() {
   const [playerPositionFilter, setPlayerPositionFilter] = useState<string>('ALL')
 
   const supabase = createClient()
+  const { popArt } = usePopArtTheme(user?.id)
 
   useEffect(() => { loadData() }, [])
 
@@ -329,17 +348,290 @@ export default function StatsHubPage() {
 
   if (loading) {
     return (
-      <Shell active="STATS HUB">
-        <p className="text-gray-500">Loading...</p>
+      <Shell active="STATS HUB" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
       </Shell>
     )
   }
 
   if (!competition) {
     return (
-      <Shell active="STATS HUB">
-        <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
-        <p className="text-gray-500">There is no active competition right now.</p>
+      <Shell active="STATS HUB" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? (
+          <div className="pop-art-theme text-center py-12">
+            <p className="pop-headline text-2xl mb-2">No Active Competition</p>
+            <p style={{ color: 'rgba(255,255,255,0.5)' }}>There is no active competition right now.</p>
+          </div>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
+            <p className="text-gray-500">There is no active competition right now.</p>
+          </>
+        )}
+      </Shell>
+    )
+  }
+
+  if (popArt) {
+    return (
+      <Shell active="STATS HUB" user={user} displayName={displayName} theme="pop-art">
+        <div className="pop-art-theme">
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-1 mt-2">Stats Hub</h1>
+          <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name} — every number the game has generated so far.</p>
+
+          {error && (
+            <div className="pop-panel pop-panel--pink px-4 py-3 mb-5 text-sm">
+              {error}
+            </div>
+          )}
+
+          <div className="flex gap-2 mb-5 overflow-x-auto">
+            {tabs.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`px-3 py-2 text-xs font-black tracking-widest whitespace-nowrap uppercase rounded-lg ${tab === t.id ? 'pop-button' : ''}`}
+                style={tab !== t.id ? { color: 'rgba(255,255,255,0.5)' } : undefined}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'teams' && (
+            <div>
+              <div className="pop-panel p-4 mb-4" style={{ height: 260 }}>
+                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Top 10 teams by total points contributed</p>
+                <ResponsiveContainer width="100%" height="90%">
+                  <BarChart data={teamStats.slice(0, 10).map(t => ({ name: teamDisplayName(t.team), points: t.totalPoints }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
+                    <XAxis dataKey="name" {...popAxisProps()} interval={0} angle={-35} textAnchor="end" height={50} />
+                    <YAxis {...popAxisProps()} />
+                    <Tooltip {...popTooltipStyle()} />
+                    <Bar dataKey="points" fill={POP_ACCENT} radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Search teams..."
+                value={teamSearch}
+                onChange={e => setTeamSearch(e.target.value)}
+                className="pop-input w-full mb-3 px-3 py-2 text-sm font-bold"
+              />
+
+              <div className="pop-panel" style={{ overflow: 'hidden', overflowX: 'auto' }}>
+                <table className="w-full" style={{ fontSize: '12px' }}>
+                  <thead>
+                    <tr className="text-left" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+                      <th className="py-2 px-2 uppercase tracking-wider">Team</th>
+                      <th className="py-2 px-2 text-right uppercase tracking-wider">Picked</th>
+                      <th className="py-2 px-2 text-right uppercase tracking-wider">Banked</th>
+                      <th className="py-2 px-2 text-right uppercase tracking-wider">Total Pts</th>
+                      <th className="py-2 px-2 text-right uppercase tracking-wider font-black">Avg / Pick</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTeamStats.map(t => (
+                      <tr key={t.team.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <td className="py-2 px-2 font-black uppercase">
+                          <div className="flex items-center gap-1.5">
+                            <TeamCrest crestUrl={t.team.crest_url} teamName={t.team.name} size={16} />
+                            {teamDisplayName(t.team)}
+                          </div>
+                        </td>
+                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{t.timesPicked}</td>
+                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{t.timesBanked}</td>
+                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{t.totalPoints}</td>
+                        <td className="py-2 px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{t.avgPoints}</td>
+                      </tr>
+                    ))}
+                    {filteredTeamStats.length === 0 && (
+                      <tr><td colSpan={5} className="py-8 text-center uppercase tracking-wider" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>No data yet.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {tab === 'players' && (
+            <div>
+              <div className="pop-panel p-4 mb-4" style={{ height: 260 }}>
+                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Top 12 players by points earned for the users who picked them</p>
+                <ResponsiveContainer width="100%" height="90%">
+                  <BarChart data={playerStats.slice(0, 12).map(p => ({ name: p.displayName, points: p.totalPickPoints }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
+                    <XAxis dataKey="name" {...popAxisProps()} interval={0} angle={-35} textAnchor="end" height={60} />
+                    <YAxis {...popAxisProps()} />
+                    <Tooltip {...popTooltipStyle()} />
+                    <Bar dataKey="points" fill={POP_ACCENT} radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                <input
+                  type="text"
+                  placeholder="Search players..."
+                  value={playerSearch}
+                  onChange={e => setPlayerSearch(e.target.value)}
+                  className="pop-input flex-1 px-3 py-2 text-sm font-bold"
+                />
+                <select
+                  value={playerPositionFilter}
+                  onChange={e => setPlayerPositionFilter(e.target.value)}
+                  className="pop-input px-3 py-2 text-sm font-bold"
+                >
+                  <option value="ALL">All positions</option>
+                  <option value="GK">GK</option>
+                  <option value="DEF">DEF</option>
+                  <option value="MID">MID</option>
+                  <option value="FWD">FWD</option>
+                </select>
+              </div>
+
+              <div className="pop-panel" style={{ overflow: 'hidden', overflowX: 'auto' }}>
+                <table className="w-full" style={{ fontSize: '12px' }}>
+                  <thead>
+                    <tr className="text-left" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+                      <th className="py-2 px-2 uppercase tracking-wider">Player</th>
+                      <th className="py-2 px-2 text-right uppercase tracking-wider">Picked</th>
+                      <th className="py-2 px-2 text-right uppercase tracking-wider font-black">Total Pts</th>
+                      <th className="py-2 px-2 text-right uppercase tracking-wider">Avg / Pick</th>
+                      <th className="py-2 px-2 text-right uppercase tracking-wider">Goals</th>
+                      <th className="py-2 px-2 text-right uppercase tracking-wider">Assists</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPlayerStats.slice(0, 100).map(p => (
+                      <tr key={p.player.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <td className="py-2 px-2 font-black uppercase">{p.displayName}</td>
+                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.timesPicked}</td>
+                        <td className="py-2 px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{p.totalPickPoints}</td>
+                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.avgPickPoints}</td>
+                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.goals}</td>
+                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.assists}</td>
+                      </tr>
+                    ))}
+                    {filteredPlayerStats.length === 0 && (
+                      <tr><td colSpan={6} className="py-8 text-center uppercase tracking-wider" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>No data yet.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+                {filteredPlayerStats.length > 100 && (
+                  <p className="px-2 py-2" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>Showing top 100 of {filteredPlayerStats.length} — narrow your search to see more specific players.</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {tab === 'me' && (
+            <div>
+              {!user ? (
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>Log in to see your personal performance.</p>
+              ) : myWeekly.length === 0 ? (
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No scored gameweeks yet — check back once results come in.</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="pop-panel p-3">
+                      <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Best Gameweek</p>
+                      <p className="text-xl font-black" style={{ color: 'var(--pop-green)' }}>GW{myBest?.gw} · {myBest?.points} pts</p>
+                    </div>
+                    <div className="pop-panel p-3">
+                      <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Worst Gameweek</p>
+                      <p className="text-xl font-black" style={{ color: 'rgba(255,255,255,0.7)' }}>GW{myWorst?.gw} · {myWorst?.points} pts</p>
+                    </div>
+                  </div>
+
+                  <div className="pop-panel p-4 mb-4" style={{ height: 240 }}>
+                    <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Points per gameweek</p>
+                    <ResponsiveContainer width="100%" height="90%">
+                      <BarChart data={myWeekly.map(w => ({ name: `GW${w.gw}`, points: w.points }))}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
+                        <XAxis dataKey="name" {...popAxisProps()} />
+                        <YAxis {...popAxisProps()} />
+                        <Tooltip {...popTooltipStyle()} />
+                        <Bar dataKey="points" fill={POP_ACCENT} radius={[3, 3, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="pop-panel p-4" style={{ height: 240 }}>
+                    <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Your rank over the competition (lower = better)</p>
+                    <ResponsiveContainer width="100%" height="90%">
+                      <LineChart data={myCumulative.map(c => ({ name: `GW${c.gw}`, rank: c.rank }))}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
+                        <XAxis dataKey="name" {...popAxisProps()} />
+                        <YAxis {...popAxisProps()} reversed allowDecimals={false} />
+                        <Tooltip {...popTooltipStyle()} />
+                        <Line type="monotone" dataKey="rank" stroke="var(--pop-pink)" strokeWidth={2} dot={{ r: 3, fill: 'var(--pop-pink)' }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {tab === 'trends' && (
+            <div>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="pop-panel p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Banked Team</p>
+                  <p className="text-base font-black" style={{ color: 'var(--pop-yellow)' }}>{mostBankedTeam ? `${mostBankedTeam.name} (${mostBankedTeam.count}x)` : '—'}</p>
+                </div>
+                <div className="pop-panel p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Banked Player</p>
+                  <p className="text-base font-black" style={{ color: 'var(--pop-yellow)' }}>{mostBankedPlayer ? `${mostBankedPlayer.name} (${mostBankedPlayer.count}x)` : '—'}</p>
+                </div>
+              </div>
+
+              <div className="pop-panel p-4 mb-4" style={{ height: 240 }}>
+                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Average score across all players, per gameweek</p>
+                <ResponsiveContainer width="100%" height="90%">
+                  <LineChart data={avgByGw.map(a => ({ name: `GW${a.gw}`, avg: a.avg }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
+                    <XAxis dataKey="name" {...popAxisProps()} />
+                    <YAxis {...popAxisProps()} />
+                    <Tooltip {...popTooltipStyle()} />
+                    <Line type="monotone" dataKey="avg" stroke={POP_ACCENT} strokeWidth={2} dot={{ r: 3, fill: POP_ACCENT }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="pop-panel p-4 mb-4" style={{ height: 260 }}>
+                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Most popular teams (all-time picks)</p>
+                <ResponsiveContainer width="100%" height="90%">
+                  <BarChart data={teamPopularity}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
+                    <XAxis dataKey="name" {...popAxisProps()} interval={0} angle={-35} textAnchor="end" height={50} />
+                    <YAxis {...popAxisProps()} allowDecimals={false} />
+                    <Tooltip {...popTooltipStyle()} />
+                    <Bar dataKey="count" fill={POP_ACCENT} radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="pop-panel p-4" style={{ height: 240 }}>
+                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Manual picks vs autopicks, per gameweek</p>
+                <ResponsiveContainer width="100%" height="90%">
+                  <BarChart data={pickMethod.map(m => ({ name: `GW${m.gw}`, Manual: m.manual, Autopick: m.autopick }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
+                    <XAxis dataKey="name" {...popAxisProps()} />
+                    <YAxis {...popAxisProps()} allowDecimals={false} />
+                    <Tooltip {...popTooltipStyle()} />
+                    <Legend wrapperStyle={{ fontSize: 11, color: '#ffffff' }} />
+                    <Bar dataKey="Manual" stackId="a" fill={POP_ACCENT} radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="Autopick" stackId="a" fill="rgba(255,255,255,0.25)" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
       </Shell>
     )
   }
