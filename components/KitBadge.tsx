@@ -20,6 +20,12 @@ interface KitBadgeProps {
   // Extra className applied to the star span (e.g. a twinkle animation) —
   // kept opt-in so every other caller renders exactly as before.
   starClassName?: string
+  // The player's penalty shootout personal best — shown as a shirt number
+  // in the top-right corner when set, coloured with the kit's own trim
+  // colour (falling back to the site's gold when no trim is set) so it
+  // reads as part of the kit rather than a bolted-on UI badge. Omitted
+  // entirely (undefined/0) renders exactly as before.
+  topScore?: number
 }
 
 // Actual repeated icons, not a "x3" count — genuinely readable, flanking
@@ -35,7 +41,7 @@ function GlobeIcons({ earths, className }: { earths: number; className: string }
   return <span className={`leading-none ${className}`}>{'🌍'.repeat(earths)}</span>
 }
 
-export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0, earths = 0, size = 28, iconTextClass = 'text-sm', starColor = '#D9A441', starClassName }: KitBadgeProps) {
+export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0, earths = 0, size = 28, iconTextClass = 'text-sm', starColor = '#D9A441', starClassName, topScore }: KitBadgeProps) {
   const shirtPath = "M8 2 L11 2 L12 4 L16 4 L17 2 L20 2 L26 7 L23 11 L20 9 L20 24 L8 24 L8 9 L5 11 L2 7 Z"
 
   const clipId = `kit-clip-${pattern}-${colour1.replace('#', '')}-${colour2.replace('#', '')}`
@@ -147,6 +153,26 @@ export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0
           </g>
         )}
         <path d={shirtPath} fill="none" stroke="#2A1F17" strokeWidth="1" strokeLinejoin="round" />
+        {!!topScore && (
+          <g>
+            <circle cx="16.5" cy="13" r="4.6" fill={colour3 || starColor} stroke="#2A1F17" strokeWidth="0.6" />
+            <text
+              x="16.5"
+              y="13"
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize="6.2"
+              fontWeight="700"
+              fontFamily="var(--font-mono, monospace)"
+              fill="#ffffff"
+              stroke="#000000"
+              strokeWidth="0.5"
+              paintOrder="stroke"
+            >
+              {topScore}
+            </text>
+          </g>
+        )}
       </svg>
       <GlobeIcons earths={earths} className={iconTextClass} />
     </div>

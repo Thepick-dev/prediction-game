@@ -604,7 +604,7 @@ export default function PicksPage() {
           <div className="pop-art-theme">
 
             <div className="text-center mb-8 mt-2">
-              <h1 className="pop-hero pop-hero--pink text-6xl sm:text-7xl">Picks!</h1>
+              <h1 className="pop-hero pop-hero--pink text-6xl sm:text-7xl">Picks</h1>
             </div>
 
             {gameweek && (
@@ -705,8 +705,7 @@ export default function PicksPage() {
                         <select
                           value={player1Club ?? ''}
                           onChange={e => setPlayer1Club(e.target.value ? Number(e.target.value) : null)}
-                          className="w-full rounded-lg p-2 mb-2 font-bold text-sm"
-                          style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-white)', color: 'var(--pop-black)' }}
+                          className="pop-input w-full p-2 mb-2 font-bold text-sm"
                         >
                           <option value="">Filter by club...</option>
                           {teams.map(t => <option key={t.id} value={t.id}>{teamDisplayName(t)}</option>)}
@@ -716,11 +715,10 @@ export default function PicksPage() {
                           value={playerSearch1}
                           onChange={e => setPlayerSearch1(e.target.value)}
                           placeholder={player1Club != null ? 'Narrow down...' : 'Search players...'}
-                          className="w-full rounded-lg p-2 mb-2 font-bold text-sm"
-                          style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-white)', color: 'var(--pop-black)' }}
+                          className="pop-input w-full p-2 mb-2 font-bold text-sm"
                         />
                         {filteredPlayers1.length > 0 && (
-                          <div className="rounded-lg overflow-hidden max-h-48 overflow-y-auto" style={{ border: '3px solid var(--pop-black)' }}>
+                          <div className="rounded-lg overflow-hidden max-h-48 overflow-y-auto" style={{ border: '2px solid rgba(255,255,255,0.15)' }}>
                             {filteredPlayers1.map(p => {
                               const count = playerCounts[p.id] ?? 0
                               const maxed = count >= 2
@@ -730,9 +728,9 @@ export default function PicksPage() {
                                   onClick={() => { if (!maxed) { setPlayer1(p.id); setPlayer1Fixture(null); setPlayerSearch1(''); setPlayer1Club(null) } }}
                                   disabled={maxed}
                                   className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
-                                  style={{ background: maxed ? '#D6D6D6' : 'var(--pop-white)', color: maxed ? '#8A8A8A' : 'var(--pop-black)', borderColor: 'var(--pop-black)' }}
+                                  style={{ background: maxed ? '#0A0A0A' : 'var(--pop-surface)', color: maxed ? '#555555' : 'var(--pop-white)', borderColor: 'rgba(255,255,255,0.1)' }}
                                 >
-                                  {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#8A8A8A' : '#666666' }}>({count}/2)</span>
+                                  {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/2)</span>
                                 </button>
                               )
                             })}
@@ -761,8 +759,7 @@ export default function PicksPage() {
                         <select
                           value={player2Club ?? ''}
                           onChange={e => setPlayer2Club(e.target.value ? Number(e.target.value) : null)}
-                          className="w-full rounded-lg p-2 mb-2 font-bold text-sm"
-                          style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-white)', color: 'var(--pop-black)' }}
+                          className="pop-input w-full p-2 mb-2 font-bold text-sm"
                         >
                           <option value="">Filter by club...</option>
                           {teams.map(t => <option key={t.id} value={t.id}>{teamDisplayName(t)}</option>)}
@@ -772,11 +769,10 @@ export default function PicksPage() {
                           value={playerSearch2}
                           onChange={e => setPlayerSearch2(e.target.value)}
                           placeholder={player2Club != null ? 'Narrow down...' : 'Search players...'}
-                          className="w-full rounded-lg p-2 mb-2 font-bold text-sm"
-                          style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-white)', color: 'var(--pop-black)' }}
+                          className="pop-input w-full p-2 mb-2 font-bold text-sm"
                         />
                         {filteredPlayers2.length > 0 && (
-                          <div className="rounded-lg overflow-hidden max-h-48 overflow-y-auto" style={{ border: '3px solid var(--pop-black)' }}>
+                          <div className="rounded-lg overflow-hidden max-h-48 overflow-y-auto" style={{ border: '2px solid rgba(255,255,255,0.15)' }}>
                             {filteredPlayers2.map(p => {
                               const count = playerCounts[p.id] ?? 0
                               const maxed = count >= 2
@@ -786,9 +782,9 @@ export default function PicksPage() {
                                   onClick={() => { if (!maxed) { setPlayer2(p.id); setPlayer2Fixture(null); setPlayerSearch2(''); setPlayer2Club(null) } }}
                                   disabled={maxed}
                                   className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
-                                  style={{ background: maxed ? '#D6D6D6' : 'var(--pop-white)', color: maxed ? '#8A8A8A' : 'var(--pop-black)', borderColor: 'var(--pop-black)' }}
+                                  style={{ background: maxed ? '#0A0A0A' : 'var(--pop-surface)', color: maxed ? '#555555' : 'var(--pop-white)', borderColor: 'rgba(255,255,255,0.1)' }}
                                 >
-                                  {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#8A8A8A' : '#666666' }}>({count}/2)</span>
+                                  {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/2)</span>
                                 </button>
                               )
                             })}
@@ -821,8 +817,7 @@ export default function PicksPage() {
                         onChange={e => setQuestionAnswer(e.target.value)}
                         placeholder="Type your answer..."
                         maxLength={200}
-                        className="w-full rounded-lg p-2 font-bold text-sm"
-                        style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-white)', color: 'var(--pop-black)' }}
+                        className="pop-input w-full p-2 font-bold text-sm"
                       />
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
@@ -858,8 +853,8 @@ export default function PicksPage() {
                     onChange={e => setComments(e.target.value)}
                     rows={3}
                     placeholder="Banter, a prediction, whatever..."
-                    className="w-full rounded-lg p-2 font-bold text-sm"
-                    style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-white)', color: 'var(--pop-black)' }}
+                    className="pop-input w-full p-2 font-bold text-sm"
+                    style={{ borderColor: 'var(--pop-white)' }}
                   />
                 </div>
 

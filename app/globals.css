@@ -92,30 +92,40 @@ thead th {
   --pop-red: #E8262A;
   background: var(--pop-black);
   color: var(--pop-white);
-  /* Deliberately light, even though the theme around it is dark — this
-     pins native <input>/<select>/<textarea> controls to light styling
-     (white surface, dark text) regardless of the visitor's OS/browser
-     dark-mode setting, which is the contrast we actually want for
-     legible form fields sitting on dark cards. Without this, a
-     browser/OS in dark mode can silently re-skin native controls with
-     ITS OWN dark palette (often white-on-white) independent of this
-     theme's own colours. */
-  color-scheme: light;
+  /* Every form control in this theme is now explicitly dark-styled (see
+     .pop-input below), so native chrome — the select's dropdown arrow,
+     scrollbars inside the results list — should match dark too, instead
+     of fighting the theme with light OS-default chrome. */
+  color-scheme: dark;
   /* Cards below can sit close to the edge on small screens — this is
      what stops any of them turning into a page-level horizontal
      scrollbar (the "no overflow, ever" rule applies here too). */
   overflow-x: hidden;
 }
 
-/* color-scheme/explicit colours above fix the typed-text colour, but
-   ::placeholder is a separate pseudo-element that inline styles can
-   never reach (React's style prop can't target pseudo-elements). Scoped
-   to real form elements only, so it can't collide with the class-on-
-   class trap noted above (that only bit when both classes land on ONE
-   element; this is a genuine ancestor-to-descendant selector). */
+/* Shared styling for every real form control (search inputs, the club
+   filter select, the comments box) so they read as a designed part of
+   the page instead of bare unstyled HTML controls dropped on top of it. */
+.pop-input {
+  background: var(--pop-surface);
+  color: var(--pop-white);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pop-input:focus {
+  outline: none;
+  border-color: var(--pop-pink);
+  box-shadow: 0 0 0 3px rgba(213, 0, 109, 0.25);
+}
+
+/* ::placeholder is a separate pseudo-element inline styles can never
+   reach (React's style prop can't target pseudo-elements), hence a real
+   CSS rule for it. */
 .pop-art-theme input::placeholder,
 .pop-art-theme textarea::placeholder {
-  color: rgba(17, 17, 17, 0.55);
+  color: rgba(255, 255, 255, 0.35);
   opacity: 1;
 }
 

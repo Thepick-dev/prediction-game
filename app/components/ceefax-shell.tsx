@@ -54,6 +54,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
   const [kitColour3, setKitColour3] = useState<string | null>(null)
   const [kitStars, setKitStars] = useState(0)
   const [kitEarths, setKitEarths] = useState(0)
+  const [topScore, setTopScore] = useState(0)
   const kit = kitBase ? { ...kitBase, colour3: kitColour3, stars: kitStars, earths: kitEarths } : null
   const [nextDeadline, setNextDeadline] = useState<{ number: number; deadline: string } | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -189,6 +190,17 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
           setKitColour3(data.kit_colour_3 ?? null)
         }
       })
+    // Also its own request, same reason — the minigame score shirt number
+    // is a separate feature entirely, so a problem with it must never be
+    // able to take the shirt itself down with it.
+    supabase
+      .from('minigame_penalty_scores')
+      .select('best_score')
+      .eq('user_id', user.id)
+      .single()
+      .then(({ data }) => {
+        setTopScore(data?.best_score ?? 0)
+      })
   }, [user?.id])
 
   const barColor = isPopArt ? 'var(--pop-white)' : '#D9A441'
@@ -228,6 +240,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                         stars={kit.stars} earths={kit.earths}
                         size={36} iconTextClass="text-[10px] sm:text-sm"
                         starColor={isPopArt ? 'var(--pop-pink)' : undefined}
+                        topScore={topScore}
                       />
                     </button>
                   )}

@@ -7,18 +7,36 @@ import { createClient } from '../app/lib/supabase'
 // separate scoring, separate table. Difficulty scales with the streak: the
 // aim marker sweeps faster and the scoring zone shrinks each goal, so it
 // gets genuinely hard to keep a long run alive rather than being winnable
-// by mashing the button.
+// by mashing the button. A per-round random jitter is layered on top of
+// that trend so two rounds at the same score never play identically —
+// this is the arcade "replay value" bit, not just a difficulty curve.
 const BASE_DURATION = 1.3
 const MIN_DURATION = 0.45
 const DURATION_STEP = 0.14
 const BASE_ZONE_WIDTH = 30
 const MIN_ZONE_WIDTH = 10
 const ZONE_STEP = 3.2
+// +/- this fraction, applied fresh every round.
+const JITTER = 0.3
 // Kept in sync with globals.css's .pop-shoot-sweep keyframe by hand (it
 // animates left: 0% -> 95%, i.e. 100 - this value) — the sweep path is a
 // static CSS animation for smooth GPU-composited motion, so it can't read
 // this constant directly.
 const MARKER_WIDTH = 5
+
+// The goal photo (shootout-goal.png) has real sky/grass margin either side
+// of the actual goal frame rather than the frame filling the whole image —
+// measured directly off the artwork. Every horizontal position drawn on
+// top of that photo (ball, keeper) is mapped through this so nothing ever
+// visually lands outside the goal mouth, in the grass or sky. GOAL_LINE_PCT
+// is how far down the image the net meets the ground.
+const GOAL_ASPECT = '2752 / 1536'
+const GOAL_LEFT_PCT = 13
+const GOAL_RIGHT_PCT = 87
+const GOAL_LINE_PCT = 80
+function toGoalX(pct: number) {
+  return GOAL_LEFT_PCT + (pct / 100) * (GOAL_RIGHT_PCT - GOAL_LEFT_PCT)
+}
 
 type Phase = 'ready' | 'aiming' | 'result' | 'gameover'
 
@@ -28,6 +46,18 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
   const [phase, setPhase] = useState<Phase>('ready')
   const [result, setResult] = useState<'goal' | 'miss' | null>(null)
   const [zone, setZone] = useState({ left: 40, width: BASE_ZONE_WIDTH })
+  const [duration, setDuration] = useState(BASE_DURATION)
+  // Where the last shot actually landed (0-100, aim-track space) — used to
+  // place the ball/keeper visually, instead of the zone's centre, so what
+  // you see always matches what you clicked.
+  const [shotX, setShotX] = useState(50)
+  // Bumped every round and used as the marker's React key, so its CSS
+  // sweep animation always restarts cleanly at 0% for the new round's
+  // duration. Without this, changing animation-duration on a running
+  // animation makes the browser re-map elapsed time onto the new duration
+  // instead of restarting it, so the marker jumps to an arbitrary point
+  // mid-sweep the instant a new round begins.
+  const [roundId, setRoundId] = useState(0)
   const [leaderboard, setLeaderboard] = useState<{ name: string; score: number }[]>([])
   const [justBeatBest, setJustBeatBest] = useState(false)
 
@@ -62,9 +92,14 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
   }
 
   function newRound(nextScore: number) {
-    const width = Math.max(MIN_ZONE_WIDTH, BASE_ZONE_WIDTH - nextScore * ZONE_STEP)
+    const widthJitter = 1 + (Math.random() - 0.5) * JITTER
+    const width = Math.max(MIN_ZONE_WIDTH, (BASE_ZONE_WIDTH - nextScore * ZONE_STEP) * widthJitter)
     const left = Math.random() * (100 - width)
+    const durationJitter = 1 + (Math.random() - 0.5) * JITTER
+    const nextDuration = Math.max(MIN_DURATION, (BASE_DURATION - nextScore * DURATION_STEP) * durationJitter)
     setZone({ left, width })
+    setDuration(nextDuration)
+    setRoundId(id => id + 1)
     setResult(null)
     setPhase('aiming')
   }
@@ -80,6 +115,7 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
     const trackRect = trackRef.current.getBoundingClientRect()
     const markerRect = markerRef.current.getBoundingClientRect()
     const markerCenterPct = ((markerRect.left + markerRect.width / 2 - trackRect.left) / trackRect.width) * 100
+    setShotX(markerCenterPct)
     const hit = markerCenterPct >= zone.left && markerCenterPct <= zone.left + zone.width
 
     if (hit) {
@@ -106,14 +142,11 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
     loadScores()
   }
 
-  const duration = Math.max(MIN_DURATION, BASE_DURATION - score * DURATION_STEP)
-
   // Keeper dives toward the shot on a miss (that's the save), and dives
   // the WRONG way on a goal (sells the idea that they guessed wrong rather
   // than just standing there while the ball sails past). Idle/ready pose
   // otherwise. The dive artwork only faces one direction (left), so the
   // other direction is a horizontal mirror rather than a second asset.
-  const shotX = zone.left + zone.width / 2
   const keeper = result === 'miss'
     ? { pose: 'dive' as const, x: shotX, mirror: shotX >= 50 }
     : result === 'goal'
@@ -125,34 +158,30 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
       <div className="flex items-center justify-between mb-4">
         <p className="pop-headline text-xl">Penalty Shootout</p>
         <div className="text-right">
-          <p className="font-mono text-2xl font-bold" style={{ color: 'var(--pop-green)' }}>{score}</p>
-          <p className="font-mono text-[10px]" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          <p className="font-mono text-3xl font-bold leading-none" style={{ color: 'var(--pop-green)' }}>{score}</p>
+          <p className="font-mono text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
             best: {bestScore ?? '—'}
           </p>
         </div>
       </div>
 
       {/* Goal backdrop is real artwork; keeper and ball are too, layered
-          on top and positioned/animated in code. */}
+          on top and positioned/animated in code. Locked to the photo's own
+          aspect ratio (rather than a fixed pixel height) so it's never
+          cropped — every % position below always lands where it looks
+          like it should, on phones and wide screens alike. */}
       <div
         className="relative rounded-xl mb-4"
-        style={{
-          height: 180,
-          overflow: 'hidden',
-          border: '2px solid rgba(255,255,255,0.12)',
-          backgroundImage: 'url(/shootout-goal.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
+        style={{ aspectRatio: GOAL_ASPECT, overflow: 'hidden', backgroundImage: 'url(/shootout-goal.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}
       >
         <img
           src={keeper.pose === 'dive' ? '/shootout-keeper-dive.png' : '/shootout-keeper-ready.png'}
           alt=""
           style={{
             position: 'absolute',
-            bottom: keeper.pose === 'dive' ? 34 : 16,
-            left: `${keeper.x}%`,
-            height: keeper.pose === 'dive' ? 56 : 70,
+            bottom: keeper.pose === 'dive' ? '13%' : '17%',
+            left: `${toGoalX(keeper.x)}%`,
+            height: keeper.pose === 'dive' ? '32%' : '40%',
             transform: `translateX(-50%) scaleX(${keeper.mirror ? -1 : 1})`,
             transition: 'left 0.3s ease, bottom 0.3s ease',
           }}
@@ -162,21 +191,21 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
           alt=""
           style={{
             position: 'absolute',
-            bottom: 16,
+            bottom: '9%',
             width: 22, height: 22,
-            left: result ? `calc(${zone.left + zone.width / 2}% - 11px)` : 'calc(50% - 11px)',
+            left: `calc(${toGoalX(result ? shotX : 50)}% - 11px)`,
             transition: 'left 0.4s ease, bottom 0.4s ease',
-            ...(result ? { bottom: 90 } : {}),
+            ...(result ? { bottom: '48%' } : {}),
           }}
           className={result === 'goal' ? 'pop-pop-in' : ''}
         />
         {result && (
           <p
-            className="pop-headline"
             style={{
-              position: 'absolute', top: 8, left: 0, right: 0, textAlign: 'center', fontSize: 22,
+              position: 'absolute', top: '4%', left: 0, right: 0, textAlign: 'center',
+              fontFamily: 'var(--font-display)', fontSize: 34, letterSpacing: '0.04em',
               color: result === 'goal' ? 'var(--pop-green)' : 'var(--pop-red)',
-              textShadow: `0 0 12px ${result === 'goal' ? 'rgba(0,230,118,0.6)' : 'rgba(232,38,42,0.6)'}`,
+              textShadow: `0 0 14px ${result === 'goal' ? 'rgba(0,230,118,0.7)' : 'rgba(232,38,42,0.7)'}`,
             }}
           >
             {result === 'goal' ? 'GOAL!' : 'SAVED!'}
@@ -191,11 +220,12 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
           style={{
             left: `${zone.left}%`,
             width: `${zone.width}%`,
-            background: 'rgba(0,230,118,0.35)',
-            boxShadow: '0 0 10px rgba(0,230,118,0.5)',
+            background: 'rgba(255,61,0,0.4)',
+            border: '1px solid var(--pop-orange)',
           }}
         />
         <div
+          key={roundId}
           ref={markerRef}
           className="pop-shoot-marker absolute top-0 bottom-0 rounded-full"
           style={{

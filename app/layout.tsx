@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Anton } from 'next/font/google'
+import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Bebas_Neue } from 'next/font/google'
 import './globals.css'
 
 const alfaSlabOne = Alfa_Slab_One({
@@ -10,12 +10,11 @@ const alfaSlabOne = Alfa_Slab_One({
 })
 
 // Only used by the pop-art theme (see globals.css, .pop-hero) — for the
-// one or two genuine hero moments (the "Picks!" title), never for body
-// copy or section labels. Bold condensed poster/sports-headline face,
-// swapped in for Bangers after "comic" was explicitly the wrong framing —
-// loaded globally like the other fonts here since next/font requires
-// that, but it costs nothing on pages that never reference --font-display.
-const anton = Anton({
+// one or two genuine hero moments (the "Picks" title), never for body
+// copy or section labels. Tall condensed poster/sports face — swapped in
+// for Anton after it still read as too blocky/childish; this is the same
+// family of typeface used on real match-day posters and ticket stubs.
+const bebasNeue = Bebas_Neue({
   weight: '400',
   subsets: ['latin'],
   variable: '--font-display',
@@ -49,7 +48,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${anton.variable}`}>
+    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${bebasNeue.variable}`}>
       <body>{children}</body>
     </html>
   )

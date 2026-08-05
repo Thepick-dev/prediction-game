@@ -52,6 +52,7 @@ export default function KitEditor({
   const [kitColour3, setKitColour3] = useState<string | null>(null)
   const [kitStars, setKitStars] = useState(0)
   const [kitEarths, setKitEarths] = useState(0)
+  const [topScore, setTopScore] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -97,6 +98,16 @@ export default function KitEditor({
     setKitStars(kitExtras?.kit_stars ?? 0)
     setKitEarths(kitExtras?.kit_earths ?? 0)
     setLoading(false)
+
+    // Also its own request, same reason as above — the minigame score
+    // shirt number is a separate feature entirely, so a problem with it
+    // must never be able to block the rest of the kit editor loading.
+    const { data: scoreRow } = await supabase
+      .from('minigame_penalty_scores')
+      .select('best_score')
+      .eq('user_id', userId)
+      .single()
+    setTopScore(scoreRow?.best_score ?? 0)
   }
 
   async function saveKit() {
@@ -182,7 +193,7 @@ export default function KitEditor({
   return (
     <div>
       <div className={isPopArt ? 'pop-panel rounded-xl p-4 mb-3 flex justify-center' : 'flex justify-center mb-3'}>
-        <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={compact ? 100 : 140} />
+        <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={compact ? 120 : 160} topScore={topScore} />
       </div>
       {(kitStars > 0 || kitEarths > 0) && (
         <p

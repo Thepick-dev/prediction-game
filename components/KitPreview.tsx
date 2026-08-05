@@ -6,6 +6,10 @@ interface KitPreviewProps {
   stars?: number
   earths?: number
   size?: number
+  // The player's penalty shootout personal best — see KitBadge for the
+  // same treatment; kept in sync so the header badge and this preview
+  // always show the same number.
+  topScore?: number
 }
 
 // Actual repeated icons, not a "x3" count — shown prominently right next
@@ -21,7 +25,7 @@ function BadgeStats({ stars, earths }: { stars: number; earths: number }) {
   )
 }
 
-export default function KitPreview({ pattern, colour1, colour2, colour3, stars = 0, earths = 0, size = 120 }: KitPreviewProps) {
+export default function KitPreview({ pattern, colour1, colour2, colour3, stars = 0, earths = 0, size = 120, topScore }: KitPreviewProps) {
   const shirtPath = "M8 2 L11 2 L12 4 L16 4 L17 2 L20 2 L26 7 L23 11 L20 9 L20 24 L8 24 L8 9 L5 11 L2 7 Z"
   const shortsPath = "M8 25 L20 25 L20 33 L15 33 L14 30 L13 33 L8 33 Z"
   const leftSockPath = "M9 34 L13 34 L13 46 L9 46 Z"
@@ -128,6 +132,26 @@ export default function KitPreview({ pattern, colour1, colour2, colour3, stars =
           </g>
         )}
         <path d={shirtPath} fill="none" stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
+        {!!topScore && (
+          <g>
+            <circle cx="16.5" cy="13" r="4.6" fill={colour3 || '#D9A441'} stroke="#2A1F17" strokeWidth="0.6" />
+            <text
+              x="16.5"
+              y="13"
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize="6.2"
+              fontWeight="700"
+              fontFamily="var(--font-mono, monospace)"
+              fill="#ffffff"
+              stroke="#000000"
+              strokeWidth="0.5"
+              paintOrder="stroke"
+            >
+              {topScore}
+            </text>
+          </g>
+        )}
 
         <path d={shortsPath} fill={colour2} stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
 

@@ -5,8 +5,8 @@ import ConfirmDeleteButton from '../components/confirm-delete-button'
 import CompetitionFilter from '../components/competition-filter'
 import GameweekQuestionForm from '../components/gameweek-question-form'
 
-export default async function GameweeksPage({ searchParams }: { searchParams: Promise<{ competition_id?: string }> }) {
-  const { competition_id: selectedCompetitionId } = await searchParams
+export default async function GameweeksPage({ searchParams }: { searchParams: Promise<{ competition_id?: string; questionError?: string }> }) {
+  const { competition_id: selectedCompetitionId, questionError } = await searchParams
   const supabase = await createServerSupabaseClient()
 
   let gameweeksQuery = supabase.from('gameweeks').select('*, competitions(name)').order('number', { ascending: true })
@@ -123,14 +123,16 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
     const option_c = question_type === 'freetext' ? null : (formData.get('option_c') as string || null)
     const option_d = question_type === 'freetext' ? null : (formData.get('option_d') as string || null)
 
-    if (existing_id) {
-      await supabase.from('gameweek_questions').update({
-        question, question_type, option_a, option_b, option_c, option_d
-      }).eq('id', existing_id)
-    } else {
-      await supabase.from('gameweek_questions').insert({
-        gameweek_id, question, question_type, option_a, option_b, option_c, option_d
-      })
+    const { error } = existing_id
+      ? await supabase.from('gameweek_questions').update({
+          question, question_type, option_a, option_b, option_c, option_d
+        }).eq('id', existing_id)
+      : await supabase.from('gameweek_questions').insert({
+          gameweek_id, question, question_type, option_a, option_b, option_c, option_d
+        })
+
+    if (error) {
+      redirect(`/admin/gameweeks?questionError=${encodeURIComponent(error.message)}`)
     }
     redirect('/admin/gameweeks')
   }
@@ -148,6 +150,12 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
         <h1 className="text-2xl font-bold">Gameweeks</h1>
         <CompetitionFilter competitions={competitions ?? []} />
       </div>
+
+      {questionError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-6 text-sm">
+          Couldn&apos;t save that question: {questionError}
+        </div>
+      )}
 
       <div className="bg-white border rounded-lg p-6 mb-8">
         <h2 className="font-bold mb-4">Create Gameweek</h2>
