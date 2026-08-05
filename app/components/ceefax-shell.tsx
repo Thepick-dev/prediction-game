@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { createClient } from '../lib/supabase'
 import KitBadge from '../../components/KitBadge'
 import KitEditor from '../../components/KitEditor'
-import PopArtLogo from '../../components/PopArtLogo'
 import { useCountdown } from '../lib/useCountdown'
 
 const KIT_POPUP_WIDTH = 288
@@ -220,7 +219,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             >
               {isPopArt ? (
                 <>
-                  <PopArtLogo size={36} showText={false} />
+                  <img src="/logo.png" alt="" width={36} height={31} style={{ width: 36, height: 'auto' }} />
                   <span className="pop-hero pop-hero--pink inline-block text-lg sm:text-2xl tracking-wide uppercase">
                     LMS All-Stars
                   </span>

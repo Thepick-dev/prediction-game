@@ -1,5 +1,3 @@
-import PopArtLogo from './PopArtLogo'
-
 // Shown wherever the pop-art theme has a loading state (Picks, and
 // anywhere else that adopts the theme later). Full-screen takeover on
 // purpose — fixed, covers the header/nav too, so the mark is genuinely
@@ -14,7 +12,7 @@ export default function PopArtLoading({ label }: { label?: string }) {
       className="pop-art-theme fixed inset-0 z-[999] flex flex-col items-center justify-center gap-6"
       style={{ background: 'var(--pop-black)' }}
     >
-      <PopArtLogo size={280} showText={false} className="pop-logo-pulse" />
+      <img src="/logo.png" alt="" width={220} height={188} className="pop-logo-pulse" style={{ width: 220, height: 'auto' }} />
       {label && (
         <p className="pop-headline text-sm tracking-widest" style={{ color: 'rgba(255,255,255,0.5)' }}>{label}</p>
       )}
