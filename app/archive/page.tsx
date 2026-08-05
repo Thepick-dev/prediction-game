@@ -1,32 +1,138 @@
-import { createServerSupabaseClient } from '../lib/supabase-server'
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
+import PopArtLoading from '../../components/PopArtLoading'
+import { usePopArtTheme } from '../lib/usePopArtTheme'
 import Link from 'next/link'
 
-export default async function ArchivePage() {
-  const supabase = await createServerSupabaseClient()
+type PastCompetition = { id: string; name: string; season: string; start_date: string | null; end_date: string | null; manual_winner: string | null; manual_winner_note: string | null }
+type Honour = { season: string; competition_name: string; winner: string; notes: string | null }
 
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = user
-    ? await supabase.from('profiles').select('display_name').eq('id', user.id).single()
-    : { data: null }
+export default function ArchivePage() {
+  const [user, setUser] = useState<any>(null)
+  const [displayName, setDisplayName] = useState('')
+  const [pastCompetitions, setPastCompetitions] = useState<PastCompetition[]>([])
+  const [honours, setHonours] = useState<Honour[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const { data: pastCompetitions } = await supabase
-    .from('competitions')
-    .select('id, name, season, start_date, end_date, manual_winner, manual_winner_note')
-    .in('status', ['completed', 'archived'])
-    .eq('hidden', false)
-    .order('start_date', { ascending: false })
+  const supabase = createClient()
+  const { popArt } = usePopArtTheme(user?.id)
 
-  const { data: honours } = await supabase
-    .from('honours')
-    .select('season, competition_name, winner, notes')
-    .order('sort_order', { ascending: false })
+  useEffect(() => { loadData() }, [])
+
+  async function loadData() {
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    setUser(authUser)
+
+    if (authUser) {
+      const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', authUser.id).single()
+      setDisplayName(profile?.display_name ?? '')
+    }
+
+    const [{ data: pastCompetitionsData }, { data: honoursData }] = await Promise.all([
+      supabase
+        .from('competitions')
+        .select('id, name, season, start_date, end_date, manual_winner, manual_winner_note')
+        .in('status', ['completed', 'archived'])
+        .eq('hidden', false)
+        .order('start_date', { ascending: false }),
+      supabase.from('honours').select('season, competition_name, winner, notes').order('sort_order', { ascending: false }),
+    ])
+
+    setPastCompetitions(pastCompetitionsData ?? [])
+    setHonours(honoursData ?? [])
+    setLoading(false)
+  }
+
+  if (loading) {
+    return (
+      <Shell active="TROPHY ROOM" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
+      </Shell>
+    )
+  }
+
+  if (popArt) {
+    return (
+      <Shell active="TROPHY ROOM" user={user} displayName={displayName} theme="pop-art">
+        <div className="pop-art-theme">
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-6 mt-2">Trophy Room</h1>
+
+          <div className="space-y-8">
+
+            <section>
+              <h2 className="pop-headline text-sm mb-3">Past Competitions</h2>
+              {pastCompetitions.length === 0 ? (
+                <div className="pop-panel p-6">
+                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No completed competitions yet. The first one is underway.</p>
+                </div>
+              ) : (
+                <div className="pop-panel" style={{ overflow: 'hidden' }}>
+                  {pastCompetitions.map((comp, i) => (
+                    <Link
+                      key={comp.id}
+                      href={`/archive/${comp.id}`}
+                      className="flex items-center justify-between p-4"
+                      style={i > 0 ? { borderTop: '1px solid rgba(255,255,255,0.1)' } : undefined}
+                    >
+                      <div>
+                        <p className="font-black text-sm">{comp.name}</p>
+                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{comp.season}</p>
+                        {comp.manual_winner && (
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--pop-yellow)' }}>🏆 {comp.manual_winner}</p>
+                        )}
+                      </div>
+                      <span className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>Final table →</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section>
+              <h2 className="pop-headline text-sm mb-1">Honours Board</h2>
+              <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.4)' }}>Winners from before the website era.</p>
+              {honours.length === 0 ? (
+                <div className="pop-panel p-6">
+                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No historical winners recorded yet.</p>
+                </div>
+              ) : (
+                <div className="pop-panel" style={{ overflow: 'hidden' }}>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left" style={{ background: 'rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>
+                        <th className="py-2 px-4">Season</th>
+                        <th className="py-2 px-4">Competition</th>
+                        <th className="py-2 px-4">Winner</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {honours.map((h, i) => (
+                        <tr key={i} style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.1)' : undefined }}>
+                          <td className="py-2 px-4" style={{ color: 'rgba(255,255,255,0.5)' }}>{h.season}</td>
+                          <td className="py-2 px-4">{h.competition_name}</td>
+                          <td className="py-2 px-4 font-black" style={{ color: 'var(--pop-yellow)' }}>🏆 {h.winner}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+          </div>
+        </div>
+      </Shell>
+    )
+  }
 
   const cardClass = "bg-white/5 border border-white/10 rounded-lg"
 
   return (
-    <Shell active="TROPHY ROOM" user={user} displayName={profile?.display_name ?? undefined}>
+    <Shell active="TROPHY ROOM" user={user} displayName={displayName}>
       <HeroPage wide heroOverride="trophy">
         <div className="w-full text-[#F5ECD9]">
           <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Trophy Room</h1>
@@ -35,7 +141,7 @@ export default async function ArchivePage() {
 
             <section>
               <h2 className="text-lg font-bold mb-3 text-[#D9A441]" style={{ fontFamily: 'var(--font-heading), serif' }}>Past Competitions</h2>
-              {(!pastCompetitions || pastCompetitions.length === 0) ? (
+              {pastCompetitions.length === 0 ? (
                 <div className={cardClass + ' p-6'}>
                   <p className="text-[#F5ECD9]/50 text-sm">No completed competitions yet. The first one is underway.</p>
                 </div>
@@ -50,8 +156,8 @@ export default async function ArchivePage() {
                       <div>
                         <p className="font-bold text-sm">{comp.name}</p>
                         <p className="text-xs text-[#F5ECD9]/40">{comp.season}</p>
-                        {(comp as any).manual_winner && (
-                          <p className="text-xs text-[#D9A441] mt-0.5">🏆 {(comp as any).manual_winner}</p>
+                        {comp.manual_winner && (
+                          <p className="text-xs text-[#D9A441] mt-0.5">🏆 {comp.manual_winner}</p>
                         )}
                       </div>
                       <span className="text-sm text-[#F5ECD9]/40">Final table →</span>
@@ -64,7 +170,7 @@ export default async function ArchivePage() {
             <section>
               <h2 className="text-lg font-bold mb-3 text-[#D9A441]" style={{ fontFamily: 'var(--font-heading), serif' }}>Honours Board</h2>
               <p className="text-xs text-[#F5ECD9]/40 mb-3">Winners from before the website era.</p>
-              {(!honours || honours.length === 0) ? (
+              {honours.length === 0 ? (
                 <div className={cardClass + ' p-6'}>
                   <p className="text-[#F5ECD9]/50 text-sm">No historical winners recorded yet.</p>
                 </div>

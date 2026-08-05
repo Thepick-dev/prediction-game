@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
 import Shell from '../../components/ceefax-shell'
+import PopArtLoading from '../../../components/PopArtLoading'
+import { usePopArtTheme } from '../../lib/usePopArtTheme'
 import Link from 'next/link'
 
 type RankedPlayer = {
@@ -43,6 +45,7 @@ export default function ArchivedCompetitionPage() {
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
+  const { popArt } = usePopArtTheme(user?.id)
 
   useEffect(() => {
     loadData()
@@ -173,17 +176,116 @@ export default function ArchivedCompetitionPage() {
 
   if (loading) {
     return (
-      <Shell active="ARCHIVE">
-        <p className="text-gray-500">Loading...</p>
+      <Shell active="ARCHIVE" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
       </Shell>
     )
   }
 
   if (!competition) {
     return (
-      <Shell active="ARCHIVE">
-        <h1 className="text-2xl font-bold mb-2">Competition Not Found</h1>
-        <Link href="/archive" className="text-sm text-gray-500 hover:text-black">← Back to archive</Link>
+      <Shell active="ARCHIVE" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? (
+          <div className="pop-art-theme text-center py-12">
+            <p className="pop-headline text-2xl mb-3">Competition Not Found</p>
+            <Link href="/archive" className="text-sm font-bold" style={{ color: 'var(--pop-blue)' }}>← Back to archive</Link>
+          </div>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold mb-2">Competition Not Found</h1>
+            <Link href="/archive" className="text-sm text-gray-500 hover:text-black">← Back to archive</Link>
+          </>
+        )}
+      </Shell>
+    )
+  }
+
+  if (popArt) {
+    return (
+      <Shell active="ARCHIVE" user={user} displayName={displayName} theme="pop-art">
+        <div className="pop-art-theme">
+
+          <h1 className="pop-hero pop-hero--blue text-4xl sm:text-5xl mb-1 mt-2">{competition.name}</h1>
+          <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>Final standings — {competition.season}</p>
+
+          <div className="pop-panel" style={{ overflow: 'hidden' }}>
+            <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+              <thead>
+                <tr className="text-left" style={{ background: 'rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>
+                  <th className="py-3 pl-3 pr-1" style={{ width: '7%' }}>#</th>
+                  <th className="py-3 px-1" style={{ width: '30%' }}>Player</th>
+                  <th className="py-3 px-1 text-center" style={{ width: '11%' }}>HW</th>
+                  <th className="py-3 px-1 text-center" style={{ width: '11%' }}>AW</th>
+                  <th className="py-3 px-1 text-right" style={{ width: '13%' }}>Team</th>
+                  <th className="py-3 px-1 text-right" style={{ width: '13%' }}>Players</th>
+                  <th className="py-3 pl-1 pr-3 text-right font-black" style={{ width: '15%' }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ranked.map((player, index) => (
+                  <React.Fragment key={player.user_id}>
+                    <tr
+                      onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
+                      className="cursor-pointer"
+                      style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
+                    >
+                      <td className="py-3 pl-3 pr-1" style={{ color: 'rgba(255,255,255,0.35)' }}>{index + 1}</td>
+                      <td className="py-3 px-1 font-black" style={{ wordBreak: 'break-word' }}>
+                        {player.display_name}
+                        {index === 0 && <span className="ml-2">🏆</span>}
+                        <span className="ml-2 text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
+                      </td>
+                      <td className="py-3 px-1 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.home_wins}</td>
+                      <td className="py-3 px-1 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.away_wins}</td>
+                      <td className="py-3 px-1 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.team_points}</td>
+                      <td className="py-3 px-1 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.player_points}</td>
+                      <td className="py-3 pl-1 pr-3 text-right font-black" style={{ color: 'var(--pop-green)' }}>{player.total_points}</td>
+                    </tr>
+                    {expandedUser === player.user_id && (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-3" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                          {(!pickDetails[player.user_id] || pickDetails[player.user_id].length === 0) ? (
+                            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>No picks recorded.</p>
+                          ) : (
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-left" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)' }}>
+                                  <th className="py-1 pr-4">GW</th>
+                                  <th className="py-1 pr-4">Team</th>
+                                  <th className="py-1 pr-4">Players</th>
+                                  <th className="py-1 text-right">Pts</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {pickDetails[player.user_id].map((d, i) => (
+                                  <tr key={i} style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}>
+                                    <td className="py-1.5 pr-4 font-black">{d.gw}</td>
+                                    <td className="py-1.5 pr-4">
+                                      {d.team}
+                                      {d.is_banker && <span className="ml-1 px-1 rounded font-black" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-black)' }}>B</span>}
+                                      {d.is_autopick && <span className="ml-1 px-1 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>A</span>}
+                                    </td>
+                                    <td className="py-1.5 pr-4" style={{ color: 'rgba(255,255,255,0.5)' }}>{d.player1} & {d.player2}</td>
+                                    <td className="py-1.5 text-right font-black">{d.points ?? '—'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <Link href="/archive" className="inline-block mt-6 text-sm font-bold" style={{ color: 'var(--pop-blue)' }}>
+            ← Back to archive
+          </Link>
+
+        </div>
       </Shell>
     )
   }
