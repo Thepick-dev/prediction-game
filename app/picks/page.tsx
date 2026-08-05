@@ -9,6 +9,7 @@ import { buildPlayerDisplayNames } from '../lib/players'
 import { useCountdown, type CountdownTime } from '../lib/useCountdown'
 import TicketModal from '../../components/TicketModal'
 import PopArtLoading from '../../components/PopArtLoading'
+import PenaltyShootout from '../../components/PenaltyShootout'
 
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
 type Player = { id: number; name: string; web_name: string | null; team_id: number; value: number | null; active: boolean | null }
@@ -154,6 +155,10 @@ export default function PicksPage() {
       return next
     })
   }
+
+  // Penalty shootout mini-game popup — entirely separate from the pick
+  // itself (own table, own scoring), just a bit of fun reachable from here.
+  const [shootoutOpen, setShootoutOpen] = useState(false)
 
   const supabase = createClient()
   const countdown = useCountdown(gameweek?.deadline ?? null)
@@ -549,6 +554,18 @@ export default function PicksPage() {
     </button>
   )
 
+  // Only shown in Pop Art mode, matching where it was asked for — not
+  // connected to the prediction game at all, just a fun extra reachable
+  // from here.
+  const shootoutTriggerButton = popArt && user && (
+    <button
+      onClick={() => setShootoutOpen(true)}
+      className="pop-art-theme fixed bottom-20 right-4 z-40 pop-button pop-button--green px-4 py-2.5 text-xs"
+    >
+      ⚽ Shootout
+    </button>
+  )
+
   if (popArt) {
     const homeWinDraw = (fixture: Fixture) => getWinDrawPoints(fixture.home_team_id, fixture.away_team_id, true)
     const awayWinDraw = (fixture: Fixture) => getWinDrawPoints(fixture.away_team_id, fixture.home_team_id, false)
@@ -556,6 +573,28 @@ export default function PicksPage() {
     return (
       <>
         {popArtToggleButton}
+        {shootoutTriggerButton}
+        {shootoutOpen && user && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.75)' }}
+            onClick={() => setShootoutOpen(false)}
+          >
+            <div
+              className="pop-art-theme pop-panel w-full p-4 sm:p-6"
+              style={{ maxWidth: 420, maxHeight: '90vh', overflowY: 'auto' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <PenaltyShootout userId={user.id} />
+              <button
+                onClick={() => setShootoutOpen(false)}
+                className="pop-button pop-button--blue w-full mt-4 py-2 text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
         <Shell active="PICKS" user={user} displayName={displayName} theme="pop-art">
           {/* No wrapping "card" here on purpose — the page already sits on
               Shell's black background, and boxing all of this content in

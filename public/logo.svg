@@ -1,62 +1,13 @@
-interface PopArtLogoProps {
-  size?: number
-  // Curved text reads fine at badge size but turns to mush much below
-  // ~90px, so the header uses the icon alone (paired with the existing
-  // glowing text wordmark) while bigger moments — the loading screen —
-  // get the full crest treatment.
-  showText?: boolean
-  className?: string
-  // The source file's shapes are fill="currentColor" (a real vector SVG,
-  // not a raster image — see note below), specifically so this can be
-  // recoloured per usage rather than being stuck as whatever colour it
-  // was exported in. Defaults to the theme's signature pink, which is
-  // also the one colour guaranteed to survive on the theme's black
-  // background — the original export was solid black and simply
-  // vanished there.
-  color?: string
-}
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
+ "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+ width="1024.000000pt" height="1024.000000pt" viewBox="0 0 1024.000000 1024.000000"
+ preserveAspectRatio="xMidYMid meet">
 
-// The emblem itself (lizards, violin, football, ring) lives in
-// /public/logo.svg as real vector paths. It's inlined here (rather than
-// referenced via <img src="/logo.svg">) because that's the only way its
-// fill="currentColor" can actually pick up the `color` prop below — an
-// <img> is an opaque replaced element and never sees page/component CSS,
-// so currentColor inside an externally-referenced SVG always resolves to
-// black regardless of what surrounds it.
-export default function PopArtLogo({ size = 120, showText = true, className, color = 'var(--pop-pink)' }: PopArtLogoProps) {
-  const textPathId = 'pop-art-logo-text-arc'
-
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 200 200"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-label="LMS All-Stars"
-      role="img"
-    >
-      {showText && (
-        <>
-          <defs>
-            <path id={textPathId} d="M 8,100 A 92,92 0 0 1 192,100" fill="none" />
-          </defs>
-          <text
-            fill="var(--pop-pink, #D5006D)"
-            fontSize="15"
-            fontWeight="800"
-            letterSpacing="2.5"
-            style={{ fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', textTransform: 'uppercase' }}
-          >
-            <textPath href={`#${textPathId}`} startOffset="50%" textAnchor="middle">
-              LMS ALL-STARS
-            </textPath>
-          </text>
-        </>
-      )}
-      <svg x="25" y="25" width="150" height="150" viewBox="0 0 1024 1024" style={{ color }}>
-        <g transform="translate(0.000000,1024.000000) scale(0.100000,-0.100000)" fill="currentColor" stroke="none">
-          <path d="M4866 9099 c-842 -50 -1632 -359 -2306 -903 -167 -134 -470 -439
+<g transform="translate(0.000000,1024.000000) scale(0.100000,-0.100000)"
+fill="currentColor" stroke="none">
+<path d="M4866 9099 c-842 -50 -1632 -359 -2306 -903 -167 -134 -470 -439
 -604 -606 -129 -161 -307 -426 -407 -605 -314 -564 -488 -1200 -506 -1855 -26
 -949 300 -1903 911 -2670 89 -111 254 -295 338 -376 604 -585 1326 -968 2103
 -1118 277 -53 376 -61 735 -61 357 0 434 7 714 61 1055 203 1997 828 2629
@@ -69,8 +20,8 @@ export default function PopArtLogo({ size = 120, showText = true, className, col
 -710 0 -748 83 -1412 358 -1996 826 -691 554 -1170 1300 -1378 2146 -86 351
 -117 634 -108 995 11 447 94 867 254 1280 51 132 220 473 298 600 237 390 573
 766 945 1061 116 92 362 253 505 332 456 251 982 410 1495 452 132 11 316 17
-375 13 17 -1 93 -5 170 -7z" />
-          <path d="M5093 8053 c-24 -3 -34 -11 -41 -32 -10 -29 -56 -81 -72 -81 -15 0
+375 13 17 -1 93 -5 170 -7z"/>
+<path d="M5093 8053 c-24 -3 -34 -11 -41 -32 -10 -29 -56 -81 -72 -81 -15 0
 -24 -23 -22 -55 2 -19 16 -43 37 -65 29 -29 35 -43 35 -78 l0 -42 -53 0 c-40
 0 -57 5 -70 20 -42 49 -138 -10 -121 -74 12 -50 95 -73 129 -36 13 14 31 20
 62 20 l43 0 0 -60 c0 -65 0 -65 -65 -60 -16 1 -34 9 -41 18 -16 21 -80 19
@@ -175,9 +126,6 @@ l-4 -22 -42 26 c-74 47 -179 93 -227 99 -86 12 -86 12 -45 57 20 23 53 75 73
 142 45 6 1 68 -51 138 -115z m-533 -521 c46 -65 85 -125 87 -134 2 -8 -27 -85
 -64 -169 l-69 -154 -60 -14 c-67 -16 -315 -11 -374 7 -30 10 -39 20 -64 79
 -17 37 -42 94 -56 127 -56 128 -55 122 -29 159 13 18 52 75 87 125 l63 91 198
-0 199 0 82 -117z" />
-        </g>
-      </svg>
-    </svg>
-  )
-}
+0 199 0 82 -117z"/>
+</g>
+</svg>

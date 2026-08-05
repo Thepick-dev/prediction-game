@@ -312,3 +312,19 @@ thead th {
   0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(213, 0, 109, 0.35)); }
   50% { transform: scale(1.05); filter: drop-shadow(0 0 22px rgba(213, 0, 109, 0.75)); }
 }
+
+/* Penalty shootout aim marker — sweeps the width of the track and back.
+   Duration is set inline per-shot (it gets faster as the streak grows),
+   so this only defines the path, not the speed. */
+.pop-shoot-marker {
+  left: 0%;
+  animation-name: pop-shoot-sweep;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+@keyframes pop-shoot-sweep {
+  from { left: 0%; }
+  to { left: 95%; }
+}

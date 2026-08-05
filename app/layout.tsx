@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   title: 'LMS All-Stars Predictions',
   description: 'The Premier League Prediction Game',
   icons: {
-    icon: '/logo.png',
+    icon: '/logo.svg',
   },
 }
 
