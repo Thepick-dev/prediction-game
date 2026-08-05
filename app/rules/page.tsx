@@ -1,51 +1,268 @@
-import { createServerSupabaseClient } from '../lib/supabase-server'
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import SportingPanelLink from '../../components/SportingPanelLink'
+import PopArtLoading from '../../components/PopArtLoading'
+import { usePopArtTheme } from '../lib/usePopArtTheme'
 
-export default async function RulesPage() {
-  const supabase = await createServerSupabaseClient()
+const DIFFS = [-3, -2, -1, 0, 1, 2, 3]
+const DIFF_LABELS = ['3↓', '2↓', '1↓', '=', '1↑', '2↑', '3↑']
+const RESULT_TYPES: [string, string][] = [
+  ['home_win', 'Home Win'],
+  ['away_win', 'Away Win'],
+  ['home_draw', 'Home Draw'],
+  ['away_draw', 'Away Draw'],
+]
 
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = user
-    ? await supabase.from('profiles').select('display_name').eq('id', user.id).single()
-    : { data: null }
+export default function RulesPage() {
+  const [user, setUser] = useState<any>(null)
+  const [displayName, setDisplayName] = useState('')
+  const [ruleMap, setRuleMap] = useState<Record<string, number>>({})
+  const [goalPts, setGoalPts] = useState(12)
+  const [assistPts, setAssistPts] = useState(6)
+  const [loading, setLoading] = useState(true)
 
-  const { data: competition } = await supabase
-    .from('competitions')
-    .select('id, name')
-    .eq('status', 'active')
-    .single()
+  const supabase = createClient()
+  const { popArt } = usePopArtTheme(user?.id)
 
-  const { data: rules } = competition ? await supabase
-    .from('competition_scoring_rules')
-    .select('result_type, quartile_diff, points')
-    .eq('competition_id', competition.id) : { data: null }
+  useEffect(() => { loadData() }, [])
 
-  const { data: playerRules } = competition ? await supabase
-    .from('player_scoring_rules')
-    .select('event_type, points')
-    .eq('competition_id', competition.id) : { data: null }
+  async function loadData() {
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    setUser(authUser)
 
-  const ruleMap: Record<string, number> = {}
-  rules?.forEach(r => { ruleMap[`${r.result_type}_${r.quartile_diff}`] = r.points })
+    if (authUser) {
+      const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', authUser.id).single()
+      setDisplayName(profile?.display_name ?? '')
+    }
 
-  const goalPts = playerRules?.find(r => r.event_type === 'goal')?.points ?? 12
-  const assistPts = playerRules?.find(r => r.event_type === 'assist')?.points ?? 6
+    const { data: competition } = await supabase
+      .from('competitions')
+      .select('id, name')
+      .eq('status', 'active')
+      .single()
 
-  const diffs = [-3, -2, -1, 0, 1, 2, 3]
-  const diffLabels = ['3↓', '2↓', '1↓', '=', '1↑', '2↑', '3↑']
-  const resultTypes = [
-    ['home_win', 'Home Win'],
-    ['away_win', 'Away Win'],
-    ['home_draw', 'Home Draw'],
-    ['away_draw', 'Away Draw'],
-  ]
+    if (competition) {
+      const [{ data: rules }, { data: playerRules }] = await Promise.all([
+        supabase.from('competition_scoring_rules').select('result_type, quartile_diff, points').eq('competition_id', competition.id),
+        supabase.from('player_scoring_rules').select('event_type, points').eq('competition_id', competition.id),
+      ])
+
+      const map: Record<string, number> = {}
+      rules?.forEach(r => { map[`${r.result_type}_${r.quartile_diff}`] = r.points })
+      setRuleMap(map)
+      setGoalPts(playerRules?.find(r => r.event_type === 'goal')?.points ?? 12)
+      setAssistPts(playerRules?.find(r => r.event_type === 'assist')?.points ?? 6)
+    }
+
+    setLoading(false)
+  }
+
+  if (loading) {
+    return (
+      <Shell active="LAWS OF THE GAME" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
+      </Shell>
+    )
+  }
+
+  if (popArt) {
+    return (
+      <Shell active="LAWS OF THE GAME" user={user} displayName={displayName} theme="pop-art">
+        <div className="pop-art-theme">
+
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-6 mt-2">Laws of the Game</h1>
+
+          <div className="space-y-5">
+
+            <section className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-2">The Competition</h2>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                The competition runs for roughly half a Premier League season — two competitions per season.
+                Join before the first gameweek deadline. Late entries are not permitted.
+              </p>
+              <p className="text-sm leading-relaxed font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                The player with the most points at the end of the competition wins.
+              </p>
+            </section>
+
+            <section className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-2">The Tier Draft</h2>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Before joining, pick one team from each tier. These are your double-use teams — usable twice during the competition instead of once.
+              </p>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Tier picks are visible to all players and locked after the first gameweek deadline.
+              </p>
+            </section>
+
+            <section className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-2">Weekly Picks</h2>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Each gameweek, pick one team and two different players before the deadline.
+                Each team is usable once (twice for tier picks). Each player is usable twice per competition.
+              </p>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Picks can be edited until the deadline, then locked and visible to everyone.
+                Miss the deadline and you receive an autopick — see below for how that works.
+              </p>
+            </section>
+
+            <section className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-2">Autopick</h2>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Miss the deadline and the site picks for you automatically: the lowest-placed available team in the
+                league table, and two players who haven&apos;t already been used twice.
+              </p>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Players are drawn from those valued at £5.5m or more on Fantasy Premier League — a deliberately
+                recognisable pool of well-known names, not a random pick from the entire player list. (If that pool
+                has run too low for you specifically late in a season, it falls back to any available player rather
+                than skip your pick entirely.)
+              </p>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Autopicks are marked clearly wherever they appear, and a banker is never applied to one. What you see
+                previewed before the deadline is exactly what gets saved once it passes — it&apos;s fully determined
+                the moment the deadline arrives, never a guess that might later change.
+              </p>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                If an autopicked team or player has a double gameweek, the pick defaults to whichever of the two
+                matches is against the higher-placed opponent — the tougher game, in keeping with the rest of the
+                scoring rewarding an upset. This only applies to autopick: if you pick a double-gameweek team or
+                player yourself, you choose the match it&apos;s for.
+              </p>
+            </section>
+
+            <section className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-2">The Banker</h2>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Two bankers per competition. A banker doubles your entire gameweek score — team and both players.
+                Declare it with your pick. Unused bankers are worth nothing. Bankers are never applied to autopicks.
+              </p>
+            </section>
+
+            <section className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-2">Quartiles</h2>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                The 20 Premier League clubs are divided into four quartiles of five — Q1 (strongest) to Q4 (weakest).
+                Quartiles are used to calculate team points based on the difficulty of the result.
+              </p>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Betting odds only ever set the quartiles once: gameweek 1 of the very first competition of a season, before
+                a ball&apos;s been kicked and there&apos;s no league table yet to go on. Every gameweek after that — including
+                gameweek 2 of that same competition, and the whole of any later competition in the same season (e.g. a
+                second half starting in January) — uses the current real league table instead. The table doesn&apos;t reset
+                between competitions; a new competition simply carries on from wherever the table stood when it started.
+              </p>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Quartiles are locked at the point each gameweek deadline passes — past scores are never affected by future quartile changes.
+              </p>
+            </section>
+
+            <section className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-3">Scoring</h2>
+              <p className="text-sm leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Team points depend on the result and the quartile differential between your team and their opponent.
+                ↑ means your team is the underdog, ↓ means favourite. Bigger upsets, bigger points.
+              </p>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table className="w-full text-xs" style={{ border: '1px solid rgba(255,255,255,0.12)' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--pop-blue)' }}>
+                      <th className="text-left px-3 py-2 uppercase">Result</th>
+                      {DIFF_LABELS.map(l => <th key={l} className="px-2 py-2 text-center">{l}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {RESULT_TYPES.map(([key, label]) => (
+                      <tr key={key} style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                        <td className="px-3 py-2 font-bold uppercase">{label}</td>
+                        {DIFFS.map(d => (
+                          <td key={d} className="px-2 py-2 text-center" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                            {ruleMap[`${key}_${d}`] ?? '—'}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                    <tr style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                      <td className="px-3 py-2 font-bold uppercase">Loss</td>
+                      {DIFFS.map(d => <td key={d} className="px-2 py-2 text-center" style={{ color: 'rgba(255,255,255,0.8)' }}>0</td>)}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <p className="text-sm mt-4" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                <strong style={{ color: 'var(--pop-blue)' }}>Player points:</strong> Goal = {goalPts}pts. Assist = {assistPts}pts.
+              </p>
+              <p className="text-sm mt-2 leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Assists here follow the Fantasy Premier League&apos;s own official definition, since that&apos;s where our
+                match data comes from — it&apos;s a bit broader than what you might see credited on TV or in a matchday
+                report. It can include things like a blocked or deflected effort that a teammate follows up and scores
+                from, or winning a penalty or free-kick that a teammate then converts, not just a clean final pass. If
+                a player&apos;s assist tally here doesn&apos;t match what you saw in the highlights, this is usually why.
+              </p>
+              <p className="text-sm mt-2 leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                <strong style={{ color: 'rgba(255,255,255,0.6)' }}>Double gameweeks:</strong> occasionally a rearranged fixture means a
+                club plays twice in the same gameweek. If a player you&apos;ve picked is affected, you&apos;ll be asked to
+                choose which of the two matches your pick counts for — you don&apos;t get both games&apos; goals/assists added
+                together. If that choice isn&apos;t made, the pick scores zero for that player rather than guessing.
+              </p>
+            </section>
+
+            <section className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-2">Tiebreakers</h2>
+              <p className="text-sm leading-relaxed mb-3" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                If two players are tied on total points, the following criteria apply in order:
+              </p>
+              <ol className="text-sm leading-relaxed list-decimal pl-5 space-y-1" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                <li>Total points</li>
+                <li>Points with banker multiplier removed</li>
+                <li>Highest score in a single gameweek (banker included)</li>
+                <li>Most away wins from picked teams</li>
+                <li>Most goals from picked players</li>
+                <li>Earliest competition entry</li>
+              </ol>
+            </section>
+
+            <section className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-2">Gameweek Scheduling</h2>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Gameweeks here don&apos;t always follow the Fantasy Premier League&apos;s own gameweek boundaries
+                exactly. The guiding principle is to avoid a gameweek containing only a small handful of matches —
+                where sticking to FPL&apos;s own grouping would do that, <SportingPanelLink>the Sporting Panel</SportingPanelLink> may
+                group fixtures into gameweeks differently instead.
+              </p>
+            </section>
+
+            <section className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-2">Postponements</h2>
+              <p className="text-sm leading-relaxed mb-3" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                What happens when a fixture is postponed is always at the discretion of <SportingPanelLink>the Sporting Panel</SportingPanelLink>.
+                As a general guide:
+              </p>
+              <ul className="text-sm leading-relaxed list-disc pl-5 space-y-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                <li>If a game is cancelled well in advance, affected players will normally be given the chance to choose again — unless doing so would be manifestly unfair to everyone else.</li>
+                <li>If a relevant game is postponed at short notice, once a gameweek is already underway, the Panel will convene to vote on what happens.</li>
+                <li>Any Panel member with a strong personal interest in the outcome — for example, it&apos;s their own pick affected — must recuse themselves from that vote.</li>
+              </ul>
+            </section>
+
+          </div>
+
+        </div>
+      </Shell>
+    )
+  }
 
   const cardClass = "bg-white/5 border border-white/10 rounded-lg p-6"
 
   return (
-    <Shell active="LAWS OF THE GAME" user={user} displayName={profile?.display_name ?? undefined}>
+    <Shell active="LAWS OF THE GAME" user={user} displayName={displayName}>
       <HeroPage wide>
         <div className="w-full text-[#F5ECD9]">
 
@@ -149,14 +366,14 @@ export default async function RulesPage() {
                   <thead>
                     <tr style={{ backgroundColor: '#241a12' }} className="text-[#D9A441]">
                       <th className="text-left px-3 py-2 uppercase">Result</th>
-                      {diffLabels.map(l => <th key={l} className="px-2 py-2 text-center">{l}</th>)}
+                      {DIFF_LABELS.map(l => <th key={l} className="px-2 py-2 text-center">{l}</th>)}
                     </tr>
                   </thead>
                   <tbody>
-                    {resultTypes.map(([key, label]) => (
+                    {RESULT_TYPES.map(([key, label]) => (
                       <tr key={key} className="border-t border-white/10">
                         <td className="px-3 py-2 font-medium uppercase">{label}</td>
-                        {diffs.map(d => (
+                        {DIFFS.map(d => (
                           <td key={d} className="px-2 py-2 text-center">
                             {ruleMap[`${key}_${d}`] ?? '—'}
                           </td>
@@ -165,7 +382,7 @@ export default async function RulesPage() {
                     ))}
                     <tr className="border-t border-white/10">
                       <td className="px-3 py-2 font-medium uppercase">Loss</td>
-                      {diffs.map(d => <td key={d} className="px-2 py-2 text-center">0</td>)}
+                      {DIFFS.map(d => <td key={d} className="px-2 py-2 text-center">0</td>)}
                     </tr>
                   </tbody>
                 </table>
