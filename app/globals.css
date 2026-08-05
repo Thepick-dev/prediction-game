@@ -180,6 +180,32 @@ thead th {
 .pop-panel--green { border-color: var(--pop-green); box-shadow: 0 0 18px rgba(0, 230, 118, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
 .pop-panel--yellow { border-color: var(--pop-yellow); box-shadow: 0 0 18px rgba(255, 234, 0, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
 
+/* Opt-in "breathing" glow — same accent colours as the variants above, just
+   animated, so it reads as an extension of the existing look rather than a
+   new effect. Reserved for the one or two spots that genuinely earn the
+   extra motion (the Picks deadline panel), not applied to every panel. */
+.pop-panel--pulse.pop-panel--pink { animation: pop-pulse-pink 2.4s ease-in-out infinite; }
+.pop-panel--pulse.pop-panel--blue { animation: pop-pulse-blue 2.4s ease-in-out infinite; }
+.pop-panel--pulse.pop-panel--green { animation: pop-pulse-green 2.4s ease-in-out infinite; }
+.pop-panel--pulse.pop-panel--yellow { animation: pop-pulse-yellow 2.4s ease-in-out infinite; }
+
+@keyframes pop-pulse-pink {
+  0%, 100% { box-shadow: 0 0 18px rgba(213, 0, 109, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+  50% { box-shadow: 0 0 32px rgba(213, 0, 109, 0.75), 0 4px 18px rgba(0, 0, 0, 0.5); }
+}
+@keyframes pop-pulse-blue {
+  0%, 100% { box-shadow: 0 0 18px rgba(0, 176, 255, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+  50% { box-shadow: 0 0 32px rgba(0, 176, 255, 0.75), 0 4px 18px rgba(0, 0, 0, 0.5); }
+}
+@keyframes pop-pulse-green {
+  0%, 100% { box-shadow: 0 0 18px rgba(0, 230, 118, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+  50% { box-shadow: 0 0 32px rgba(0, 230, 118, 0.75), 0 4px 18px rgba(0, 0, 0, 0.5); }
+}
+@keyframes pop-pulse-yellow {
+  0%, 100% { box-shadow: 0 0 18px rgba(255, 234, 0, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
+  50% { box-shadow: 0 0 32px rgba(255, 234, 0, 0.7), 0 4px 18px rgba(0, 0, 0, 0.5); }
+}
+
 /* Panels sit flat now, not tilted — kept as (no-op) classes rather than
    deleted, so nothing in the markup needs to change to turn rotation
    back on later if that's ever wanted again. */

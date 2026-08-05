@@ -12,6 +12,11 @@ import TicketModal from '../../components/TicketModal'
 import PopArtLoading from '../../components/PopArtLoading'
 import PenaltyShootout from '../../components/PenaltyShootout'
 
+// Cycled across the fixture list as a left-edge accent stripe only — same
+// palette as everywhere else in the theme, just breaking up a long list of
+// otherwise-identical dark cards.
+const POP_FIXTURE_STRIPE = ['var(--pop-pink)', 'var(--pop-blue)', 'var(--pop-green)', 'var(--pop-orange)']
+
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
 type Player = { id: number; name: string; web_name: string | null; team_id: number; value: number | null; active: boolean | null }
 type Gameweek = { id: string; number: number; deadline: string; status: string }
@@ -603,7 +608,7 @@ export default function PicksPage() {
             </div>
 
             {gameweek && (
-              <div className={`pop-panel ${!deadlinePassed && !hasPick ? 'pop-panel--yellow pop-rotate-r' : 'pop-panel--blue pop-rotate-l'} p-4 mb-6 flex items-center justify-between gap-3 flex-wrap`}>
+              <div className={`pop-panel pop-panel--pulse ${!deadlinePassed && !hasPick ? 'pop-panel--yellow pop-rotate-r' : 'pop-panel--blue pop-rotate-l'} p-4 mb-6 flex items-center justify-between gap-3 flex-wrap`}>
                 <div>
                   <p className="pop-headline text-2xl sm:text-3xl mb-0.5">GW{gameweek.number}</p>
                   <p className="font-black text-xs uppercase">
@@ -623,7 +628,7 @@ export default function PicksPage() {
                 <p className="pop-headline text-2xl sm:text-3xl mb-3">Pick Your Team</p>
                 {hasFixtures ? (
                   <div className="grid gap-4 mb-6">
-                    {fixtures.map((fixture) => {
+                    {fixtures.map((fixture, fixtureIndex) => {
                       const homeStatus = getTeamStatus(fixture.home_team_id)
                       const awayStatus = getTeamStatus(fixture.away_team_id)
                       const homeTeam = getTeam(fixture.home_team_id)
@@ -634,8 +639,14 @@ export default function PicksPage() {
                       const awaySelected = selectedTeam === fixture.away_team_id && selectedFixture === fixture.id
                       const homeWD = homeWinDraw(fixture)
                       const awayWD = awayWinDraw(fixture)
+                      // A thin coloured left edge, cycling through the same
+                      // palette used everywhere else (pink/blue/green/
+                      // orange) — enough colour to break up a long list of
+                      // otherwise-identical dark cards, without touching
+                      // the panel's own background or border language.
+                      const stripeColor = POP_FIXTURE_STRIPE[fixtureIndex % POP_FIXTURE_STRIPE.length]
                       return (
-                        <div key={fixture.id} className="pop-panel p-3 grid grid-cols-2 gap-3">
+                        <div key={fixture.id} className="pop-panel p-3 grid grid-cols-2 gap-3" style={{ borderLeft: `4px solid ${stripeColor}` }}>
                           <button
                             onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
                             disabled={homeStatus.isUsed && !homeSelected}
