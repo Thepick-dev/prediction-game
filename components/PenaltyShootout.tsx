@@ -30,10 +30,10 @@ const MARKER_WIDTH = 5
 // top of that photo (ball, keeper) is mapped through this so nothing ever
 // visually lands outside the goal mouth, in the grass or sky. GOAL_LINE_PCT
 // is how far down the image the net meets the ground.
-const GOAL_ASPECT = '2752 / 1536'
-const GOAL_LEFT_PCT = 13
-const GOAL_RIGHT_PCT = 87
-const GOAL_LINE_PCT = 80
+const GOAL_ASPECT = '1375 / 768'
+const GOAL_LEFT_PCT = 13.5
+const GOAL_RIGHT_PCT = 86.5
+const GOAL_LINE_PCT = 70
 function toGoalX(pct: number) {
   return GOAL_LEFT_PCT + (pct / 100) * (GOAL_RIGHT_PCT - GOAL_LEFT_PCT)
 }
@@ -60,6 +60,11 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
   const [roundId, setRoundId] = useState(0)
   const [leaderboard, setLeaderboard] = useState<{ name: string; score: number }[]>([])
   const [justBeatBest, setJustBeatBest] = useState(false)
+  // There's no dedicated diving-keeper artwork — the "dive" is the same
+  // standing keeper image, rotated in CSS to fake a lunge. After a miss,
+  // he holds that reaction for a beat, then switches to the violin taunt
+  // (mocking the save) until the next round starts.
+  const [showViolin, setShowViolin] = useState(false)
 
   const trackRef = useRef<HTMLDivElement>(null)
   const markerRef = useRef<HTMLDivElement>(null)
@@ -101,6 +106,7 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
     setDuration(nextDuration)
     setRoundId(id => id + 1)
     setResult(null)
+    setShowViolin(false)
     setPhase('aiming')
   }
 
@@ -127,6 +133,7 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
     } else {
       setResult('miss')
       setPhase('gameover')
+      setTimeout(() => setShowViolin(true), 700)
       if (bestScore !== null && score > bestScore) {
         setJustBeatBest(true)
         saveScore(score)
@@ -145,13 +152,16 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
   // Keeper dives toward the shot on a miss (that's the save), and dives
   // the WRONG way on a goal (sells the idea that they guessed wrong rather
   // than just standing there while the ball sails past). Idle/ready pose
-  // otherwise. The dive artwork only faces one direction (left), so the
-  // other direction is a horizontal mirror rather than a second asset.
-  const keeper = result === 'miss'
-    ? { pose: 'dive' as const, x: shotX, mirror: shotX >= 50 }
+  // otherwise, and the violin taunt takes over a beat after a miss. There's
+  // only one keeper image (standing) — the "dive" is that same image
+  // rotated to fake a lunge, mirrored to face whichever side the shot went.
+  const keeper = showViolin
+    ? { pose: 'violin' as const, x: 50, mirror: false, rotate: 0 }
+    : result === 'miss'
+    ? { pose: 'dive' as const, x: shotX, mirror: shotX >= 50, rotate: shotX >= 50 ? -68 : 68 }
     : result === 'goal'
-    ? { pose: 'dive' as const, x: 100 - shotX, mirror: (100 - shotX) >= 50 }
-    : { pose: 'ready' as const, x: 50, mirror: false }
+    ? { pose: 'dive' as const, x: 100 - shotX, mirror: (100 - shotX) >= 50, rotate: (100 - shotX) >= 50 ? -68 : 68 }
+    : { pose: 'ready' as const, x: 50, mirror: false, rotate: 0 }
 
   return (
     <div className="pop-art-theme" style={{ color: 'var(--pop-white)' }}>
@@ -175,15 +185,15 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
         style={{ aspectRatio: GOAL_ASPECT, overflow: 'hidden', backgroundImage: 'url(/shootout-goal.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}
       >
         <img
-          src={keeper.pose === 'dive' ? '/shootout-keeper-dive.png' : '/shootout-keeper-ready.png'}
+          src={keeper.pose === 'violin' ? '/shootout-keeper-violin.png' : '/shootout-keeper-ready.png'}
           alt=""
           style={{
             position: 'absolute',
-            bottom: keeper.pose === 'dive' ? '13%' : '17%',
+            bottom: '27%',
             left: `${toGoalX(keeper.x)}%`,
-            height: keeper.pose === 'dive' ? '32%' : '40%',
-            transform: `translateX(-50%) scaleX(${keeper.mirror ? -1 : 1})`,
-            transition: 'left 0.3s ease, bottom 0.3s ease',
+            height: '38%',
+            transform: `translateX(-50%) scaleX(${keeper.mirror ? -1 : 1}) rotate(${keeper.rotate}deg)`,
+            transition: 'left 0.3s ease, transform 0.3s ease',
           }}
         />
         <img
@@ -191,7 +201,7 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
           alt=""
           style={{
             position: 'absolute',
-            bottom: result === 'goal' ? '48%' : result === 'miss' ? '17%' : '9%',
+            bottom: result === 'goal' ? '58%' : result === 'miss' ? '27%' : '15%',
             width: 22, height: 22,
             left: `calc(${toGoalX(result ? shotX : 50)}% - 11px)`,
             transition: 'left 0.4s ease, bottom 0.4s ease',
