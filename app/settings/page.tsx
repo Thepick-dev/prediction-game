@@ -6,6 +6,8 @@ import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import KitEditor from '../../components/KitEditor'
 import PasswordInput from '../../components/PasswordInput'
+import PopArtLoading from '../../components/PopArtLoading'
+import { usePopArtTheme } from '../lib/usePopArtTheme'
 
 export default function SettingsPage() {
   const [user, setUser] = useState<any>(null)
@@ -28,6 +30,7 @@ export default function SettingsPage() {
   const [passwordMessage, setPasswordMessage] = useState('')
 
   const supabase = createClient()
+  const { popArt } = usePopArtTheme(user?.id)
 
   useEffect(() => { loadProfile() }, [])
 
@@ -132,8 +135,108 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <Shell active="SETTINGS">
-        <p className="text-gray-500">Loading...</p>
+      <Shell active="SETTINGS" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
+      </Shell>
+    )
+  }
+
+  if (popArt) {
+    return (
+      <Shell active="SETTINGS" user={user} displayName={currentName} theme="pop-art">
+        <div className="pop-art-theme">
+
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-6 mt-2">Settings</h1>
+
+          <div className="space-y-5">
+
+            <div className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-1">Username</h2>
+              <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                {currentName ? `Currently shown as "${currentName}"` : 'Not set yet'}
+              </p>
+              <input
+                type="text"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                maxLength={30}
+                className="pop-input w-full p-2 mb-3 font-bold text-sm"
+              />
+              {nameMessage && (
+                <p className={`pop-badge ${nameMessage.startsWith('Saved') ? 'pop-badge--green' : 'pop-badge--red'} px-2.5 py-1 text-xs mb-3 inline-block`}>{nameMessage}</p>
+              )}
+              <button onClick={saveDisplayName} disabled={savingName} className="pop-button w-full py-2.5 text-sm">
+                {savingName ? 'Saving...' : 'Save Username'}
+              </button>
+            </div>
+
+            <div className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-1">Email</h2>
+              <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>Used for magic link login and account recovery.</p>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="pop-input w-full p-2 mb-3 font-bold text-sm"
+              />
+              {emailMessage && (
+                <p className={`pop-badge ${emailMessage.startsWith('Check') ? 'pop-badge--green' : 'pop-badge--red'} px-2.5 py-1 text-xs mb-3 inline-block`}>{emailMessage}</p>
+              )}
+              <button onClick={saveEmail} disabled={savingEmail} className="pop-button w-full py-2.5 text-sm">
+                {savingEmail ? 'Saving...' : 'Update Email'}
+              </button>
+            </div>
+
+            <div className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-1">Password</h2>
+              <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Set or change your password to log in with username + password instead of a magic link. Forgotten it? Use a magic link to get back in, then set a new one here.
+              </p>
+              <PasswordInput
+                placeholder="New password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                className="pop-input w-full p-2 mb-3 font-bold text-sm"
+              />
+              {passwordMessage && (
+                <p className={`pop-badge ${passwordMessage.startsWith('Password updated') ? 'pop-badge--green' : 'pop-badge--red'} px-2.5 py-1 text-xs mb-3 inline-block`}>{passwordMessage}</p>
+              )}
+              <button onClick={savePassword} disabled={savingPassword || !newPassword} className="pop-button w-full py-2.5 text-sm">
+                {savingPassword ? 'Saving...' : 'Set Password'}
+              </button>
+            </div>
+
+            <div className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-1">Your Kit</h2>
+              <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>Shown next to your name on the leaderboard and results.</p>
+              <KitEditor userId={user.id} theme="pop-art" />
+            </div>
+
+            <div className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-1">Tier Picks</h2>
+              {tierLocked ? (
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>Your tier picks are locked for the current competition and can no longer be changed.</p>
+              ) : (
+                <>
+                  <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>{hasTierPicks ? 'You can still change your double-use tier teams until the first gameweek deadline.' : 'You have not set your tier picks yet. Choose your double-use teams before the first gameweek deadline.'}</p>
+                  <a href="/join" className="pop-button pop-button--yellow w-full py-2.5 text-sm block text-center">
+                    {hasTierPicks ? 'Edit Tier Picks' : 'Set Tier Picks'}
+                  </a>
+                </>
+              )}
+            </div>
+
+            <div className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-1">Account</h2>
+              <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>Logged in as {email}</p>
+              <button onClick={logOut} className="pop-button pop-button--blue w-full py-2.5 text-sm">
+                Log Out
+              </button>
+            </div>
+
+          </div>
+
+        </div>
       </Shell>
     )
   }
