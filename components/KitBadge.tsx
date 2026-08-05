@@ -154,21 +154,21 @@ export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0
         )}
         <path d={shirtPath} fill="none" stroke="#2A1F17" strokeWidth="1" strokeLinejoin="round" />
         {!!topScore && (
-          <g>
-            <circle cx="18" cy="9.5" r="4.2" fill="#1A1A1A" stroke="rgba(255,255,255,0.7)" strokeWidth="0.5" />
-            <text
-              x="18"
-              y="9.5"
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize="5.6"
-              fontWeight="700"
-              fontFamily="var(--font-mono, monospace)"
-              fill={colour3 || '#ffffff'}
-            >
-              {topScore}
-            </text>
-          </g>
+          <text
+            x="18.5"
+            y="8"
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize="4.6"
+            fontWeight="700"
+            fontFamily="var(--font-mono, monospace)"
+            fill={colour3 || '#ffffff'}
+            stroke="#000000"
+            strokeWidth="0.35"
+            paintOrder="stroke"
+          >
+            {topScore}
+          </text>
         )}
       </svg>
       <GlobeIcons earths={earths} className={iconTextClass} />

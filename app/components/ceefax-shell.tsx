@@ -219,7 +219,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             >
               {isPopArt ? (
                 <>
-                  <img src="/logo.png" alt="" width={36} height={31} style={{ width: 36, height: 'auto' }} />
+                  <img src="/logo.png" alt="" className="w-[54px] sm:w-9 h-auto" />
                   <span className="pop-hero pop-hero--pink inline-block text-lg sm:text-2xl tracking-wide uppercase">
                     LMS All-Stars
                   </span>
@@ -237,7 +237,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                       <KitBadge
                         pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} colour3={kit.colour3}
                         stars={kit.stars} earths={kit.earths}
-                        size={36} iconTextClass="text-[10px] sm:text-sm"
+                        size={isPopArt ? 46 : 36} iconTextClass="text-[10px] sm:text-sm"
                         starColor={isPopArt ? 'var(--pop-pink)' : undefined}
                         topScore={topScore}
                       />

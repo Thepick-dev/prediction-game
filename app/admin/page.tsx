@@ -1,10 +1,12 @@
 import { createServerSupabaseClient } from '../lib/supabase-server'
 import Link from 'next/link'
+import ThemeToggleControl from './components/theme-toggle-control'
 
 export default async function AdminPage() {
   const supabase = await createServerSupabaseClient()
 
-  const [{ data: competition }, { data: gameweeks }, { data: entries }] = await Promise.all([
+  const [{ data: { user } }, { data: competition }, { data: gameweeks }, { data: entries }] = await Promise.all([
+    supabase.auth.getUser(),
     supabase.from('competitions').select('id, name, status').eq('status', 'active').single(),
     supabase.from('gameweeks').select('id, number, status, deadline').order('number', { ascending: false }).limit(5),
     supabase.from('competition_entries').select('id')
@@ -13,6 +15,12 @@ export default async function AdminPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-8">Admin Dashboard</h1>
+
+      {user && (
+        <div className="mb-6">
+          <ThemeToggleControl userId={user.id} />
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white border rounded-lg p-4">

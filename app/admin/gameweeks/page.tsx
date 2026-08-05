@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { calculateScoring } from '../../lib/scoring'
+import { londonInputToUtcISOString, utcToLondonInputValue } from '../../lib/londonTime'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
 import CompetitionFilter from '../components/competition-filter'
@@ -27,7 +28,7 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
     await supabase.from('gameweeks').insert({
       competition_id: formData.get('competition_id') as string,
       number: parseInt(formData.get('number') as string),
-      deadline: formData.get('deadline') as string,
+      deadline: londonInputToUtcISOString(formData.get('deadline') as string),
       status: 'upcoming'
     })
     redirect('/admin/gameweeks')
@@ -79,7 +80,7 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
     const supabase = await createServerSupabaseClient()
     await supabase
       .from('gameweeks')
-      .update({ deadline: formData.get('deadline') as string })
+      .update({ deadline: londonInputToUtcISOString(formData.get('deadline') as string) })
       .eq('id', formData.get('id') as string)
     redirect('/admin/gameweeks')
   }
@@ -245,7 +246,7 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
                       <input
                         type="datetime-local"
                         name="deadline"
-                        defaultValue={new Date(gw.deadline).toISOString().slice(0, 16)}
+                        defaultValue={utcToLondonInputValue(gw.deadline)}
                         className="text-xs border rounded px-2 py-1"
                       />
                       <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Update</button>

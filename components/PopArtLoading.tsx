@@ -12,7 +12,7 @@ export default function PopArtLoading({ label }: { label?: string }) {
       className="pop-art-theme fixed inset-0 z-[999] flex flex-col items-center justify-center gap-6"
       style={{ background: 'var(--pop-black)' }}
     >
-      <img src="/logo.png" alt="" width={220} height={188} className="pop-logo-pulse" style={{ width: 220, height: 'auto' }} />
+      <img src="/logo.png" alt="" className="pop-logo-pulse w-[330px] sm:w-[220px] h-auto" />
       {label && (
         <p className="pop-headline text-sm tracking-widest" style={{ color: 'rgba(255,255,255,0.5)' }}>{label}</p>
       )}

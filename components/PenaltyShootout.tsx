@@ -191,11 +191,10 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
           alt=""
           style={{
             position: 'absolute',
-            bottom: '9%',
+            bottom: result === 'goal' ? '48%' : result === 'miss' ? '17%' : '9%',
             width: 22, height: 22,
             left: `calc(${toGoalX(result ? shotX : 50)}% - 11px)`,
             transition: 'left 0.4s ease, bottom 0.4s ease',
-            ...(result ? { bottom: '48%' } : {}),
           }}
           className={result === 'goal' ? 'pop-pop-in' : ''}
         />

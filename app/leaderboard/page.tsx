@@ -79,7 +79,7 @@ export default function LeaderboardPage() {
   const [showShare, setShowShare] = useState(false)
 
   const supabase = createClient()
-  const { popArt, isAdmin, toggle: togglePopArt } = usePopArtTheme(user?.id)
+  const { popArt } = usePopArtTheme(user?.id)
 
   useEffect(() => { loadData() }, [])
 
@@ -473,56 +473,35 @@ export default function LeaderboardPage() {
       .sort((a, b) => teamDisplayName(a).localeCompare(teamDisplayName(b)))
   }
 
-  // Admin-only — everyone else always sees Pop Art with no way to revert;
-  // see usePopArtTheme for why. Always rendered (both loading branches and
-  // both final returns below) so switching back to Classic never depends
-  // on the page having finished loading first.
-  const popArtToggleButton = isAdmin && (
-    <button
-      onClick={togglePopArt}
-      className={`pop-art-theme fixed bottom-4 right-4 z-40 px-4 py-2.5 text-xs font-black uppercase tracking-wider ${popArt ? 'pop-button pop-button--yellow' : 'rounded-full shadow-lg'}`}
-      style={popArt ? undefined : { backgroundColor: '#D9A441', color: '#241a12' }}
-    >
-      {popArt ? 'POP ART — TAP FOR CLASSIC' : 'TRY POP ART'}
-    </button>
-  )
-
   if (loading) {
     return (
-      <>
-        {popArtToggleButton}
-        <Shell active="LEADERBOARD" theme={popArt ? 'pop-art' : 'classic'}>
-          {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
-        </Shell>
-      </>
+      <Shell active="LEADERBOARD" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
+      </Shell>
     )
   }
 
   if (!competition) {
     return (
-      <>
-        {popArtToggleButton}
-        <Shell active="LEADERBOARD" theme={popArt ? 'pop-art' : 'classic'}>
-          {popArt ? (
-            <div className="pop-art-theme text-center py-12">
-              <p className="pop-headline text-2xl mb-2">No Active Competition</p>
-              <p style={{ color: 'rgba(255,255,255,0.5)' }}>There is no active competition right now.</p>
-            </div>
-          ) : (
-            <>
-              <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
-              <p className="text-gray-500">There is no active competition right now.</p>
-            </>
-          )}
-        </Shell>
-      </>
+      <Shell active="LEADERBOARD" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? (
+          <div className="pop-art-theme text-center py-12">
+            <p className="pop-headline text-2xl mb-2">No Active Competition</p>
+            <p style={{ color: 'rgba(255,255,255,0.5)' }}>There is no active competition right now.</p>
+          </div>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
+            <p className="text-gray-500">There is no active competition right now.</p>
+          </>
+        )}
+      </Shell>
     )
   }
 
   if (popArt) {
     return (
       <>
-        {popArtToggleButton}
         <Shell active="LEADERBOARD" user={user} displayName={displayName} theme="pop-art">
           <div className="pop-art-theme">
 
@@ -550,25 +529,23 @@ export default function LeaderboardPage() {
             )}
 
             <div className="pop-panel" style={{ overflow: 'hidden' }}>
-              <table className="w-full" style={{ fontSize: '12px' }}>
+              {/* table-layout: fixed + explicit column widths, rather than
+                  hiding columns on mobile — every stat classic shows stays
+                  visible here too. Fixed layout makes the browser wrap a
+                  long name instead of stretching the table past 100% width
+                  (which is what was clipping the rightmost columns before). */}
+              <table className="w-full" style={{ fontSize: '10.5px', tableLayout: 'fixed' }}>
                 <thead>
-                  <tr className="text-left" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-                    <th className="py-2 px-1 sm:px-2 uppercase tracking-wider">#</th>
-                    <th className="py-2 px-1 sm:px-2 uppercase tracking-wider">Player</th>
-                    {/* HW/AW/Best/Tm/Pl/Bk are six extra columns on top of
-                        #/Player/Tot — real numbers on a real phone (as low
-                        as ~360px) don't fit at once without cutting the
-                        rightmost columns off. Hidden below sm rather than
-                        made scrollable: the "never cut off, never needs
-                        horizontal scroll" rule rules out both. Full detail
-                        is one tap away anyway (the row expands). */}
-                    <th className="hidden sm:table-cell py-2 px-1 sm:px-2 text-center uppercase tracking-wider">HW</th>
-                    <th className="hidden sm:table-cell py-2 px-1 sm:px-2 text-center uppercase tracking-wider">AW</th>
-                    <th className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right uppercase tracking-wider" title="Best single-gameweek score (tiebreaker #3)">Best</th>
-                    <th className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Tm</th>
-                    <th className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Pl</th>
-                    <th className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Bk</th>
-                    <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider font-black">Tot</th>
+                  <tr className="text-left" style={{ fontSize: '8.5px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+                    <th className="py-2 pl-1 pr-0.5 sm:px-2 uppercase tracking-wider" style={{ width: '7%' }}>#</th>
+                    <th className="py-2 px-0.5 sm:px-2 uppercase tracking-wider" style={{ width: '32%' }}>Player</th>
+                    <th className="py-2 px-0.5 sm:px-2 text-center uppercase tracking-wider" style={{ width: '8.5%' }}>HW</th>
+                    <th className="py-2 px-0.5 sm:px-2 text-center uppercase tracking-wider" style={{ width: '8.5%' }}>AW</th>
+                    <th className="py-2 px-0.5 sm:px-2 text-right uppercase tracking-wider" style={{ width: '9%' }} title="Best single-gameweek score (tiebreaker #3)">Best</th>
+                    <th className="py-2 px-0.5 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Tm</th>
+                    <th className="py-2 px-0.5 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Pl</th>
+                    <th className="py-2 px-0.5 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Bk</th>
+                    <th className="py-2 pl-0.5 pr-1 sm:px-2 text-right uppercase tracking-wider font-black" style={{ width: '9.5%' }}>Tot</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -582,29 +559,29 @@ export default function LeaderboardPage() {
                           className="cursor-pointer"
                           style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                         >
-                          <td className="py-2 px-1 sm:px-2" style={{ color: 'rgba(255,255,255,0.35)' }}>{index + 1}</td>
-                          <td className="py-2 px-1 sm:px-2 font-black uppercase">
-                            <div className="flex items-center gap-1.5">
+                          <td className="py-2 pl-1 pr-0.5 sm:px-2" style={{ color: 'rgba(255,255,255,0.35)' }}>{index + 1}</td>
+                          <td className="py-2 px-0.5 sm:px-2 font-black uppercase" style={{ wordBreak: 'break-word' }}>
+                            <div className="flex items-center gap-1 flex-wrap">
                               <KitBadge
                                 pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
                                 colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                                 colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
                                 colour3={kitByUser[player.user_id]?.colour3}
-                                size={16}
+                                size={14}
                               />
-                              {player.display_name}
+                              <span>{player.display_name}</span>
                               {index === 0 && <span style={{ color: 'var(--pop-yellow)' }}>👑</span>}
                               {streak && <span title={`${streak} weeks above average`}>🔥</span>}
-                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
+                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '8px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                             </div>
                           </td>
-                          <td className="hidden sm:table-cell py-2 px-1 sm:px-2 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.home_wins}</td>
-                          <td className="hidden sm:table-cell py-2 px-1 sm:px-2 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.away_wins}</td>
-                          <td className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.best_gameweek_score}</td>
-                          <td className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.team_points)}</td>
-                          <td className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.player_points)}</td>
-                          <td className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.banker_points)}</td>
-                          <td className="py-2 px-1 sm:px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{player.total_points}</td>
+                          <td className="py-2 px-0.5 sm:px-2 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.home_wins}</td>
+                          <td className="py-2 px-0.5 sm:px-2 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.away_wins}</td>
+                          <td className="py-2 px-0.5 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.best_gameweek_score}</td>
+                          <td className="py-2 px-0.5 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.team_points)}</td>
+                          <td className="py-2 px-0.5 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.player_points)}</td>
+                          <td className="py-2 px-0.5 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.banker_points)}</td>
+                          <td className="py-2 pl-0.5 pr-1 sm:px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{player.total_points}</td>
                         </tr>
                         {expandedUser === player.user_id && (
                           <tr>

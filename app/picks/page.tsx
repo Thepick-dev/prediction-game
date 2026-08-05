@@ -120,6 +120,9 @@ export default function PicksPage() {
 
   const [selectedTeam, setSelectedTeam] = useState<number | null>(null)
   const [selectedFixture, setSelectedFixture] = useState<number | null>(null)
+  // A little easter egg — a couple of teams get a big, brief reaction emoji
+  // when picked, purely for fun, no game logic attached.
+  const [teamReaction, setTeamReaction] = useState<{ emoji: string; key: number } | null>(null)
   const [player1, setPlayer1] = useState<number | null>(null)
   const [player2, setPlayer2] = useState<number | null>(null)
   const [player1Fixture, setPlayer1Fixture] = useState<number | null>(null)
@@ -141,7 +144,7 @@ export default function PicksPage() {
   const [message, setMessage] = useState('')
   const [deadlinePassed, setDeadlinePassed] = useState(false)
 
-  const { popArt, isAdmin, toggle: togglePopArt } = usePopArtTheme(user?.id)
+  const { popArt } = usePopArtTheme(user?.id)
 
   // Penalty shootout mini-game popup — entirely separate from the pick
   // itself (own table, own scoring), just a bit of fun reachable from here.
@@ -334,6 +337,12 @@ export default function PicksPage() {
   function selectTeamInFixture(teamId: number, fixtureId: number) {
     setSelectedTeam(teamId)
     setSelectedFixture(fixtureId)
+    const name = getTeam(teamId)?.name?.toLowerCase() ?? ''
+    const emoji = name.includes('arsenal') ? '🙄' : name.includes('tottenham') ? '😎' : null
+    if (emoji) {
+      setTeamReaction({ emoji, key: Date.now() })
+      setTimeout(() => setTeamReaction(null), 1100)
+    }
   }
 
   async function savePick() {
@@ -531,36 +540,12 @@ export default function PicksPage() {
   // Admin-only — everyone else always sees Pop Art with no way to revert,
   // so this control (and the ability to switch back to Classic at all)
   // only exists for admins, who can still flip to Classic for reference.
-  const popArtToggleButton = isAdmin && (
-    <button
-      onClick={togglePopArt}
-      className={`pop-art-theme fixed bottom-4 right-4 z-40 px-4 py-2.5 text-xs font-black uppercase tracking-wider ${popArt ? 'pop-button pop-button--yellow' : 'rounded-full shadow-lg'}`}
-      style={popArt ? undefined : { backgroundColor: '#D9A441', color: '#241a12' }}
-    >
-      {popArt ? 'POP ART — TAP FOR CLASSIC' : 'TRY POP ART'}
-    </button>
-  )
-
-  // Only shown in Pop Art mode, matching where it was asked for — not
-  // connected to the prediction game at all, just a fun extra reachable
-  // from here.
-  const shootoutTriggerButton = popArt && user && (
-    <button
-      onClick={() => setShootoutOpen(true)}
-      className="pop-art-theme fixed bottom-20 right-4 z-40 pop-button pop-button--green px-4 py-2.5 text-xs"
-    >
-      ⚽ Shootout
-    </button>
-  )
-
   if (popArt) {
     const homeWinDraw = (fixture: Fixture) => getWinDrawPoints(fixture.home_team_id, fixture.away_team_id, true)
     const awayWinDraw = (fixture: Fixture) => getWinDrawPoints(fixture.away_team_id, fixture.home_team_id, false)
 
     return (
       <>
-        {popArtToggleButton}
-        {shootoutTriggerButton}
         {shootoutOpen && user && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -590,8 +575,31 @@ export default function PicksPage() {
               card; the page itself is just the black canvas they sit on. */}
           <div className="pop-art-theme">
 
-            <div className="text-center mb-8 mt-2">
+            {teamReaction && (
+              <div
+                key={teamReaction.key}
+                className="pop-pop-in"
+                style={{
+                  position: 'fixed', inset: 0, zIndex: 60,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 'clamp(90px, 30vw, 260px)', lineHeight: 1, pointerEvents: 'none',
+                  textShadow: '0 0 40px rgba(0,0,0,0.6)',
+                }}
+              >
+                {teamReaction.emoji}
+              </div>
+            )}
+
+            <div className="flex items-start justify-between gap-3 flex-wrap mb-6 mt-2">
               <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">Picks</h1>
+              {user && (
+                <button
+                  onClick={() => setShootoutOpen(true)}
+                  className="pop-button pop-button--green px-3 py-1.5 text-xs"
+                >
+                  ⚽ Shootout
+                </button>
+              )}
             </div>
 
             {gameweek && (
@@ -869,7 +877,6 @@ export default function PicksPage() {
 
   return (
     <>
-      {popArtToggleButton}
       <Shell active="PICKS" user={user} displayName={displayName}>
       <HeroPage wide>
         <div className="w-full text-[#F5ECD9]">
