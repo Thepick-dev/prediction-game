@@ -161,7 +161,7 @@ export default function KitEditor({
   const labelClass = isPopArt
     ? 'text-xs font-black uppercase tracking-wider mb-2'
     : 'text-xs font-bold uppercase tracking-wider text-[#F5ECD9]/50 mb-2'
-  const labelStyle = isPopArt ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-black)' } : undefined
+  const labelStyle = isPopArt ? { color: 'var(--pop-black)' } : undefined
 
   function swatchProps(selected: boolean, colour: string) {
     return isPopArt
@@ -201,7 +201,7 @@ export default function KitEditor({
             ? `pop-button pop-button--yellow px-3 py-1.5 text-xs ${shuffleSpin ? 'pop-shuffle-spin' : ''}`
             : 'text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded border border-[#D9A441]/50 text-[#D9A441] hover:bg-[#D9A441]/10 transition-colors'}
         >
-          🎲 Shuffle
+          {isPopArt ? 'Shuffle' : '🎲 Shuffle'}
         </button>
       </div>
 
@@ -277,7 +277,7 @@ export default function KitEditor({
           disabled={saving}
           className={`pop-button ${justSaved ? 'pop-button--green pop-celebrate' : ''} w-full py-2.5 text-sm`}
         >
-          {saving ? 'Saving...' : justSaved ? '🎉 Kit Saved!' : 'Save Kit'}
+          {saving ? 'Saving...' : justSaved ? 'Kit Saved!' : 'Save Kit'}
         </button>
       ) : (
         <button onClick={saveKit} disabled={saving} className={btnClass} style={btnStyle}>

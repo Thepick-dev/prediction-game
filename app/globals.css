@@ -120,14 +120,14 @@ thead th {
   overflow-x: hidden;
 }
 
-/* Toned down from the original dense/solid-black dot grid, which read as
-   visual noise behind text-heavy content — bigger spacing and translucent
-   dots keep the halftone texture recognisable without fighting for
-   attention against the cards sitting on top of it. */
+/* Flat colour, not a dot texture — the halftone-everywhere look was the
+   single biggest source of "cluttered/juvenile": dots tiled behind dense
+   text read as noise, not style. Kept the class name (nothing lifting
+   this class needs to change) but dropped the background-image; the dot
+   motif survives only in .pop-halftone-bg--white, a genuinely decorative
+   zone (behind the kit shirt preview) with no text sitting on it. */
 .pop-halftone-bg {
   background-color: var(--pop-pink);
-  background-image: radial-gradient(rgba(17, 17, 17, 0.35) 20%, transparent 21%);
-  background-size: 26px 26px;
 }
 
 .pop-halftone-bg--yellow {
@@ -158,12 +158,30 @@ thead th {
   );
 }
 
+/* Clean, bold, poster-style label — used for every section heading, card
+   title, and popup title. Colour is deliberately NOT set here: every
+   .pop-panel variant sets its own explicit text colour, so this always
+   inherits the right one for whatever it's sitting on. This is what most
+   things use; only .pop-hero below gets the comic-display treatment, and
+   only for the one or two moments that actually earn it. */
 .pop-headline {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+}
+
+/* Reserved for genuine hero moments only (the "Picks!" title, the header
+   wordmark) — the comic display font, stroke and drop-shadow read as fun
+   in small doses and juvenile everywhere, so this is deliberately not the
+   default the way .pop-headline used to be. */
+.pop-hero {
   font-family: var(--font-comic), sans-serif;
   color: var(--pop-white);
   -webkit-text-stroke: 2px var(--pop-black);
   paint-order: stroke fill;
-  text-shadow: 5px 5px 0 var(--pop-black);
+  text-shadow: 4px 4px 0 var(--pop-black);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   line-height: 1;
@@ -177,9 +195,9 @@ thead th {
 .pop-panel {
   background: var(--pop-white);
   color: var(--pop-black);
-  border: 5px solid var(--pop-black);
-  box-shadow: 8px 8px 0 var(--pop-black);
-  border-radius: 6px;
+  border: 3px solid var(--pop-black);
+  box-shadow: 5px 5px 0 var(--pop-black);
+  border-radius: 12px;
   position: relative;
 }
 
@@ -213,18 +231,22 @@ thead th {
    back on later if that's ever wanted again. */
 .pop-rotate-l, .pop-rotate-r, .pop-rotate-l-lg, .pop-rotate-r-lg { transform: none; }
 
+/* Flat pills — no border, no drop-shadow. Badges are secondary/tertiary
+   information (a quartile tag, a "used" stamp); giving every one of them
+   the same heavy chrome as a full panel is what made the fixture cards
+   read as "borders stacked on borders." Colour alone still carries the
+   meaning. */
 .pop-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: var(--pop-yellow);
-  border: 3px solid var(--pop-black);
-  box-shadow: 3px 3px 0 var(--pop-black);
-  font-family: var(--font-comic), sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.02em;
   color: var(--pop-black);
-  border-radius: 4px;
+  border-radius: 999px;
   line-height: 1;
 }
 
@@ -234,14 +256,15 @@ thead th {
 .pop-badge--red { background: var(--pop-red); color: var(--pop-white); }
 
 .pop-button {
-  font-family: var(--font-comic), sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-weight: 800;
   background: var(--pop-pink);
   color: var(--pop-white);
-  border: 4px solid var(--pop-black);
-  box-shadow: 6px 6px 0 var(--pop-black);
+  border: 3px solid var(--pop-black);
+  box-shadow: 5px 5px 0 var(--pop-black);
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  border-radius: 6px;
+  border-radius: 10px;
   transition: transform 0.08s ease, box-shadow 0.08s ease;
   cursor: pointer;
 }
@@ -279,46 +302,18 @@ thead th {
   color: var(--pop-black);
 }
 
-/* Hover wobble — small, playful, doesn't wait for a click to feel alive. */
+/* A confident lift on hover and a press on click — the same physical
+   metaphor as the offset drop-shadow itself (the shadow grows as the
+   button "lifts" toward you), rather than a rotating wobble that read as
+   more toy than tool. */
 .pop-button:not(:disabled):hover {
-  transform: rotate(-1deg) scale(1.03);
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--pop-black);
 }
 
 .pop-button:not(:disabled):active {
-  transform: translate(5px, 5px) rotate(0deg) scale(1);
-  box-shadow: 1px 1px 0 var(--pop-black);
-}
-
-/* Jagged starburst "shout" badge — a genuine burst shape, not a rounded
-   pill, via clip-path. Used for one-off callouts (e.g. the banker star,
-   a "used" stamp) that are meant to punch over a panel's edge rather
-   than sit politely inside it. Gently animated so it reads as "alive"
-   even when nobody's interacting with it. */
-.pop-burst {
-  background: var(--pop-orange);
-  clip-path: polygon(
-    50% 0%, 61% 18%, 79% 8%, 78% 29%, 98% 33%, 87% 50%,
-    98% 67%, 78% 71%, 79% 92%, 61% 82%, 50% 100%, 39% 82%,
-    21% 92%, 22% 71%, 2% 67%, 13% 50%, 2% 33%, 22% 29%,
-    21% 8%, 39% 18%
-  );
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  font-family: var(--font-comic), sans-serif;
-  text-transform: uppercase;
-  color: var(--pop-black);
-  animation: pop-wiggle 2.4s ease-in-out infinite;
-}
-
-.pop-burst--pink { background: var(--pop-pink); color: var(--pop-white); }
-.pop-burst--blue { background: var(--pop-blue); color: var(--pop-black); }
-.pop-burst--green { background: var(--pop-green); color: var(--pop-black); }
-
-@keyframes pop-wiggle {
-  0%, 100% { transform: rotate(-4deg); }
-  50% { transform: rotate(4deg); }
+  transform: translate(3px, 3px);
+  box-shadow: 2px 2px 0 var(--pop-black);
 }
 
 /* A satisfying little bounce the instant something gets picked — a team,
@@ -342,50 +337,29 @@ thead th {
 }
 
 @keyframes pop-celebrate {
-  0% { transform: scale(1) rotate(0deg); }
-  30% { transform: scale(1.08) rotate(-2deg); }
-  60% { transform: scale(1.04) rotate(2deg); }
-  100% { transform: scale(1) rotate(0deg); }
+  0% { transform: scale(1); }
+  40% { transform: scale(1.06); }
+  100% { transform: scale(1); }
 }
 
-/* Header title, boxed up as its own mini comic panel rather than plain
-   text on the bar — the emphatic treatment the flat headline was missing.
-   Gently tilts on a loop so the header reads as "alive" even at rest. */
+/* Header title, boxed up as its own mini panel rather than plain text on
+   the bar. No longer tilts at rest — a static badge reads as a confident
+   piece of branding; a constantly-tilting one read as fidgety. */
 .pop-title-badge {
   background: var(--pop-pink);
-  border: 4px solid var(--pop-black);
+  border: 3px solid var(--pop-black);
   border-radius: 8px;
-  box-shadow: 4px 4px 0 var(--pop-black);
-  animation: pop-tilt 3.2s ease-in-out infinite;
-  transform-origin: center;
+  box-shadow: 3px 3px 0 var(--pop-black);
 }
 
-@keyframes pop-tilt {
-  0%, 100% { transform: rotate(-1.5deg); }
-  50% { transform: rotate(1.5deg); }
-}
-
-/* Nav pills wobble on hover, same language as .pop-button, so the whole
-   header feels consistently "clickable" rather than just the CTAs. */
+/* Nav pills lift on hover, same language as .pop-button — consistently
+   "clickable" across the header without the rotating wobble. */
 .pop-nav-pill {
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .pop-nav-pill:hover {
-  transform: rotate(-2deg) scale(1.06);
-}
-
-/* Star rating on the kit badge — twinkles gently so it reads as a genuine
-   little reward rather than a flat glyph, and gives it something other
-   than colour to catch the eye with once it's set to a colour that pops
-   off the header (see KitBadge's starColor prop). */
-.pop-star-twinkle {
-  animation: pop-twinkle 1.8s ease-in-out infinite;
-}
-
-@keyframes pop-twinkle {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(0.92); }
+  transform: translate(-2px, -2px);
 }
 
 /* One full spin on the kit shuffle button, re-triggered every shuffle the

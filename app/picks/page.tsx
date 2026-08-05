@@ -57,8 +57,8 @@ function CountdownClock({ time, theme = 'classic' }: { time: CountdownTime | nul
     return (
       <div className="flex items-center gap-1.5">
         {units.map(u => (
-          <div key={u.label} className="pop-badge flex flex-col items-center px-2 py-1 leading-tight">
-            <span className="text-sm">{String(u.value).padStart(2, '0')}</span>
+          <div key={u.label} className="pop-badge flex flex-col items-center px-2.5 py-1 leading-tight">
+            <span className="font-mono text-sm font-bold">{String(u.value).padStart(2, '0')}</span>
             <span className="text-[8px]">{u.label}</span>
           </div>
         ))}
@@ -536,14 +536,10 @@ export default function PicksPage() {
   const popArtToggleButton = (
     <button
       onClick={togglePopArt}
-      className="fixed bottom-4 right-4 z-40 rounded-full px-4 py-2.5 text-xs font-bold uppercase tracking-wider shadow-lg"
-      style={
-        popArt
-          ? { backgroundColor: '#F0328C', color: '#FFFFFF', border: '3px solid #111111', fontFamily: 'var(--font-comic), sans-serif', letterSpacing: '0.04em' }
-          : { backgroundColor: '#D9A441', color: '#241a12' }
-      }
+      className={`pop-art-theme fixed bottom-4 right-4 z-40 px-4 py-2.5 text-xs font-black uppercase tracking-wider ${popArt ? 'pop-button pop-button--yellow' : 'rounded-full shadow-lg'}`}
+      style={popArt ? undefined : { backgroundColor: '#D9A441', color: '#241a12' }}
     >
-      {popArt ? '🎨 Comic Mode — Tap for Classic' : '🎨 Try Comic Mode'}
+      {popArt ? 'POP ART — TAP FOR CLASSIC' : 'TRY POP ART'}
     </button>
   )
 
@@ -558,7 +554,7 @@ export default function PicksPage() {
           <div className="pop-art-theme pop-halftone-bg rounded-2xl p-4 sm:p-6" style={{ border: '6px solid var(--pop-black)' }}>
 
             <div className="pop-panel pop-panel--black pop-rotate-l rounded-xl p-5 sm:p-6 mb-6 text-center">
-              <h1 className="pop-headline text-5xl sm:text-6xl">Picks!</h1>
+              <h1 className="pop-hero text-5xl sm:text-6xl">Picks!</h1>
             </div>
 
             {gameweek && (
@@ -650,9 +646,11 @@ export default function PicksPage() {
                         <span className="font-black uppercase text-sm">{playerName(player1)}</span>
                         <button
                           onClick={() => { setPlayer1(null); setPlayer1Fixture(null); setPlayer1Club(null) }}
-                          className="pop-burst w-8 h-8 text-[10px] font-black shrink-0"
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                          style={{ background: 'var(--pop-black)', color: 'var(--pop-white)' }}
+                          aria-label="Remove player 1"
                         >
-                          X
+                          ×
                         </button>
                       </div>
                     ) : (
@@ -704,9 +702,11 @@ export default function PicksPage() {
                         <span className="font-black uppercase text-sm">{playerName(player2)}</span>
                         <button
                           onClick={() => { setPlayer2(null); setPlayer2Fixture(null); setPlayer2Club(null) }}
-                          className="pop-burst w-8 h-8 text-[10px] font-black shrink-0"
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                          style={{ background: 'var(--pop-black)', color: 'var(--pop-white)' }}
+                          aria-label="Remove player 2"
                         >
-                          X
+                          ×
                         </button>
                       </div>
                     ) : (
@@ -827,7 +827,7 @@ export default function PicksPage() {
                     ? { background: '#CCCCCC', color: 'var(--pop-black)', opacity: 1 }
                     : { opacity: 1 }}
                 >
-                  {saving ? 'Saving...' : justSaved ? '🎉 Locked In!' : hasPick ? 'Update Pick!' : 'Submit Pick!'}
+                  {saving ? 'Saving...' : justSaved ? 'Locked In!' : hasPick ? 'Update Pick!' : 'Submit Pick!'}
                 </button>
               </>
             )}

@@ -211,7 +211,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
               style={isPopArt ? undefined : { fontFamily: 'var(--font-heading), serif', color: '#F5ECD9' }}
             >
               {isPopArt ? (
-                <span className="pop-headline pop-title-badge inline-block text-base sm:text-2xl tracking-wide uppercase px-3 py-1">
+                <span className="pop-hero pop-title-badge inline-block text-base sm:text-2xl tracking-wide uppercase px-3 py-1">
                   LMS All-Stars
                 </span>
               ) : 'LMS All-Stars'}
@@ -229,13 +229,12 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                         stars={kit.stars} earths={kit.earths}
                         size={36} iconTextClass="text-[10px] sm:text-sm"
                         starColor={isPopArt ? 'var(--pop-pink)' : undefined}
-                        starClassName={isPopArt ? 'pop-star-twinkle' : undefined}
                       />
                     </button>
                   )}
                   <span
                     className="text-[10px] uppercase font-medium tracking-wider leading-none"
-                    style={{ color: isPopArt ? 'var(--pop-black)' : '#D9A441', fontFamily: isPopArt ? 'var(--font-comic), sans-serif' : undefined }}
+                    style={{ color: isPopArt ? 'var(--pop-black)' : '#D9A441' }}
                   >
                     {displayName ?? ''}
                   </span>
@@ -264,7 +263,6 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                       href={item.href}
                       className="pop-nav-pill px-2.5 lg:px-3 py-1.5 my-1 mx-0.5 text-[10px] lg:text-xs font-black tracking-wide whitespace-nowrap uppercase rounded-full"
                       style={{
-                        fontFamily: 'var(--font-comic), sans-serif',
                         border: '3px solid var(--pop-black)',
                         background: navColor.bg,
                         color: navColor.text,
@@ -280,7 +278,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                   <a
                     href="/admin"
                     className="pop-nav-pill px-2.5 lg:px-3 py-1.5 my-1 mx-0.5 text-[10px] lg:text-xs font-black tracking-wide whitespace-nowrap uppercase rounded-full"
-                    style={{ fontFamily: 'var(--font-comic), sans-serif', border: '3px solid var(--pop-black)', background: 'var(--pop-blue)', color: 'var(--pop-black)' }}
+                    style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-blue)', color: 'var(--pop-black)' }}
                   >
                     Admin
                   </a>
@@ -290,7 +288,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                     <button
                       type="submit"
                       className="pop-nav-pill px-2.5 lg:px-3 py-1.5 my-1 mx-0.5 text-[10px] lg:text-xs font-black tracking-wide whitespace-nowrap uppercase rounded-full"
-                      style={{ fontFamily: 'var(--font-comic), sans-serif', border: '3px solid var(--pop-black)', background: 'var(--pop-red)', color: 'var(--pop-white)' }}
+                      style={{ border: '3px solid var(--pop-black)', background: 'var(--pop-red)', color: 'var(--pop-white)' }}
                     >
                       Log Out
                     </button>
@@ -363,7 +361,6 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                   onClick={() => setMenuOpen(false)}
                   style={isPopArt
                     ? {
-                        fontFamily: 'var(--font-comic), sans-serif',
                         color: navColor.text,
                         background: navColor.bg,
                         borderLeft: isActive ? '8px solid var(--pop-black)' : '8px solid transparent',
@@ -385,7 +382,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                 href="/admin"
                 onClick={() => setMenuOpen(false)}
                 style={isPopArt
-                  ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-black)', background: 'var(--pop-blue)', borderLeft: active === 'ADMIN' ? '8px solid var(--pop-black)' : '8px solid transparent' }
+                  ? { color: 'var(--pop-black)', background: 'var(--pop-blue)', borderLeft: active === 'ADMIN' ? '8px solid var(--pop-black)' : '8px solid transparent' }
                   : {
                       color: active === 'ADMIN' ? '#2A1F17' : '#F5ECD9',
                       backgroundColor: active === 'ADMIN' ? '#D9A441' : 'transparent'
@@ -399,14 +396,14 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             )}
             {user && (
               <>
-                <div className={isPopArt ? 'px-6 py-3 text-xs uppercase tracking-wider' : 'px-6 py-3 text-xs text-[#D9A441] uppercase tracking-wider'} style={isPopArt ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-yellow)' } : undefined}>
+                <div className={isPopArt ? 'px-6 py-3 text-xs uppercase tracking-wider' : 'px-6 py-3 text-xs text-[#D9A441] uppercase tracking-wider'} style={isPopArt ? { color: 'var(--pop-yellow)' } : undefined}>
                   {displayName ?? ''}
                 </div>
                 <form action="/auth/signout" method="POST">
                   <button
                     type="submit"
                     className={isPopArt ? 'block w-full text-left px-6 py-4 text-sm font-black tracking-widest uppercase' : 'block w-full text-left px-6 py-4 text-sm font-bold tracking-widest uppercase text-[#F5ECD9]'}
-                    style={isPopArt ? { fontFamily: 'var(--font-comic), sans-serif', color: 'var(--pop-white)', background: 'var(--pop-red)' } : undefined}
+                    style={isPopArt ? { color: 'var(--pop-white)', background: 'var(--pop-red)' } : undefined}
                   >
                     Log Out
                   </button>
@@ -425,7 +422,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
       >
         <span
           className={isPopArt ? 'text-xs uppercase tracking-widest' : 'text-gray-400 text-xs uppercase tracking-widest'}
-          style={isPopArt ? { color: 'var(--pop-white)', fontFamily: 'var(--font-comic), sans-serif' } : undefined}
+          style={isPopArt ? { color: 'var(--pop-white)' } : undefined}
         >
           LMS All-Stars Predictions
         </span>
@@ -447,7 +444,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             // override this popup's fixed positioning and break it. Same
             // visual look via explicit styles instead.
             ...(isPopArt
-              ? { border: '5px solid var(--pop-black)', boxShadow: '8px 8px 0 var(--pop-black)', borderRadius: '6px' }
+              ? { border: '3px solid var(--pop-black)', boxShadow: '5px 5px 0 var(--pop-black)', borderRadius: '12px' }
               : { backgroundColor: '#1e1914', borderColor: 'rgba(217,164,65,0.3)' }),
           }}
         >
