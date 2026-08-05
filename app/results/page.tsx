@@ -8,6 +8,8 @@ import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
 import { buildPlayerDisplayNames } from '../lib/players'
 import GameweekRecapCard from '../../components/GameweekRecapCard'
+import PopArtLoading from '../../components/PopArtLoading'
+import { usePopArtTheme } from '../lib/usePopArtTheme'
 
 type Gameweek = {
   id: string
@@ -94,6 +96,7 @@ export default function ResultsPage() {
   const [question, setQuestion] = useState<Question | null>(null)
 
   const supabase = createClient()
+  const { popArt } = usePopArtTheme(user?.id)
 
   useEffect(() => { loadBase() }, [])
   useEffect(() => { if (selectedGw) loadPicksForGw(selectedGw) }, [selectedGw])
@@ -357,17 +360,351 @@ export default function ResultsPage() {
 
   if (loading) {
     return (
-      <Shell active="RESULTS">
-        <p className="text-gray-500">Loading...</p>
+      <Shell active="RESULTS" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
       </Shell>
     )
   }
 
   if (!competition) {
     return (
-      <Shell active="RESULTS">
-        <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
-        <p className="text-gray-500">There is no active competition right now.</p>
+      <Shell active="RESULTS" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? (
+          <div className="pop-art-theme text-center py-12">
+            <p className="pop-headline text-2xl mb-2">No Active Competition</p>
+            <p style={{ color: 'rgba(255,255,255,0.5)' }}>There is no active competition right now.</p>
+          </div>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
+            <p className="text-gray-500">There is no active competition right now.</p>
+          </>
+        )}
+      </Shell>
+    )
+  }
+
+  if (popArt) {
+    return (
+      <Shell active="RESULTS" user={user} displayName={displayName} theme="pop-art">
+        <div className="pop-art-theme">
+
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-1 mt-2">Results</h1>
+          <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name}</p>
+
+          {potwUserId && (
+            <div className="pop-panel pop-panel--yellow p-4 mb-5 flex items-center gap-3">
+              <span className="text-2xl">👑</span>
+              <div>
+                <p className="pop-headline text-xs" style={{ color: 'var(--pop-yellow)' }}>Season Leader</p>
+                <p className="font-black uppercase">{profiles[potwUserId] ?? 'Unknown'}</p>
+              </div>
+            </div>
+          )}
+
+          {gameweeks.length === 0 ? (
+            <div className="pop-panel p-6">
+              <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>No gameweeks have passed their deadline yet.</p>
+            </div>
+          ) : (
+            <>
+              <div className="mb-5">
+                <select
+                  value={selectedGw ?? ''}
+                  onChange={e => setSelectedGw(e.target.value)}
+                  className="pop-input px-3 py-2 text-sm font-bold w-full md:w-auto uppercase"
+                >
+                  {gameweeks.map(gw => (
+                    <option key={gw.id} value={gw.id}>
+                      Gameweek {gw.number} — {
+                        gw.status === 'completed' ? 'Scored'
+                        : new Date() < new Date(gw.deadline) ? 'Upcoming'
+                        : 'Awaiting scoring'
+                      }
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedGameweek && (
+                <div className="mb-4 flex items-center gap-3 flex-wrap">
+                  <h2 className="pop-headline text-lg">Gameweek {selectedGameweek.number}</h2>
+                  <span
+                    className={`pop-badge px-2 py-0.5 text-xs ${
+                      isScored ? 'pop-badge--green'
+                      : isFutureGw ? ''
+                      : 'pop-badge--yellow'
+                    }`}
+                    style={isFutureGw ? { background: 'rgba(255,255,255,0.15)', color: 'var(--pop-white)' } : undefined}
+                  >
+                    {isScored ? 'Scored' : isFutureGw ? 'Upcoming' : 'Awaiting scoring'}
+                  </span>
+                  {isLocked && (
+                    <span
+                      className="pop-badge px-2 py-0.5 text-xs"
+                      style={{ background: 'rgba(255,255,255,0.15)', color: 'var(--pop-white)' }}
+                      title="Deadline's passed so this is calculated from current results and quartiles, but it's not official until the gameweek is marked completed — it can still change"
+                    >
+                      Live preview — not final
+                    </span>
+                  )}
+                  {isScored && gwPotwUserId && (
+                    <span className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--pop-yellow)' }}>
+                      GW Winner: {profiles[gwPotwUserId]}
+                    </span>
+                  )}
+                  {showScoring && (
+                    <button
+                      onClick={() => setShowRecap(true)}
+                      className="pop-button pop-button--yellow px-3 py-1.5 text-xs ml-auto"
+                    >
+                      Share Recap
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {fixtures.length > 0 && (
+                <div className="pop-panel mb-4" style={{ overflow: 'hidden' }}>
+                  <div className="px-3 py-2 font-black uppercase tracking-wider" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+                    Fixtures &amp; Match Events
+                  </div>
+                  <div>
+                    {fixtures.map(f => {
+                      const isExpanded = expandedFixture === f.id
+                      const fixtureEvents = matchEvents.filter(e => e.fixture_id === f.id)
+                      const goals = fixtureEvents.filter(e => e.event_type === 'goal')
+                      const assists = fixtureEvents.filter(e => e.event_type === 'assist')
+                      const ownGoals = fixtureEvents.filter(e => e.event_type === 'own_goal')
+                      const played = f.home_score != null && f.away_score != null
+
+                      return (
+                        <div key={f.id} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                          <button
+                            onClick={() => setExpandedFixture(isExpanded ? null : f.id)}
+                            className="w-full flex items-center justify-between px-3 py-2.5 text-left"
+                          >
+                            <div className="flex items-center gap-1.5 text-xs uppercase flex-wrap min-w-0">
+                              <TeamCrest crestUrl={teams[f.home_team_id]?.crest_url ?? null} teamName={teams[f.home_team_id]?.name ?? ''} size={16} />
+                              <span className="font-black">{teamDisplayName(teams[f.home_team_id])}</span>
+                              <span className="font-black shrink-0" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                {played ? `${f.home_score} - ${f.away_score}` : 'vs'}
+                              </span>
+                              <span className="font-black">{teamDisplayName(teams[f.away_team_id])}</span>
+                              <TeamCrest crestUrl={teams[f.away_team_id]?.crest_url ?? null} teamName={teams[f.away_team_id]?.name ?? ''} size={16} />
+                              {!played && <span className="normal-case shrink-0" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}>Not played yet</span>}
+                            </div>
+                            <span className="text-xs shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }}>{isExpanded ? '▲' : '▼'}</span>
+                          </button>
+                          {isExpanded && (
+                            <div className="px-3 pb-3 text-xs space-y-1">
+                              {fixtureEvents.length === 0 ? (
+                                <p style={{ color: 'rgba(255,255,255,0.4)' }}>No goals or assists recorded yet.</p>
+                              ) : (
+                                <>
+                                  {goals.map((e, i) => (
+                                    <div key={`g${i}`} className="flex items-center gap-1.5">
+                                      <span className="px-1 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>
+                                      <span className="uppercase">{players[e.player_id] ?? 'Unknown'}</span>
+                                      {e.minute != null && <span style={{ color: 'rgba(255,255,255,0.4)' }}>{e.minute}&apos;</span>}
+                                    </div>
+                                  ))}
+                                  {assists.map((e, i) => (
+                                    <div key={`a${i}`} className="flex items-center gap-1.5">
+                                      <span className="px-1 rounded font-black" style={{ fontSize: '9px', background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span>
+                                      <span className="uppercase">{players[e.player_id] ?? 'Unknown'}</span>
+                                      {e.minute != null && <span style={{ color: 'rgba(255,255,255,0.4)' }}>{e.minute}&apos;</span>}
+                                    </div>
+                                  ))}
+                                  {ownGoals.map((e, i) => (
+                                    <div key={`og${i}`} className="flex items-center gap-1.5">
+                                      <span className="px-1 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-red)', color: 'var(--pop-white)' }}>OG</span>
+                                      <span className="uppercase">{players[e.player_id] ?? 'Unknown'}</span>
+                                      {e.minute != null && <span style={{ color: 'rgba(255,255,255,0.4)' }}>{e.minute}&apos;</span>}
+                                    </div>
+                                  ))}
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {question && questionTally.length > 0 && (
+                <div className="pop-panel p-3 mb-4">
+                  <p className="font-black uppercase tracking-wider mb-2" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{question.question}</p>
+                  <div className="space-y-1.5">
+                    {(() => {
+                      const totalAnswered = questionTally.reduce((sum, t) => sum + t.count, 0)
+                      return questionTally.map(t => {
+                        const pct = totalAnswered > 0 ? Math.round((t.count / totalAnswered) * 100) : 0
+                        return (
+                          <div key={t.letter}>
+                            <div className="flex items-center justify-between text-xs mb-0.5">
+                              <span className="uppercase" style={{ color: 'rgba(255,255,255,0.8)' }}>{t.label}</span>
+                              <span style={{ color: 'rgba(255,255,255,0.5)' }}>{t.count}</span>
+                            </div>
+                            <div className="h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--pop-orange)' }} />
+                            </div>
+                          </div>
+                        )
+                      })
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {question && question.question_type === 'freetext' && freetextAnswers.length > 0 && (
+                <div className="pop-panel p-3 mb-4">
+                  <p className="font-black uppercase tracking-wider mb-2" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{question.question}</p>
+                  <div className="space-y-1 text-xs">
+                    {freetextAnswers.map((a, i) => (
+                      <div key={i} className="flex gap-2">
+                        <span className="font-black uppercase" style={{ color: 'rgba(255,255,255,0.7)' }}>{a.name}:</span>
+                        <span className="break-words" style={{ color: 'rgba(255,255,255,0.9)' }}>{a.answer}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {loadingPicks ? (
+                <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>Loading picks...</p>
+              ) : isFutureGw ? (
+                <div className="pop-panel p-6">
+                  <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    This gameweek hasn&apos;t reached its deadline yet — picks stay hidden until then. Check the fixtures above for the schedule.
+                  </p>
+                </div>
+              ) : sortedPicks.length === 0 ? (
+                <div className="pop-panel p-6">
+                  <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>No picks for this gameweek.</p>
+                </div>
+              ) : (
+                <div className="pop-panel mb-3" style={{ overflow: 'hidden' }}>
+                  {sortedPicks.map((pick, i) => {
+                    const pts = pointsMap[pick.id]
+                    const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
+                    const t = teams[pick.team_id]
+                    const answerLabel = pick.question_answer
+                      ? questionOptions.find(([letter]) => letter === pick.question_answer)?.[1] ?? pick.question_answer
+                      : null
+
+                    return (
+                      <div
+                        key={pick.id}
+                        className="p-2.5"
+                        style={{ fontSize: '11px', borderTop: '1px solid rgba(255,255,255,0.06)', background: isWinner ? 'rgba(255,234,0,0.06)' : undefined }}
+                      >
+                        <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
+                          <div className="flex items-center gap-1.5 font-black uppercase min-w-0">
+                            <KitBadge
+                              pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
+                              colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
+                              colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
+                              colour3={kitByUser[pick.user_id]?.colour3}
+                              size={14}
+                            />
+                            <span className="truncate">{profiles[pick.user_id] ?? 'Unknown'}</span>
+                            {(pick.provisional || pick.is_autopick) && (
+                              <span className="px-1 rounded shrink-0" style={{ fontSize: '9px', background: 'rgba(255,255,255,0.15)' }} title="No pick was made in time, so the computer picked automatically">AP</span>
+                            )}
+                          </div>
+                          {showScoring && (
+                            <span className="font-black shrink-0" style={{ color: 'var(--pop-green)' }}>{pts?.total_points ?? '—'} pts</span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1 uppercase flex-wrap">
+                          <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={15} />
+                          <span>{teamDisplayName(t)}</span>
+                          {pick.is_banker && <span className="font-black px-1 rounded" style={{ fontSize: '9px', background: 'var(--pop-yellow)', color: 'var(--pop-black)' }}>★ BANKER</span>}
+                          {showScoring && <span className="ml-auto" style={{ color: 'rgba(255,255,255,0.5)' }}>{pts?.team_points ?? '—'} pts</span>}
+                        </div>
+                        {showScoring && pts?.breakdown?.team_detail?.opponent_team_id != null && (
+                          <div className="normal-case mt-0.5" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>
+                            <span
+                              className="inline-block px-1 rounded font-black mr-1"
+                              style={pts.breakdown.team_detail.is_home
+                                ? { background: 'rgba(0,176,255,0.2)', color: 'var(--pop-blue)' }
+                                : { background: 'rgba(255,61,0,0.2)', color: 'var(--pop-orange)' }}
+                              title={pts.breakdown.team_detail.is_home ? 'Played at home' : 'Played away'}
+                            >
+                              {pts.breakdown.team_detail.is_home ? 'H' : 'A'}
+                            </span>
+                            vs {teams[pts.breakdown.team_detail.opponent_team_id]?.short_code
+                              ?? teams[pts.breakdown.team_detail.opponent_team_id]?.short_name
+                              ?? '?'}
+                            {' '}(Q{pts.breakdown.team_detail.team_quartile}→Q{pts.breakdown.team_detail.opponent_quartile})
+                            {pts.breakdown.team_detail.team_score != null
+                              ? <>{' '}· {pts.breakdown.team_detail.team_score}-{pts.breakdown.team_detail.opponent_score}</>
+                              : <>{' '}· not played yet</>}
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 uppercase">
+                          <span>
+                            {players[pick.player1_id] ?? 'Unknown'}
+                            {goalPlayers.has(pick.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
+                            {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                            {showScoring && <span className="normal-case ml-1" style={{ color: 'rgba(255,255,255,0.5)' }}>({pts?.player1_points ?? '—'} pts)</span>}
+                          </span>
+                          <span>
+                            {players[pick.player2_id] ?? 'Unknown'}
+                            {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
+                            {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                            {showScoring && <span className="normal-case ml-1" style={{ color: 'rgba(255,255,255,0.5)' }}>({pts?.player2_points ?? '—'} pts)</span>}
+                          </span>
+                        </div>
+
+                        {question && (
+                          <div className="normal-case mt-1.5" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>
+                            <span className="uppercase tracking-wider font-black">Answer:</span> {answerLabel ?? '—'}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  <div className="px-3 py-2 uppercase tracking-wider" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
+                    <span className="font-black mr-2">Key:</span>
+                    <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span> Goal
+                    <span className="mx-2">·</span>
+                    <span className="px-0.5 rounded font-black" style={{ background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span> Assist
+                    <span className="mx-2">·</span>
+                    <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-black)' }}>★B</span> Banker
+                    <span className="mx-2">·</span>
+                    <span className="px-0.5 rounded font-black" style={{ background: 'rgba(0,176,255,0.2)', color: 'var(--pop-blue)' }}>H</span>/<span className="px-0.5 rounded font-black" style={{ background: 'rgba(255,61,0,0.2)', color: 'var(--pop-orange)' }}>A</span> Home/Away
+                    <span className="mx-2">·</span>
+                    <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — computer picked it (deadline passed, no pick made)
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+        </div>
+
+        {showRecap && selectedGameweek && (
+          <GameweekRecapCard
+            competitionName={competition.name}
+            gameweekNumber={selectedGameweek.number}
+            winner={recapWinner}
+            runnerUp={recapRunnerUp}
+            totalPoints={recapTotalPoints}
+            bestResult={recapBestResultData}
+            fullScores={recapFullScores}
+            isFinal={isScored}
+            questionText={question?.question ?? null}
+            questionPoll={questionTally.map(t => ({ label: t.label as string, count: t.count }))}
+            onClose={() => setShowRecap(false)}
+          />
+        )}
       </Shell>
     )
   }
