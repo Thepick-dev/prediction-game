@@ -300,3 +300,15 @@ thead th {
   50% { transform: rotate(180deg) scale(1.15); }
   100% { transform: rotate(360deg) scale(1); }
 }
+
+/* Loading-screen badge — a slow confident scale + glow breathe, not a
+   spin. A spinning crest reads as "broken record"; a breathing glow
+   reads as "alive and working" without being frantic. */
+.pop-logo-pulse {
+  animation: pop-logo-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes pop-logo-pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(213, 0, 109, 0.35)); }
+  50% { transform: scale(1.05); filter: drop-shadow(0 0 22px rgba(213, 0, 109, 0.75)); }
+}

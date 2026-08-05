@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '../lib/supabase'
 import KitBadge from '../../components/KitBadge'
 import KitEditor from '../../components/KitEditor'
+import PopArtLogo from '../../components/PopArtLogo'
 import { useCountdown } from '../lib/useCountdown'
 
 const KIT_POPUP_WIDTH = 288
@@ -202,13 +203,16 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
           <div className="flex sm:grid sm:grid-cols-3 items-center justify-between h-14">
             <Link
               href="/"
-              className={`whitespace-nowrap sm:col-start-2 sm:text-center sm:justify-self-center ${isPopArt ? '' : 'text-base sm:text-2xl tracking-wide uppercase'}`}
+              className={`whitespace-nowrap sm:col-start-2 sm:text-center sm:justify-self-center ${isPopArt ? 'flex items-center justify-center gap-2' : 'text-base sm:text-2xl tracking-wide uppercase'}`}
               style={isPopArt ? undefined : { fontFamily: 'var(--font-heading), serif', color: '#F5ECD9' }}
             >
               {isPopArt ? (
-                <span className="pop-hero pop-hero--pink inline-block text-lg sm:text-2xl tracking-wide uppercase">
-                  LMS All-Stars
-                </span>
+                <>
+                  <PopArtLogo size={36} showText={false} />
+                  <span className="pop-hero pop-hero--pink inline-block text-lg sm:text-2xl tracking-wide uppercase">
+                    LMS All-Stars
+                  </span>
+                </>
               ) : 'LMS All-Stars'}
             </Link>
             <div className="flex items-center gap-3 sm:col-start-3 sm:justify-self-end">

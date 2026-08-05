@@ -38,6 +38,9 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: 'LMS All-Stars Predictions',
   description: 'The Premier League Prediction Game',
+  icons: {
+    icon: '/logo.png',
+  },
 }
 
 export default function RootLayout({

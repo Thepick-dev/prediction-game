@@ -8,6 +8,7 @@ import TeamCrest from '../../components/TeamCrest'
 import { buildPlayerDisplayNames } from '../lib/players'
 import { useCountdown, type CountdownTime } from '../lib/useCountdown'
 import TicketModal from '../../components/TicketModal'
+import PopArtLoading from '../../components/PopArtLoading'
 
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
 type Player = { id: number; name: string; web_name: string | null; team_id: number; value: number | null; active: boolean | null }
@@ -514,17 +515,23 @@ export default function PicksPage() {
 
   if (loading) {
     return (
-      <Shell active="PICKS">
-        <p className="text-gray-500">Loading...</p>
+      <Shell active="PICKS" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
       </Shell>
     )
   }
 
   if (!competition) {
     return (
-      <Shell active="PICKS">
-        <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
-        <p className="text-gray-500">There is no active competition right now.</p>
+      <Shell active="PICKS" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? (
+          <PopArtLoading label="No active competition" />
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
+            <p className="text-gray-500">There is no active competition right now.</p>
+          </>
+        )}
       </Shell>
     )
   }
