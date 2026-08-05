@@ -134,19 +134,16 @@ export default function KitPreview({ pattern, colour1, colour2, colour3, stars =
         <path d={shirtPath} fill="none" stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
         {!!topScore && (
           <g>
-            <circle cx="16.5" cy="13" r="4.6" fill={colour3 || '#D9A441'} stroke="#2A1F17" strokeWidth="0.6" />
+            <circle cx="18" cy="9.5" r="4.2" fill="#1A1A1A" stroke="rgba(255,255,255,0.7)" strokeWidth="0.5" />
             <text
-              x="16.5"
-              y="13"
+              x="18"
+              y="9.5"
               textAnchor="middle"
               dominantBaseline="central"
-              fontSize="6.2"
+              fontSize="5.6"
               fontWeight="700"
               fontFamily="var(--font-mono, monospace)"
-              fill="#ffffff"
-              stroke="#000000"
-              strokeWidth="0.5"
-              paintOrder="stroke"
+              fill={colour3 || '#ffffff'}
             >
               {topScore}
             </text>

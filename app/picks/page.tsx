@@ -591,7 +591,7 @@ export default function PicksPage() {
           <div className="pop-art-theme">
 
             <div className="text-center mb-8 mt-2">
-              <h1 className="pop-hero pop-hero--pink text-6xl sm:text-7xl">Picks</h1>
+              <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">Picks</h1>
             </div>
 
             {gameweek && (
