@@ -7,6 +7,7 @@ import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import { buildPlayerDisplayNames } from '../lib/players'
 import { useCountdown, type CountdownTime } from '../lib/useCountdown'
+import { usePopArtTheme } from '../lib/usePopArtTheme'
 import TicketModal from '../../components/TicketModal'
 import PopArtLoading from '../../components/PopArtLoading'
 import PenaltyShootout from '../../components/PenaltyShootout'
@@ -140,33 +141,7 @@ export default function PicksPage() {
   const [message, setMessage] = useState('')
   const [deadlinePassed, setDeadlinePassed] = useState(false)
 
-  // Pop-art is the real site now, not a prototype — every regular user
-  // always sees it, with no way to switch back. Only admins can still flip
-  // to Classic (for reference), and only their choice is remembered via
-  // localStorage; a non-admin's stored preference from back when this was
-  // a toggle anyone could hit is deliberately never read.
-  const [popArt, setPopArt] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
-  useEffect(() => {
-    if (!user?.id) return
-    supabase
-      .from('profiles')
-      .select('is_admin, is_super_admin')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
-        const admin = !!(data?.is_admin || data?.is_super_admin)
-        setIsAdmin(admin)
-        if (admin && localStorage.getItem('lms-pop-art-picks') === 'false') setPopArt(false)
-      })
-  }, [user?.id])
-  function togglePopArt() {
-    setPopArt(prev => {
-      const next = !prev
-      localStorage.setItem('lms-pop-art-picks', String(next))
-      return next
-    })
-  }
+  const { popArt, isAdmin, toggle: togglePopArt } = usePopArtTheme(user?.id)
 
   // Penalty shootout mini-game popup — entirely separate from the pick
   // itself (own table, own scoring), just a bit of fun reachable from here.

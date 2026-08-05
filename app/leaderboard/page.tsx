@@ -8,6 +8,8 @@ import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
 import { buildPlayerDisplayNames } from '../lib/players'
 import LeaderboardShareCard from '../../components/LeaderboardShareCard'
+import { usePopArtTheme } from '../lib/usePopArtTheme'
+import PopArtLoading from '../../components/PopArtLoading'
 
 type RankedPlayer = {
   user_id: string
@@ -77,6 +79,7 @@ export default function LeaderboardPage() {
   const [showShare, setShowShare] = useState(false)
 
   const supabase = createClient()
+  const { popArt, isAdmin, toggle: togglePopArt } = usePopArtTheme(user?.id)
 
   useEffect(() => { loadData() }, [])
 
@@ -470,20 +473,325 @@ export default function LeaderboardPage() {
       .sort((a, b) => teamDisplayName(a).localeCompare(teamDisplayName(b)))
   }
 
+  // Admin-only — everyone else always sees Pop Art with no way to revert;
+  // see usePopArtTheme for why. Always rendered (both loading branches and
+  // both final returns below) so switching back to Classic never depends
+  // on the page having finished loading first.
+  const popArtToggleButton = isAdmin && (
+    <button
+      onClick={togglePopArt}
+      className={`pop-art-theme fixed bottom-4 right-4 z-40 px-4 py-2.5 text-xs font-black uppercase tracking-wider ${popArt ? 'pop-button pop-button--yellow' : 'rounded-full shadow-lg'}`}
+      style={popArt ? undefined : { backgroundColor: '#D9A441', color: '#241a12' }}
+    >
+      {popArt ? 'POP ART — TAP FOR CLASSIC' : 'TRY POP ART'}
+    </button>
+  )
+
   if (loading) {
     return (
-      <Shell active="LEADERBOARD">
-        <p className="text-gray-500">Loading...</p>
-      </Shell>
+      <>
+        {popArtToggleButton}
+        <Shell active="LEADERBOARD" theme={popArt ? 'pop-art' : 'classic'}>
+          {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
+        </Shell>
+      </>
     )
   }
 
   if (!competition) {
     return (
-      <Shell active="LEADERBOARD">
-        <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
-        <p className="text-gray-500">There is no active competition right now.</p>
-      </Shell>
+      <>
+        {popArtToggleButton}
+        <Shell active="LEADERBOARD" theme={popArt ? 'pop-art' : 'classic'}>
+          {popArt ? (
+            <div className="pop-art-theme text-center py-12">
+              <p className="pop-headline text-2xl mb-2">No Active Competition</p>
+              <p style={{ color: 'rgba(255,255,255,0.5)' }}>There is no active competition right now.</p>
+            </div>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
+              <p className="text-gray-500">There is no active competition right now.</p>
+            </>
+          )}
+        </Shell>
+      </>
+    )
+  }
+
+  if (popArt) {
+    return (
+      <>
+        {popArtToggleButton}
+        <Shell active="LEADERBOARD" user={user} displayName={displayName} theme="pop-art">
+          <div className="pop-art-theme">
+
+            <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
+              <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">Leaderboard</h1>
+              {ranked.length > 0 && (
+                <button
+                  onClick={() => setShowShare(true)}
+                  className="pop-button pop-button--yellow px-3 py-1.5 text-xs"
+                >
+                  Share Standings
+                </button>
+              )}
+            </div>
+            <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name}</p>
+
+            {potwUserId && (
+              <div className="pop-panel pop-panel--yellow p-4 mb-6 flex items-center gap-3">
+                <span className="text-2xl">👑</span>
+                <div>
+                  <p className="pop-headline text-xs" style={{ color: 'var(--pop-yellow)' }}>Current Leader</p>
+                  <p className="font-black uppercase">{ranked[0]?.display_name}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="pop-panel" style={{ overflow: 'hidden' }}>
+              <table className="w-full" style={{ fontSize: '12px' }}>
+                <thead>
+                  <tr className="text-left" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+                    <th className="py-2 px-1 sm:px-2 uppercase tracking-wider">#</th>
+                    <th className="py-2 px-1 sm:px-2 uppercase tracking-wider">Player</th>
+                    {/* HW/AW/Best/Tm/Pl/Bk are six extra columns on top of
+                        #/Player/Tot — real numbers on a real phone (as low
+                        as ~360px) don't fit at once without cutting the
+                        rightmost columns off. Hidden below sm rather than
+                        made scrollable: the "never cut off, never needs
+                        horizontal scroll" rule rules out both. Full detail
+                        is one tap away anyway (the row expands). */}
+                    <th className="hidden sm:table-cell py-2 px-1 sm:px-2 text-center uppercase tracking-wider">HW</th>
+                    <th className="hidden sm:table-cell py-2 px-1 sm:px-2 text-center uppercase tracking-wider">AW</th>
+                    <th className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right uppercase tracking-wider" title="Best single-gameweek score (tiebreaker #3)">Best</th>
+                    <th className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Tm</th>
+                    <th className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Pl</th>
+                    <th className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Bk</th>
+                    <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider font-black">Tot</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ranked.map((player, index) => {
+                    const streak = getStreak(player)
+                    const teamsWithAvailability = getTeamsWithAvailability(player.user_id)
+                    return (
+                      <React.Fragment key={player.user_id}>
+                        <tr
+                          onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
+                          className="cursor-pointer"
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                        >
+                          <td className="py-2 px-1 sm:px-2" style={{ color: 'rgba(255,255,255,0.35)' }}>{index + 1}</td>
+                          <td className="py-2 px-1 sm:px-2 font-black uppercase">
+                            <div className="flex items-center gap-1.5">
+                              <KitBadge
+                                pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
+                                colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
+                                colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                                colour3={kitByUser[player.user_id]?.colour3}
+                                size={16}
+                              />
+                              {player.display_name}
+                              {index === 0 && <span style={{ color: 'var(--pop-yellow)' }}>👑</span>}
+                              {streak && <span title={`${streak} weeks above average`}>🔥</span>}
+                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
+                            </div>
+                          </td>
+                          <td className="hidden sm:table-cell py-2 px-1 sm:px-2 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.home_wins}</td>
+                          <td className="hidden sm:table-cell py-2 px-1 sm:px-2 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.away_wins}</td>
+                          <td className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.best_gameweek_score}</td>
+                          <td className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.team_points)}</td>
+                          <td className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.player_points)}</td>
+                          <td className="hidden sm:table-cell py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.banker_points)}</td>
+                          <td className="py-2 px-1 sm:px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{player.total_points}</td>
+                        </tr>
+                        {expandedUser === player.user_id && (
+                          <tr>
+                            <td colSpan={9} className="px-1.5 sm:px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
+                              <div className="flex items-center justify-between gap-3 mb-4 pb-3 flex-wrap" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+                                <KitBadge
+                                  pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
+                                  colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
+                                  colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                                  colour3={kitByUser[player.user_id]?.colour3}
+                                  stars={kitByUser[player.user_id]?.stars ?? 0}
+                                  earths={kitByUser[player.user_id]?.earths ?? 0}
+                                  size={40}
+                                  iconTextClass="text-base sm:text-xl"
+                                  starColor="var(--pop-pink)"
+                                />
+                                <div className="text-right">
+                                  <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>Best Gameweek (tiebreaker #3)</p>
+                                  <p className="text-sm font-black" style={{ color: 'var(--pop-green)' }}>{player.best_gameweek_score} pts</p>
+                                </div>
+                              </div>
+                              {allGameweeks.length === 0 ? (
+                                <p className="mb-3" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>No picks yet.</p>
+                              ) : (
+                                <table className="w-full mb-4" style={{ fontSize: '9px' }}>
+                                  <thead>
+                                    <tr className="text-left uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+                                      <th className="py-1 pr-1">GW</th>
+                                      <th className="py-1 pr-1">Team</th>
+                                      <th className="py-1 pr-1 text-right">Pts</th>
+                                      <th className="py-1 pr-1">P1</th>
+                                      <th className="py-1 pr-1 text-right">Pts</th>
+                                      <th className="py-1 pr-1">P2</th>
+                                      <th className="py-1 pr-1 text-right">Pts</th>
+                                      <th className="py-1 text-right font-black">Tot</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {buildGwRows(player.user_id).map(row => {
+                                      if (row.kind === 'run') {
+                                        if (row.from === row.to) {
+                                          return (
+                                            <tr key={`gw-${row.from}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)' }}>
+                                              <td className="py-1 pr-1 font-black">{row.from}</td>
+                                              <td className="py-1 pr-1 uppercase" colSpan={6}>{row.label}</td>
+                                              <td className="py-1 text-right font-black">—</td>
+                                            </tr>
+                                          )
+                                        }
+                                        return (
+                                          <tr key={`run-${row.from}-${row.to}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)' }}>
+                                            <td className="py-1 pr-1 font-black" colSpan={7}>
+                                              GW {row.from}&ndash;{row.to} <span className="normal-case" style={{ color: 'rgba(255,255,255,0.3)' }}>({row.to - row.from + 1} gameweeks)</span> &mdash; {row.label}
+                                            </td>
+                                            <td className="py-1 text-right font-black">—</td>
+                                          </tr>
+                                        )
+                                      }
+                                      if (row.kind === 'hidden') {
+                                        return (
+                                          <tr key={row.gw.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)' }}>
+                                            <td className="py-1 pr-1 font-black">{row.gw.number}</td>
+                                            <td className="py-1 pr-1 uppercase" colSpan={6}>Picked — hidden until deadline</td>
+                                            <td className="py-1 text-right font-black">—</td>
+                                          </tr>
+                                        )
+                                      }
+                                      const gw = row.gw
+                                      const d = pickDetails[player.user_id]?.find(pd => pd.gw === gw.number)!
+                                      return (
+                                        <tr key={gw.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                          <td className="py-1 pr-1 font-black">{d.gw}</td>
+                                          <td className="py-1 pr-1 uppercase">
+                                            <div className="flex items-center gap-1">
+                                              <TeamCrest crestUrl={teamMap[d.team_id]?.crest_url ?? null} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
+                                              {teamDisplayName(teamMap[d.team_id])}
+                                              {d.is_banker && <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-black)' }}>★</span>}
+                                              {(d.provisional || d.is_autopick) && <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }} title="No pick was made in time, so the computer picked automatically">AP</span>}
+                                            </div>
+                                            {d.team_detail?.opponent_team_id != null && (
+                                              <div className="normal-case" style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)' }}>
+                                                <span
+                                                  className="inline-block px-0.5 rounded font-black mr-1"
+                                                  style={d.team_detail.is_home
+                                                    ? { background: 'rgba(0,176,255,0.2)', color: 'var(--pop-blue)' }
+                                                    : { background: 'rgba(255,61,0,0.2)', color: 'var(--pop-orange)' }}
+                                                  title={d.team_detail.is_home ? 'Played at home' : 'Played away'}
+                                                >
+                                                  {d.team_detail.is_home ? 'H' : 'A'}
+                                                </span>
+                                                vs {teamMap[d.team_detail.opponent_team_id]?.short_code
+                                                  ?? teamMap[d.team_detail.opponent_team_id]?.short_name
+                                                  ?? '?'}
+                                                {' '}(Q{d.team_detail.team_quartile}→Q{d.team_detail.opponent_quartile})
+                                                {d.team_detail.team_score != null
+                                                  ? <>{' '}· {d.team_detail.team_score}-{d.team_detail.opponent_score}</>
+                                                  : <>{' '}· not played yet</>}
+                                              </div>
+                                            )}
+                                          </td>
+                                          <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.5)' }}>{d.team_points ?? '—'}</td>
+                                          <td className="py-1 pr-1 uppercase">
+                                            {d.player1}
+                                            {goalPlayers.has(d.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
+                                            {assistPlayers.has(d.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                                          </td>
+                                          <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.5)' }}>{d.player1_points ?? '—'}</td>
+                                          <td className="py-1 pr-1 uppercase">
+                                            {d.player2}
+                                            {goalPlayers.has(d.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
+                                            {assistPlayers.has(d.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                                          </td>
+                                          <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.5)' }}>{d.player2_points ?? '—'}</td>
+                                          <td className="py-1 text-right font-black">{d.points ?? '—'}</td>
+                                        </tr>
+                                      )
+                                    })}
+                                  </tbody>
+                                </table>
+                              )}
+
+                              <div style={{ fontSize: '9px' }}>
+                                <p className="uppercase tracking-wider font-black mb-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                  Teams ({teamsWithAvailability.filter(t => t.remaining > 0).length} available)
+                                </p>
+                                {teamsWithAvailability.length === 0 ? (
+                                  <p style={{ color: 'rgba(255,255,255,0.4)' }}>No teams.</p>
+                                ) : (
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+                                    {teamsWithAvailability.map(team => {
+                                      const used = team.remaining <= 0
+                                      return (
+                                        <div
+                                          key={team.id}
+                                          className="flex items-center gap-1 rounded px-1.5 py-1"
+                                          style={used
+                                            ? { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', opacity: 0.4 }
+                                            : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}
+                                        >
+                                          <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={14} />
+                                          <span className="uppercase truncate">{teamDisplayName(team)}</span>
+                                          {team.isDouble && !used && team.remaining === 2 && (
+                                            <span className="font-black shrink-0" style={{ color: 'var(--pop-yellow)' }}>×2</span>
+                                          )}
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+                  {ranked.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="py-8 text-center uppercase tracking-wider" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>No players yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-3 uppercase tracking-wider" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+              <span className="font-black mr-2">Key:</span>
+              👑 Leader
+              <span className="mx-2">·</span>
+              🔥 Streak (3+ wks above avg)
+              <span className="mx-2">·</span>
+              <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — computer picked it (deadline passed, no pick made)
+              <span className="mx-2">·</span>
+              Click a row to expand
+            </div>
+
+          </div>
+        </Shell>
+
+        {showShare && (
+          <LeaderboardShareCard
+            competitionName={competition.name}
+            standings={ranked.map(p => ({ name: p.display_name, points: p.total_points }))}
+            onClose={() => setShowShare(false)}
+          />
+        )}
+      </>
     )
   }
 
