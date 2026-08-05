@@ -108,6 +108,18 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
 
   const duration = Math.max(MIN_DURATION, BASE_DURATION - score * DURATION_STEP)
 
+  // Keeper dives toward the shot on a miss (that's the save), and dives
+  // the WRONG way on a goal (sells the idea that they guessed wrong rather
+  // than just standing there while the ball sails past). Idle/ready pose
+  // otherwise. The dive artwork only faces one direction (left), so the
+  // other direction is a horizontal mirror rather than a second asset.
+  const shotX = zone.left + zone.width / 2
+  const keeper = result === 'miss'
+    ? { pose: 'dive' as const, x: shotX, mirror: shotX >= 50 }
+    : result === 'goal'
+    ? { pose: 'dive' as const, x: 100 - shotX, mirror: (100 - shotX) >= 50 }
+    : { pose: 'ready' as const, x: 50, mirror: false }
+
   return (
     <div className="pop-art-theme" style={{ color: 'var(--pop-white)' }}>
       <div className="flex items-center justify-between mb-4">
@@ -120,32 +132,43 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
         </div>
       </div>
 
-      {/* Goal — plain CSS shapes, no external artwork. Deliberately simple:
-          three white bars for the frame, a dark rounded keeper shape
-          fixed centre, a ball that hops to wherever the shot landed. */}
+      {/* Goal backdrop is real artwork; keeper and ball are too, layered
+          on top and positioned/animated in code. */}
       <div
         className="relative rounded-xl mb-4"
-        style={{ background: 'var(--pop-surface)', border: '2px solid rgba(255,255,255,0.12)', height: 180, overflow: 'hidden' }}
+        style={{
+          height: 180,
+          overflow: 'hidden',
+          border: '2px solid rgba(255,255,255,0.12)',
+          backgroundImage: 'url(/shootout-goal.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
       >
-        <div style={{ position: 'absolute', top: 16, left: 16, right: 16, bottom: 16, border: '6px solid rgba(255,255,255,0.85)', borderBottom: 'none', borderRadius: '4px 4px 0 0' }} />
-        <div
-          className="pop-goalkeeper"
+        <img
+          src={keeper.pose === 'dive' ? '/shootout-keeper-dive.png' : '/shootout-keeper-ready.png'}
+          alt=""
           style={{
-            position: 'absolute', bottom: 16, left: '50%', width: 34, height: 46,
-            background: 'var(--pop-black)', border: '2px solid rgba(255,255,255,0.6)', borderRadius: '10px 10px 4px 4px',
-            transform: 'translateX(-50%)', transition: 'left 0.35s ease',
-            ...(result === 'miss' ? { left: `${zone.left + zone.width / 2}%` } : {}),
+            position: 'absolute',
+            bottom: keeper.pose === 'dive' ? 34 : 16,
+            left: `${keeper.x}%`,
+            height: keeper.pose === 'dive' ? 56 : 70,
+            transform: `translateX(-50%) scaleX(${keeper.mirror ? -1 : 1})`,
+            transition: 'left 0.3s ease, bottom 0.3s ease',
           }}
         />
-        <div
-          className={`pop-shoot-ball ${result === 'goal' ? 'pop-pop-in' : ''}`}
+        <img
+          src="/shootout-ball.png"
+          alt=""
           style={{
-            position: 'absolute', bottom: 16, width: 18, height: 18, borderRadius: '50%',
-            background: 'var(--pop-white)', border: '2px solid var(--pop-black)',
-            left: result ? `calc(${zone.left + zone.width / 2}% - 9px)` : 'calc(50% - 9px)',
+            position: 'absolute',
+            bottom: 16,
+            width: 22, height: 22,
+            left: result ? `calc(${zone.left + zone.width / 2}% - 11px)` : 'calc(50% - 11px)',
             transition: 'left 0.4s ease, bottom 0.4s ease',
             ...(result ? { bottom: 90 } : {}),
           }}
+          className={result === 'goal' ? 'pop-pop-in' : ''}
         />
         {result && (
           <p
