@@ -228,27 +228,32 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             </Link>
             <div className="flex items-center gap-3 sm:col-start-3 sm:justify-self-end">
               {user && (
-                <div className="flex flex-col items-center gap-0.5">
+                <div className={isPopArt ? 'flex items-center' : 'flex flex-col items-center gap-0.5'}>
                   {/* Stars and globes flank the shirt (same style as the
                       Leaderboard), sized to fit this narrow bar on mobile
-                      while still growing a bit on wider screens. */}
+                      while still growing a bit on wider screens. Pop-art
+                      drops the name label below it — this bar is only 56px
+                      tall, and badge + label together were taller than
+                      that, pushing the badge up against the top edge. */}
                   {kit && (
                     <button ref={kitTriggerRef} type="button" onClick={openKitPopup} aria-label="Change your kit">
                       <KitBadge
                         pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} colour3={kit.colour3}
                         stars={kit.stars} earths={kit.earths}
-                        size={isPopArt ? 46 : 36} iconTextClass="text-[10px] sm:text-sm"
+                        size={isPopArt ? 40 : 36} iconTextClass="text-[10px] sm:text-sm"
                         starColor={isPopArt ? 'var(--pop-pink)' : undefined}
                         topScore={topScore}
                       />
                     </button>
                   )}
-                  <span
-                    className="text-[10px] uppercase font-medium tracking-wider leading-none"
-                    style={{ color: isPopArt ? 'rgba(255,255,255,0.7)' : '#D9A441' }}
-                  >
-                    {displayName ?? ''}
-                  </span>
+                  {!isPopArt && (
+                    <span
+                      className="text-[10px] uppercase font-medium tracking-wider leading-none"
+                      style={{ color: '#D9A441' }}
+                    >
+                      {displayName ?? ''}
+                    </span>
+                  )}
                 </div>
               )}
               <button

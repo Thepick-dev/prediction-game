@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { createClient } from '../lib/supabase'
-import HeroPage from '../../components/HeroPage'
 import RulesModal from '../../components/RulesModal'
 import PasswordInput from '../../components/PasswordInput'
 
@@ -131,100 +130,110 @@ export default function LoginPage() {
 
   if (submitted) {
     return (
-      <HeroPage noImage>
-        <div className="text-center text-[#F5ECD9]">
-          <h1 className="text-2xl font-bold mb-4" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Check your email</h1>
-          <p>We sent a magic link to <strong>{email}</strong></p>
-          <p className="mt-2 text-[#F5ECD9]/60">Click the link in the email to log in.</p>
+      <div className="pop-art-theme min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--pop-black)' }}>
+        <div className="pop-panel p-6 text-center" style={{ maxWidth: 420 }}>
+          <h1 className="pop-hero pop-hero--blue text-3xl mb-4">Check your email</h1>
+          <p style={{ color: 'rgba(255,255,255,0.8)' }}>We sent a magic link to <strong style={{ color: 'var(--pop-white)' }}>{email}</strong></p>
+          <p className="mt-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Click the link in the email to log in.</p>
         </div>
-      </HeroPage>
+      </div>
     )
   }
 
-  const inputClass = "w-full bg-white/5 border border-white/10 rounded px-4 py-2 mb-3 text-[#F5ECD9] placeholder:text-[#F5ECD9]/40"
-
   return (
-    <HeroPage noImage>
-      <div className="w-full text-[#F5ECD9]">
-        <h1 className="text-2xl font-bold mb-6 text-center" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>The Turnstile</h1>
+    <div className="pop-art-theme min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--pop-black)' }}>
+      <div className="w-full" style={{ maxWidth: 420 }}>
 
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => { setMode('login'); setError('') }}
-            className="flex-1 py-2 text-sm font-bold uppercase tracking-wider rounded"
-            style={mode === 'login' ? { backgroundColor: '#D9A441', color: '#241a12' } : { backgroundColor: 'rgba(255,255,255,0.05)', color: 'rgba(245,236,217,0.5)' }}
-          >
-            Log In
-          </button>
-          <button
-            onClick={() => { setMode('join'); setError('') }}
-            className="flex-1 py-2 text-sm font-bold uppercase tracking-wider rounded"
-            style={mode === 'join' ? { backgroundColor: '#D9A441', color: '#241a12' } : { backgroundColor: 'rgba(255,255,255,0.05)', color: 'rgba(245,236,217,0.5)' }}
-          >
-            Join
-          </button>
+        <div className="flex justify-center mb-4">
+          <img src="/logo.png" alt="" className="w-24 h-auto" />
         </div>
 
-        {mode === 'login' ? (
-          <>
-            <div className="flex gap-2 mb-4 text-xs uppercase tracking-wider">
-              <button
-                onClick={() => setLoginMethod('magiclink')}
-                className={`flex-1 py-1.5 rounded border ${loginMethod === 'magiclink' ? 'border-[#D9A441] font-bold' : 'border-white/10 text-[#F5ECD9]/40'}`}
-              >
-                Magic Link
-              </button>
-              <button
-                onClick={() => setLoginMethod('password')}
-                className={`flex-1 py-1.5 rounded border ${loginMethod === 'password' ? 'border-[#D9A441] font-bold' : 'border-white/10 text-[#F5ECD9]/40'}`}
-              >
-                Username + Password
-              </button>
-            </div>
+        <div className="pop-panel p-5 sm:p-6">
+          <h1 className="pop-hero pop-hero--pink text-3xl sm:text-4xl text-center mb-6">The Turnstile</h1>
 
-            {loginMethod === 'magiclink' ? (
-              <>
-                <input type="email" placeholder="Enter your email" value={email} onChange={e => setEmail(e.target.value)} className={inputClass} />
-                <button onClick={handleMagicLinkLogin} disabled={loading || !email} className="w-full rounded px-4 py-2 font-bold" style={{ backgroundColor: '#D9A441', color: '#241a12' }}>
-                  {loading ? 'Sending...' : 'Send magic link'}
-                </button>
-              </>
-            ) : (
-              <>
-                <input type="text" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} className={inputClass} />
-                <PasswordInput placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className={inputClass} />
-                <button onClick={handlePasswordLogin} disabled={loading || !username || !password} className="w-full rounded px-4 py-2 font-bold" style={{ backgroundColor: '#D9A441', color: '#241a12' }}>
-                  {loading ? 'Logging in...' : 'Log In'}
-                </button>
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            <input type="text" placeholder="Choose a username" value={username} onChange={e => setUsername(e.target.value)} className={inputClass} />
-            <input type="email" placeholder="Your email" value={email} onChange={e => setEmail(e.target.value)} className={inputClass} />
-            <PasswordInput placeholder="Set a password (optional — 6 digit PIN works)" value={password} onChange={e => setPassword(e.target.value)} className={inputClass} />
-            <p className="text-xs text-[#F5ECD9]/50 mb-4">
-              Set a password to log in instantly next time. Leave it blank to always use a magic link email instead.
-            </p>
-            <button onClick={handleJoin} disabled={loading || !username || !email} className="w-full rounded px-4 py-2 font-bold" style={{ backgroundColor: '#D9A441', color: '#241a12' }}>
-              {loading ? 'Creating account...' : 'Create Account'}
+          <div className="flex gap-2 mb-6">
+            <button
+              onClick={() => { setMode('login'); setError('') }}
+              className={`flex-1 py-2 text-sm font-black uppercase tracking-wider rounded-lg ${mode === 'login' ? 'pop-button' : ''}`}
+              style={mode !== 'login' ? { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' } : undefined}
+            >
+              Log In
             </button>
-          </>
-        )}
+            <button
+              onClick={() => { setMode('join'); setError('') }}
+              className={`flex-1 py-2 text-sm font-black uppercase tracking-wider rounded-lg ${mode === 'join' ? 'pop-button' : ''}`}
+              style={mode !== 'join' ? { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' } : undefined}
+            >
+              Join
+            </button>
+          </div>
 
-        {error && <p className="text-sm text-red-400 mt-4 text-center">{error}</p>}
+          {mode === 'login' ? (
+            <>
+              <div className="flex gap-2 mb-4 text-xs uppercase tracking-wider">
+                <button
+                  onClick={() => setLoginMethod('magiclink')}
+                  className="flex-1 py-1.5 rounded-lg font-bold"
+                  style={loginMethod === 'magiclink'
+                    ? { border: '2px solid var(--pop-blue)', color: 'var(--pop-white)' }
+                    : { border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.4)' }}
+                >
+                  Magic Link
+                </button>
+                <button
+                  onClick={() => setLoginMethod('password')}
+                  className="flex-1 py-1.5 rounded-lg font-bold"
+                  style={loginMethod === 'password'
+                    ? { border: '2px solid var(--pop-blue)', color: 'var(--pop-white)' }
+                    : { border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.4)' }}
+                >
+                  Username + Password
+                </button>
+              </div>
 
-        <button
-          onClick={() => setShowRules(true)}
-          className="w-full text-center text-sm font-bold border-2 rounded px-4 py-2.5 mt-6 uppercase tracking-wider"
-          style={{ borderColor: '#D9A441', color: '#D9A441' }}
-        >
-          📋 Read the Rules
-        </button>
+              {loginMethod === 'magiclink' ? (
+                <>
+                  <input type="email" placeholder="Enter your email" value={email} onChange={e => setEmail(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
+                  <button onClick={handleMagicLinkLogin} disabled={loading || !email} className="pop-button w-full py-2.5 text-sm">
+                    {loading ? 'Sending...' : 'Send magic link'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <input type="text" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
+                  <PasswordInput placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
+                  <button onClick={handlePasswordLogin} disabled={loading || !username || !password} className="pop-button w-full py-2.5 text-sm">
+                    {loading ? 'Logging in...' : 'Log In'}
+                  </button>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <input type="text" placeholder="Choose a username" value={username} onChange={e => setUsername(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
+              <input type="email" placeholder="Your email" value={email} onChange={e => setEmail(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
+              <PasswordInput placeholder="Set a password (optional — 6 digit PIN works)" value={password} onChange={e => setPassword(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
+              <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Set a password to log in instantly next time. Leave it blank to always use a magic link email instead.
+              </p>
+              <button onClick={handleJoin} disabled={loading || !username || !email} className="pop-button w-full py-2.5 text-sm">
+                {loading ? 'Creating account...' : 'Create Account'}
+              </button>
+            </>
+          )}
+
+          {error && <p className="pop-badge pop-badge--red px-2.5 py-1 text-xs mt-4 inline-block">{error}</p>}
+
+          <button
+            onClick={() => setShowRules(true)}
+            className="pop-button pop-button--yellow w-full py-2.5 text-sm mt-6"
+          >
+            Read the Rules
+          </button>
+        </div>
       </div>
 
       {showRules && <RulesModal onClose={() => setShowRules(false)} />}
-    </HeroPage>
+    </div>
   )
 }

@@ -155,7 +155,7 @@ export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0
         <path d={shirtPath} fill="none" stroke="#2A1F17" strokeWidth="1" strokeLinejoin="round" />
         {!!topScore && (
           <text
-            x="18.5"
+            x="17.2"
             y="8"
             textAnchor="middle"
             dominantBaseline="central"

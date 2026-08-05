@@ -5,6 +5,8 @@ import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
+import PopArtLoading from '../../components/PopArtLoading'
+import { usePopArtTheme } from '../lib/usePopArtTheme'
 
 type Team = { id: number; name: string; short_name: string | null; crest_url: string | null }
 
@@ -30,6 +32,7 @@ export default function JoinPage() {
   const [message, setMessage] = useState('')
 
   const supabase = createClient()
+  const { popArt } = usePopArtTheme(user?.id)
 
   useEffect(() => { loadData() }, [])
 
@@ -121,22 +124,48 @@ export default function JoinPage() {
 
   if (loading) {
     return (
-      <Shell active="PICKS">
-        <p className="text-gray-500">Loading...</p>
+      <Shell active="PICKS" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
       </Shell>
     )
   }
 
   if (!competition) {
     return (
-      <Shell active="PICKS">
-        <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
-        <p className="text-gray-500">There is no active competition right now.</p>
+      <Shell active="PICKS" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? (
+          <div className="pop-art-theme text-center py-12">
+            <p className="pop-headline text-2xl mb-2">No Active Competition</p>
+            <p style={{ color: 'rgba(255,255,255,0.5)' }}>There is no active competition right now.</p>
+          </div>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
+            <p className="text-gray-500">There is no active competition right now.</p>
+          </>
+        )}
       </Shell>
     )
   }
 
   if (message === 'saved') {
+    if (popArt) {
+      return (
+        <Shell active="PICKS" user={user} displayName={displayName} theme="pop-art">
+          <div className="pop-art-theme text-center">
+            <div className="text-4xl mb-4">✅</div>
+            <h1 className="pop-hero pop-hero--blue text-4xl sm:text-5xl mb-3">Tier Picks Saved</h1>
+            <p className="text-sm leading-relaxed mb-6" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              You can change your tier picks any time before the Gameweek 1 deadline. After that, they lock for the rest of the competition.
+              Head to Settings if you want to come back and adjust them later.
+            </p>
+            <a href="/picks" className="pop-button inline-block px-6 py-3 text-sm">
+              Go to Picks
+            </a>
+          </div>
+        </Shell>
+      )
+    }
     return (
       <Shell active="PICKS" user={user} displayName={displayName}>
         <HeroPage>
@@ -152,6 +181,81 @@ export default function JoinPage() {
             </a>
           </div>
         </HeroPage>
+      </Shell>
+    )
+  }
+
+  if (popArt) {
+    return (
+      <Shell active="PICKS" user={user} displayName={displayName} theme="pop-art">
+        <div className="pop-art-theme">
+
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-1 mt-2">Tier Draft</h1>
+          <p className="font-bold text-sm mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name}</p>
+          <p className="text-xs mb-6" style={{ color: 'rgba(255,255,255,0.4)' }}>Pick one team from each tier — these become your double-use teams for the season.</p>
+
+          {locked && (
+            <div className="pop-panel pop-panel--yellow px-4 py-3 mb-6">
+              <p className="text-sm">Your tier picks are locked for this competition and can no longer be changed.</p>
+            </div>
+          )}
+
+          {[1, 2, 3].map(tier => (
+            <div key={tier} className="mb-6">
+              <h2 className="pop-headline text-sm mb-3">
+                Tier {tier}{tierNames[tier] ? ` — ${tierNames[tier]}` : ''}
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {teamsByTier[tier]?.length === 0 && (
+                  <p className="text-xs col-span-full" style={{ color: 'rgba(255,255,255,0.4)' }}>No teams assigned to this tier yet.</p>
+                )}
+                {teamsByTier[tier]?.map(team => {
+                  const selected =
+                    tier === 1 ? tier1Team === team.id :
+                    tier === 2 ? tier2Team === team.id :
+                    tier3Team === team.id
+
+                  return (
+                    <button
+                      key={team.id}
+                      onClick={() => {
+                        if (locked) return
+                        if (tier === 1) setTier1Team(team.id)
+                        else if (tier === 2) setTier2Team(team.id)
+                        else setTier3Team(team.id)
+                      }}
+                      disabled={locked}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-left ${locked ? 'cursor-not-allowed opacity-60' : ''}`}
+                      style={{
+                        border: selected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
+                        background: selected ? 'rgba(0,230,118,0.12)' : 'transparent',
+                        boxShadow: selected ? '0 0 14px rgba(0,230,118,0.4)' : 'none',
+                      }}
+                    >
+                      <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={26} />
+                      <span className="text-xs font-black uppercase truncate">{teamDisplayName(team)}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+
+          {message && message !== 'saved' && (
+            <p className="pop-badge pop-badge--red px-2.5 py-1 text-xs mb-4 inline-block">{message}</p>
+          )}
+
+          {!locked && (
+            <button
+              onClick={saveDraft}
+              disabled={saving}
+              className="pop-button w-full py-3 text-sm"
+            >
+              {saving ? 'Saving...' : 'Save Tier Picks'}
+            </button>
+          )}
+
+        </div>
       </Shell>
     )
   }
