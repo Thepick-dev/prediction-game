@@ -1,9 +1,7 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
-import Shell from '../../components/ceefax-shell'
-import HeroPage from '../../../components/HeroPage'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import NewsPostView from './NewsPostView'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
@@ -62,33 +60,12 @@ export default async function NewsPostPage({ params }: { params: Promise<{ slug:
     }
   }
 
-  const paragraphs = post.content.split('\n\n').filter((p: string) => p.trim())
-
   return (
-    <Shell active="MATCHDAY PROGRAMME" user={user} displayName={profile?.display_name ?? undefined}>
-      <HeroPage wide noImage>
-        <div className="w-full text-[#F5ECD9]">
-          <p className="text-[10px] uppercase tracking-widest text-[#D9A441]/70 mb-2">
-            {post.published_at ? new Date(post.published_at).toLocaleDateString('en-GB', {
-              day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London'
-            }) : ''}
-          </p>
-          <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>{post.title}</h1>
-          <p className="text-xs text-[#F5ECD9]/50 mb-6 uppercase tracking-wider min-h-[1em]">
-            {byline.length > 0 ? byline.join(' · ') : ' '}
-          </p>
-
-          <div className="bg-white/5 border border-white/10 rounded-lg p-6 space-y-4">
-            {paragraphs.map((para: string, i: number) => (
-              <p key={i} className="text-sm text-[#F5ECD9]/90 leading-relaxed">{para}</p>
-            ))}
-          </div>
-
-          <Link href="/news" className="inline-block mt-6 text-sm text-[#D9A441] hover:text-[#F5ECD9]">
-            ← All news
-          </Link>
-        </div>
-      </HeroPage>
-    </Shell>
+    <NewsPostView
+      post={{ title: post.title, content: post.content, published_at: post.published_at }}
+      byline={byline}
+      user={user}
+      displayName={profile?.display_name ?? ''}
+    />
   )
 }
