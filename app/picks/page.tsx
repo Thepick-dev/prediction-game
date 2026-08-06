@@ -356,21 +356,29 @@ export default function PicksPage() {
   // Player-select easter eggs — same idea as the team ones above, just
   // matched against the player's full name instead. A couple are text
   // banners (rendered in the glowing display font) rather than emoji.
+  // Surname-only on purpose: full-name matches (e.g. "bruno fernandes")
+  // silently failed whenever the stored name had a middle name in between,
+  // or wasn't spelled quite how it was typed here (Nicolas vs "Nicklas"
+  // Jackson) — surnames are distinctive enough among current PL players
+  // and far more forgiving.
   const PLAYER_REACTIONS: { match: string; type: 'emoji' | 'text'; content: string }[] = [
-    { match: 'noni madueke', type: 'emoji', content: '🥽' },
-    { match: 'haaland', type: 'text', content: 'ROY KEANE TRIED TO KILL HIS DAD' },
+    { match: 'madueke', type: 'emoji', content: '🥽' },
+    { match: 'haaland', type: 'text', content: '🎵ROY KEANE TRIED TO KILL HIS DAD🎵' },
     { match: 'gyokeres', type: 'emoji', content: '😏' },
-    { match: 'harvey barnes', type: 'emoji', content: '🐐' },
-    { match: 'declan rice', type: 'text', content: "ME? I'M JUST DEC FROM KINGSTON..." },
-    { match: 'danny welbeck', type: 'text', content: 'DAT GUY😎' },
-    { match: 'richarlison', type: 'emoji', content: '😎😎😎' },
-    { match: 'eze', type: 'emoji', content: '♟️♟️♟️' },
-    { match: 'cole palmer', type: 'emoji', content: '🥶❄️☃️' },
-    { match: 'bruno fernandes', type: 'emoji', content: '🗣️🚫' },
-    { match: 'nicklas jackson', type: 'emoji', content: '😀😀😀😀' },
+    { match: 'barnes', type: 'emoji', content: '🐐' },
+    { match: 'rice', type: 'text', content: 'BGD!' },
+    { match: 'welbeck', type: 'text', content: 'DAT GUY😎' },
+    { match: 'richarlison', type: 'emoji', content: '😎' },
+    { match: 'eze', type: 'emoji', content: '♟️♟️' },
+    { match: 'palmer', type: 'emoji', content: '🥶❄️' },
+    { match: 'fernandes', type: 'emoji', content: '🗣️🚫' },
+    { match: 'jackson', type: 'emoji', content: '😀' },
   ]
   function triggerPlayerReaction(playerId: number) {
-    const name = players.find(p => p.id === playerId)?.name?.toLowerCase() ?? ''
+    const rawName = players.find(p => p.id === playerId)?.name ?? ''
+    // Strips accents (Gyökeres -> Gyokeres) so typing the plain-letter
+    // version here still matches the real, accented stored name.
+    const name = rawName.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     const found = PLAYER_REACTIONS.find(r => name.includes(r.match))
     if (found) fireReaction(found.type, found.content)
   }
@@ -629,12 +637,14 @@ export default function PicksPage() {
                   padding: '5vw', pointerEvents: 'none',
                 }}
               >
-                <p
-                  className="pop-hero pop-hero--pink"
-                  style={{ fontSize: 'clamp(28px, 8vw, 64px)', textAlign: 'center', lineHeight: 1.1 }}
-                >
-                  {reaction.content}
-                </p>
+                <div className="pop-panel pop-panel--pink" style={{ padding: '1.25em 1.5em', maxWidth: '90vw' }}>
+                  <p
+                    className="pop-hero pop-hero--pink"
+                    style={{ fontSize: 'clamp(22px, 6vw, 48px)', textAlign: 'center', lineHeight: 1.15 }}
+                  >
+                    {reaction.content}
+                  </p>
+                </div>
               </div>
             )}
 
