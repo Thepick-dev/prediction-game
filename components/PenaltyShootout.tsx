@@ -6,24 +6,30 @@ import { createClient } from '../app/lib/supabase'
 // Not connected to the prediction game in any way — purely a bit of fun,
 // separate scoring, separate table.
 //
-// Scoring model (v2): points, not a streak count. Every hit scores 2-8
-// points depending on how close to the CENTRE of the target zone you hit —
-// a scrappy edge hit is worth less than a precise one. You get 3 lives, not
-// sudden death on the first miss. The target zone and sweep speed both
-// tighten smoothly across the WHOLE 0-99 range (not maxed out by score 6-7
-// like the old streak version was, which is why everyone used to plateau
-// there) — early points are easy, 30-60 takes real skill, 90+ needs
-// near-perfect precision and a bit of luck. Reaching 99 ends the game as a
-// win. Tuned via a Monte Carlo sim (not shipped) rather than guessed: a
-// "medium skill" simulated player lands a median in the high-30s/low-40s,
-// a sharp player in the 50s-60s, and hitting 99 stays rare even for a
-// simulated top-tier player.
-const BASE_WIDTH = 34
-const MIN_WIDTH = 7
-const BASE_DURATION = 1.3
-const MIN_DURATION = 0.4
+// Scoring model (v3): points, not a streak count. Every hit scores 2-7
+// points depending on how close to the CENTRE of the target zone you hit.
+// 3 lives, not sudden death on the first miss.
+//
+// v2 (pure width/speed tuning) turned out to be far too easy in real play
+// — a first-ever attempt scored 96/99 — because the marker always swept
+// from the exact same starting point in a perfectly predictable straight
+// line, just scaled by duration. Once you know the rhythm, timing one
+// click against a metronome is easy for a human regardless of how fast it
+// gets. Two structural fixes on top of a harsher floor: the marker now
+// starts each round at a random point in its sweep (so there's no fixed
+// rhythm to memorise), and past a certain score the TARGET ZONE ITSELF
+// starts drifting back and forth too, on its own independent, ever-
+// quickening cycle — so late-game is genuinely two things to track at
+// once, not one thing done fast.
+const BASE_WIDTH = 30
+const MIN_WIDTH = 5
+const BASE_DURATION = 1.15
+const MIN_DURATION = 0.28
+// How much faster than a straight line the difficulty ramps — < 1 means
+// real difficulty arrives earlier in the 0-99 range, not just at the end.
+const CURVE_EXP = 0.75
 const BASE_HIT_PTS = 2
-const BONUS_HIT_PTS = 6
+const BONUS_HIT_PTS = 5
 const MAX_SCORE = 99
 const STARTING_LIVES = 3
 const MILESTONES = [25, 50, 75]
@@ -34,6 +40,13 @@ const JITTER = 0.3
 // static CSS animation for smooth GPU-composited motion, so it can't read
 // this constant directly.
 const MARKER_WIDTH = 5
+
+// The zone stays put until you're this far toward 99 — the first chunk of
+// the game is deliberately still "just" a fast-narrowing static target,
+// so the opening points stay easy, matching "1 should be super easy".
+const ZONE_MOVE_START_T = 0.1
+const ZONE_MOVE_BASE_MS = 2200
+const ZONE_MOVE_MIN_MS = 420
 
 // The goal photo (shootout-goal.png) has real sky/grass margin either side
 // of the actual goal frame rather than the frame filling the whole image —
@@ -56,6 +69,7 @@ function reactionEmoji(precision: number) {
 }
 
 type Phase = 'ready' | 'aiming' | 'result' | 'gameover' | 'win'
+type ZoneMove = { a: number; b: number; durationMs: number; phaseMs: number } | null
 
 export default function PenaltyShootout({ userId }: { userId: string }) {
   const [score, setScore] = useState(0)
@@ -64,17 +78,17 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
   const [phase, setPhase] = useState<Phase>('ready')
   const [result, setResult] = useState<'goal' | 'miss' | null>(null)
   const [zone, setZone] = useState({ left: 40, width: BASE_WIDTH })
+  const [zoneMove, setZoneMove] = useState<ZoneMove>(null)
   const [duration, setDuration] = useState(BASE_DURATION)
+  const [markerPhaseMs, setMarkerPhaseMs] = useState(0)
   // Where the last shot actually landed (0-100, aim-track space) — used to
   // place the ball/keeper visually, instead of the zone's centre, so what
   // you see always matches what you clicked.
   const [shotX, setShotX] = useState(50)
-  // Bumped every round and used as the marker's React key, so its CSS
-  // sweep animation always restarts cleanly at 0% for the new round's
-  // duration. Without this, changing animation-duration on a running
-  // animation makes the browser re-map elapsed time onto the new duration
-  // instead of restarting it, so the marker jumps to an arbitrary point
-  // mid-sweep the instant a new round begins.
+  // Bumped every round — used as the marker's React key (forces its CSS
+  // animation to restart cleanly for the new round's duration instead of
+  // re-mapping elapsed time onto it, which used to make it jump), and to
+  // retrigger the zone's movement effect.
   const [roundId, setRoundId] = useState(0)
   const [leaderboard, setLeaderboard] = useState<{ name: string; score: number }[]>([])
   const [justBeatBest, setJustBeatBest] = useState(false)
@@ -90,9 +104,39 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
 
   const trackRef = useRef<HTMLDivElement>(null)
   const markerRef = useRef<HTMLDivElement>(null)
+  const zoneRef = useRef<HTMLDivElement>(null)
+  const zoneAnimRef = useRef<Animation | null>(null)
   const supabase = createClient()
 
   useEffect(() => { loadScores() }, [])
+
+  // Drives the zone's own drift once it's meant to be moving — a real Web
+  // Animation rather than a static CSS keyframe, since its start/end
+  // points are randomised fresh every round and can't be hardcoded in a
+  // stylesheet. Paused/resumed by the phase effect below, cancelled and
+  // replaced whenever a new round starts.
+  useEffect(() => {
+    if (!zoneRef.current) return
+    zoneAnimRef.current?.cancel()
+    zoneAnimRef.current = null
+    if (zoneMove) {
+      const anim = zoneRef.current.animate(
+        [{ left: `${zoneMove.a}%` }, { left: `${zoneMove.b}%` }],
+        { duration: zoneMove.durationMs, iterations: Infinity, direction: 'alternate', easing: 'linear' }
+      )
+      anim.currentTime = zoneMove.phaseMs
+      if (phase !== 'aiming') anim.pause()
+      zoneAnimRef.current = anim
+    }
+    return () => { zoneAnimRef.current?.cancel() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundId])
+
+  useEffect(() => {
+    if (!zoneAnimRef.current) return
+    if (phase === 'aiming') zoneAnimRef.current.play()
+    else zoneAnimRef.current.pause()
+  }, [phase])
 
   async function loadScores() {
     const { data } = await supabase
@@ -120,11 +164,33 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
 
   function newRound(currentScore: number) {
     const t = Math.min(1, currentScore / MAX_SCORE)
+    const tEff = Math.pow(t, CURVE_EXP)
+
     const widthJitter = 1 + (Math.random() - 0.5) * JITTER
-    const width = Math.max(MIN_WIDTH, (BASE_WIDTH - t * (BASE_WIDTH - MIN_WIDTH)) * widthJitter)
+    const width = Math.max(MIN_WIDTH, (BASE_WIDTH - tEff * (BASE_WIDTH - MIN_WIDTH)) * widthJitter)
     const left = Math.random() * (100 - width)
+
     const durationJitter = 1 + (Math.random() - 0.5) * JITTER
-    const nextDuration = Math.max(MIN_DURATION, (BASE_DURATION - t * (BASE_DURATION - MIN_DURATION)) * durationJitter)
+    const nextDuration = Math.max(MIN_DURATION, (BASE_DURATION - tEff * (BASE_DURATION - MIN_DURATION)) * durationJitter)
+    // A random starting point in the marker's back-and-forth cycle (total
+    // period = 2x duration) — without this it always begins the round from
+    // the same spot, which is exactly what let a player memorise the
+    // rhythm instead of having to actually watch it.
+    setMarkerPhaseMs(Math.random() * nextDuration * 2 * 1000)
+
+    let move: ZoneMove = null
+    if (t > ZONE_MOVE_START_T) {
+      const moveT = (t - ZONE_MOVE_START_T) / (1 - ZONE_MOVE_START_T)
+      const moveMs = ZONE_MOVE_BASE_MS - moveT * (ZONE_MOVE_BASE_MS - ZONE_MOVE_MIN_MS)
+      const a = Math.random() * (100 - width)
+      // The second point is a fresh random spot at least a quarter of the
+      // track away from the first, so it's a genuine drift, not a wobble.
+      let b = Math.random() * (100 - width)
+      if (Math.abs(b - a) < 25) b = (a + 40 + Math.random() * 20) % (100 - width)
+      move = { a, b, durationMs: moveMs, phaseMs: Math.random() * moveMs }
+    }
+    setZoneMove(move)
+
     setZone({ left, width })
     setDuration(nextDuration)
     setRoundId(id => id + 1)
@@ -143,17 +209,22 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
   }
 
   function shoot() {
-    if (phase !== 'aiming' || !trackRef.current || !markerRef.current) return
+    if (phase !== 'aiming' || !trackRef.current || !markerRef.current || !zoneRef.current) return
     const trackRect = trackRef.current.getBoundingClientRect()
     const markerRect = markerRef.current.getBoundingClientRect()
+    // Read the zone's LIVE position (it may be mid-drift) rather than the
+    // left/width captured in state at the start of the round.
+    const zoneRect = zoneRef.current.getBoundingClientRect()
     const markerCenterPct = ((markerRect.left + markerRect.width / 2 - trackRect.left) / trackRect.width) * 100
+    const zoneLeftPct = ((zoneRect.left - trackRect.left) / trackRect.width) * 100
+    const zoneWidthPct = (zoneRect.width / trackRect.width) * 100
     setShotX(markerCenterPct)
-    const hit = markerCenterPct >= zone.left && markerCenterPct <= zone.left + zone.width
+    const hit = markerCenterPct >= zoneLeftPct && markerCenterPct <= zoneLeftPct + zoneWidthPct
     setShakeKey(k => k + 1)
 
     if (hit) {
-      const zoneCenter = zone.left + zone.width / 2
-      const maxDist = zone.width / 2
+      const zoneCenter = zoneLeftPct + zoneWidthPct / 2
+      const maxDist = zoneWidthPct / 2
       const distFromCenter = Math.abs(markerCenterPct - zoneCenter)
       const precision = maxDist > 0 ? Math.max(0, 1 - distFromCenter / maxDist) : 1
       const points = Math.round(BASE_HIT_PTS + precision * BONUS_HIT_PTS)
@@ -167,6 +238,10 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
       if (crossed) {
         const text = crossed === 25 ? '25 — WARMING UP!' : crossed === 50 ? '50 — HALFWAY THERE!' : '75 — ON FIRE!'
         setMilestone({ text, key: Date.now() })
+        // Never cleared itself before, so once shown it just sat there
+        // displaying the same banner over every later shot regardless of
+        // score — matches the animation's own ~1.1s duration.
+        setTimeout(() => setMilestone(null), 1100)
       }
 
       if (nextScore >= MAX_SCORE) {
@@ -332,9 +407,13 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
         )}
       </div>
 
-      {/* Aim track */}
+      {/* Aim track — the pink marker always sweeps; past a difficulty
+          threshold the orange target zone drifts on its own independent
+          cycle too (driven by the Web Animation set up above), so the
+          late game is genuinely two moving things to track, not one. */}
       <div ref={trackRef} className="relative rounded-full mb-4" style={{ height: 14, background: 'rgba(255,255,255,0.08)' }}>
         <div
+          ref={zoneRef}
           className="absolute top-0 bottom-0 rounded-full"
           style={{
             left: `${zone.left}%`,
@@ -352,6 +431,7 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
             background: 'var(--pop-pink)',
             boxShadow: '0 0 12px rgba(213,0,109,0.8)',
             animationDuration: `${duration}s`,
+            animationDelay: `-${markerPhaseMs}ms`,
             animationPlayState: phase === 'aiming' ? 'running' : 'paused',
           }}
         />
