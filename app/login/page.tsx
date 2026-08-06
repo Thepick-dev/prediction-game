@@ -144,14 +144,8 @@ export default function LoginPage() {
     <div className="pop-art-theme min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--pop-black)' }}>
       <div className="w-full" style={{ maxWidth: 420 }}>
 
-        <div className="flex justify-center mb-4">
-          <p className="pop-hero pop-hero--pink text-3xl sm:text-4xl text-center uppercase tracking-wide">
-            LMS All-Stars
-          </p>
-        </div>
-
         <div className="pop-panel p-5 sm:p-6">
-          <h1 className="pop-hero pop-hero--pink text-3xl sm:text-4xl text-center mb-6">The Turnstile</h1>
+          <h1 className="pop-hero pop-hero--pink text-3xl sm:text-4xl text-center mb-6 uppercase tracking-wide">LMS All-Stars</h1>
 
           <div className="flex gap-2 mb-6">
             <button

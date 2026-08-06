@@ -155,12 +155,16 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
   // otherwise, and the violin taunt takes over a beat after a miss. There's
   // only one keeper image (standing) — the "dive" is that same image
   // rotated to fake a lunge, mirrored to face whichever side the shot went.
+  // The rotation angle is the same regardless of which way he's diving —
+  // scaleX(-1) alone handles left/right symmetry. Flipping the rotation's
+  // sign along with the mirror (as this used to) double-flips the pose,
+  // which is why the feet ended up leading the dive instead of the glove.
   const keeper = showViolin
     ? { pose: 'violin' as const, x: 50, mirror: false, rotate: 0 }
     : result === 'miss'
-    ? { pose: 'dive' as const, x: shotX, mirror: shotX >= 50, rotate: shotX >= 50 ? -68 : 68 }
+    ? { pose: 'dive' as const, x: shotX, mirror: shotX >= 50, rotate: -50 }
     : result === 'goal'
-    ? { pose: 'dive' as const, x: 100 - shotX, mirror: (100 - shotX) >= 50, rotate: (100 - shotX) >= 50 ? -68 : 68 }
+    ? { pose: 'dive' as const, x: 100 - shotX, mirror: (100 - shotX) >= 50, rotate: -50 }
     : { pose: 'ready' as const, x: 50, mirror: false, rotate: 0 }
 
   return (
@@ -189,11 +193,14 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
           alt=""
           style={{
             position: 'absolute',
-            bottom: '27%',
+            // The violin taunt is meant to be an in-your-face reaction, not
+            // just another goal-line pose — bigger and further forward
+            // (lower/closer to camera) than the ready/dive stance.
+            bottom: keeper.pose === 'violin' ? '15%' : '27%',
             left: `${toGoalX(keeper.x)}%`,
-            height: '38%',
+            height: keeper.pose === 'violin' ? '55%' : '38%',
             transform: `translateX(-50%) scaleX(${keeper.mirror ? -1 : 1}) rotate(${keeper.rotate}deg)`,
-            transition: 'left 0.3s ease, transform 0.3s ease',
+            transition: 'left 0.3s ease, transform 0.3s ease, height 0.3s ease, bottom 0.3s ease',
           }}
         />
         <img
@@ -201,7 +208,10 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
           alt=""
           style={{
             position: 'absolute',
-            bottom: result === 'goal' ? '58%' : result === 'miss' ? '27%' : '15%',
+            // On a miss the ball is caught in front of the goal line, not
+            // inside the net — well below GOAL_LINE_PCT, same neighbourhood
+            // as the resting/idle position, so it never reads as scored.
+            bottom: result === 'goal' ? '58%' : result === 'miss' ? '13%' : '15%',
             width: 22, height: 22,
             left: `calc(${toGoalX(result ? shotX : 50)}% - 11px)`,
             transition: 'left 0.4s ease, bottom 0.4s ease',
