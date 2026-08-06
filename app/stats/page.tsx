@@ -105,6 +105,7 @@ export default function StatsHubPage() {
 
   async function loadData() {
     const { data: { user: authUser } } = await supabase.auth.getUser()
+    if (!authUser) { window.location.href = '/login'; return }
     setUser(authUser)
 
     if (authUser) {

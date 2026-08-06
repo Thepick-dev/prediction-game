@@ -145,7 +145,9 @@ export default function LoginPage() {
       <div className="w-full" style={{ maxWidth: 420 }}>
 
         <div className="flex justify-center mb-4">
-          <img src="/logo.png" alt="" className="w-24 h-auto" />
+          <p className="pop-hero pop-hero--pink text-3xl sm:text-4xl text-center uppercase tracking-wide">
+            LMS All-Stars
+          </p>
         </div>
 
         <div className="pop-panel p-5 sm:p-6">

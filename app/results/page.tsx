@@ -103,6 +103,7 @@ export default function ResultsPage() {
 
   async function loadBase() {
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { window.location.href = '/login'; return }
     setUser(user)
 
     if (user) {

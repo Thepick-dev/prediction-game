@@ -1,5 +1,5 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import NewsPostView from './NewsPostView'
 
@@ -33,6 +33,7 @@ export default async function NewsPostPage({ params }: { params: Promise<{ slug:
   const supabase = await createServerSupabaseClient()
 
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
   const { data: profile } = user
     ? await supabase.from('profiles').select('display_name').eq('id', user.id).single()
     : { data: null }
