@@ -125,9 +125,15 @@ export default function PicksPage() {
 
   const [selectedTeam, setSelectedTeam] = useState<number | null>(null)
   const [selectedFixture, setSelectedFixture] = useState<number | null>(null)
-  // A little easter egg — a couple of teams get a big, brief reaction emoji
-  // when picked, purely for fun, no game logic attached.
-  const [teamReaction, setTeamReaction] = useState<{ emoji: string; key: number } | null>(null)
+  // A little easter egg — certain teams and players get a big, brief
+  // reaction when picked, purely for fun, no game logic attached. Emoji
+  // reactions render huge and centred; text ones use the same glowing
+  // display-font treatment as the page's own hero titles.
+  const [reaction, setReaction] = useState<{ type: 'emoji' | 'text'; content: string; key: number } | null>(null)
+  function fireReaction(type: 'emoji' | 'text', content: string) {
+    setReaction({ type, content, key: Date.now() })
+    setTimeout(() => setReaction(null), type === 'text' ? 1600 : 1100)
+  }
   const [player1, setPlayer1] = useState<number | null>(null)
   const [player2, setPlayer2] = useState<number | null>(null)
   const [player1Fixture, setPlayer1Fixture] = useState<number | null>(null)
@@ -344,10 +350,29 @@ export default function PicksPage() {
     setSelectedFixture(fixtureId)
     const name = getTeam(teamId)?.name?.toLowerCase() ?? ''
     const emoji = name.includes('arsenal') ? '🙄' : name.includes('tottenham') ? '😎' : null
-    if (emoji) {
-      setTeamReaction({ emoji, key: Date.now() })
-      setTimeout(() => setTeamReaction(null), 1100)
-    }
+    if (emoji) fireReaction('emoji', emoji)
+  }
+
+  // Player-select easter eggs — same idea as the team ones above, just
+  // matched against the player's full name instead. A couple are text
+  // banners (rendered in the glowing display font) rather than emoji.
+  const PLAYER_REACTIONS: { match: string; type: 'emoji' | 'text'; content: string }[] = [
+    { match: 'noni madueke', type: 'emoji', content: '🥽' },
+    { match: 'haaland', type: 'text', content: 'ROY KEANE TRIED TO KILL HIS DAD' },
+    { match: 'gyokeres', type: 'emoji', content: '😏' },
+    { match: 'harvey barnes', type: 'emoji', content: '🐐' },
+    { match: 'declan rice', type: 'text', content: "ME? I'M JUST DEC FROM KINGSTON..." },
+    { match: 'danny welbeck', type: 'text', content: 'DAT GUY😎' },
+    { match: 'richarlison', type: 'emoji', content: '😎😎😎' },
+    { match: 'eze', type: 'emoji', content: '♟️♟️♟️' },
+    { match: 'cole palmer', type: 'emoji', content: '🥶❄️☃️' },
+    { match: 'bruno fernandes', type: 'emoji', content: '🗣️🚫' },
+    { match: 'nicklas jackson', type: 'emoji', content: '😀😀😀😀' },
+  ]
+  function triggerPlayerReaction(playerId: number) {
+    const name = players.find(p => p.id === playerId)?.name?.toLowerCase() ?? ''
+    const found = PLAYER_REACTIONS.find(r => name.includes(r.match))
+    if (found) fireReaction(found.type, found.content)
   }
 
   async function savePick() {
@@ -580,9 +605,9 @@ export default function PicksPage() {
               card; the page itself is just the black canvas they sit on. */}
           <div className="pop-art-theme">
 
-            {teamReaction && (
+            {reaction && reaction.type === 'emoji' && (
               <div
-                key={teamReaction.key}
+                key={reaction.key}
                 className="pop-pop-in"
                 style={{
                   position: 'fixed', inset: 0, zIndex: 60,
@@ -591,7 +616,25 @@ export default function PicksPage() {
                   textShadow: '0 0 40px rgba(0,0,0,0.6)',
                 }}
               >
-                {teamReaction.emoji}
+                {reaction.content}
+              </div>
+            )}
+            {reaction && reaction.type === 'text' && (
+              <div
+                key={reaction.key}
+                className="pop-pop-in"
+                style={{
+                  position: 'fixed', inset: 0, zIndex: 60,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '5vw', pointerEvents: 'none',
+                }}
+              >
+                <p
+                  className="pop-hero pop-hero--pink"
+                  style={{ fontSize: 'clamp(28px, 8vw, 64px)', textAlign: 'center', lineHeight: 1.1 }}
+                >
+                  {reaction.content}
+                </p>
               </div>
             )}
 
@@ -731,7 +774,7 @@ export default function PicksPage() {
                               return (
                                 <button
                                   key={p.id}
-                                  onClick={() => { if (!maxed) { setPlayer1(p.id); setPlayer1Fixture(null); setPlayerSearch1(''); setPlayer1Club(null) } }}
+                                  onClick={() => { if (!maxed) { setPlayer1(p.id); setPlayer1Fixture(null); setPlayerSearch1(''); setPlayer1Club(null); triggerPlayerReaction(p.id) } }}
                                   disabled={maxed}
                                   className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
                                   style={{ background: maxed ? '#0A0A0A' : 'var(--pop-surface)', color: maxed ? '#555555' : 'var(--pop-white)', borderColor: 'rgba(255,255,255,0.1)' }}
@@ -785,7 +828,7 @@ export default function PicksPage() {
                               return (
                                 <button
                                   key={p.id}
-                                  onClick={() => { if (!maxed) { setPlayer2(p.id); setPlayer2Fixture(null); setPlayerSearch2(''); setPlayer2Club(null) } }}
+                                  onClick={() => { if (!maxed) { setPlayer2(p.id); setPlayer2Fixture(null); setPlayerSearch2(''); setPlayer2Club(null); triggerPlayerReaction(p.id) } }}
                                   disabled={maxed}
                                   className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
                                   style={{ background: maxed ? '#0A0A0A' : 'var(--pop-surface)', color: maxed ? '#555555' : 'var(--pop-white)', borderColor: 'rgba(255,255,255,0.1)' }}
