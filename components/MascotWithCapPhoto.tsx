@@ -13,7 +13,7 @@ export default function MascotWithCapPhoto({ className, style }: { className?: s
         alt=""
         style={{
           position: 'absolute',
-          left: '38.5%',
+          left: '40%',
           top: '12.5%',
           width: '8%',
           aspectRatio: '220 / 278',
