@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '../app/lib/supabase'
 
 interface RulesModalProps {
   onClose: () => void
@@ -12,6 +11,7 @@ export default function RulesModal({ onClose }: RulesModalProps) {
   const [ruleMap, setRuleMap] = useState<Record<string, number>>({})
   const [goalPts, setGoalPts] = useState(12)
   const [assistPts, setAssistPts] = useState(6)
+  const [exclusions, setExclusions] = useState<{ name: string; reason: string }[]>([])
 
   const diffs = [-3, -2, -1, 0, 1, 2, 3]
   const diffLabels = ['3↓', '2↓', '1↓', '=', '1↑', '2↑', '3↑']
@@ -24,29 +24,25 @@ export default function RulesModal({ onClose }: RulesModalProps) {
 
   useEffect(() => { loadRules() }, [])
 
+  // Pulled from a public API route, not a direct Supabase read — this modal
+  // is shown on the login page, before anyone has an account, so it can't
+  // rely on a session. This is also what keeps it from going stale again:
+  // it's the same live scoring data the real /rules page reads, not a
+  // hand-copied snapshot.
   async function loadRules() {
-    const supabase = createClient()
+    try {
+      const res = await fetch('/api/public/rules-summary')
+      const data = await res.json()
 
-    const { data: competition } = await supabase
-      .from('competitions')
-      .select('id')
-      .eq('status', 'active')
-      .single()
-
-    if (!competition) { setLoading(false); return }
-
-    const [{ data: rules }, { data: playerRules }] = await Promise.all([
-      supabase.from('competition_scoring_rules').select('result_type, quartile_diff, points').eq('competition_id', competition.id),
-      supabase.from('player_scoring_rules').select('event_type, points').eq('competition_id', competition.id)
-    ])
-
-    const map: Record<string, number> = {}
-    rules?.forEach(r => { map[`${r.result_type}_${r.quartile_diff}`] = r.points })
-    setRuleMap(map)
-
-    setGoalPts(playerRules?.find(r => r.event_type === 'goal')?.points ?? 12)
-    setAssistPts(playerRules?.find(r => r.event_type === 'assist')?.points ?? 6)
-
+      const map: Record<string, number> = {}
+      ;(data.scoringRules ?? []).forEach((r: any) => { map[`${r.result_type}_${r.quartile_diff}`] = r.points })
+      setRuleMap(map)
+      setGoalPts(data.goalPoints ?? 12)
+      setAssistPts(data.assistPoints ?? 6)
+      setExclusions(data.exclusions ?? [])
+    } catch {
+      // leave defaults in place
+    }
     setLoading(false)
   }
 
@@ -66,7 +62,9 @@ export default function RulesModal({ onClose }: RulesModalProps) {
               <section>
                 <h3 className="font-bold mb-2">The Competition</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  The competition runs for roughly half a Premier League season. Join before the first gameweek deadline. The player with the most points at the end of the competition wins.
+                  The competition runs for roughly half a Premier League season — two competitions per season.
+                  Join before the first gameweek deadline. Late entries are not permitted. The player with the
+                  most points at the end of the competition wins.
                 </p>
               </section>
 
@@ -92,9 +90,25 @@ export default function RulesModal({ onClose }: RulesModalProps) {
               </section>
 
               <section>
+                <h3 className="font-bold mb-2">All or Nothing</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Once per competition, nominate one of your two weekly picks — but only a player you haven&apos;t
+                  used at all yet. Score or assist that gameweek and you get a bonus third use of them; blank, and
+                  you lose all remaining uses of them.
+                </p>
+                {exclusions.length > 0 && (
+                  <p className="text-xs text-gray-500 leading-relaxed mt-2">
+                    <strong>Excluded players:</strong> {exclusions.map(e => e.name).join(', ')}.
+                  </p>
+                )}
+              </section>
+
+              <section>
                 <h3 className="font-bold mb-2">Quartiles</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  The 20 Premier League clubs are divided into four quartiles of five. For the first six gameweeks, quartiles are fixed based on outright betting odds. From gameweek seven, quartiles follow the current league table.
+                  The 20 Premier League clubs are divided into four quartiles of five. Betting odds only ever set
+                  the quartiles once — gameweek 1 of the very first competition of a season — after that, every
+                  gameweek uses the current real league table instead.
                 </p>
               </section>
 
@@ -141,6 +155,7 @@ export default function RulesModal({ onClose }: RulesModalProps) {
                 <ol className="text-sm text-gray-600 leading-relaxed list-decimal pl-5 space-y-1">
                   <li>Total points</li>
                   <li>Points with banker multiplier removed</li>
+                  <li>Highest score in a single gameweek (banker included)</li>
                   <li>Most away wins from picked teams</li>
                   <li>Most goals from picked players</li>
                   <li>Earliest competition entry</li>
