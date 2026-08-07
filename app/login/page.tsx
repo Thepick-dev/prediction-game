@@ -68,13 +68,18 @@ export default function LoginPage() {
     if (signUpError) { setError(signUpError.message); setLoading(false); return }
 
     if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ display_name: username.trim(), approved: false, pending_since: new Date().toISOString() })
-        .eq('id', data.user.id)
+      // Server-side, service-role — see the route itself for why this
+      // can't be a client-side .update() here (there may be no session
+      // yet, and RLS would silently block it rather than error).
+      const res = await fetch('/api/auth/complete-signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: data.user.id, username: username.trim() }),
+      })
+      const completeData = await res.json()
 
-      if (profileError) {
-        setError(profileError.message.includes('unique') ? 'That username is already taken' : profileError.message)
+      if (completeData.error) {
+        setError(completeData.error)
         setLoading(false)
         return
       }
