@@ -116,6 +116,18 @@ The right-hand side (in quotes) must exactly match that club's **Short Name** as
 
 **The Trophy Room (`/archive`) uses its own single fixed image, not the rotating pool.** Add `hero-trophy-desktop.png` and `hero-trophy-mobile.png` to the same folder (no numbering, no `TOTAL_HEROES` change needed) and it'll pick them up automatically — the page passes `heroOverride="trophy"` to `HeroPage` instead of using a random pick.
 
+**4. Changing the player photo on the mascot's cap.** The mascot (the pink/green ball character) shows up in two places: the header logo (always plain, no photo — deliberate, see `components/PopArtLoading.tsx`) and the full-screen loading animation, which patches a real player photo onto the front of the cap.
+
+1. Save the new photo as `public/mascot-cap-photo.png` — **same filename, overwriting the old one**. No code change needed; it's automatically cropped into a circle and fitted to the cap, so it doesn't need to be a special size or shape — a normal squarish headshot works fine.
+2. Push it live. Open a terminal in the project folder and run:
+   ```powershell
+   cd "c:\Users\k_hut\prediction-game"
+   git add public\mascot-cap-photo.png
+   git commit -m "Update mascot cap photo"
+   git push
+   ```
+   **This step is easy to forget** — editing the file on your computer alone doesn't change the live site. Vercel deploys whatever's in the `git` repository, not your local disk, so nothing updates until you commit and push. Give it 1–2 minutes after pushing, then refresh.
+
 ### Everything else
 
 - **Check the outside player data is ready before syncing.** We pull player info (names, positions, which club they're at) from the Fantasy Premier League website. Every summer, after promotion and relegation, it takes them a little while to update their team list. If a club is missing after you click "Import Players" on `/admin/sync`, it's usually because of this — see the To-do list (`docs/TODO.md`) for the current status (Coventry, Hull, Ipswich for 2026/27 — their codes are already in the code, just waiting on FPL's own data to catch up).
