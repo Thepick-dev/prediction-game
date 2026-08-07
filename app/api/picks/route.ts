@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  const { gameweek_id, competition_id, team_id, player1_id, player2_id, player1_fixture_id, player2_fixture_id, is_banker, question_answer, comments } = await request.json()
+  const { gameweek_id, competition_id, team_id, player1_id, player2_id, player1_fixture_id, player2_fixture_id, is_banker, question_answer, comments, all_or_nothing_player_id } = await request.json()
 
   if (player1_id === player2_id) {
     return NextResponse.json({ error: 'Please pick two different players' }, { status: 400 })
@@ -120,6 +120,23 @@ export async function POST(request: Request) {
 
   const doubleUseTeams = await getDoubleUseTeams(supabase, competition_id, user.id)
 
+  // All or Nothing can raise or lower ONE specific player's normal 2-use
+  // cap for the rest of the competition — success grants a bonus 3rd use,
+  // failure removes all further uses. At most one row ever exists per
+  // user per competition (a unique constraint enforces that), and only a
+  // resolved (non-pending) row changes anything.
+  const { data: existingAoN } = await supabase
+    .from('all_or_nothing_picks')
+    .select('id, gameweek_id, player_id, outcome, pick_id')
+    .eq('competition_id', competition_id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const playerMaxOverride: Record<number, number> =
+    existingAoN && existingAoN.outcome !== 'pending'
+      ? { [existingAoN.player_id]: existingAoN.outcome === 'success' ? 3 : 1 }
+      : {}
+
   const { data: allPicks } = await supabase
     .from('picks')
     .select('team_id, player1_id, player2_id, gameweek_id, is_banker')
@@ -150,17 +167,40 @@ export async function POST(request: Request) {
       playerCounts[pick.player2_id] = (playerCounts[pick.player2_id] || 0) + 1
     })
 
-    if ((playerCounts[player1_id] || 0) >= 2) {
-      return NextResponse.json({ error: 'You have already used this player twice' }, { status: 400 })
+    const max1 = playerMaxOverride[player1_id] ?? 2
+    if ((playerCounts[player1_id] || 0) >= max1) {
+      return NextResponse.json({ error: `You have already used this player the maximum ${max1} time${max1 === 1 ? '' : 's'} this competition` }, { status: 400 })
     }
-    if ((playerCounts[player2_id] || 0) >= 2) {
-      return NextResponse.json({ error: 'You have already used this player twice' }, { status: 400 })
+    const max2 = playerMaxOverride[player2_id] ?? 2
+    if ((playerCounts[player2_id] || 0) >= max2) {
+      return NextResponse.json({ error: `You have already used this player the maximum ${max2} time${max2 === 1 ? '' : 's'} this competition` }, { status: 400 })
     }
 
     if (is_banker) {
       const bankerCount = allPicks.filter(p => p.is_banker).length
       if (bankerCount >= 2) {
         return NextResponse.json({ error: 'You have already used both your bankers' }, { status: 400 })
+      }
+    }
+
+    // All or Nothing eligibility — only checked when actually nominating.
+    if (all_or_nothing_player_id != null) {
+      if (all_or_nothing_player_id !== player1_id && all_or_nothing_player_id !== player2_id) {
+        return NextResponse.json({ error: 'All or Nothing can only be played on one of your two picks' }, { status: 400 })
+      }
+      if (existingAoN && existingAoN.gameweek_id !== gameweek_id) {
+        return NextResponse.json({ error: 'You have already used your All or Nothing card this competition' }, { status: 400 })
+      }
+      if ((playerCounts[all_or_nothing_player_id] || 0) > 0) {
+        return NextResponse.json({ error: "All or Nothing can only be played on a player you haven't used yet this competition" }, { status: 400 })
+      }
+      const { data: excluded } = await supabase
+        .from('all_or_nothing_exclusions')
+        .select('reason')
+        .eq('player_id', all_or_nothing_player_id)
+        .maybeSingle()
+      if (excluded) {
+        return NextResponse.json({ error: `That player can't be used for All or Nothing: ${excluded.reason}` }, { status: 400 })
       }
     }
   }
@@ -181,6 +221,7 @@ export async function POST(request: Request) {
     .single()
 
   let error
+  let pickId: string | null = existingPick?.id ?? null
   if (existingPick) {
     const { error: updateError } = await supabase
       .from('picks')
@@ -199,7 +240,7 @@ export async function POST(request: Request) {
       .eq('id', existingPick.id)
     error = updateError
   } else {
-    const { error: insertError } = await supabase
+    const { data: inserted, error: insertError } = await supabase
       .from('picks')
       .insert({
         user_id: user.id,
@@ -215,14 +256,62 @@ export async function POST(request: Request) {
         question_answer: question_answer ?? null,
         comments: comments ?? null
       })
+      .select('id')
+      .single()
     error = insertError
+    pickId = inserted?.id ?? null
   }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Sync the All or Nothing nomination for THIS gameweek's pick to match
+  // what was just requested — eligibility was already fully validated
+  // above, before the pick itself was saved, so this just makes the row
+  // match (create it, change which player it's on, or remove it if the
+  // player nominated no longer matches what was requested).
+  if (pickId) {
+    await syncAllOrNothingNomination(supabase, {
+      existingAoN,
+      competition_id,
+      user_id: user.id,
+      gameweek_id,
+      pick_id: pickId,
+      nominatedPlayerId: all_or_nothing_player_id ?? null,
+    })
+  }
+
   return NextResponse.json({ success: true })
+}
+
+async function syncAllOrNothingNomination(
+  supabase: any,
+  opts: {
+    existingAoN: { id: number; gameweek_id: string; player_id: number; outcome: string; pick_id: string } | null
+    competition_id: string
+    user_id: string
+    gameweek_id: string
+    pick_id: string
+    nominatedPlayerId: number | null
+  }
+) {
+  const { existingAoN, competition_id, user_id, gameweek_id, pick_id, nominatedPlayerId } = opts
+
+  // A row for THIS gameweek that no longer matches what was requested is
+  // removed first — covers backing out of a nomination and swapping which
+  // of the two picks it's on. A resolved row belongs to a past gameweek
+  // and is never touched here (RLS would refuse the delete anyway).
+  if (existingAoN && existingAoN.gameweek_id === gameweek_id && existingAoN.player_id !== nominatedPlayerId) {
+    await supabase.from('all_or_nothing_picks').delete().eq('id', existingAoN.id)
+  }
+
+  if (!nominatedPlayerId) return
+  if (existingAoN && existingAoN.gameweek_id === gameweek_id && existingAoN.player_id === nominatedPlayerId) return
+
+  await supabase.from('all_or_nothing_picks').insert({
+    competition_id, user_id, gameweek_id, pick_id, player_id: nominatedPlayerId, outcome: 'pending',
+  })
 }
 
 export async function GET(request: Request) {
@@ -274,11 +363,28 @@ export async function GET(request: Request) {
 
   const bankersUsed = allPicks?.filter(p => p.is_banker).length ?? 0
 
+  // Its own isolated query, same reasoning as everywhere else in this
+  // route — a problem here should never take down the rest of what this
+  // endpoint returns.
+  const { data: allOrNothing } = await supabase
+    .from('all_or_nothing_picks')
+    .select('player_id, gameweek_id, outcome')
+    .eq('competition_id', competition_id!)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const playerMaxOverride: Record<number, number> =
+    allOrNothing && allOrNothing.outcome !== 'pending'
+      ? { [allOrNothing.player_id]: allOrNothing.outcome === 'success' ? 3 : 1 }
+      : {}
+
   return NextResponse.json({
     pick,
     usedTeams,
     playerCounts,
     doubleUseTeams,
-    bankersUsed
+    bankersUsed,
+    allOrNothing,
+    playerMaxOverride
   })
 }

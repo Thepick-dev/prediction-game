@@ -370,10 +370,51 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
     return { error: upsertError.message }
   }
 
+  await resolveAllOrNothing(supabase, gameweek_id, picks, pointsToUpsert)
+
   return {
     success: true,
     points_calculated: pointsToUpsert.length,
     picks_processed: picks.length
+  }
+}
+
+// Its own isolated step, deliberately run only after the real points have
+// already been written successfully — All or Nothing is a side mechanic,
+// so a problem resolving it must never be able to stop or roll back the
+// actual scoring for everyone else. Success = the nominated player raised
+// any goal/assist points this gameweek (own goals aren't a thing here);
+// anything else, including a double-gameweek player who scored on the
+// unnominated leg, counts as a failure.
+async function resolveAllOrNothing(supabase: SupabaseClient, gameweek_id: string, picks: Pick[], scoreRows: PickScoreRow[]) {
+  const { data: pending } = await supabase
+    .from('all_or_nothing_picks')
+    .select('id, pick_id, player_id')
+    .eq('gameweek_id', gameweek_id)
+    .eq('outcome', 'pending')
+
+  if (!pending || pending.length === 0) return
+
+  const pickById: Record<string, Pick> = {}
+  picks.forEach(p => { pickById[p.id] = p })
+  const scoreByPickId: Record<string, PickScoreRow> = {}
+  scoreRows.forEach(row => { scoreByPickId[row.pick_id] = row })
+
+  for (const nomination of pending) {
+    const pick = pickById[nomination.pick_id]
+    const score = scoreByPickId[nomination.pick_id]
+    if (!pick || !score) continue
+
+    const raw =
+      nomination.player_id === pick.player1_id ? score.breakdown.player1_raw
+      : nomination.player_id === pick.player2_id ? score.breakdown.player2_raw
+      : null
+    if (raw === null) continue
+
+    await supabase
+      .from('all_or_nothing_picks')
+      .update({ outcome: raw > 0 ? 'success' : 'failed' })
+      .eq('id', nomination.id)
   }
 }
 

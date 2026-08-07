@@ -73,6 +73,12 @@ export default function LeaderboardPage() {
   const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }>>({})
   const [usedTeamsByPlayer, setUsedTeamsByPlayer] = useState<Record<string, Record<number, number>>>({})
   const [doubleUseByPlayer, setDoubleUseByPlayer] = useState<Record<string, number[]>>({})
+  const [bankersUsedByPlayer, setBankersUsedByPlayer] = useState<Record<string, number>>({})
+  // Presence only — who has played their All or Nothing card at all this
+  // competition, never which player or how it went. Sourced from a view
+  // deliberately built to expose only that (see all_or_nothing_status),
+  // so this is safe to show for everyone regardless of any deadline.
+  const [aonUsedByPlayer, setAonUsedByPlayer] = useState<Set<string>>(new Set())
   const [avgByGw, setAvgByGw] = useState<Record<number, number>>({})
   const [submittedKeys, setSubmittedKeys] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -258,6 +264,18 @@ export default function LeaderboardPage() {
       usedMap[pick.user_id][pick.team_id] = (usedMap[pick.user_id][pick.team_id] || 0) + 1
     })
     setUsedTeamsByPlayer(usedMap)
+
+    const bankerMap: Record<string, number> = {}
+    combinedPicks.forEach(pick => {
+      if (pick.is_banker) bankerMap[pick.user_id] = (bankerMap[pick.user_id] || 0) + 1
+    })
+    setBankersUsedByPlayer(bankerMap)
+
+    // Its own isolated query, same reasoning as everywhere else on this
+    // page — a problem here should never take the rest of the leaderboard
+    // down with it.
+    const { data: aonStatus } = await supabase.from('all_or_nothing_status').select('user_id').eq('competition_id', comp.id)
+    setAonUsedByPlayer(new Set((aonStatus ?? []).map(a => a.user_id)))
 
     const gwPointsMap: Record<string, Record<string, number>> = {}
     pointsData?.forEach(p => {
@@ -599,9 +617,19 @@ export default function LeaderboardPage() {
                                   iconTextClass="text-base sm:text-xl"
                                   starColor="var(--pop-pink)"
                                 />
-                                <div className="text-right">
-                                  <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>Best Gameweek (tiebreaker #3)</p>
-                                  <p className="text-sm font-black" style={{ color: 'var(--pop-green)' }}>{player.best_gameweek_score} pts</p>
+                                <div className="flex items-start gap-4 flex-wrap justify-end">
+                                  <div className="text-right">
+                                    <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>Best Gameweek (tiebreaker #3)</p>
+                                    <p className="text-sm font-black" style={{ color: 'var(--pop-green)' }}>{player.best_gameweek_score} pts</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>Bankers Left</p>
+                                    <p className="text-sm font-black" style={{ color: 'var(--pop-yellow)' }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} / 2</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>All or Nothing</p>
+                                    <p className="text-sm font-black" style={{ color: 'var(--pop-pink)' }}>{aonUsedByPlayer.has(player.user_id) ? 'Used' : 'Available'}</p>
+                                  </div>
                                 </div>
                               </div>
                               {allGameweeks.length === 0 ? (
@@ -864,9 +892,19 @@ export default function LeaderboardPage() {
                                 size={40}
                                 iconTextClass="text-base sm:text-xl"
                               />
-                              <div className="text-right">
-                                <p className="text-[9px] uppercase tracking-widest text-[#F5ECD9]/40 font-bold">Best Gameweek (tiebreaker #3)</p>
-                                <p className="text-sm font-bold" style={{ color: '#D9A441' }}>{player.best_gameweek_score} pts</p>
+                              <div className="flex items-start gap-4 flex-wrap justify-end">
+                                <div className="text-right">
+                                  <p className="text-[9px] uppercase tracking-widest text-[#F5ECD9]/40 font-bold">Best Gameweek (tiebreaker #3)</p>
+                                  <p className="text-sm font-bold" style={{ color: '#D9A441' }}>{player.best_gameweek_score} pts</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[9px] uppercase tracking-widest text-[#F5ECD9]/40 font-bold">Bankers Left</p>
+                                  <p className="text-sm font-bold" style={{ color: '#D9A441' }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} / 2</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[9px] uppercase tracking-widest text-[#F5ECD9]/40 font-bold">All or Nothing</p>
+                                  <p className="text-sm font-bold" style={{ color: '#D9A441' }}>{aonUsedByPlayer.has(player.user_id) ? 'Used' : 'Available'}</p>
+                                </div>
                               </div>
                             </div>
                             {allGameweeks.length === 0 ? (

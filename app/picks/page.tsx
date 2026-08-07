@@ -143,8 +143,25 @@ export default function PicksPage() {
 
   const [usedTeams, setUsedTeams] = useState<number[]>([])
   const [playerCounts, setPlayerCounts] = useState<Record<number, number>>({})
+  const [playerMaxOverride, setPlayerMaxOverride] = useState<Record<number, number>>({})
   const [doubleUseTeams, setDoubleUseTeams] = useState<number[]>([])
   const [bankersUsed, setBankersUsed] = useState(0)
+
+  // All or Nothing — played at most once per competition, on whichever of
+  // this week's two picks you nominate. `allOrNothing` is the resolved
+  // server-side record (if any exists at all, for ANY gameweek); `aonChoice`
+  // is the LOCAL, not-yet-saved choice of which of player1/player2 (by id)
+  // to nominate for THIS gameweek's pick specifically.
+  const [allOrNothing, setAllOrNothing] = useState<{ player_id: number; gameweek_id: string; outcome: string } | null>(null)
+  const [aonUsedGwNumber, setAonUsedGwNumber] = useState<number | null>(null)
+  const [aonChoice, setAonChoice] = useState<number | null>(null)
+  const [aonExclusions, setAonExclusions] = useState<Record<number, string>>({})
+  // The player ids of whatever pick is ALREADY saved for this gameweek (if
+  // any) at load time — used only to stop a just-saved pick's own player
+  // counting as a "prior use" of itself when checking All or Nothing
+  // eligibility (playerCounts, from the API, deliberately includes this
+  // week's own saved pick so other on-page counters read correctly).
+  const [savedPickPlayers, setSavedPickPlayers] = useState<{ p1: number | null; p2: number | null }>({ p1: null, p2: null })
 
   const [playerSearch1, setPlayerSearch1] = useState('')
   const [playerSearch2, setPlayerSearch2] = useState('')
@@ -166,6 +183,14 @@ export default function PicksPage() {
   const countdown = useCountdown(gameweek?.deadline ?? null)
 
   useEffect(() => { loadData() }, [])
+
+  // Changing which player is picked while a nomination is pending on the
+  // old choice would otherwise silently keep pointing at a player no
+  // longer selected — clear it, matching the same auto-clear the API does
+  // server-side if this state is ever stale for some other reason.
+  useEffect(() => {
+    if (aonChoice != null && aonChoice !== player1 && aonChoice !== player2) setAonChoice(null)
+  }, [player1, player2, aonChoice])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -233,6 +258,14 @@ export default function PicksPage() {
     reactionsData?.forEach(r => { reactionMap[r.player_id] = { type: r.type, content: r.content } })
     setPlayerReactions(reactionMap)
 
+    // Same isolated-query reasoning — admin-managed, entirely optional.
+    const { data: exclusionsData } = await supabase.from('all_or_nothing_exclusions').select('player_id, reason')
+    const exclusionMap: Record<number, string> = {}
+    exclusionsData?.forEach(e => { exclusionMap[e.player_id] = e.reason })
+    setAonExclusions(exclusionMap)
+
+    let aonFromApi: { player_id: number; gameweek_id: string; outcome: string } | null = null
+
     if (gw) {
       const [pickRes, { data: fixturesData }, { data: quartilesData }, { data: questionData }, { data: scoringRulesData }] = await Promise.all([
         fetch(`/api/picks?competition_id=${comp.id}&gameweek_id=${gw.id}`),
@@ -272,12 +305,20 @@ export default function PicksPage() {
         setQuestionAnswer(pickData.pick.question_answer ?? '')
         setComments(pickData.pick.comments ?? '')
         setHasPick(true)
+        setSavedPickPlayers({ p1: pickData.pick.player1_id, p2: pickData.pick.player2_id })
+      } else {
+        setSavedPickPlayers({ p1: null, p2: null })
       }
       setUsedTeams(pickData.usedTeams ?? [])
       setPlayerCounts(pickData.playerCounts ?? {})
+      setPlayerMaxOverride(pickData.playerMaxOverride ?? {})
       setDoubleUseTeams(pickData.doubleUseTeams ?? [])
       setBankersUsed(pickData.bankersUsed ?? 0)
       setFixtures(fixturesData ?? [])
+
+      aonFromApi = pickData.allOrNothing ?? null
+      setAllOrNothing(aonFromApi)
+      setAonChoice(aonFromApi && aonFromApi.gameweek_id === gw.id ? aonFromApi.player_id : null)
 
       const qMap: Record<number, number> = {}
       quartilesData?.forEach(q => { qMap[q.team_id] = q.tier })
@@ -302,6 +343,10 @@ export default function PicksPage() {
         .select('id, number, deadline, status')
         .eq('competition_id', comp.id)
     ])
+
+    setAonUsedGwNumber(
+      aonFromApi ? (allGameweeks ?? []).find(g => g.id === aonFromApi!.gameweek_id)?.number ?? null : null
+    )
 
     const realHistory = (history as any) ?? []
     const pickedGwIds = new Set(realHistory.map((h: any) => h.gameweek_id))
@@ -407,7 +452,8 @@ export default function PicksPage() {
         player2_fixture_id: player2Fixture,
         is_banker: isBanker,
         question_answer: questionAnswer,
-        comments: comments.trim() || null
+        comments: comments.trim() || null,
+        all_or_nothing_player_id: aonChoice
       })
     })
     const data = await res.json()
@@ -490,6 +536,22 @@ export default function PicksPage() {
     : []
 
   const hasFixtures = fixtures.length > 0
+
+  // All or Nothing eligibility for whichever two players are currently
+  // selected. The card is spent for the rest of the competition once
+  // there's a record for any OTHER gameweek — resolved or still pending
+  // scoring, it doesn't matter, only one nomination is ever allowed.
+  const aonCardSpentElsewhere = !!allOrNothing && (!gameweek || allOrNothing.gameweek_id !== gameweek.id)
+  function aonPriorUses(playerId: number | null): number {
+    if (playerId == null) return 0
+    let count = playerCounts[playerId] ?? 0
+    if (savedPickPlayers.p1 === playerId || savedPickPlayers.p2 === playerId) count -= 1
+    return count
+  }
+  const aonExclusion1 = player1 != null ? aonExclusions[player1] : undefined
+  const aonExclusion2 = player2 != null ? aonExclusions[player2] : undefined
+  const aonEligible1 = player1 != null && !aonExclusion1 && aonPriorUses(player1) <= 0
+  const aonEligible2 = player2 != null && !aonExclusion2 && aonPriorUses(player2) <= 0
 
   function getTeamStatus(teamId: number) {
     const isUsed = usedTeams.includes(teamId)
@@ -769,7 +831,8 @@ export default function PicksPage() {
                           <div className="rounded-lg overflow-hidden max-h-48 overflow-y-auto" style={{ border: '2px solid rgba(255,255,255,0.15)' }}>
                             {filteredPlayers1.map(p => {
                               const count = playerCounts[p.id] ?? 0
-                              const maxed = count >= 2
+                              const max = playerMaxOverride[p.id] ?? 2
+                              const maxed = count >= max
                               return (
                                 <button
                                   key={p.id}
@@ -778,7 +841,7 @@ export default function PicksPage() {
                                   className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
                                   style={{ background: maxed ? '#0A0A0A' : 'var(--pop-surface)', color: maxed ? '#555555' : 'var(--pop-white)', borderColor: 'rgba(255,255,255,0.1)' }}
                                 >
-                                  {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/2)</span>
+                                  {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/{max})</span>
                                 </button>
                               )
                             })}
@@ -823,7 +886,8 @@ export default function PicksPage() {
                           <div className="rounded-lg overflow-hidden max-h-48 overflow-y-auto" style={{ border: '2px solid rgba(255,255,255,0.15)' }}>
                             {filteredPlayers2.map(p => {
                               const count = playerCounts[p.id] ?? 0
-                              const maxed = count >= 2
+                              const max = playerMaxOverride[p.id] ?? 2
+                              const maxed = count >= max
                               return (
                                 <button
                                   key={p.id}
@@ -832,7 +896,7 @@ export default function PicksPage() {
                                   className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
                                   style={{ background: maxed ? '#0A0A0A' : 'var(--pop-surface)', color: maxed ? '#555555' : 'var(--pop-white)', borderColor: 'rgba(255,255,255,0.1)' }}
                                 >
-                                  {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/2)</span>
+                                  {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/{max})</span>
                                 </button>
                               )
                             })}
@@ -853,6 +917,49 @@ export default function PicksPage() {
                   </button>
                   <span className="pop-badge pop-badge--blue px-2.5 py-1.5 text-xs">{bankersUsed} of 2 used</span>
                 </div>
+
+                {player1 && player2 && (
+                  <div className="pop-panel pop-panel--pink p-4 mb-6">
+                    <p className="pop-headline text-lg mb-2">All or Nothing</p>
+                    {aonCardSpentElsewhere ? (
+                      <p className="font-bold text-sm">
+                        Already played this competition{aonUsedGwNumber ? ` (GW${aonUsedGwNumber})` : ''} —{' '}
+                        {allOrNothing?.outcome === 'success' ? 'succeeded! 🎉' : allOrNothing?.outcome === 'failed' ? 'failed.' : 'result pending.'}
+                      </p>
+                    ) : aonChoice != null ? (
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="pop-badge pop-badge--green px-3 py-1.5 text-xs">Playing on {playerName(aonChoice)}</span>
+                        <button onClick={() => setAonChoice(null)} className="pop-button pop-button--yellow px-3 py-1.5 text-xs">
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          onClick={() => aonEligible1 && setAonChoice(player1)}
+                          disabled={!aonEligible1}
+                          title={aonExclusion1 ?? (!aonEligible1 ? 'Already used this player this competition' : undefined)}
+                          className="pop-button px-3 py-1.5 text-xs"
+                          style={!aonEligible1 ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' } : { background: 'var(--pop-pink)' }}
+                        >
+                          Play on {playerName(player1)}
+                        </button>
+                        <button
+                          onClick={() => aonEligible2 && setAonChoice(player2)}
+                          disabled={!aonEligible2}
+                          title={aonExclusion2 ?? (!aonEligible2 ? 'Already used this player this competition' : undefined)}
+                          className="pop-button px-3 py-1.5 text-xs"
+                          style={!aonEligible2 ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' } : { background: 'var(--pop-pink)' }}
+                        >
+                          Play on {playerName(player2)}
+                        </button>
+                      </div>
+                    )}
+                    <p className="font-mono text-[10px] mt-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                      One nomination per competition. Score or assist this week and you get a bonus 3rd use of them — blank, and you lose all remaining uses.
+                    </p>
+                  </div>
+                )}
 
                 {question && (
                   <div className="pop-panel pop-panel--yellow pop-rotate-r p-4 mb-6">
@@ -1127,7 +1234,8 @@ export default function PicksPage() {
                             <div className="bg-[#241a12] border border-white/10 rounded-lg mt-1 divide-y divide-white/10 max-h-48 overflow-y-auto">
                               {filteredPlayers1.map(p => {
                                 const count = playerCounts[p.id] ?? 0
-                                const maxed = count >= 2
+                                const max = playerMaxOverride[p.id] ?? 2
+                                const maxed = count >= max
                                 return (
                                   <button
                                     key={p.id}
@@ -1136,7 +1244,7 @@ export default function PicksPage() {
                                     className={`block w-full text-left px-3 py-2 text-sm ${maxed ? 'text-[#F5ECD9]/30 line-through cursor-not-allowed' : 'hover:bg-white/10'}`}
                                   >
                                     <span className="uppercase">{playerName(p.id)}</span>
-                                    <span className="text-xs text-[#F5ECD9]/40 ml-2">({count}/2)</span>
+                                    <span className="text-xs text-[#F5ECD9]/40 ml-2">({count}/{max})</span>
                                   </button>
                                 )
                               })}
@@ -1198,7 +1306,8 @@ export default function PicksPage() {
                             <div className="bg-[#241a12] border border-white/10 rounded-lg mt-1 divide-y divide-white/10 max-h-48 overflow-y-auto">
                               {filteredPlayers2.map(p => {
                                 const count = playerCounts[p.id] ?? 0
-                                const maxed = count >= 2
+                                const max = playerMaxOverride[p.id] ?? 2
+                                const maxed = count >= max
                                 return (
                                   <button
                                     key={p.id}
@@ -1207,7 +1316,7 @@ export default function PicksPage() {
                                     className={`block w-full text-left px-3 py-2 text-sm ${maxed ? 'text-[#F5ECD9]/30 line-through cursor-not-allowed' : 'hover:bg-white/10'}`}
                                   >
                                     <span className="uppercase">{playerName(p.id)}</span>
-                                    <span className="text-xs text-[#F5ECD9]/40 ml-2">({count}/2)</span>
+                                    <span className="text-xs text-[#F5ECD9]/40 ml-2">({count}/{max})</span>
                                   </button>
                                 )
                               })}
@@ -1256,6 +1365,56 @@ export default function PicksPage() {
                     </button>
                     <span className="text-xs text-[#F5ECD9]/50 uppercase tracking-wider">{bankersUsed} of 2 used</span>
                   </div>
+
+                  {player1 && player2 && (
+                    <div className="mb-5 bg-white/5 border border-white/10 rounded-lg p-4">
+                      <p className="text-xs font-bold uppercase tracking-wider mb-2 text-[#D9A441]">All or Nothing</p>
+                      {aonCardSpentElsewhere ? (
+                        <p className="text-sm text-[#F5ECD9]/80">
+                          Already played this competition{aonUsedGwNumber ? ` (GW${aonUsedGwNumber})` : ''} —{' '}
+                          {allOrNothing?.outcome === 'success' ? 'succeeded! 🎉' : allOrNothing?.outcome === 'failed' ? 'failed.' : 'result pending.'}
+                        </p>
+                      ) : aonChoice != null ? (
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded bg-[#D9A441]/15 border border-[#D9A441] text-[#D9A441]">
+                            Playing on {playerName(aonChoice)}
+                          </span>
+                          <button
+                            onClick={() => setAonChoice(null)}
+                            className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded border border-white/10 bg-white/5 hover:border-[#D9A441]/50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2 flex-wrap">
+                          <button
+                            onClick={() => aonEligible1 && setAonChoice(player1)}
+                            disabled={!aonEligible1}
+                            title={aonExclusion1 ?? (!aonEligible1 ? 'Already used this player this competition' : undefined)}
+                            className={`text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded border ${
+                              aonEligible1 ? 'bg-white/5 border-white/10 hover:border-[#D9A441]/50' : 'bg-white/5 border-white/10 text-[#F5ECD9]/30 cursor-not-allowed'
+                            }`}
+                          >
+                            Play on {playerName(player1)}
+                          </button>
+                          <button
+                            onClick={() => aonEligible2 && setAonChoice(player2)}
+                            disabled={!aonEligible2}
+                            title={aonExclusion2 ?? (!aonEligible2 ? 'Already used this player this competition' : undefined)}
+                            className={`text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded border ${
+                              aonEligible2 ? 'bg-white/5 border-white/10 hover:border-[#D9A441]/50' : 'bg-white/5 border-white/10 text-[#F5ECD9]/30 cursor-not-allowed'
+                            }`}
+                          >
+                            Play on {playerName(player2)}
+                          </button>
+                        </div>
+                      )}
+                      <p className="text-[10px] text-[#F5ECD9]/40 mt-2">
+                        One nomination per competition. Score or assist this week and you get a bonus 3rd use of them — blank, and you lose all remaining uses.
+                      </p>
+                    </div>
+                  )}
 
                   {question && (
                     <div className="mb-5 bg-white/5 border border-white/10 rounded-lg p-4">

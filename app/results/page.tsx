@@ -82,6 +82,10 @@ export default function ResultsPage() {
   const [selectedGw, setSelectedGw] = useState<string | null>(null)
   const [picks, setPicks] = useState<PickRow[]>([])
   const [pointsData, setPointsData] = useState<PointsRow[]>([])
+  // All or Nothing nominations for the selected gameweek, keyed by user —
+  // only ever fetched below the same "deadline passed" gate as picks
+  // themselves, same hidden-until-deadline rule.
+  const [aonByUser, setAonByUser] = useState<Record<string, { player_id: number; outcome: string }>>({})
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
   const [profiles, setProfiles] = useState<Record<string, string>>({})
   const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }>>({})
@@ -215,6 +219,7 @@ export default function ResultsPage() {
       setPointsData([])
       setMatchEvents([])
       setQuestion(null)
+      setAonByUser({})
       setLoadingPicks(false)
       return
     }
@@ -267,6 +272,16 @@ export default function ResultsPage() {
 
     setPicks([...realPicks, ...previewPicks])
     setMatchEvents(events ?? [])
+
+    // Its own isolated query, same reasoning as everywhere else on this
+    // page — a problem here should never take the rest of Results down.
+    const { data: aonRows } = await supabase
+      .from('all_or_nothing_picks')
+      .select('user_id, player_id, outcome')
+      .eq('gameweek_id', gwId)
+    const aonMap: Record<string, { player_id: number; outcome: string }> = {}
+    aonRows?.forEach(a => { aonMap[a.user_id] = { player_id: a.player_id, outcome: a.outcome } })
+    setAonByUser(aonMap)
 
     // Once the deadline's passed but before a gameweek is marked "completed",
     // there's no frozen points row yet — show a live calculation instead,
@@ -595,6 +610,13 @@ export default function ResultsPage() {
                     const answerLabel = pick.question_answer
                       ? questionOptions.find(([letter]) => letter === pick.question_answer)?.[1] ?? pick.question_answer
                       : null
+                    const aon = aonByUser[pick.user_id]
+                    const aonStyle = aon?.outcome === 'success'
+                      ? { background: 'var(--pop-green)', color: 'var(--pop-black)' }
+                      : aon?.outcome === 'failed'
+                      ? { background: 'var(--pop-red)', color: 'var(--pop-white)' }
+                      : { background: 'var(--pop-pink)', color: 'var(--pop-white)' }
+                    const aonLabel = aon?.outcome === 'success' ? '✓ AoN' : aon?.outcome === 'failed' ? '✕ AoN' : '⚡ AoN'
 
                     return (
                       <div
@@ -653,12 +675,14 @@ export default function ResultsPage() {
                             {players[pick.player1_id] ?? 'Unknown'}
                             {goalPlayers.has(pick.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
                             {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                            {aon?.player_id === pick.player1_id && <span className="ml-0.5 px-1 rounded font-black" style={{ fontSize: '9px', ...aonStyle }}>{aonLabel}</span>}
                             {showScoring && <span className="normal-case ml-1" style={{ color: 'rgba(255,255,255,0.5)' }}>({pts?.player1_points ?? '—'} pts)</span>}
                           </span>
                           <span>
                             {players[pick.player2_id] ?? 'Unknown'}
                             {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
                             {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                            {aon?.player_id === pick.player2_id && <span className="ml-0.5 px-1 rounded font-black" style={{ fontSize: '9px', ...aonStyle }}>{aonLabel}</span>}
                             {showScoring && <span className="normal-case ml-1" style={{ color: 'rgba(255,255,255,0.5)' }}>({pts?.player2_points ?? '—'} pts)</span>}
                           </span>
                         </div>
@@ -683,6 +707,12 @@ export default function ResultsPage() {
                     <span className="px-0.5 rounded font-black" style={{ background: 'rgba(0,176,255,0.2)', color: 'var(--pop-blue)' }}>H</span>/<span className="px-0.5 rounded font-black" style={{ background: 'rgba(255,61,0,0.2)', color: 'var(--pop-orange)' }}>A</span> Home/Away
                     <span className="mx-2">·</span>
                     <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — computer picked it (deadline passed, no pick made)
+                    <span className="mx-2">·</span>
+                    <span className="px-1 rounded font-black" style={{ background: 'var(--pop-pink)', color: 'var(--pop-white)' }}>⚡ AoN</span> All or Nothing played, result pending
+                    <span className="mx-2">·</span>
+                    <span className="px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>✓ AoN</span> succeeded
+                    <span className="mx-2">·</span>
+                    <span className="px-1 rounded font-black" style={{ background: 'var(--pop-red)', color: 'var(--pop-white)' }}>✕ AoN</span> failed
                   </div>
                 </div>
               )}
@@ -917,6 +947,13 @@ export default function ResultsPage() {
                     const answerLabel = pick.question_answer
                       ? questionOptions.find(([letter]) => letter === pick.question_answer)?.[1] ?? pick.question_answer
                       : null
+                    const aon = aonByUser[pick.user_id]
+                    const aonClass = aon?.outcome === 'success'
+                      ? 'bg-green-600 text-white'
+                      : aon?.outcome === 'failed'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-[#D9A441] text-[#241a12]'
+                    const aonLabel = aon?.outcome === 'success' ? '✓ AoN' : aon?.outcome === 'failed' ? '✕ AoN' : '⚡ AoN'
 
                     return (
                       <div key={pick.id} className={`p-2.5 ${isWinner ? 'bg-[#D9A441]/10' : ''}`} style={{ fontSize: '11px' }}>
@@ -971,12 +1008,14 @@ export default function ResultsPage() {
                             {players[pick.player1_id] ?? 'Unknown'}
                             {goalPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '9px' }}>G</span>}
                             {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '9px' }}>A</span>}
+                            {aon?.player_id === pick.player1_id && <span className={`ml-0.5 px-1 rounded font-bold ${aonClass}`} style={{ fontSize: '9px' }}>{aonLabel}</span>}
                             {showScoring && <span className="text-[#F5ECD9]/50 normal-case ml-1">({pts?.player1_points ?? '—'} pts)</span>}
                           </span>
                           <span>
                             {players[pick.player2_id] ?? 'Unknown'}
                             {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '9px' }}>G</span>}
                             {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '9px' }}>A</span>}
+                            {aon?.player_id === pick.player2_id && <span className={`ml-0.5 px-1 rounded font-bold ${aonClass}`} style={{ fontSize: '9px' }}>{aonLabel}</span>}
                             {showScoring && <span className="text-[#F5ECD9]/50 normal-case ml-1">({pts?.player2_points ?? '—'} pts)</span>}
                           </span>
                         </div>
@@ -1001,6 +1040,12 @@ export default function ResultsPage() {
                     <span className="bg-blue-500/20 text-blue-300 px-0.5 rounded font-bold">H</span>/<span className="bg-orange-500/20 text-orange-300 px-0.5 rounded font-bold">A</span> Home/Away
                     <span className="mx-2">·</span>
                     <span className="bg-white/20 px-0.5 rounded">AP</span> Autopick — computer picked it (deadline passed, no pick made)
+                    <span className="mx-2">·</span>
+                    <span className="bg-[#D9A441] text-[#241a12] px-1 rounded font-bold">⚡ AoN</span> All or Nothing played, result pending
+                    <span className="mx-2">·</span>
+                    <span className="bg-green-600 text-white px-1 rounded font-bold">✓ AoN</span> succeeded
+                    <span className="mx-2">·</span>
+                    <span className="bg-red-600 text-white px-1 rounded font-bold">✕ AoN</span> failed
                   </div>
                 </div>
               )}

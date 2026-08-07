@@ -23,6 +23,7 @@ export default function RulesPage() {
   const [ruleMap, setRuleMap] = useState<Record<string, number>>({})
   const [goalPts, setGoalPts] = useState(12)
   const [assistPts, setAssistPts] = useState(6)
+  const [aonExclusions, setAonExclusions] = useState<{ name: string; reason: string }[]>([])
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
@@ -58,6 +59,18 @@ export default function RulesPage() {
       setGoalPts(playerRules?.find(r => r.event_type === 'goal')?.points ?? 12)
       setAssistPts(playerRules?.find(r => r.event_type === 'assist')?.points ?? 6)
     }
+
+    // Its own isolated query, same reasoning as everywhere else this
+    // pattern shows up — an admin-managed, entirely optional list, so a
+    // problem here should never take the rest of the Rules page down.
+    const { data: exclusionsData } = await supabase
+      .from('all_or_nothing_exclusions')
+      .select('reason, players(name)')
+    setAonExclusions(
+      (exclusionsData ?? [])
+        .map((e: any) => ({ name: e.players?.name ?? 'Unknown player', reason: e.reason }))
+        .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name))
+    )
 
     setLoading(false)
   }
@@ -143,6 +156,33 @@ export default function RulesPage() {
                 Two bankers per competition. A banker doubles your entire gameweek score — team and both players.
                 Declare it with your pick. Unused bankers are worth nothing. Bankers are never applied to autopicks.
               </p>
+            </section>
+
+            <section className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-2">All or Nothing</h2>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Once per competition, you can play All or Nothing on one of your two weekly picks — but only a
+                player you haven&apos;t used at all yet this competition. Nominate them when you submit that
+                gameweek&apos;s pick. Can be played alongside a banker or on its own.
+              </p>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                If they score a goal or register an assist that gameweek, you get a bonus third use of them for
+                the rest of the competition. If they don&apos;t, you lose all remaining uses of them — for the
+                rest of the competition, even if you&apos;d normally have had a second go.
+              </p>
+              {aonExclusions.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-sm font-bold mb-1.5" style={{ color: 'var(--pop-blue)' }}>Exclusions</p>
+                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    These players can&apos;t be nominated for All or Nothing:
+                  </p>
+                  <ul className="text-sm leading-relaxed list-disc pl-5 space-y-1" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    {aonExclusions.map((e, i) => (
+                      <li key={i}><strong>{e.name}</strong> — {e.reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </section>
 
             <section className="pop-panel p-5">
@@ -335,6 +375,33 @@ export default function RulesPage() {
                 Two bankers per competition. A banker doubles your entire gameweek score — team and both players.
                 Declare it with your pick. Unused bankers are worth nothing. Bankers are never applied to autopicks.
               </p>
+            </section>
+
+            <section className={cardClass}>
+              <h2 className="text-lg font-bold mb-3 text-[#D9A441]">All or Nothing</h2>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
+                Once per competition, you can play All or Nothing on one of your two weekly picks — but only a
+                player you haven&apos;t used at all yet this competition. Nominate them when you submit that
+                gameweek&apos;s pick. Can be played alongside a banker or on its own.
+              </p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
+                If they score a goal or register an assist that gameweek, you get a bonus third use of them for
+                the rest of the competition. If they don&apos;t, you lose all remaining uses of them — for the
+                rest of the competition, even if you&apos;d normally have had a second go.
+              </p>
+              {aonExclusions.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-sm font-bold text-[#D9A441] mb-1.5">Exclusions</p>
+                  <p className="text-sm text-[#F5ECD9]/60 leading-relaxed mb-2">
+                    These players can&apos;t be nominated for All or Nothing:
+                  </p>
+                  <ul className="text-sm text-[#F5ECD9]/80 leading-relaxed list-disc pl-5 space-y-1">
+                    {aonExclusions.map((e, i) => (
+                      <li key={i}><strong>{e.name}</strong> — {e.reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </section>
 
             <section className={cardClass}>
