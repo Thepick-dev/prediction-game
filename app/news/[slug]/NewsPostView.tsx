@@ -23,7 +23,7 @@ export default function NewsPostView({
 
   if (popArt) {
     return (
-      <Shell active="MATCHDAY PROGRAMME" user={user} displayName={displayName} theme="pop-art">
+      <Shell active="NEWS" user={user} displayName={displayName} theme="pop-art">
         <div className="pop-art-theme">
           <p className="uppercase tracking-widest mb-2" style={{ fontSize: '10px', color: 'var(--pop-blue)' }}>
             {post.published_at ? new Date(post.published_at).toLocaleDateString('en-GB', {
@@ -50,7 +50,7 @@ export default function NewsPostView({
   }
 
   return (
-    <Shell active="MATCHDAY PROGRAMME" user={user} displayName={displayName}>
+    <Shell active="NEWS" user={user} displayName={displayName}>
       <HeroPage wide noImage>
         <div className="w-full text-[#F5ECD9]">
           <p className="text-[10px] uppercase tracking-widest text-[#D9A441]/70 mb-2">

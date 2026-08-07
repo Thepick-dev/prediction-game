@@ -50,7 +50,7 @@ export default function ArchivePage() {
 
   if (loading) {
     return (
-      <Shell active="TROPHY ROOM" theme={popArt ? 'pop-art' : 'classic'}>
+      <Shell active="WINNERS" theme={popArt ? 'pop-art' : 'classic'}>
         {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
       </Shell>
     )
@@ -58,9 +58,9 @@ export default function ArchivePage() {
 
   if (popArt) {
     return (
-      <Shell active="TROPHY ROOM" user={user} displayName={displayName} theme="pop-art">
+      <Shell active="WINNERS" user={user} displayName={displayName} theme="pop-art">
         <div className="pop-art-theme">
-          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-6 mt-2">Trophy Room</h1>
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-6 mt-2">Winners</h1>
 
           <div className="space-y-8">
 
@@ -133,10 +133,10 @@ export default function ArchivePage() {
   const cardClass = "bg-white/5 border border-white/10 rounded-lg"
 
   return (
-    <Shell active="TROPHY ROOM" user={user} displayName={displayName}>
+    <Shell active="WINNERS" user={user} displayName={displayName}>
       <HeroPage wide heroOverride="trophy">
         <div className="w-full text-[#F5ECD9]">
-          <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Trophy Room</h1>
+          <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Winners</h1>
 
           <div className="space-y-8">
 

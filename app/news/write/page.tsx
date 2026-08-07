@@ -125,7 +125,7 @@ export default function WriteArticlePage() {
 
   if (allowed === null) {
     return (
-      <Shell active="MATCHDAY PROGRAMME">
+      <Shell active="NEWS">
         <p className="text-gray-500">Loading...</p>
       </Shell>
     )
@@ -133,7 +133,7 @@ export default function WriteArticlePage() {
 
   if (!allowed) {
     return (
-      <Shell active="MATCHDAY PROGRAMME" user={user} displayName={displayName}>
+      <Shell active="NEWS" user={user} displayName={displayName}>
         <HeroPage>
           <div className="w-full text-[#F5ECD9] text-center">
             <h1 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Not Available</h1>
@@ -145,7 +145,7 @@ export default function WriteArticlePage() {
   }
 
   return (
-    <Shell active="MATCHDAY PROGRAMME" user={user} displayName={displayName}>
+    <Shell active="NEWS" user={user} displayName={displayName}>
       <HeroPage wide>
         <div className="w-full text-[#F5ECD9]">
           <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>WRITE ARTICLE</h1>

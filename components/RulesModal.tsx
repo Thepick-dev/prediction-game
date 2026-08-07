@@ -54,7 +54,7 @@ export default function RulesModal({ onClose }: RulesModalProps) {
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
       <div className="bg-[#f5ecd9] rounded-lg shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
         <div className="sticky top-0 bg-[#f5ecd9] border-b px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold">Laws of the Game</h2>
+          <h2 className="text-xl font-bold">Rules</h2>
           <button onClick={onClose} className="text-2xl leading-none">&times;</button>
         </div>
 

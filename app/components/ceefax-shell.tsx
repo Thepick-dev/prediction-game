@@ -34,9 +34,9 @@ const navItems = [
   { label: 'LEADERBOARD', href: '/leaderboard' },
   { label: 'RESULTS', href: '/results' },
   { label: 'STATS HUB', href: '/stats' },
-  { label: 'LAWS OF THE GAME', href: '/rules' },
-  { label: 'MATCHDAY PROGRAMME', href: '/news' },
-  { label: 'TROPHY ROOM', href: '/archive' },
+  { label: 'RULES', href: '/rules' },
+  { label: 'NEWS', href: '/news' },
+  { label: 'WINNERS', href: '/archive' },
   { label: 'SETTINGS', href: '/settings' },
 ]
 

@@ -73,7 +73,7 @@ export default function NewsListPage() {
 
   if (loading) {
     return (
-      <Shell active="MATCHDAY PROGRAMME" theme={popArt ? 'pop-art' : 'classic'}>
+      <Shell active="NEWS" theme={popArt ? 'pop-art' : 'classic'}>
         {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
       </Shell>
     )
@@ -81,11 +81,11 @@ export default function NewsListPage() {
 
   if (popArt) {
     return (
-      <Shell active="MATCHDAY PROGRAMME" user={user} displayName={displayName} theme="pop-art">
+      <Shell active="NEWS" user={user} displayName={displayName} theme="pop-art">
         <div className="pop-art-theme">
 
           <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
-            <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">Matchday Programme</h1>
+            <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">News</h1>
             <div className="flex gap-2 flex-wrap">
               {canWrite && (
                 <Link href="/news/write" className="pop-button pop-button--yellow px-3 py-1.5 text-xs">
@@ -132,12 +132,12 @@ export default function NewsListPage() {
   }
 
   return (
-    <Shell active="MATCHDAY PROGRAMME" user={user} displayName={displayName}>
+    <Shell active="NEWS" user={user} displayName={displayName}>
       <HeroPage wide noImage>
         <div className="w-full text-[#F5ECD9]">
 
           <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
-            <h1 className="text-3xl font-bold" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>MATCHDAY PROGRAMME</h1>
+            <h1 className="text-3xl font-bold" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>NEWS</h1>
             <div className="flex gap-2 flex-wrap">
               {canWrite && (
                 <Link

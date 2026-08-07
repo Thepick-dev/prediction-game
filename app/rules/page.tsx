@@ -64,7 +64,7 @@ export default function RulesPage() {
 
   if (loading) {
     return (
-      <Shell active="LAWS OF THE GAME" theme={popArt ? 'pop-art' : 'classic'}>
+      <Shell active="RULES" theme={popArt ? 'pop-art' : 'classic'}>
         {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
       </Shell>
     )
@@ -72,10 +72,10 @@ export default function RulesPage() {
 
   if (popArt) {
     return (
-      <Shell active="LAWS OF THE GAME" user={user} displayName={displayName} theme="pop-art">
+      <Shell active="RULES" user={user} displayName={displayName} theme="pop-art">
         <div className="pop-art-theme">
 
-          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-6 mt-2">Laws of the Game</h1>
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-6 mt-2">Rules</h1>
 
           <div className="space-y-5">
 
@@ -263,11 +263,11 @@ export default function RulesPage() {
   const cardClass = "bg-white/5 border border-white/10 rounded-lg p-6"
 
   return (
-    <Shell active="LAWS OF THE GAME" user={user} displayName={displayName}>
+    <Shell active="RULES" user={user} displayName={displayName}>
       <HeroPage wide>
         <div className="w-full text-[#F5ECD9]">
 
-          <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Laws of the Game</h1>
+          <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Rules</h1>
 
           <div className="space-y-6">
 

@@ -129,7 +129,7 @@ export default function PreSeasonHelpPage() {
                 explicitly in their own code, since those pages are reachable without logging in — don&rsquo;t remove that.
               </p>
               <p className="text-sm text-gray-700 mt-2">
-                <strong>The Trophy Room (<code className="bg-gray-100 px-1 rounded">/archive</code>) uses its own single fixed image</strong>, not
+                <strong>The Winners page (<code className="bg-gray-100 px-1 rounded">/archive</code>) uses its own single fixed image</strong>, not
                 the rotating pool — add <code className="bg-gray-100 px-1 rounded">hero-trophy-desktop.png</code> and <code className="bg-gray-100 px-1 rounded">hero-trophy-mobile.png</code> to
                 the same folder (no numbering, no <code className="bg-gray-100 px-1 rounded">TOTAL_HEROES</code> change needed) and it&rsquo;ll be picked up automatically.
               </p>
