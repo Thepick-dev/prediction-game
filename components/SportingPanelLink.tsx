@@ -125,13 +125,21 @@ export default function SportingPanelLink({ children, popArt = false }: { childr
         // end up positioned against that card instead of the actual screen.
         <div
           ref={popoverRef}
-          className={popArt ? 'pop-panel fixed z-50 p-4' : 'fixed z-50 rounded-lg p-4 border shadow-2xl'}
+          // Deliberately NOT the shared .pop-panel class here — it sets
+          // position: relative, which beats this fixed positioning in the
+          // cascade (same specificity, .pop-panel just comes later in the
+          // stylesheet) and silently breaks the whole popover, rendering
+          // it in normal document flow instead of anchored near the
+          // trigger. Its visual style is replicated inline instead.
+          className="fixed z-50 p-4 rounded-2xl border-2"
           style={{
             top: pos.top,
             left: pos.left,
             width: POPOVER_WIDTH,
             maxWidth: `calc(100vw - ${MARGIN * 2}px)`,
-            ...(popArt ? {} : { backgroundColor: '#1e1914', borderColor: 'rgba(217,164,65,0.3)' }),
+            ...(popArt
+              ? { background: 'var(--pop-surface)', borderColor: 'rgba(255,255,255,0.12)', boxShadow: '0 4px 18px rgba(0,0,0,0.5)' }
+              : { backgroundColor: '#1e1914', borderColor: 'rgba(217,164,65,0.3)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }),
           }}
         >
           <h3
