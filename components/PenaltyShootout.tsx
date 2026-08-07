@@ -16,14 +16,17 @@ import { createClient } from '../app/lib/supabase'
 //   fixed rhythm to memorise)
 // - the target zone itself starts drifting on its own independent,
 //   ever-quickening cycle past an early threshold
-// - score ticks down 1/point/second while you're deciding — dawdling
-//   costs you, and it can push the score negative
+// - score ticks down 1/point/every half-second while you're deciding —
+//   dawdling costs you, and it can push the score negative
 // - past the harder stretch, rounds occasionally swap the one brutal zone
 //   for TWO wider ones instead (hit either) — a deliberate breather, not
 //   guaranteed every round
-// - a hidden bonus sub-region sometimes sits inside the real target: a
-//   heart grants a life back (capped at 5), gold doubles that shot's
-//   points — mutually exclusive per round
+// - a bonus pickup sometimes appears — a heart grants a life back (capped
+//   at 5), gold is worth extra points — mutually exclusive per round.
+//   Randomly embedded inside the real target, sitting elsewhere on the
+//   track entirely, or drifting on its own independent path — and always
+//   hittable on its own: grazing it without hitting the real target still
+//   banks the reward and does NOT cost a life (skull excepted, below).
 // - past a threshold, a separate skull patch can appear near (never
 //   overlapping) the real target — hit it and it's instant game over
 const BASE_WIDTH = 30
@@ -54,9 +57,10 @@ const ZONE_MOVE_START_T = 0.1
 const ZONE_MOVE_BASE_MS = 2200
 const ZONE_MOVE_MIN_MS = 420
 
-// Lose a point a second while you're aiming — pure urgency, encourages
-// shooting on instinct instead of stalling for the "perfect" moment.
-const TICK_MS = 1000
+// Lose a point every half-second while you're aiming — pure urgency,
+// encourages shooting on instinct instead of stalling for the "perfect"
+// moment.
+const TICK_MS = 500
 
 // Two friendlier zones instead of one brutal one, occasionally, once
 // things are properly fast — a deliberate breather stage, not a reward
@@ -64,10 +68,16 @@ const TICK_MS = 1000
 const MULTI_TARGET_START_T = 0.55
 const MULTI_TARGET_CHANCE = 0.4
 
-// Hidden bonus sub-region inside a (single-target) round's real zone.
-// Mutually exclusive per round — only one of the two can show up.
+// Bonus pickup, single-target rounds only. Mutually exclusive per round —
+// only one of the two can show up.
 const HEART_CHANCE = 0.18
 const GOLD_CHANCE = 0.12
+// How the pickup relates to the real target this round: embedded inside
+// it (tracks its movement, since it's rendered as an actual DOM child of
+// the zone), sitting apart from it, or sitting apart AND drifting on its
+// own separate cycle. Rolled against these cumulative thresholds.
+const BONUS_EMBEDDED_MAX = 0.4
+const BONUS_SEPARATE_STATIC_MAX = 0.7
 
 // Separate danger patch, never overlapping a real zone — instant game
 // over regardless of lives remaining.
@@ -102,6 +112,11 @@ function reactionEmoji(precision: number) {
 type Phase = 'ready' | 'aiming' | 'result' | 'gameover' | 'win'
 type ZoneMove = { a: number; b: number; durationMs: number; phaseMs: number } | null
 type Band = { left: number; width: number }
+// 'embedded': band is a % of the ZONE's own width (rendered as its DOM
+// child, so it automatically tracks the zone if the zone drifts).
+// 'separate': band is a % of the TRACK, rendered as its own element that
+// can optionally carry its own independent drift (`move`).
+type Bonus = { kind: 'heart' | 'gold'; mode: 'embedded' | 'separate'; band: Band; move: ZoneMove } | null
 
 export default function PenaltyShootout({ userId }: { userId: string }) {
   const [score, setScore] = useState(0)
@@ -112,8 +127,7 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
   const [zones, setZones] = useState<Band[]>([{ left: 40, width: BASE_WIDTH }])
   const [multiTarget, setMultiTarget] = useState(false)
   const [zoneMove, setZoneMove] = useState<ZoneMove>(null)
-  const [heart, setHeart] = useState<Band | null>(null)
-  const [gold, setGold] = useState<Band | null>(null)
+  const [bonus, setBonus] = useState<Bonus>(null)
   const [skull, setSkull] = useState<Band | null>(null)
   const [skullHit, setSkullHit] = useState(false)
   const [duration, setDuration] = useState(BASE_DURATION)
@@ -131,7 +145,7 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
   const [leaderboard, setLeaderboard] = useState<{ name: string; score: number }[]>([])
   const [justBeatBest, setJustBeatBest] = useState(false)
   // Last hit's reward — drives the floating "+N" / emoji feedback.
-  const [lastHit, setLastHit] = useState<{ points: number; precision: number; key: number; bonus: 'heart' | 'gold' | null } | null>(null)
+  const [lastHit, setLastHit] = useState<{ points: number; precision: number; key: number; bonus: 'heart' | 'gold' | null; label: string } | null>(null)
   const [milestone, setMilestone] = useState<{ text: string; key: number } | null>(null)
   const [shakeKey, setShakeKey] = useState(0)
   // There's no dedicated diving-keeper artwork — the "dive" is the same
@@ -144,6 +158,8 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
   const markerRef = useRef<HTMLDivElement>(null)
   const zoneRef = useRef<HTMLDivElement>(null)
   const zoneAnimRef = useRef<Animation | null>(null)
+  const bonusRef = useRef<HTMLDivElement>(null)
+  const bonusAnimRef = useRef<Animation | null>(null)
   const supabase = createClient()
 
   useEffect(() => { loadScores() }, [])
@@ -172,10 +188,35 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roundId])
 
+  // Same idea for a bonus pickup that's drifting on its own separate path
+  // (mode: 'separate', with a `move`) — deliberately a distinct Animation
+  // from the zone's, so the two are never in sync.
   useEffect(() => {
-    if (!zoneAnimRef.current) return
-    if (phase === 'aiming') zoneAnimRef.current.play()
-    else zoneAnimRef.current.pause()
+    if (!bonusRef.current) return
+    bonusAnimRef.current?.cancel()
+    bonusAnimRef.current = null
+    if (bonus?.mode === 'separate' && bonus.move) {
+      const anim = bonusRef.current.animate(
+        [{ left: `${bonus.move.a}%` }, { left: `${bonus.move.b}%` }],
+        { duration: bonus.move.durationMs, iterations: Infinity, direction: 'alternate', easing: 'linear' }
+      )
+      anim.currentTime = bonus.move.phaseMs
+      if (phase !== 'aiming') anim.pause()
+      bonusAnimRef.current = anim
+    }
+    return () => { bonusAnimRef.current?.cancel() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundId])
+
+  useEffect(() => {
+    if (zoneAnimRef.current) {
+      if (phase === 'aiming') zoneAnimRef.current.play()
+      else zoneAnimRef.current.pause()
+    }
+    if (bonusAnimRef.current) {
+      if (phase === 'aiming') bonusAnimRef.current.play()
+      else bonusAnimRef.current.pause()
+    }
   }, [phase])
 
   // The time-penalty tick — only runs while you're actually deciding.
@@ -237,23 +278,45 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
     setZones(newZones)
     setMultiTarget(useMulti)
 
-    // Heart / gold — single-target rounds only, so hit-detection against
-    // them never has to reason about which of several zones they're in.
-    let newHeart: Band | null = null
-    let newGold: Band | null = null
+    // Bonus pickup — single-target rounds only, so hit-detection against
+    // it never has to reason about which of several zones it's near.
+    let newBonus: Bonus = null
     if (!useMulti) {
       const z = newZones[0]
       const roll = Math.random()
-      if (currentLives < MAX_LIVES && roll < HEART_CHANCE) {
-        const hw = Math.max(2, z.width * 0.35)
-        newHeart = { left: z.left + Math.random() * Math.max(0, z.width - hw), width: hw }
-      } else if (roll < HEART_CHANCE + GOLD_CHANCE) {
-        const gw = Math.max(2, z.width * 0.35)
-        newGold = { left: z.left + Math.random() * Math.max(0, z.width - gw), width: gw }
+      const isHeart = currentLives < MAX_LIVES && roll < HEART_CHANCE
+      const isGold = !isHeart && roll < HEART_CHANCE + GOLD_CHANCE
+      if (isHeart || isGold) {
+        const modeRoll = Math.random()
+        const kind: 'heart' | 'gold' = isHeart ? 'heart' : 'gold'
+        if (modeRoll < BONUS_EMBEDDED_MAX) {
+          // Embedded — a % of the ZONE's own width, rendered as its DOM
+          // child so it rides along automatically if the zone drifts.
+          const wRel = 25 + Math.random() * 20
+          const left = Math.random() * (100 - wRel)
+          newBonus = { kind, mode: 'embedded', band: { left, width: wRel }, move: null }
+        } else {
+          // Separate — its own spot on the track, clear of the real
+          // target at spawn (with a small margin; up to 15 tries).
+          const bw = Math.max(4, z.width * 0.6)
+          let left = Math.random() * (100 - bw)
+          for (let attempt = 0; attempt < 15; attempt++) {
+            const candidate = Math.random() * (100 - bw)
+            const overlaps = candidate < z.left + z.width + 3 && candidate + bw > z.left - 3
+            if (!overlaps) { left = candidate; break }
+          }
+          let move: ZoneMove = null
+          if (modeRoll >= BONUS_SEPARATE_STATIC_MAX) {
+            const moveMs = ZONE_MOVE_MIN_MS + Math.random() * (ZONE_MOVE_BASE_MS - ZONE_MOVE_MIN_MS)
+            let b = Math.random() * (100 - bw)
+            if (Math.abs(b - left) < 25) b = (left + 40 + Math.random() * 20) % (100 - bw)
+            move = { a: left, b, durationMs: moveMs, phaseMs: Math.random() * moveMs }
+          }
+          newBonus = { kind, mode: 'separate', band: { left, width: bw }, move }
+        }
       }
     }
-    setHeart(newHeart)
-    setGold(newGold)
+    setBonus(newBonus)
 
     // Skull — a separate danger region, either mode, never overlapping a
     // real zone (with a small margin). Skipped entirely if no non-
@@ -343,27 +406,54 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
       if (markerCenterPct >= zLeft && markerCenterPct <= zLeft + zWidth) hit = { left: zLeft, width: zWidth }
     }
 
-    if (hit) {
-      const zoneCenter = hit.left + hit.width / 2
-      const maxDist = hit.width / 2
-      const distFromCenter = Math.abs(markerCenterPct - zoneCenter)
-      const precision = maxDist > 0 ? Math.max(0, 1 - distFromCenter / maxDist) : 1
-      let points = Math.round(BASE_HIT_PTS + precision * BONUS_HIT_PTS)
+    // The bonus pickup — read its live position too, since it may be
+    // nested inside a moving zone or drifting entirely on its own, so
+    // it's always judged on where it actually is, not where it started.
+    let bonusHit = false
+    if (bonus && bonusRef.current) {
+      const bRect = bonusRef.current.getBoundingClientRect()
+      const bLeft = ((bRect.left - trackRect.left) / trackRect.width) * 100
+      const bWidth = (bRect.width / trackRect.width) * 100
+      bonusHit = markerCenterPct >= bLeft && markerCenterPct <= bLeft + bWidth
+    }
 
-      let bonus: 'heart' | 'gold' | null = null
-      if (heart && markerCenterPct >= heart.left && markerCenterPct <= heart.left + heart.width) {
-        bonus = 'heart'
-        setLives(l => Math.min(MAX_LIVES, l + 1))
-      } else if (gold && markerCenterPct >= gold.left && markerCenterPct <= gold.left + gold.width) {
-        bonus = 'gold'
-        points *= 2
+    if (hit || bonusHit) {
+      let precision = 0
+      let points = 0
+      if (hit) {
+        const zoneCenter = hit.left + hit.width / 2
+        const maxDist = hit.width / 2
+        const distFromCenter = Math.abs(markerCenterPct - zoneCenter)
+        precision = maxDist > 0 ? Math.max(0, 1 - distFromCenter / maxDist) : 1
+        points = Math.round(BASE_HIT_PTS + precision * BONUS_HIT_PTS)
+      }
+
+      let bonusKind: 'heart' | 'gold' | null = null
+      if (bonusHit && bonus) {
+        bonusKind = bonus.kind
+        if (bonus.kind === 'heart') {
+          setLives(l => Math.min(MAX_LIVES, l + 1))
+        } else if (hit) {
+          points *= 2
+        } else {
+          // Gold grabbed on its own, with no main-target hit to double —
+          // a flat grab instead.
+          points = BONUS_HIT_PTS
+        }
       }
 
       const prevScore = score
       const nextScore = Math.min(MAX_SCORE, score + points)
       setScore(nextScore)
-      setLastHit({ points, precision, key: Date.now(), bonus })
-      setResult('goal')
+      const label =
+        bonusKind === 'heart' ? (points > 0 ? `+${points} +1❤️` : '+1 LIFE ❤️')
+        : bonusKind === 'gold' ? (hit ? `+${points} 2X!` : `+${points} ⭐`)
+        : `+${points}`
+      setLastHit({ points, precision, key: Date.now(), bonus: bonusKind, label })
+      // A standalone bonus grab (missed the real target) still saves the
+      // shot from counting as a miss, but it didn't go in — keeper pose
+      // and caption read the same as any other miss.
+      setResult(hit ? 'goal' : 'miss')
 
       const crossed = MILESTONES.find(m => prevScore < m && nextScore >= m)
       if (crossed) {
@@ -531,9 +621,9 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
               width: 68, textAlign: 'center', pointerEvents: 'none',
             }}
           >
-            <div style={{ fontSize: 26, lineHeight: 1 }}>{lastHit.bonus === 'heart' ? '❤️' : reactionEmoji(lastHit.precision)}</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 16, color: lastHit.bonus === 'gold' ? 'var(--pop-yellow)' : 'var(--pop-yellow)', textShadow: '0 0 8px rgba(0,0,0,0.8)' }}>
-              +{lastHit.points}{lastHit.bonus === 'gold' ? ' 2X!' : ''}
+            <div style={{ fontSize: 26, lineHeight: 1 }}>{lastHit.bonus === 'heart' ? '❤️' : lastHit.bonus === 'gold' ? '⭐' : reactionEmoji(lastHit.precision)}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 16, color: 'var(--pop-yellow)', textShadow: '0 0 8px rgba(0,0,0,0.8)' }}>
+              {lastHit.label}
             </div>
           </div>
         )}
@@ -556,9 +646,11 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
       {/* Aim track — the pink marker always sweeps; past a difficulty
           threshold the orange target zone(s) drift on their own
           independent cycle too, so the late game is genuinely two moving
-          things to track, not one. A hidden heart/gold band sometimes
-          hides inside a single target; a skull patch sometimes sits
-          nearby, never overlapping a real target. */}
+          things to track, not one. A bonus pickup sometimes appears —
+          embedded inside the real target (nested in its DOM so it rides
+          along if the target drifts), or off on its own, sometimes with
+          its own independent drift. A skull patch sometimes sits nearby,
+          never overlapping a real target. */}
       <div ref={trackRef} className="relative rounded-full mb-4" style={{ height: 14, background: 'rgba(255,255,255,0.08)' }}>
         {multiTarget ? (
           zones.map((z, i) => (
@@ -573,22 +665,25 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
             ref={zoneRef}
             className="absolute top-0 bottom-0 rounded-full"
             style={{ left: `${zones[0].left}%`, width: `${zones[0].width}%`, background: 'rgba(255,61,0,0.4)', border: '1px solid var(--pop-orange)' }}
-          />
-        )}
-        {heart && (
-          <div
-            className="absolute rounded-full pop-shoot-bonus-pulse"
-            style={{ left: `${heart.left}%`, width: `${heart.width}%`, top: -7, bottom: -7, background: 'rgba(232,38,42,0.5)', border: '1px solid var(--pop-red)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}
           >
-            ❤️
+            {bonus?.mode === 'embedded' && (
+              <div
+                ref={bonusRef}
+                className="absolute rounded-full pop-shoot-bonus-pulse"
+                style={{ left: `${bonus.band.left}%`, width: `${bonus.band.width}%`, top: -7, bottom: -7, background: bonus.kind === 'heart' ? 'rgba(232,38,42,0.5)' : 'rgba(255,234,0,0.5)', border: `1px solid ${bonus.kind === 'heart' ? 'var(--pop-red)' : 'var(--pop-yellow)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}
+              >
+                {bonus.kind === 'heart' ? '❤️' : '⭐'}
+              </div>
+            )}
           </div>
         )}
-        {gold && (
+        {bonus?.mode === 'separate' && (
           <div
+            ref={bonusRef}
             className="absolute rounded-full pop-shoot-bonus-pulse"
-            style={{ left: `${gold.left}%`, width: `${gold.width}%`, top: -7, bottom: -7, background: 'rgba(255,234,0,0.5)', border: '1px solid var(--pop-yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}
+            style={{ left: `${bonus.band.left}%`, width: `${bonus.band.width}%`, top: -7, bottom: -7, background: bonus.kind === 'heart' ? 'rgba(232,38,42,0.5)' : 'rgba(255,234,0,0.5)', border: `1px solid ${bonus.kind === 'heart' ? 'var(--pop-red)' : 'var(--pop-yellow)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}
           >
-            ⭐
+            {bonus.kind === 'heart' ? '❤️' : '⭐'}
           </div>
         )}
         {skull && (
