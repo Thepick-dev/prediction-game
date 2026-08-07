@@ -138,9 +138,7 @@ export default function RulesPage() {
                 than skip your pick entirely.)
               </p>
               <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Autopicks are marked clearly wherever they appear, and a banker is never applied to one. What you see
-                previewed before the deadline is exactly what gets saved once it passes — it&apos;s fully determined
-                the moment the deadline arrives, never a guess that might later change.
+                Autopicks are marked clearly wherever they appear, and a banker is never applied to one.
               </p>
               <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
                 If an autopicked team or player has a double gameweek, the pick defaults to whichever of the two
@@ -275,7 +273,7 @@ export default function RulesPage() {
               <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
                 Gameweeks here don&apos;t always follow the Fantasy Premier League&apos;s own gameweek boundaries
                 exactly. The guiding principle is to avoid a gameweek containing only a small handful of matches —
-                where sticking to FPL&apos;s own grouping would do that, <SportingPanelLink>the Sporting Panel</SportingPanelLink> may
+                where sticking to FPL&apos;s own grouping would do that, <SportingPanelLink popArt>the Sporting Panel</SportingPanelLink> may
                 group fixtures into gameweeks differently instead.
               </p>
             </section>
@@ -283,7 +281,7 @@ export default function RulesPage() {
             <section className="pop-panel p-5">
               <h2 className="pop-headline text-sm mb-2">Postponements</h2>
               <p className="text-sm leading-relaxed mb-3" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                What happens when a fixture is postponed is always at the discretion of <SportingPanelLink>the Sporting Panel</SportingPanelLink>.
+                What happens when a fixture is postponed is always at the discretion of <SportingPanelLink popArt>the Sporting Panel</SportingPanelLink>.
                 As a general guide:
               </p>
               <ul className="text-sm leading-relaxed list-disc pl-5 space-y-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
@@ -357,9 +355,7 @@ export default function RulesPage() {
                 than skip your pick entirely.)
               </p>
               <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
-                Autopicks are marked clearly wherever they appear, and a banker is never applied to one. What you see
-                previewed before the deadline is exactly what gets saved once it passes — it&apos;s fully determined
-                the moment the deadline arrives, never a guess that might later change.
+                Autopicks are marked clearly wherever they appear, and a banker is never applied to one.
               </p>
               <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">
                 If an autopicked team or player has a double gameweek, the pick defaults to whichever of the two

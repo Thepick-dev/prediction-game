@@ -23,7 +23,7 @@ const POPOVER_WIDTH = 288
 const MARGIN = 8
 const ESTIMATED_HEIGHT = 260
 
-export default function SportingPanelLink({ children }: { children: React.ReactNode }) {
+export default function SportingPanelLink({ children, popArt = false }: { children: React.ReactNode; popArt?: boolean }) {
   const [open, setOpen] = useState(false)
   const [members, setMembers] = useState<Member[] | null>(cachedMembers)
   const [loading, setLoading] = useState(false)
@@ -111,8 +111,8 @@ export default function SportingPanelLink({ children }: { children: React.ReactN
         ref={triggerRef}
         type="button"
         onClick={openPopup}
-        className="underline decoration-dotted underline-offset-2 font-bold"
-        style={{ color: '#D9A441' }}
+        className={popArt ? 'underline decoration-dotted underline-offset-2 font-black' : 'underline decoration-dotted underline-offset-2 font-bold'}
+        style={{ color: popArt ? 'var(--pop-blue)' : '#D9A441' }}
       >
         {children}
       </button>
@@ -125,43 +125,47 @@ export default function SportingPanelLink({ children }: { children: React.ReactN
         // end up positioned against that card instead of the actual screen.
         <div
           ref={popoverRef}
-          className="fixed z-50 rounded-lg p-4 border shadow-2xl"
+          className={popArt ? 'pop-panel fixed z-50 p-4' : 'fixed z-50 rounded-lg p-4 border shadow-2xl'}
           style={{
             top: pos.top,
             left: pos.left,
             width: POPOVER_WIDTH,
             maxWidth: `calc(100vw - ${MARGIN * 2}px)`,
-            backgroundColor: '#1e1914',
-            borderColor: 'rgba(217,164,65,0.3)',
+            ...(popArt ? {} : { backgroundColor: '#1e1914', borderColor: 'rgba(217,164,65,0.3)' }),
           }}
         >
           <h3
-            className="text-xs font-bold uppercase tracking-wider mb-1 leading-snug"
-            style={{ color: '#D9A441', fontFamily: 'var(--font-heading), serif' }}
+            className={popArt ? 'pop-headline text-xs mb-1 leading-snug' : 'text-xs font-bold uppercase tracking-wider mb-1 leading-snug'}
+            style={popArt ? undefined : { color: '#D9A441', fontFamily: 'var(--font-heading), serif' }}
           >
             The Sporting Panel for the Avoidance of Manifestly Unfair Outcomes
           </h3>
-          <p className="text-[10px] text-[#F5ECD9]/50 mb-3 uppercase tracking-wider">Current members</p>
+          <p
+            className="text-[10px] mb-3 uppercase tracking-wider"
+            style={{ color: popArt ? 'rgba(255,255,255,0.5)' : 'rgba(245,236,217,0.5)' }}
+          >
+            Current members
+          </p>
 
           {loading ? (
-            <p className="text-sm text-[#F5ECD9]/50">Loading...</p>
+            <p className="text-sm" style={{ color: popArt ? 'rgba(255,255,255,0.5)' : 'rgba(245,236,217,0.5)' }}>Loading...</p>
           ) : members && members.length > 0 ? (
             <div className="space-y-2">
               {members.map((m, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <KitBadge pattern={m.kit_pattern} colour1={m.kit_colour_1} colour2={m.kit_colour_2} colour3={m.kit_colour_3} size={22} />
-                  <span className="text-sm font-bold uppercase text-[#F5ECD9]">{m.display_name}</span>
+                  <span className={popArt ? 'text-sm font-black uppercase' : 'text-sm font-bold uppercase text-[#F5ECD9]'}>{m.display_name}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-[#F5ECD9]/50">No panel members have been appointed yet.</p>
+            <p className="text-sm" style={{ color: popArt ? 'rgba(255,255,255,0.5)' : 'rgba(245,236,217,0.5)' }}>No panel members have been appointed yet.</p>
           )}
 
           <button
             onClick={() => setOpen(false)}
-            className="w-full mt-3 rounded-lg py-1.5 text-xs font-bold uppercase tracking-wider"
-            style={{ backgroundColor: '#D9A441', color: '#241a12' }}
+            className={popArt ? 'pop-button pop-button--yellow w-full mt-3 py-1.5 text-xs' : 'w-full mt-3 rounded-lg py-1.5 text-xs font-bold uppercase tracking-wider'}
+            style={popArt ? undefined : { backgroundColor: '#D9A441', color: '#241a12' }}
           >
             Close
           </button>
