@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
@@ -167,6 +167,14 @@ export default function PicksPage() {
   const [playerSearch2, setPlayerSearch2] = useState('')
   const [player1Club, setPlayer1Club] = useState<number | null>(null)
   const [player2Club, setPlayer2Club] = useState<number | null>(null)
+
+  // Pop-art only — the picking process below the fixture grid is a
+  // step-by-step wizard rather than everything stacked at once. Classic
+  // keeps the old flat layout untouched. 0=Player 1, 1=Player 2,
+  // 2=Banker/Question/Comments, 3=Review & Submit. Starts on Review if a
+  // pick already exists (returning to edit), otherwise Player 1.
+  const [wizardStep, setWizardStep] = useState(0)
+  const wizardRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
@@ -191,6 +199,13 @@ export default function PicksPage() {
   useEffect(() => {
     if (aonChoice != null && aonChoice !== player1 && aonChoice !== player2) setAonChoice(null)
   }, [player1, player2, aonChoice])
+
+  // Jump straight to the wizard the moment a team's picked — the whole
+  // point of it living below a long fixture list is that you shouldn't
+  // have to go hunting for it yourself.
+  useEffect(() => {
+    if (selectedTeam != null) wizardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [selectedTeam])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -306,6 +321,9 @@ export default function PicksPage() {
         setComments(pickData.pick.comments ?? '')
         setHasPick(true)
         setSavedPickPlayers({ p1: pickData.pick.player1_id, p2: pickData.pick.player2_id })
+        // Returning to an already-submitted pick — land on the review
+        // step showing it, not back at square one.
+        setWizardStep(3)
       } else {
         setSavedPickPlayers({ p1: null, p2: null })
       }
@@ -553,6 +571,14 @@ export default function PicksPage() {
   const aonEligible1 = player1 != null && !aonExclusion1 && aonPriorUses(player1) <= 0
   const aonEligible2 = player2 != null && !aonExclusion2 && aonPriorUses(player2) <= 0
 
+  // Pop-art wizard step gating — can't move on until the current step's
+  // player is picked, and, for a double-gameweek player, until they've
+  // nominated which of the two matches the pick is for too.
+  const wizardStep0Valid = player1 != null &&
+    (fixturesForTeam(players.find(p => p.id === player1)?.team_id ?? null).length < 2 || player1Fixture != null)
+  const wizardStep1Valid = player2 != null && player2 !== player1 &&
+    (fixturesForTeam(players.find(p => p.id === player2)?.team_id ?? null).length < 2 || player2Fixture != null)
+
   function getTeamStatus(teamId: number) {
     const isUsed = usedTeams.includes(teamId)
     const isDouble = doubleUseTeams.includes(teamId)
@@ -795,238 +821,370 @@ export default function PicksPage() {
                   <p className="pop-panel p-4 mb-6 font-bold">No fixtures yet.</p>
                 )}
 
-                <div className="grid md:grid-cols-2 gap-4 mb-6">
-                  <div className="pop-panel pop-rotate-r p-4">
-                    <p className="pop-headline text-xl mb-2">Player 1</p>
-                    {player1 ? (
-                      <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5" style={{ border: '2px solid var(--pop-green)', boxShadow: '0 0 16px rgba(0,230,118,0.4)' }}>
-                        <span className="font-black uppercase text-sm">{playerName(player1)}</span>
-                        <button
-                          onClick={() => { setPlayer1(null); setPlayer1Fixture(null); setPlayer1Club(null) }}
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-                          style={{ background: 'var(--pop-black)', color: 'var(--pop-white)' }}
-                          aria-label="Remove player 1"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <select
-                          value={player1Club ?? ''}
-                          onChange={e => setPlayer1Club(e.target.value ? Number(e.target.value) : null)}
-                          className="pop-input w-full p-2 mb-2 font-bold text-sm"
-                        >
-                          <option value="">Filter by club...</option>
-                          {teams.map(t => <option key={t.id} value={t.id}>{teamDisplayName(t)}</option>)}
-                        </select>
-                        <input
-                          type="text"
-                          value={playerSearch1}
-                          onChange={e => setPlayerSearch1(e.target.value)}
-                          placeholder={player1Club != null ? 'Narrow down...' : 'Search players...'}
-                          className="pop-input w-full p-2 mb-2 font-bold text-sm"
-                        />
-                        {filteredPlayers1.length > 0 && (
-                          <div className="rounded-lg overflow-hidden max-h-48 overflow-y-auto" style={{ border: '2px solid rgba(255,255,255,0.15)' }}>
-                            {filteredPlayers1.map(p => {
-                              const count = playerCounts[p.id] ?? 0
-                              const max = playerMaxOverride[p.id] ?? 2
-                              const maxed = count >= max
-                              return (
-                                <button
-                                  key={p.id}
-                                  onClick={() => { if (!maxed) { setPlayer1(p.id); setPlayer1Fixture(null); setPlayerSearch1(''); setPlayer1Club(null); triggerPlayerReaction(p.id) } }}
-                                  disabled={maxed}
-                                  className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
-                                  style={{ background: maxed ? '#0A0A0A' : 'var(--pop-surface)', color: maxed ? '#555555' : 'var(--pop-white)', borderColor: 'rgba(255,255,255,0.1)' }}
-                                >
-                                  {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/{max})</span>
-                                </button>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
+                {selectedTeam != null && (
+                  <div ref={wizardRef} className="pop-panel p-5 mb-6">
+                    <div className="flex items-center justify-center gap-2 mb-5">
+                      {['Player 1', 'Player 2', 'Extras', 'Review'].map((label, i) => (
+                        <div key={label} className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => i < wizardStep && setWizardStep(i)}
+                            disabled={i >= wizardStep}
+                            className="w-2.5 h-2.5 rounded-full"
+                            style={{ background: i <= wizardStep ? 'var(--pop-pink)' : 'rgba(255,255,255,0.15)', cursor: i < wizardStep ? 'pointer' : 'default' }}
+                            aria-label={label}
+                          />
+                          {i < 3 && <div className="w-4 h-0.5" style={{ background: i < wizardStep ? 'var(--pop-pink)' : 'rgba(255,255,255,0.15)' }} />}
+                        </div>
+                      ))}
+                    </div>
 
-                  <div className="pop-panel pop-rotate-l p-4">
-                    <p className="pop-headline text-xl mb-2">Player 2</p>
-                    {player2 ? (
-                      <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5" style={{ border: '2px solid var(--pop-green)', boxShadow: '0 0 16px rgba(0,230,118,0.4)' }}>
-                        <span className="font-black uppercase text-sm">{playerName(player2)}</span>
-                        <button
-                          onClick={() => { setPlayer2(null); setPlayer2Fixture(null); setPlayer2Club(null) }}
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-                          style={{ background: 'var(--pop-black)', color: 'var(--pop-white)' }}
-                          aria-label="Remove player 2"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <select
-                          value={player2Club ?? ''}
-                          onChange={e => setPlayer2Club(e.target.value ? Number(e.target.value) : null)}
-                          className="pop-input w-full p-2 mb-2 font-bold text-sm"
-                        >
-                          <option value="">Filter by club...</option>
-                          {teams.map(t => <option key={t.id} value={t.id}>{teamDisplayName(t)}</option>)}
-                        </select>
-                        <input
-                          type="text"
-                          value={playerSearch2}
-                          onChange={e => setPlayerSearch2(e.target.value)}
-                          placeholder={player2Club != null ? 'Narrow down...' : 'Search players...'}
-                          className="pop-input w-full p-2 mb-2 font-bold text-sm"
-                        />
-                        {filteredPlayers2.length > 0 && (
-                          <div className="rounded-lg overflow-hidden max-h-48 overflow-y-auto" style={{ border: '2px solid rgba(255,255,255,0.15)' }}>
-                            {filteredPlayers2.map(p => {
-                              const count = playerCounts[p.id] ?? 0
-                              const max = playerMaxOverride[p.id] ?? 2
-                              const maxed = count >= max
-                              return (
-                                <button
-                                  key={p.id}
-                                  onClick={() => { if (!maxed) { setPlayer2(p.id); setPlayer2Fixture(null); setPlayerSearch2(''); setPlayer2Club(null); triggerPlayerReaction(p.id) } }}
-                                  disabled={maxed}
-                                  className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
-                                  style={{ background: maxed ? '#0A0A0A' : 'var(--pop-surface)', color: maxed ? '#555555' : 'var(--pop-white)', borderColor: 'rgba(255,255,255,0.1)' }}
-                                >
-                                  {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/{max})</span>
-                                </button>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 mb-6 flex-wrap">
-                  <button
-                    onClick={() => setIsBanker(!isBanker)}
-                    disabled={!isBanker && bankersUsed >= 2}
-                    className={`pop-button ${isBanker ? 'pop-button--green pop-pop-in' : 'pop-button--yellow'} px-4 py-2.5`}
-                  >
-                    {isBanker ? '★ Banker Declared' : 'Declare Banker'}
-                  </button>
-                  <span className="pop-badge pop-badge--blue px-2.5 py-1.5 text-xs">{bankersUsed} of 2 used</span>
-                </div>
-
-                {player1 && player2 && (
-                  <div className="pop-panel pop-panel--pink p-4 mb-6">
-                    <p className="pop-headline text-lg mb-2">All or Nothing</p>
-                    {aonCardSpentElsewhere ? (
-                      <p className="font-bold text-sm">
-                        Already played this competition{aonUsedGwNumber ? ` (GW${aonUsedGwNumber})` : ''} —{' '}
+                    {aonCardSpentElsewhere && (
+                      <p className="text-center font-mono text-[10px] mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                        All or Nothing: already played this competition{aonUsedGwNumber ? ` (GW${aonUsedGwNumber})` : ''} —{' '}
                         {allOrNothing?.outcome === 'success' ? 'succeeded! 🎉' : allOrNothing?.outcome === 'failed' ? 'failed.' : 'result pending.'}
                       </p>
-                    ) : aonChoice != null ? (
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <span className="pop-badge pop-badge--green px-3 py-1.5 text-xs">Playing on {playerName(aonChoice)}</span>
-                        <button onClick={() => setAonChoice(null)} className="pop-button pop-button--yellow px-3 py-1.5 text-xs">
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2 flex-wrap">
-                        <button
-                          onClick={() => aonEligible1 && setAonChoice(player1)}
-                          disabled={!aonEligible1}
-                          title={aonExclusion1 ?? (!aonEligible1 ? 'Already used this player this competition' : undefined)}
-                          className="pop-button px-3 py-1.5 text-xs"
-                          style={!aonEligible1 ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' } : { background: 'var(--pop-pink)' }}
-                        >
-                          Play on {playerName(player1)}
-                        </button>
-                        <button
-                          onClick={() => aonEligible2 && setAonChoice(player2)}
-                          disabled={!aonEligible2}
-                          title={aonExclusion2 ?? (!aonEligible2 ? 'Already used this player this competition' : undefined)}
-                          className="pop-button px-3 py-1.5 text-xs"
-                          style={!aonEligible2 ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' } : { background: 'var(--pop-pink)' }}
-                        >
-                          Play on {playerName(player2)}
-                        </button>
+                    )}
+
+                    {wizardStep === 0 && (
+                      <div>
+                        <p className="pop-headline text-xl mb-3 text-center">Pick Player 1</p>
+                        {player1 ? (
+                          <>
+                            <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5 mb-3" style={{ border: '2px solid var(--pop-green)', boxShadow: '0 0 16px rgba(0,230,118,0.4)' }}>
+                              <span className="font-black uppercase text-sm">{playerName(player1)}</span>
+                              <button
+                                onClick={() => { setPlayer1(null); setPlayer1Fixture(null); setPlayer1Club(null) }}
+                                className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                                style={{ background: 'var(--pop-black)', color: 'var(--pop-white)' }}
+                                aria-label="Remove player 1"
+                              >
+                                ×
+                              </button>
+                            </div>
+                            {fixturesForTeam(players.find(p => p.id === player1)?.team_id ?? null).length >= 2 && (
+                              <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(255,234,0,0.08)', border: '1px solid rgba(255,234,0,0.3)' }}>
+                                <p className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--pop-yellow)' }}>
+                                  {playerName(player1)}&apos;s team plays twice — which match is this pick for?
+                                </p>
+                                <div className="flex flex-col gap-1.5">
+                                  {fixturesForTeam(players.find(p => p.id === player1)?.team_id ?? null).map(f => (
+                                    <button
+                                      key={f.id}
+                                      onClick={() => setPlayer1Fixture(f.id)}
+                                      className="text-left px-2.5 py-1.5 rounded text-xs font-bold"
+                                      style={player1Fixture === f.id
+                                        ? { background: 'var(--pop-yellow)', color: 'var(--pop-black)' }
+                                        : { background: 'rgba(255,255,255,0.05)', color: 'var(--pop-white)', border: '1px solid rgba(255,255,255,0.15)' }}
+                                    >
+                                      {opponentLabel(f, players.find(p => p.id === player1)?.team_id ?? 0)}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {!aonCardSpentElsewhere && (
+                              aonChoice === player1 ? (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="pop-badge pop-badge--pink px-3 py-1.5 text-xs">⚡ Playing All or Nothing on {playerName(player1)}</span>
+                                  <button onClick={() => setAonChoice(null)} className="pop-button pop-button--yellow px-3 py-1.5 text-xs">Cancel</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => aonEligible1 && setAonChoice(player1)}
+                                  disabled={!aonEligible1}
+                                  title={aonExclusion1 ?? (!aonEligible1 ? 'Already used this player this competition' : undefined)}
+                                  className="pop-button px-3 py-1.5 text-xs"
+                                  style={!aonEligible1 ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' } : { background: 'var(--pop-pink)' }}
+                                >
+                                  Play All or Nothing on {playerName(player1)}?
+                                </button>
+                              )
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <select
+                              value={player1Club ?? ''}
+                              onChange={e => setPlayer1Club(e.target.value ? Number(e.target.value) : null)}
+                              className="pop-input w-full p-2 mb-2 font-bold text-sm"
+                            >
+                              <option value="">Filter by club...</option>
+                              {teams.map(t => <option key={t.id} value={t.id}>{teamDisplayName(t)}</option>)}
+                            </select>
+                            <input
+                              type="text"
+                              value={playerSearch1}
+                              onChange={e => setPlayerSearch1(e.target.value)}
+                              placeholder={player1Club != null ? 'Narrow down...' : 'Search players...'}
+                              className="pop-input w-full p-2 mb-2 font-bold text-sm"
+                            />
+                            {filteredPlayers1.length > 0 && (
+                              <div className="rounded-lg overflow-hidden max-h-48 overflow-y-auto" style={{ border: '2px solid rgba(255,255,255,0.15)' }}>
+                                {filteredPlayers1.map(p => {
+                                  const count = playerCounts[p.id] ?? 0
+                                  const max = playerMaxOverride[p.id] ?? 2
+                                  const maxed = count >= max
+                                  return (
+                                    <button
+                                      key={p.id}
+                                      onClick={() => { if (!maxed) { setPlayer1(p.id); setPlayer1Fixture(null); setPlayerSearch1(''); setPlayer1Club(null); triggerPlayerReaction(p.id) } }}
+                                      disabled={maxed}
+                                      className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
+                                      style={{ background: maxed ? '#0A0A0A' : 'var(--pop-surface)', color: maxed ? '#555555' : 'var(--pop-white)', borderColor: 'rgba(255,255,255,0.1)' }}
+                                    >
+                                      {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/{max})</span>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
                     )}
-                    <p className="font-mono text-[10px] mt-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                      One nomination per competition. Score or assist this week and you get a bonus 3rd use of them — blank, and you lose all remaining uses.
-                    </p>
-                  </div>
-                )}
 
-                {question && (
-                  <div className="pop-panel pop-panel--yellow pop-rotate-r p-4 mb-6">
-                    <p className="pop-headline text-lg mb-2">This Week's Question</p>
-                    <p className="font-bold text-sm mb-3">{question.question}</p>
-                    {question.question_type === 'freetext' ? (
-                      <input
-                        type="text"
-                        value={questionAnswer}
-                        onChange={e => setQuestionAnswer(e.target.value)}
-                        placeholder="Type your answer..."
-                        maxLength={200}
-                        className="pop-input w-full p-2 font-bold text-sm"
-                      />
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { key: 'A', label: question.option_a },
-                          { key: 'B', label: question.option_b },
-                          question.option_c ? { key: 'C', label: question.option_c } : null,
-                          question.option_d ? { key: 'D', label: question.option_d } : null,
-                        ].filter(Boolean).map((opt: any) => (
+                    {wizardStep === 1 && (
+                      <div>
+                        <p className="pop-headline text-xl mb-3 text-center">Pick Player 2</p>
+                        {player2 ? (
+                          <>
+                            <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5 mb-3" style={{ border: '2px solid var(--pop-green)', boxShadow: '0 0 16px rgba(0,230,118,0.4)' }}>
+                              <span className="font-black uppercase text-sm">{playerName(player2)}</span>
+                              <button
+                                onClick={() => { setPlayer2(null); setPlayer2Fixture(null); setPlayer2Club(null) }}
+                                className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                                style={{ background: 'var(--pop-black)', color: 'var(--pop-white)' }}
+                                aria-label="Remove player 2"
+                              >
+                                ×
+                              </button>
+                            </div>
+                            {fixturesForTeam(players.find(p => p.id === player2)?.team_id ?? null).length >= 2 && (
+                              <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(255,234,0,0.08)', border: '1px solid rgba(255,234,0,0.3)' }}>
+                                <p className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--pop-yellow)' }}>
+                                  {playerName(player2)}&apos;s team plays twice — which match is this pick for?
+                                </p>
+                                <div className="flex flex-col gap-1.5">
+                                  {fixturesForTeam(players.find(p => p.id === player2)?.team_id ?? null).map(f => (
+                                    <button
+                                      key={f.id}
+                                      onClick={() => setPlayer2Fixture(f.id)}
+                                      className="text-left px-2.5 py-1.5 rounded text-xs font-bold"
+                                      style={player2Fixture === f.id
+                                        ? { background: 'var(--pop-yellow)', color: 'var(--pop-black)' }
+                                        : { background: 'rgba(255,255,255,0.05)', color: 'var(--pop-white)', border: '1px solid rgba(255,255,255,0.15)' }}
+                                    >
+                                      {opponentLabel(f, players.find(p => p.id === player2)?.team_id ?? 0)}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {!aonCardSpentElsewhere && (
+                              aonChoice === player2 ? (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="pop-badge pop-badge--pink px-3 py-1.5 text-xs">⚡ Playing All or Nothing on {playerName(player2)}</span>
+                                  <button onClick={() => setAonChoice(null)} className="pop-button pop-button--yellow px-3 py-1.5 text-xs">Cancel</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => aonEligible2 && setAonChoice(player2)}
+                                  disabled={!aonEligible2}
+                                  title={aonExclusion2 ?? (!aonEligible2 ? 'Already used this player this competition' : undefined)}
+                                  className="pop-button px-3 py-1.5 text-xs"
+                                  style={!aonEligible2 ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' } : { background: 'var(--pop-pink)' }}
+                                >
+                                  Play All or Nothing on {playerName(player2)}?
+                                </button>
+                              )
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <select
+                              value={player2Club ?? ''}
+                              onChange={e => setPlayer2Club(e.target.value ? Number(e.target.value) : null)}
+                              className="pop-input w-full p-2 mb-2 font-bold text-sm"
+                            >
+                              <option value="">Filter by club...</option>
+                              {teams.map(t => <option key={t.id} value={t.id}>{teamDisplayName(t)}</option>)}
+                            </select>
+                            <input
+                              type="text"
+                              value={playerSearch2}
+                              onChange={e => setPlayerSearch2(e.target.value)}
+                              placeholder={player2Club != null ? 'Narrow down...' : 'Search players...'}
+                              className="pop-input w-full p-2 mb-2 font-bold text-sm"
+                            />
+                            {filteredPlayers2.length > 0 && (
+                              <div className="rounded-lg overflow-hidden max-h-48 overflow-y-auto" style={{ border: '2px solid rgba(255,255,255,0.15)' }}>
+                                {filteredPlayers2.map(p => {
+                                  const count = playerCounts[p.id] ?? 0
+                                  const max = playerMaxOverride[p.id] ?? 2
+                                  const maxed = count >= max
+                                  return (
+                                    <button
+                                      key={p.id}
+                                      onClick={() => { if (!maxed) { setPlayer2(p.id); setPlayer2Fixture(null); setPlayerSearch2(''); setPlayer2Club(null); triggerPlayerReaction(p.id) } }}
+                                      disabled={maxed}
+                                      className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
+                                      style={{ background: maxed ? '#0A0A0A' : 'var(--pop-surface)', color: maxed ? '#555555' : 'var(--pop-white)', borderColor: 'rgba(255,255,255,0.1)' }}
+                                    >
+                                      {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/{max})</span>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {wizardStep === 2 && (
+                      <div>
+                        <p className="pop-headline text-xl mb-3 text-center">Banker, Question &amp; Comments</p>
+                        <div className="flex items-center gap-3 mb-5 flex-wrap justify-center">
                           <button
-                            key={opt.key}
-                            onClick={() => setQuestionAnswer(opt.key)}
-                            className="pop-select-btn rounded-lg p-2 font-black uppercase text-sm"
-                            style={{
-                              border: questionAnswer === opt.key ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
-                              boxShadow: questionAnswer === opt.key ? '0 0 16px rgba(0,230,118,0.4)' : 'none',
-                              background: questionAnswer === opt.key ? 'var(--pop-green)' : 'transparent',
-                              color: questionAnswer === opt.key ? 'var(--pop-black)' : 'var(--pop-white)',
-                            }}
+                            onClick={() => setIsBanker(!isBanker)}
+                            disabled={!isBanker && bankersUsed >= 2}
+                            className={`pop-button ${isBanker ? 'pop-button--green pop-pop-in' : 'pop-button--yellow'} px-4 py-2.5`}
                           >
-                            {opt.label}
+                            {isBanker ? '★ Banker Declared' : 'Declare Banker'}
                           </button>
-                        ))}
+                          <span className="pop-badge pop-badge--blue px-2.5 py-1.5 text-xs">{bankersUsed} of 2 used</span>
+                        </div>
+
+                        {question && (
+                          <div className="pop-panel pop-panel--yellow p-4 mb-4">
+                            <p className="pop-headline text-lg mb-2">This Week&apos;s Question</p>
+                            <p className="font-bold text-sm mb-3">{question.question}</p>
+                            {question.question_type === 'freetext' ? (
+                              <input
+                                type="text"
+                                value={questionAnswer}
+                                onChange={e => setQuestionAnswer(e.target.value)}
+                                placeholder="Type your answer..."
+                                maxLength={200}
+                                className="pop-input w-full p-2 font-bold text-sm"
+                              />
+                            ) : (
+                              <div className="grid grid-cols-2 gap-2">
+                                {[
+                                  { key: 'A', label: question.option_a },
+                                  { key: 'B', label: question.option_b },
+                                  question.option_c ? { key: 'C', label: question.option_c } : null,
+                                  question.option_d ? { key: 'D', label: question.option_d } : null,
+                                ].filter(Boolean).map((opt: any) => (
+                                  <button
+                                    key={opt.key}
+                                    onClick={() => setQuestionAnswer(opt.key)}
+                                    className="pop-select-btn rounded-lg p-2 font-black uppercase text-sm"
+                                    style={{
+                                      border: questionAnswer === opt.key ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
+                                      boxShadow: questionAnswer === opt.key ? '0 0 16px rgba(0,230,118,0.4)' : 'none',
+                                      background: questionAnswer === opt.key ? 'var(--pop-green)' : 'transparent',
+                                      color: questionAnswer === opt.key ? 'var(--pop-black)' : 'var(--pop-white)',
+                                    }}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="pop-panel p-4">
+                          <p className="pop-headline text-lg mb-2">Any Comments</p>
+                          <textarea
+                            value={comments}
+                            onChange={e => setComments(e.target.value)}
+                            rows={3}
+                            placeholder="Banter, a prediction, whatever..."
+                            className="pop-input w-full p-2 font-bold text-sm"
+                            style={{ borderColor: 'var(--pop-white)' }}
+                          />
+                        </div>
                       </div>
                     )}
+
+                    {wizardStep === 3 && (
+                      <div>
+                        <p className="pop-headline text-xl mb-3 text-center">Review &amp; Submit</p>
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center justify-between rounded-lg p-2.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                            <span className="font-mono text-xs uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>Team</span>
+                            <span className="font-black text-sm flex items-center gap-2">
+                              <TeamCrest crestUrl={getTeam(selectedTeam)?.crest_url ?? null} teamName={getTeam(selectedTeam)?.name ?? ''} size={20} />
+                              {teamDisplayName(getTeam(selectedTeam))}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-lg p-2.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                            <span className="font-mono text-xs uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>Player 1</span>
+                            <span className="font-black text-sm">
+                              {playerName(player1)}
+                              {aonChoice === player1 && <span className="pop-badge pop-badge--pink ml-2 px-1.5 py-0.5 text-[9px]">AoN</span>}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-lg p-2.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                            <span className="font-mono text-xs uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>Player 2</span>
+                            <span className="font-black text-sm">
+                              {playerName(player2)}
+                              {aonChoice === player2 && <span className="pop-badge pop-badge--pink ml-2 px-1.5 py-0.5 text-[9px]">AoN</span>}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-lg p-2.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                            <span className="font-mono text-xs uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>Banker</span>
+                            <span className="font-black text-sm">{isBanker ? '★ Declared' : 'Not used'}</span>
+                          </div>
+                          {question && questionAnswerLabel && (
+                            <div className="flex items-center justify-between rounded-lg p-2.5 gap-3" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                              <span className="font-mono text-xs uppercase shrink-0" style={{ color: 'rgba(255,255,255,0.5)' }}>Answer</span>
+                              <span className="font-bold text-sm text-right">{questionAnswerLabel}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {message && (
+                          <p className="pop-badge pop-badge--red px-3 py-2 mb-4 inline-block text-xs">{message}</p>
+                        )}
+
+                        <button
+                          onClick={savePick}
+                          disabled={saving}
+                          className={`pop-button ${saving ? '' : justSaved ? 'pop-button--green pop-celebrate' : 'pop-button--yellow'} w-full py-4 text-xl`}
+                          style={saving
+                            ? { background: '#CCCCCC', color: 'var(--pop-black)', opacity: 1 }
+                            : { opacity: 1 }}
+                        >
+                          {saving ? 'Saving...' : justSaved ? 'Locked In!' : hasPick ? 'Update Pick!' : 'Submit Pick!'}
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between mt-5" style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 16 }}>
+                      <button
+                        onClick={() => setWizardStep(s => Math.max(0, s - 1))}
+                        disabled={wizardStep === 0}
+                        className="font-bold text-sm px-3 py-2"
+                        style={{ color: wizardStep === 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.6)' }}
+                      >
+                        ← Back
+                      </button>
+                      {wizardStep < 3 && (
+                        <button
+                          onClick={() => setWizardStep(s => Math.min(3, s + 1))}
+                          disabled={wizardStep === 0 ? !wizardStep0Valid : wizardStep === 1 ? !wizardStep1Valid : false}
+                          className="pop-button px-5 py-2 text-sm"
+                        >
+                          Next →
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
-
-                <div className="pop-panel p-4 mb-6">
-                  <p className="pop-headline text-lg mb-2">Any Comments</p>
-                  <textarea
-                    value={comments}
-                    onChange={e => setComments(e.target.value)}
-                    rows={3}
-                    placeholder="Banter, a prediction, whatever..."
-                    className="pop-input w-full p-2 font-bold text-sm"
-                    style={{ borderColor: 'var(--pop-white)' }}
-                  />
-                </div>
-
-                {message && (
-                  <p className="pop-badge pop-badge--red px-3 py-2 mb-4 inline-block text-xs">{message}</p>
-                )}
-
-                <button
-                  onClick={savePick}
-                  disabled={saving}
-                  className={`pop-button ${saving ? '' : justSaved ? 'pop-button--green pop-celebrate' : 'pop-button--yellow'} w-full py-4 text-xl`}
-                  style={saving
-                    ? { background: '#CCCCCC', color: 'var(--pop-black)', opacity: 1 }
-                    : { opacity: 1 }}
-                >
-                  {saving ? 'Saving...' : justSaved ? 'Locked In!' : hasPick ? 'Update Pick!' : 'Submit Pick!'}
-                </button>
               </>
             )}
           </div>
