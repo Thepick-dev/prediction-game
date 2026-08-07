@@ -1,15 +1,22 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { createAdminSupabaseClient } from '../../lib/supabase-admin'
+import { generateResetCode as makeResetCode, hashResetCode, RESET_CODE_TTL_HOURS } from '../../lib/auth-identifier'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
 
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; kitError?: string }>
+  searchParams: Promise<{ error?: string; kitError?: string; resetCode?: string; resetFor?: string }>
 }) {
-  const { error: deleteError, kitError } = await searchParams
+  const { error: deleteError, kitError, resetCode, resetFor } = await searchParams
   const supabase = await createServerSupabaseClient()
+
+  const { data: resetRequests } = await supabase
+    .from('password_reset_requests')
+    .select('id, identifier, user_id, created_at')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
 
   const { data: profiles } = await supabase
     .from('profiles')
@@ -44,6 +51,9 @@ export default async function UsersPage({
 
   const emailMap: Record<string, string> = {}
   authUsers?.users?.forEach(u => { emailMap[u.id] = u.email ?? '' })
+
+  const displayNameMap: Record<string, string> = {}
+  profiles?.forEach(p => { displayNameMap[p.id] = p.display_name ?? '' })
 
   async function updateDisplayName(formData: FormData) {
     'use server'
@@ -107,12 +117,41 @@ export default async function UsersPage({
     redirect('/admin/users')
   }
 
+  async function generateResetCode(formData: FormData) {
+    'use server'
+    const id = formData.get('id') as string
+    const requestId = formData.get('requestId') as string | null
+    const displayName = formData.get('displayName') as string
+
+    const admin = createAdminSupabaseClient()
+
+    // Only one live code per user at a time — invalidate anything still
+    // outstanding from an earlier generation so there's never ambiguity
+    // about which code is the real one.
+    await admin.from('password_reset_codes').update({ used_at: new Date().toISOString() }).eq('user_id', id).is('used_at', null)
+
+    const code = makeResetCode()
+    const expiresAt = new Date(Date.now() + RESET_CODE_TTL_HOURS * 60 * 60 * 1000).toISOString()
+    await admin.from('password_reset_codes').insert({ user_id: id, code_hash: hashResetCode(code), expires_at: expiresAt })
+
+    if (requestId) {
+      await admin.from('password_reset_requests').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', requestId)
+    }
+
+    redirect(`/admin/users?resetCode=${encodeURIComponent(code)}&resetFor=${encodeURIComponent(displayName || 'this player')}`)
+  }
+
   const pending = profiles?.filter(p => !p.approved) ?? []
   const approved = profiles?.filter(p => p.approved) ?? []
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-8">Users</h1>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-2xl font-bold">Users</h1>
+        <a href="/api/admin/export-emails" className="text-xs border rounded px-3 py-1.5 hover:bg-gray-50">
+          ⬇ Export all emails (CSV)
+        </a>
+      </div>
 
       {deleteError && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-sm text-red-700">
@@ -126,6 +165,63 @@ export default async function UsersPage({
           Couldn&apos;t save kit badges: {kitError}. If this mentions a missing column, the{' '}
           <code className="bg-red-100 px-1 rounded">kit_stars</code>/<code className="bg-red-100 px-1 rounded">kit_earths</code> columns
           haven&apos;t been added to the database yet — run the SQL Claude gave you for this feature first.
+        </div>
+      )}
+
+      {resetCode && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+          <p className="text-sm text-green-800">
+            Reset code for <strong>{resetFor}</strong> — give this to them now, it won&apos;t be shown again:
+          </p>
+          <p className="text-2xl font-mono font-bold tracking-widest text-green-900 mt-1 select-all">{resetCode}</p>
+          <p className="text-xs text-green-700 mt-1">Valid for {RESET_CODE_TTL_HOURS} hours, one use only.</p>
+        </div>
+      )}
+
+      {resetRequests && resetRequests.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+          <h2 className="font-bold mb-4 text-blue-800">🔑 Password Reset Requests ({resetRequests.length})</h2>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-500 border-b">
+                <th className="pb-2">Entered</th>
+                <th className="pb-2">Matched Account</th>
+                <th className="pb-2">Requested</th>
+                <th className="pb-2">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resetRequests.map(r => (
+                <tr key={r.id} className="border-b last:border-0">
+                  <td className="py-2 text-sm">{r.identifier}</td>
+                  <td className="py-2 text-sm">
+                    {r.user_id
+                      ? `${displayNameMap[r.user_id] || '(no username set)'} — ${emailMap[r.user_id] ?? '—'}`
+                      : <span className="text-red-500">No matching account found</span>}
+                  </td>
+                  <td className="py-2 text-xs text-gray-500">
+                    {new Date(r.created_at).toLocaleString('en-GB', {
+                      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London'
+                    })}
+                  </td>
+                  <td className="py-2">
+                    {r.user_id ? (
+                      <form action={generateResetCode}>
+                        <input type="hidden" name="id" value={r.user_id} />
+                        <input type="hidden" name="requestId" value={r.id} />
+                        <input type="hidden" name="displayName" value={displayNameMap[r.user_id] || emailMap[r.user_id] || ''} />
+                        <button type="submit" className="bg-blue-600 text-white text-xs rounded px-3 py-1">
+                          Generate code
+                        </button>
+                      </form>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -181,6 +277,7 @@ export default async function UsersPage({
               <th className="pb-2">Sporting Panel</th>
               <th className="pb-2">Edit Name</th>
               <th className="pb-2">Kit Badges</th>
+              <th className="pb-2">Reset Password</th>
               <th className="pb-2">Delete</th>
             </tr>
           </thead>
@@ -272,6 +369,15 @@ export default async function UsersPage({
                       />
                     </label>
                     <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Save</button>
+                  </form>
+                </td>
+                <td className="py-2">
+                  <form action={generateResetCode}>
+                    <input type="hidden" name="id" value={profile.id} />
+                    <input type="hidden" name="displayName" value={profile.display_name || emailMap[profile.id] || ''} />
+                    <button type="submit" className="text-xs border rounded px-2 py-1 hover:bg-gray-100">
+                      Generate code
+                    </button>
                   </form>
                 </td>
                 <td className="py-2">

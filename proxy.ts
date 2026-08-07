@@ -33,7 +33,7 @@ export async function proxy(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
-  const publicPaths = ['/login', '/pending', '/auth', '/news']
+  const publicPaths = ['/login', '/pending', '/auth', '/news', '/reset-password']
   const isPublicPath = publicPaths.some(p => pathname.startsWith(p))
   const isAdminPath = pathname.startsWith('/admin')
   const isApiPath = pathname.startsWith('/api')
