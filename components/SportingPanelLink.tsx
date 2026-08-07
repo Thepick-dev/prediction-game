@@ -131,7 +131,13 @@ export default function SportingPanelLink({ children, popArt = false }: { childr
           // stylesheet) and silently breaks the whole popover, rendering
           // it in normal document flow instead of anchored near the
           // trigger. Its visual style is replicated inline instead.
-          className="fixed z-50 p-4 rounded-2xl border-2"
+          //
+          // pop-art-theme IS needed here though, for a different reason:
+          // every --pop-* colour variable is scoped to that class, not
+          // :root, so now that this is portalled straight to <body> —
+          // outside the page's own .pop-art-theme wrapper — those
+          // variables would otherwise resolve to nothing at all.
+          className={`fixed z-50 p-4 rounded-2xl border-2 ${popArt ? 'pop-art-theme' : ''}`}
           style={{
             top: pos.top,
             left: pos.left,
