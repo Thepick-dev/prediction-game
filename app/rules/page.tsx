@@ -7,6 +7,7 @@ import HeroPage from '../../components/HeroPage'
 import SportingPanelLink from '../../components/SportingPanelLink'
 import PopArtLoading from '../../components/PopArtLoading'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
+import { RULES_TEXT } from '../lib/rulesText'
 
 const DIFFS = [-3, -2, -1, 0, 1, 2, 3]
 const DIFF_LABELS = ['3↓', '2↓', '1↓', '=', '1↑', '2↑', '3↑']
@@ -94,35 +95,20 @@ export default function RulesPage() {
 
             <section className="pop-panel p-5">
               <h2 className="pop-headline text-sm mb-2">The Competition</h2>
-              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                The competition runs for roughly half a Premier League season — two competitions per season.
-                Join before the first gameweek deadline. Late entries are not permitted.
-              </p>
-              <p className="text-sm leading-relaxed font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                The player with the most points at the end of the competition wins.
-              </p>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.competition[0]}</p>
+              <p className="text-sm leading-relaxed font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>{RULES_TEXT.competition[1]}</p>
             </section>
 
             <section className="pop-panel p-5">
               <h2 className="pop-headline text-sm mb-2">The Tier Draft</h2>
-              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Before joining, pick one team from each tier. These are your double-use teams — usable twice during the competition instead of once.
-              </p>
-              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Tier picks are visible to all players and locked after the first gameweek deadline.
-              </p>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.tierDraft[0]}</p>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.tierDraft[1]}</p>
             </section>
 
             <section className="pop-panel p-5">
               <h2 className="pop-headline text-sm mb-2">Weekly Picks</h2>
-              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Each gameweek, pick one team and two different players before the deadline.
-                Each team is usable once (twice for tier picks). Each player is usable twice per competition.
-              </p>
-              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Picks can be edited until the deadline, then locked and visible to everyone.
-                Miss the deadline and you receive an autopick — see below for how that works.
-              </p>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.weeklyPicks[0]}</p>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.weeklyPicks[1]}</p>
             </section>
 
             <section className="pop-panel p-5">
@@ -150,24 +136,13 @@ export default function RulesPage() {
 
             <section className="pop-panel p-5">
               <h2 className="pop-headline text-sm mb-2">The Banker</h2>
-              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Two bankers per competition. A banker doubles your entire gameweek score — team and both players.
-                Declare it with your pick. Unused bankers are worth nothing. Bankers are never applied to autopicks.
-              </p>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.banker[0]}</p>
             </section>
 
             <section className="pop-panel p-5">
               <h2 className="pop-headline text-sm mb-2">All or Nothing</h2>
-              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Once per competition, you can play All or Nothing on one of your two weekly picks — but only a
-                player you haven&apos;t used at all yet this competition. Nominate them when you submit that
-                gameweek&apos;s pick. Can be played alongside a banker or on its own.
-              </p>
-              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                If they score a goal or register an assist that gameweek, you get a bonus third use of them for
-                the rest of the competition. If they don&apos;t, you lose all remaining uses of them — for the
-                rest of the competition, even if you&apos;d normally have had a second go.
-              </p>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.allOrNothing[0]}</p>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.allOrNothing[1]}</p>
               {aonExclusions.length > 0 && (
                 <div className="mt-3">
                   <p className="text-sm font-bold mb-1.5" style={{ color: 'var(--pop-blue)' }}>Exclusions</p>
@@ -185,28 +160,14 @@ export default function RulesPage() {
 
             <section className="pop-panel p-5">
               <h2 className="pop-headline text-sm mb-2">Quartiles</h2>
-              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                The 20 Premier League clubs are divided into four quartiles of five — Q1 (strongest) to Q4 (weakest).
-                Quartiles are used to calculate team points based on the difficulty of the result.
-              </p>
-              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Betting odds only ever set the quartiles once: gameweek 1 of the very first competition of a season, before
-                a ball&apos;s been kicked and there&apos;s no league table yet to go on. Every gameweek after that — including
-                gameweek 2 of that same competition, and the whole of any later competition in the same season (e.g. a
-                second half starting in January) — uses the current real league table instead. The table doesn&apos;t reset
-                between competitions; a new competition simply carries on from wherever the table stood when it started.
-              </p>
-              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Quartiles are locked at the point each gameweek deadline passes — past scores are never affected by future quartile changes.
-              </p>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.quartiles[0]}</p>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.quartiles[1]}</p>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.quartiles[2]}</p>
             </section>
 
             <section className="pop-panel p-5">
               <h2 className="pop-headline text-sm mb-3">Scoring</h2>
-              <p className="text-sm leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Team points depend on the result and the quartile differential between your team and their opponent.
-                ↑ means your team is the underdog, ↓ means favourite. Bigger upsets, bigger points.
-              </p>
+              <p className="text-sm leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.scoringIntro}</p>
 
               <div style={{ overflowX: 'auto' }}>
                 <table className="w-full text-xs" style={{ border: '1px solid rgba(255,255,255,0.12)' }}>
@@ -259,12 +220,7 @@ export default function RulesPage() {
                 If two players are tied on total points, the following criteria apply in order:
               </p>
               <ol className="text-sm leading-relaxed list-decimal pl-5 space-y-1" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                <li>Total points</li>
-                <li>Points with banker multiplier removed</li>
-                <li>Highest score in a single gameweek (banker included)</li>
-                <li>Most away wins from picked teams</li>
-                <li>Most goals from picked players</li>
-                <li>Earliest competition entry</li>
+                {RULES_TEXT.tiebreakers.map(t => <li key={t}>{t}</li>)}
               </ol>
             </section>
 
@@ -311,35 +267,20 @@ export default function RulesPage() {
 
             <section className={cardClass}>
               <h2 className="text-lg font-bold mb-3 text-[#D9A441]">The Competition</h2>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
-                The competition runs for roughly half a Premier League season — two competitions per season.
-                Join before the first gameweek deadline. Late entries are not permitted.
-              </p>
-              <p className="text-sm text-[#F5ECD9]/90 leading-relaxed font-medium">
-                The player with the most points at the end of the competition wins.
-              </p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.competition[0]}</p>
+              <p className="text-sm text-[#F5ECD9]/90 leading-relaxed font-medium">{RULES_TEXT.competition[1]}</p>
             </section>
 
             <section className={cardClass}>
               <h2 className="text-lg font-bold mb-3 text-[#D9A441]">The Tier Draft</h2>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
-                Before joining, pick one team from each tier. These are your double-use teams — usable twice during the competition instead of once.
-              </p>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">
-                Tier picks are visible to all players and locked after the first gameweek deadline.
-              </p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.tierDraft[0]}</p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">{RULES_TEXT.tierDraft[1]}</p>
             </section>
 
             <section className={cardClass}>
               <h2 className="text-lg font-bold mb-3 text-[#D9A441]">Weekly Picks</h2>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
-                Each gameweek, pick one team and two different players before the deadline.
-                Each team is usable once (twice for tier picks). Each player is usable twice per competition.
-              </p>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">
-                Picks can be edited until the deadline, then locked and visible to everyone.
-                Miss the deadline and you receive an autopick — see below for how that works.
-              </p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.weeklyPicks[0]}</p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">{RULES_TEXT.weeklyPicks[1]}</p>
             </section>
 
             <section className={cardClass}>
@@ -367,24 +308,13 @@ export default function RulesPage() {
 
             <section className={cardClass}>
               <h2 className="text-lg font-bold mb-3 text-[#D9A441]">The Banker</h2>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">
-                Two bankers per competition. A banker doubles your entire gameweek score — team and both players.
-                Declare it with your pick. Unused bankers are worth nothing. Bankers are never applied to autopicks.
-              </p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">{RULES_TEXT.banker[0]}</p>
             </section>
 
             <section className={cardClass}>
               <h2 className="text-lg font-bold mb-3 text-[#D9A441]">All or Nothing</h2>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
-                Once per competition, you can play All or Nothing on one of your two weekly picks — but only a
-                player you haven&apos;t used at all yet this competition. Nominate them when you submit that
-                gameweek&apos;s pick. Can be played alongside a banker or on its own.
-              </p>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
-                If they score a goal or register an assist that gameweek, you get a bonus third use of them for
-                the rest of the competition. If they don&apos;t, you lose all remaining uses of them — for the
-                rest of the competition, even if you&apos;d normally have had a second go.
-              </p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.allOrNothing[0]}</p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.allOrNothing[1]}</p>
               {aonExclusions.length > 0 && (
                 <div className="mt-3">
                   <p className="text-sm font-bold text-[#D9A441] mb-1.5">Exclusions</p>
@@ -402,28 +332,14 @@ export default function RulesPage() {
 
             <section className={cardClass}>
               <h2 className="text-lg font-bold mb-3 text-[#D9A441]">Quartiles</h2>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
-                The 20 Premier League clubs are divided into four quartiles of five — Q1 (strongest) to Q4 (weakest).
-                Quartiles are used to calculate team points based on the difficulty of the result.
-              </p>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
-                Betting odds only ever set the quartiles once: gameweek 1 of the very first competition of a season, before
-                a ball&apos;s been kicked and there&apos;s no league table yet to go on. Every gameweek after that — including
-                gameweek 2 of that same competition, and the whole of any later competition in the same season (e.g. a
-                second half starting in January) — uses the current real league table instead. The table doesn&apos;t reset
-                between competitions; a new competition simply carries on from wherever the table stood when it started.
-              </p>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">
-                Quartiles are locked at the point each gameweek deadline passes — past scores are never affected by future quartile changes.
-              </p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.quartiles[0]}</p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.quartiles[1]}</p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">{RULES_TEXT.quartiles[2]}</p>
             </section>
 
             <section className={cardClass}>
               <h2 className="text-lg font-bold mb-3 text-[#D9A441]">Scoring</h2>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-4">
-                Team points depend on the result and the quartile differential between your team and their opponent.
-                ↑ means your team is the underdog, ↓ means favourite. Bigger upsets, bigger points.
-              </p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-4">{RULES_TEXT.scoringIntro}</p>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-xs border border-white/10">
@@ -476,12 +392,7 @@ export default function RulesPage() {
                 If two players are tied on total points, the following criteria apply in order:
               </p>
               <ol className="text-sm text-[#F5ECD9]/80 leading-relaxed list-decimal pl-5 space-y-1">
-                <li>Total points</li>
-                <li>Points with banker multiplier removed</li>
-                <li>Highest score in a single gameweek (banker included)</li>
-                <li>Most away wins from picked teams</li>
-                <li>Most goals from picked players</li>
-                <li>Earliest competition entry</li>
+                {RULES_TEXT.tiebreakers.map(t => <li key={t}>{t}</li>)}
               </ol>
             </section>
 

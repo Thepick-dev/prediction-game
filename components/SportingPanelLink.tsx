@@ -125,32 +125,29 @@ export default function SportingPanelLink({ children, popArt = false }: { childr
         // end up positioned against that card instead of the actual screen.
         <div
           ref={popoverRef}
-          // Deliberately NOT the shared .pop-panel class here — it sets
-          // position: relative, which beats this fixed positioning in the
-          // cascade (same specificity, .pop-panel just comes later in the
-          // stylesheet) and silently breaks the whole popover, rendering
-          // it in normal document flow instead of anchored near the
-          // trigger. Its visual style is replicated inline instead.
-          //
-          // pop-art-theme IS needed here though, for a different reason:
-          // every --pop-* colour variable is scoped to that class, not
-          // :root, so now that this is portalled straight to <body> —
-          // outside the page's own .pop-art-theme wrapper — those
-          // variables would otherwise resolve to nothing at all.
-          className={`fixed z-50 p-4 rounded-2xl border-2 ${popArt ? 'pop-art-theme' : ''}`}
+          // No shared classes for colour here AT ALL, on purpose — this is
+          // portalled straight to <body> to escape a transformed ancestor,
+          // which puts it outside the page's own .pop-art-theme wrapper.
+          // Every --pop-* colour variable (and anything that references
+          // one, like .pop-panel or .pop-button--yellow) is scoped to that
+          // class and doesn't reach here. Rather than keep fighting that
+          // scoping, every colour below is the literal hex value instead
+          // of var(--pop-*) — guaranteed to render right regardless of
+          // where in the DOM this ends up.
+          className="fixed z-50 p-4 rounded-2xl border-2"
           style={{
             top: pos.top,
             left: pos.left,
             width: POPOVER_WIDTH,
             maxWidth: `calc(100vw - ${MARGIN * 2}px)`,
             ...(popArt
-              ? { background: 'var(--pop-surface)', borderColor: 'rgba(255,255,255,0.12)', boxShadow: '0 4px 18px rgba(0,0,0,0.5)' }
+              ? { background: '#1B1B1B', borderColor: 'rgba(255,255,255,0.12)', boxShadow: '0 4px 18px rgba(0,0,0,0.5)' }
               : { backgroundColor: '#1e1914', borderColor: 'rgba(217,164,65,0.3)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }),
           }}
         >
           <h3
-            className={popArt ? 'pop-headline text-xs mb-1 leading-snug' : 'text-xs font-bold uppercase tracking-wider mb-1 leading-snug'}
-            style={popArt ? undefined : { color: '#D9A441', fontFamily: 'var(--font-heading), serif' }}
+            className="text-xs font-black uppercase tracking-wider mb-1 leading-snug"
+            style={{ color: popArt ? '#FFFFFF' : '#D9A441', fontFamily: popArt ? undefined : 'var(--font-heading), serif' }}
           >
             The Sporting Panel for the Avoidance of Manifestly Unfair Outcomes
           </h3>
@@ -168,7 +165,7 @@ export default function SportingPanelLink({ children, popArt = false }: { childr
               {members.map((m, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <KitBadge pattern={m.kit_pattern} colour1={m.kit_colour_1} colour2={m.kit_colour_2} colour3={m.kit_colour_3} size={22} />
-                  <span className={popArt ? 'text-sm font-black uppercase' : 'text-sm font-bold uppercase text-[#F5ECD9]'}>{m.display_name}</span>
+                  <span className="text-sm font-bold uppercase" style={{ color: popArt ? '#FFFFFF' : '#F5ECD9' }}>{m.display_name}</span>
                 </div>
               ))}
             </div>
@@ -178,8 +175,8 @@ export default function SportingPanelLink({ children, popArt = false }: { childr
 
           <button
             onClick={() => setOpen(false)}
-            className={popArt ? 'pop-button pop-button--yellow w-full mt-3 py-1.5 text-xs' : 'w-full mt-3 rounded-lg py-1.5 text-xs font-bold uppercase tracking-wider'}
-            style={popArt ? undefined : { backgroundColor: '#D9A441', color: '#241a12' }}
+            className="w-full mt-3 rounded-lg py-1.5 text-xs font-black uppercase tracking-wider"
+            style={{ backgroundColor: popArt ? '#FFEA00' : '#D9A441', color: popArt ? '#0A0A0A' : '#241a12' }}
           >
             Close
           </button>
