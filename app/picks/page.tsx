@@ -112,6 +112,7 @@ export default function PicksPage() {
   const [gameweek, setGameweek] = useState<Gameweek | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [players, setPlayers] = useState<Player[]>([])
+  const [playerReactions, setPlayerReactions] = useState<Record<number, { type: 'emoji' | 'text'; content: string }>>({})
   const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [quartileMap, setQuartileMap] = useState<Record<number, number>>({})
   const [scoringMap, setScoringMap] = useState<Record<string, number>>({})
@@ -223,6 +224,14 @@ export default function PicksPage() {
     playerActive?.forEach(p => { activeByPlayerId[p.id] = p.active })
 
     setPlayers((playersData ?? []).map(p => ({ ...p, active: activeByPlayerId[p.id] ?? true })))
+
+    // Also its own query, same reason — a brand new, entirely optional
+    // table (admin-managed player easter eggs), so a problem with it must
+    // never be able to take the rest of the pick screen down with it.
+    const { data: reactionsData } = await supabase.from('player_reactions').select('player_id, type, content')
+    const reactionMap: Record<number, { type: 'emoji' | 'text'; content: string }> = {}
+    reactionsData?.forEach(r => { reactionMap[r.player_id] = { type: r.type, content: r.content } })
+    setPlayerReactions(reactionMap)
 
     if (gw) {
       const [pickRes, { data: fixturesData }, { data: quartilesData }, { data: questionData }, { data: scoringRulesData }] = await Promise.all([
@@ -353,33 +362,13 @@ export default function PicksPage() {
     if (emoji) fireReaction('emoji', emoji)
   }
 
-  // Player-select easter eggs — same idea as the team ones above, just
-  // matched against the player's full name instead. A couple are text
-  // banners (rendered in the glowing display font) rather than emoji.
-  // Surname-only on purpose: full-name matches (e.g. "bruno fernandes")
-  // silently failed whenever the stored name had a middle name in between,
-  // or wasn't spelled quite how it was typed here (Nicolas vs "Nicklas"
-  // Jackson) — surnames are distinctive enough among current PL players
-  // and far more forgiving.
-  const PLAYER_REACTIONS: { match: string; type: 'emoji' | 'text'; content: string }[] = [
-    { match: 'madueke', type: 'emoji', content: '🥽' },
-    { match: 'haaland', type: 'text', content: '🎵ROY KEANE TRIED TO KILL HIS DAD🎵' },
-    { match: 'gyokeres', type: 'emoji', content: '😏' },
-    { match: 'barnes', type: 'emoji', content: '🐐' },
-    { match: 'rice', type: 'text', content: 'BGD!' },
-    { match: 'welbeck', type: 'text', content: 'DAT GUY😎' },
-    { match: 'richarlison', type: 'emoji', content: '😎' },
-    { match: 'eze', type: 'emoji', content: '♟️♟️' },
-    { match: 'palmer', type: 'emoji', content: '🥶❄️' },
-    { match: 'fernandes', type: 'emoji', content: '🗣️🚫' },
-    { match: 'jackson', type: 'emoji', content: '😀' },
-  ]
+  // Player-select easter eggs — same idea as the team ones above, but now
+  // admin-managed (see /admin/players) and looked up by player ID rather
+  // than name-matching, which used to silently fail whenever a stored
+  // name didn't exactly match what was hardcoded here (middle names,
+  // accents, misremembered spellings — a whole class of bug this removes).
   function triggerPlayerReaction(playerId: number) {
-    const rawName = players.find(p => p.id === playerId)?.name ?? ''
-    // Strips accents (Gyökeres -> Gyokeres) so typing the plain-letter
-    // version here still matches the real, accented stored name.
-    const name = rawName.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-    const found = PLAYER_REACTIONS.find(r => name.includes(r.match))
+    const found = playerReactions[playerId]
     if (found) fireReaction(found.type, found.content)
   }
 
