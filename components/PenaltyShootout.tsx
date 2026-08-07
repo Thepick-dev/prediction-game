@@ -6,21 +6,26 @@ import { createClient } from '../app/lib/supabase'
 // Not connected to the prediction game in any way — purely a bit of fun,
 // separate scoring, separate table.
 //
-// Scoring model (v3): points, not a streak count. Every hit scores 2-7
-// points depending on how close to the CENTRE of the target zone you hit.
-// 3 lives, not sudden death on the first miss.
+// Scoring model (v4 — "chaos" pass): points, not a streak count. Every hit
+// scores 2-7 points depending on how close to the CENTRE of the target
+// zone you hit. 3 lives to start (up to 5 via hearts, see below), not
+// sudden death on the first miss.
 //
-// v2 (pure width/speed tuning) turned out to be far too easy in real play
-// — a first-ever attempt scored 96/99 — because the marker always swept
-// from the exact same starting point in a perfectly predictable straight
-// line, just scaled by duration. Once you know the rhythm, timing one
-// click against a metronome is easy for a human regardless of how fast it
-// gets. Two structural fixes on top of a harsher floor: the marker now
-// starts each round at a random point in its sweep (so there's no fixed
-// rhythm to memorise), and past a certain score the TARGET ZONE ITSELF
-// starts drifting back and forth too, on its own independent, ever-
-// quickening cycle — so late-game is genuinely two things to track at
-// once, not one thing done fast.
+// Difficulty layers, stacked:
+// - the marker always sweeps, starting each round at a random phase (no
+//   fixed rhythm to memorise)
+// - the target zone itself starts drifting on its own independent,
+//   ever-quickening cycle past an early threshold
+// - score ticks down 1/point/second while you're deciding — dawdling
+//   costs you, and it can push the score negative
+// - past the harder stretch, rounds occasionally swap the one brutal zone
+//   for TWO wider ones instead (hit either) — a deliberate breather, not
+//   guaranteed every round
+// - a hidden bonus sub-region sometimes sits inside the real target: a
+//   heart grants a life back (capped at 5), gold doubles that shot's
+//   points — mutually exclusive per round
+// - past a threshold, a separate skull patch can appear near (never
+//   overlapping) the real target — hit it and it's instant game over
 const BASE_WIDTH = 30
 const MIN_WIDTH = 5
 const BASE_DURATION = 1.15
@@ -32,6 +37,7 @@ const BASE_HIT_PTS = 2
 const BONUS_HIT_PTS = 5
 const MAX_SCORE = 99
 const STARTING_LIVES = 3
+const MAX_LIVES = 5
 const MILESTONES = [25, 50, 75]
 // +/- this fraction, applied fresh every round.
 const JITTER = 0.3
@@ -47,6 +53,31 @@ const MARKER_WIDTH = 5
 const ZONE_MOVE_START_T = 0.1
 const ZONE_MOVE_BASE_MS = 2200
 const ZONE_MOVE_MIN_MS = 420
+
+// Lose a point a second while you're aiming — pure urgency, encourages
+// shooting on instinct instead of stalling for the "perfect" moment.
+const TICK_MS = 1000
+
+// Two friendlier zones instead of one brutal one, occasionally, once
+// things are properly fast — a deliberate breather stage, not a reward
+// for skill, so it's random whether any given late-game round gets it.
+const MULTI_TARGET_START_T = 0.55
+const MULTI_TARGET_CHANCE = 0.4
+
+// Hidden bonus sub-region inside a (single-target) round's real zone.
+// Mutually exclusive per round — only one of the two can show up.
+const HEART_CHANCE = 0.18
+const GOLD_CHANCE = 0.12
+
+// Separate danger patch, never overlapping a real zone — instant game
+// over regardless of lives remaining.
+const SKULL_START_T = 0.3
+const SKULL_CHANCE = 0.28
+
+// The goal box's border starts cycling colour past this difficulty, and
+// the screen-shake gets punchier — purely a "this is getting unhinged"
+// visual cue, no gameplay effect.
+const CHAOS_VISUAL_START_T = 0.5
 
 // The goal photo (shootout-goal.png) has real sky/grass margin either side
 // of the actual goal frame rather than the frame filling the whole image —
@@ -70,6 +101,7 @@ function reactionEmoji(precision: number) {
 
 type Phase = 'ready' | 'aiming' | 'result' | 'gameover' | 'win'
 type ZoneMove = { a: number; b: number; durationMs: number; phaseMs: number } | null
+type Band = { left: number; width: number }
 
 export default function PenaltyShootout({ userId }: { userId: string }) {
   const [score, setScore] = useState(0)
@@ -77,10 +109,16 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
   const [bestScore, setBestScore] = useState<number | null>(null)
   const [phase, setPhase] = useState<Phase>('ready')
   const [result, setResult] = useState<'goal' | 'miss' | null>(null)
-  const [zone, setZone] = useState({ left: 40, width: BASE_WIDTH })
+  const [zones, setZones] = useState<Band[]>([{ left: 40, width: BASE_WIDTH }])
+  const [multiTarget, setMultiTarget] = useState(false)
   const [zoneMove, setZoneMove] = useState<ZoneMove>(null)
+  const [heart, setHeart] = useState<Band | null>(null)
+  const [gold, setGold] = useState<Band | null>(null)
+  const [skull, setSkull] = useState<Band | null>(null)
+  const [skullHit, setSkullHit] = useState(false)
   const [duration, setDuration] = useState(BASE_DURATION)
   const [markerPhaseMs, setMarkerPhaseMs] = useState(0)
+  const [difficultyT, setDifficultyT] = useState(0)
   // Where the last shot actually landed (0-100, aim-track space) — used to
   // place the ball/keeper visually, instead of the zone's centre, so what
   // you see always matches what you clicked.
@@ -93,13 +131,13 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
   const [leaderboard, setLeaderboard] = useState<{ name: string; score: number }[]>([])
   const [justBeatBest, setJustBeatBest] = useState(false)
   // Last hit's reward — drives the floating "+N" / emoji feedback.
-  const [lastHit, setLastHit] = useState<{ points: number; precision: number; key: number } | null>(null)
+  const [lastHit, setLastHit] = useState<{ points: number; precision: number; key: number; bonus: 'heart' | 'gold' | null } | null>(null)
   const [milestone, setMilestone] = useState<{ text: string; key: number } | null>(null)
   const [shakeKey, setShakeKey] = useState(0)
   // There's no dedicated diving-keeper artwork — the "dive" is the same
   // standing keeper image, rotated in CSS to fake a lunge. Only on the
   // FINAL miss (lives run out) does he switch to the violin taunt — with
-  // 3 lives now, doing that on every single miss would get old fast.
+  // up to 5 lives now, doing that on every single miss would get old fast.
   const [showViolin, setShowViolin] = useState(false)
 
   const trackRef = useRef<HTMLDivElement>(null)
@@ -113,8 +151,10 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
   // Drives the zone's own drift once it's meant to be moving — a real Web
   // Animation rather than a static CSS keyframe, since its start/end
   // points are randomised fresh every round and can't be hardcoded in a
-  // stylesheet. Paused/resumed by the phase effect below, cancelled and
-  // replaced whenever a new round starts.
+  // stylesheet. Only relevant in single-target rounds — multi-target zones
+  // are always static (the extra zone is itself the difficulty relief).
+  // Paused/resumed by the phase effect below, cancelled and replaced
+  // whenever a new round starts.
   useEffect(() => {
     if (!zoneRef.current) return
     zoneAnimRef.current?.cancel()
@@ -136,6 +176,15 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
     if (!zoneAnimRef.current) return
     if (phase === 'aiming') zoneAnimRef.current.play()
     else zoneAnimRef.current.pause()
+  }, [phase])
+
+  // The time-penalty tick — only runs while you're actually deciding.
+  // Re-armed every round via the phase dependency, and a functional
+  // update so it's never fooled by a stale closure of `score`.
+  useEffect(() => {
+    if (phase !== 'aiming') return
+    const id = setInterval(() => setScore(s => s - 1), TICK_MS)
+    return () => clearInterval(id)
   }, [phase])
 
   async function loadScores() {
@@ -162,13 +211,64 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
     )
   }
 
-  function newRound(currentScore: number) {
-    const t = Math.min(1, currentScore / MAX_SCORE)
+  function newRound(currentScore: number, currentLives: number) {
+    const t = Math.max(0, Math.min(1, currentScore / MAX_SCORE))
     const tEff = Math.pow(t, CURVE_EXP)
+    setDifficultyT(t)
 
     const widthJitter = 1 + (Math.random() - 0.5) * JITTER
-    const width = Math.max(MIN_WIDTH, (BASE_WIDTH - tEff * (BASE_WIDTH - MIN_WIDTH)) * widthJitter)
-    const left = Math.random() * (100 - width)
+    const singleWidth = Math.max(MIN_WIDTH, (BASE_WIDTH - tEff * (BASE_WIDTH - MIN_WIDTH)) * widthJitter)
+
+    const useMulti = t > MULTI_TARGET_START_T && Math.random() < MULTI_TARGET_CHANCE
+    let newZones: Band[]
+    if (useMulti) {
+      // Wider than the single-zone equivalent at this difficulty — the
+      // extra target IS the relief, not just more surface area.
+      const mtWidth = Math.min(BASE_WIDTH * 0.55, singleWidth * 1.9)
+      const gap = 10
+      const firstLeft = Math.random() * Math.max(0, 100 - mtWidth * 2 - gap)
+      const secondMin = firstLeft + mtWidth + gap
+      const secondLeft = Math.min(100 - mtWidth, secondMin + Math.random() * Math.max(0, 100 - mtWidth - secondMin))
+      newZones = [{ left: firstLeft, width: mtWidth }, { left: secondLeft, width: mtWidth }]
+    } else {
+      const left = Math.random() * (100 - singleWidth)
+      newZones = [{ left, width: singleWidth }]
+    }
+    setZones(newZones)
+    setMultiTarget(useMulti)
+
+    // Heart / gold — single-target rounds only, so hit-detection against
+    // them never has to reason about which of several zones they're in.
+    let newHeart: Band | null = null
+    let newGold: Band | null = null
+    if (!useMulti) {
+      const z = newZones[0]
+      const roll = Math.random()
+      if (currentLives < MAX_LIVES && roll < HEART_CHANCE) {
+        const hw = Math.max(2, z.width * 0.35)
+        newHeart = { left: z.left + Math.random() * Math.max(0, z.width - hw), width: hw }
+      } else if (roll < HEART_CHANCE + GOLD_CHANCE) {
+        const gw = Math.max(2, z.width * 0.35)
+        newGold = { left: z.left + Math.random() * Math.max(0, z.width - gw), width: gw }
+      }
+    }
+    setHeart(newHeart)
+    setGold(newGold)
+
+    // Skull — a separate danger region, either mode, never overlapping a
+    // real zone (with a small margin). Skipped entirely if no non-
+    // overlapping spot turns up in a reasonable number of tries.
+    let newSkull: Band | null = null
+    if (t > SKULL_START_T && Math.random() < SKULL_CHANCE) {
+      const sw = 6 + Math.random() * 4
+      for (let attempt = 0; attempt < 15; attempt++) {
+        const sl = Math.random() * (100 - sw)
+        const overlaps = newZones.some(z => sl < z.left + z.width + 3 && sl + sw > z.left - 3)
+        if (!overlaps) { newSkull = { left: sl, width: sw }; break }
+      }
+    }
+    setSkull(newSkull)
+    setSkullHit(false)
 
     const durationJitter = 1 + (Math.random() - 0.5) * JITTER
     const nextDuration = Math.max(MIN_DURATION, (BASE_DURATION - tEff * (BASE_DURATION - MIN_DURATION)) * durationJitter)
@@ -179,19 +279,19 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
     setMarkerPhaseMs(Math.random() * nextDuration * 2 * 1000)
 
     let move: ZoneMove = null
-    if (t > ZONE_MOVE_START_T) {
+    if (!useMulti && t > ZONE_MOVE_START_T) {
       const moveT = (t - ZONE_MOVE_START_T) / (1 - ZONE_MOVE_START_T)
       const moveMs = ZONE_MOVE_BASE_MS - moveT * (ZONE_MOVE_BASE_MS - ZONE_MOVE_MIN_MS)
-      const a = Math.random() * (100 - width)
+      const z = newZones[0]
+      const a = Math.random() * (100 - z.width)
       // The second point is a fresh random spot at least a quarter of the
       // track away from the first, so it's a genuine drift, not a wobble.
-      let b = Math.random() * (100 - width)
-      if (Math.abs(b - a) < 25) b = (a + 40 + Math.random() * 20) % (100 - width)
+      let b = Math.random() * (100 - z.width)
+      if (Math.abs(b - a) < 25) b = (a + 40 + Math.random() * 20) % (100 - z.width)
       move = { a, b, durationMs: moveMs, phaseMs: Math.random() * moveMs }
     }
     setZoneMove(move)
 
-    setZone({ left, width })
     setDuration(nextDuration)
     setRoundId(id => id + 1)
     setResult(null)
@@ -205,42 +305,70 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
     setJustBeatBest(false)
     setShowViolin(false)
     setMilestone(null)
-    newRound(0)
+    newRound(0, STARTING_LIVES)
   }
 
   function shoot() {
-    if (phase !== 'aiming' || !trackRef.current || !markerRef.current || !zoneRef.current) return
+    if (phase !== 'aiming' || !trackRef.current || !markerRef.current) return
     const trackRect = trackRef.current.getBoundingClientRect()
     const markerRect = markerRef.current.getBoundingClientRect()
-    // Read the zone's LIVE position (it may be mid-drift) rather than the
-    // left/width captured in state at the start of the round.
-    const zoneRect = zoneRef.current.getBoundingClientRect()
     const markerCenterPct = ((markerRect.left + markerRect.width / 2 - trackRect.left) / trackRect.width) * 100
-    const zoneLeftPct = ((zoneRect.left - trackRect.left) / trackRect.width) * 100
-    const zoneWidthPct = (zoneRect.width / trackRect.width) * 100
     setShotX(markerCenterPct)
-    const hit = markerCenterPct >= zoneLeftPct && markerCenterPct <= zoneLeftPct + zoneWidthPct
     setShakeKey(k => k + 1)
 
+    // Skull overrides everything — instant game over regardless of lives.
+    if (skull && markerCenterPct >= skull.left && markerCenterPct <= skull.left + skull.width) {
+      setResult('miss')
+      setSkullHit(true)
+      setLives(0)
+      setPhase('gameover')
+      setTimeout(() => setShowViolin(true), 700)
+      if (bestScore !== null && score > bestScore) {
+        setJustBeatBest(true)
+        saveScore(score)
+      }
+      return
+    }
+
+    // Which zone (if any) got hit. Multi-target zones are static, so the
+    // stored values are already current; the single/moving zone's real
+    // position has to be read live off the DOM since it may be mid-drift.
+    let hit: Band | null = null
+    if (multiTarget) {
+      hit = zones.find(z => markerCenterPct >= z.left && markerCenterPct <= z.left + z.width) ?? null
+    } else if (zoneRef.current) {
+      const zoneRect = zoneRef.current.getBoundingClientRect()
+      const zLeft = ((zoneRect.left - trackRect.left) / trackRect.width) * 100
+      const zWidth = (zoneRect.width / trackRect.width) * 100
+      if (markerCenterPct >= zLeft && markerCenterPct <= zLeft + zWidth) hit = { left: zLeft, width: zWidth }
+    }
+
     if (hit) {
-      const zoneCenter = zoneLeftPct + zoneWidthPct / 2
-      const maxDist = zoneWidthPct / 2
+      const zoneCenter = hit.left + hit.width / 2
+      const maxDist = hit.width / 2
       const distFromCenter = Math.abs(markerCenterPct - zoneCenter)
       const precision = maxDist > 0 ? Math.max(0, 1 - distFromCenter / maxDist) : 1
-      const points = Math.round(BASE_HIT_PTS + precision * BONUS_HIT_PTS)
+      let points = Math.round(BASE_HIT_PTS + precision * BONUS_HIT_PTS)
+
+      let bonus: 'heart' | 'gold' | null = null
+      if (heart && markerCenterPct >= heart.left && markerCenterPct <= heart.left + heart.width) {
+        bonus = 'heart'
+        setLives(l => Math.min(MAX_LIVES, l + 1))
+      } else if (gold && markerCenterPct >= gold.left && markerCenterPct <= gold.left + gold.width) {
+        bonus = 'gold'
+        points *= 2
+      }
+
       const prevScore = score
       const nextScore = Math.min(MAX_SCORE, score + points)
       setScore(nextScore)
-      setLastHit({ points, precision, key: Date.now() })
+      setLastHit({ points, precision, key: Date.now(), bonus })
       setResult('goal')
 
       const crossed = MILESTONES.find(m => prevScore < m && nextScore >= m)
       if (crossed) {
         const text = crossed === 25 ? '25 — WARMING UP!' : crossed === 50 ? '50 — HALFWAY THERE!' : '75 — ON FIRE!'
         setMilestone({ text, key: Date.now() })
-        // Never cleared itself before, so once shown it just sat there
-        // displaying the same banner over every later shot regardless of
-        // score — matches the animation's own ~1.1s duration.
         setTimeout(() => setMilestone(null), 1100)
       }
 
@@ -252,7 +380,7 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
         }
       } else {
         setPhase('result')
-        setTimeout(() => newRound(nextScore), 900)
+        setTimeout(() => newRound(nextScore, lives), 900)
       }
     } else {
       const nextLives = lives - 1
@@ -269,7 +397,7 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
         }
       } else {
         setPhase('result')
-        setTimeout(() => newRound(score), 900)
+        setTimeout(() => newRound(score, nextLives), 900)
       }
     }
   }
@@ -300,12 +428,15 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
     ? { pose: 'dive' as const, x: 100 - shotX, mirror: (100 - shotX) >= 50, rotate: -50 }
     : { pose: 'ready' as const, x: 50, mirror: false, rotate: 0 }
 
+  const chaosVisuals = phase !== 'ready' && difficultyT > CHAOS_VISUAL_START_T
+  const livesShown = Math.max(STARTING_LIVES, lives)
+
   return (
     <div className="pop-art-theme" style={{ color: 'var(--pop-white)' }}>
       <div className="flex items-center justify-between mb-3">
         <p className="pop-headline text-xl">Penalty Shootout</p>
         <div className="text-right">
-          <p className="font-mono text-3xl font-bold leading-none" style={{ color: 'var(--pop-green)' }}>{score}<span style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>/99</span></p>
+          <p className="font-mono text-3xl font-bold leading-none" style={{ color: score < 0 ? 'var(--pop-red)' : 'var(--pop-green)' }}>{score}<span style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>/99</span></p>
           <p className="font-mono text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
             best: {bestScore ?? '—'}
           </p>
@@ -315,12 +446,12 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
       {phase !== 'ready' && (
         <div className="flex items-center justify-between mb-3">
           <div className="flex gap-1 text-lg leading-none">
-            {Array.from({ length: STARTING_LIVES }).map((_, i) => (
+            {Array.from({ length: livesShown }).map((_, i) => (
               <span key={i}>{i < lives ? '❤️' : '🖤'}</span>
             ))}
           </div>
           <div className="h-1.5 rounded-full flex-1 ml-3" style={{ background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-            <div className="h-full rounded-full" style={{ width: `${(score / MAX_SCORE) * 100}%`, background: 'linear-gradient(90deg, var(--pop-pink), var(--pop-orange), var(--pop-yellow))', transition: 'width 0.4s ease' }} />
+            <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, (score / MAX_SCORE) * 100))}%`, background: 'linear-gradient(90deg, var(--pop-pink), var(--pop-orange), var(--pop-yellow))', transition: 'width 0.4s ease' }} />
           </div>
         </div>
       )}
@@ -329,10 +460,12 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
           on top and positioned/animated in code. Locked to the photo's own
           aspect ratio (rather than a fixed pixel height) so it's never
           cropped — every % position below always lands where it looks
-          like it should, on phones and wide screens alike. */}
+          like it should, on phones and wide screens alike. Past the chaos
+          threshold the border cycles colour, just to sell "this has gone
+          off the rails" before you've even seen the moving target. */}
       <div
         key={shakeKey}
-        className={`relative rounded-xl mb-4 ${result ? 'pop-shoot-shake' : ''}`}
+        className={`relative rounded-xl mb-4 ${result ? 'pop-shoot-shake' : ''} ${chaosVisuals ? 'pop-shoot-chaos-border' : ''}`}
         style={{ aspectRatio: GOAL_ASPECT, overflow: 'hidden', backgroundImage: 'url(/shootout-goal.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}
       >
         <img
@@ -366,7 +499,7 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
           }}
           className={result === 'goal' ? 'pop-pop-in' : ''}
         />
-        {result && (
+        {result && !skullHit && (
           <p
             style={{
               position: 'absolute', top: '4%', left: 0, right: 0, textAlign: 'center',
@@ -378,17 +511,30 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
             {result === 'goal' ? 'GOAL!' : 'SAVED!'}
           </p>
         )}
+        {skullHit && (
+          <p
+            style={{
+              position: 'absolute', top: '4%', left: 0, right: 0, textAlign: 'center',
+              fontFamily: 'var(--font-display)', fontSize: 30, letterSpacing: '0.03em',
+              color: 'var(--pop-red)', textShadow: '0 0 16px rgba(232,38,42,0.85)',
+            }}
+          >
+            💀 INSTANT DEATH!
+          </p>
+        )}
         {lastHit && (
           <div
             key={lastHit.key}
             className="pop-shoot-float"
             style={{
-              position: 'absolute', left: `calc(${toGoalX(shotX)}% - 30px)`, bottom: '55%',
-              width: 60, textAlign: 'center', pointerEvents: 'none',
+              position: 'absolute', left: `calc(${toGoalX(shotX)}% - 34px)`, bottom: '55%',
+              width: 68, textAlign: 'center', pointerEvents: 'none',
             }}
           >
-            <div style={{ fontSize: 26, lineHeight: 1 }}>{reactionEmoji(lastHit.precision)}</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 16, color: 'var(--pop-yellow)', textShadow: '0 0 8px rgba(0,0,0,0.8)' }}>+{lastHit.points}</div>
+            <div style={{ fontSize: 26, lineHeight: 1 }}>{lastHit.bonus === 'heart' ? '❤️' : reactionEmoji(lastHit.precision)}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 16, color: lastHit.bonus === 'gold' ? 'var(--pop-yellow)' : 'var(--pop-yellow)', textShadow: '0 0 8px rgba(0,0,0,0.8)' }}>
+              +{lastHit.points}{lastHit.bonus === 'gold' ? ' 2X!' : ''}
+            </div>
           </div>
         )}
         {milestone && (
@@ -408,20 +554,51 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
       </div>
 
       {/* Aim track — the pink marker always sweeps; past a difficulty
-          threshold the orange target zone drifts on its own independent
-          cycle too (driven by the Web Animation set up above), so the
-          late game is genuinely two moving things to track, not one. */}
+          threshold the orange target zone(s) drift on their own
+          independent cycle too, so the late game is genuinely two moving
+          things to track, not one. A hidden heart/gold band sometimes
+          hides inside a single target; a skull patch sometimes sits
+          nearby, never overlapping a real target. */}
       <div ref={trackRef} className="relative rounded-full mb-4" style={{ height: 14, background: 'rgba(255,255,255,0.08)' }}>
-        <div
-          ref={zoneRef}
-          className="absolute top-0 bottom-0 rounded-full"
-          style={{
-            left: `${zone.left}%`,
-            width: `${zone.width}%`,
-            background: 'rgba(255,61,0,0.4)',
-            border: '1px solid var(--pop-orange)',
-          }}
-        />
+        {multiTarget ? (
+          zones.map((z, i) => (
+            <div
+              key={i}
+              className="absolute top-0 bottom-0 rounded-full"
+              style={{ left: `${z.left}%`, width: `${z.width}%`, background: 'rgba(255,61,0,0.4)', border: '1px solid var(--pop-orange)' }}
+            />
+          ))
+        ) : (
+          <div
+            ref={zoneRef}
+            className="absolute top-0 bottom-0 rounded-full"
+            style={{ left: `${zones[0].left}%`, width: `${zones[0].width}%`, background: 'rgba(255,61,0,0.4)', border: '1px solid var(--pop-orange)' }}
+          />
+        )}
+        {heart && (
+          <div
+            className="absolute rounded-full pop-shoot-bonus-pulse"
+            style={{ left: `${heart.left}%`, width: `${heart.width}%`, top: -7, bottom: -7, background: 'rgba(232,38,42,0.5)', border: '1px solid var(--pop-red)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}
+          >
+            ❤️
+          </div>
+        )}
+        {gold && (
+          <div
+            className="absolute rounded-full pop-shoot-bonus-pulse"
+            style={{ left: `${gold.left}%`, width: `${gold.width}%`, top: -7, bottom: -7, background: 'rgba(255,234,0,0.5)', border: '1px solid var(--pop-yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}
+          >
+            ⭐
+          </div>
+        )}
+        {skull && (
+          <div
+            className="absolute rounded-full pop-shoot-skull-pulse"
+            style={{ left: `${skull.left}%`, width: `${skull.width}%`, top: -3, bottom: -3, background: 'rgba(20,20,20,0.85)', border: '1px solid var(--pop-red)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}
+          >
+            💀
+          </div>
+        )}
         <div
           key={roundId}
           ref={markerRef}
@@ -468,7 +645,7 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
       {phase === 'gameover' && (
         <div>
           <p className="pop-headline text-center text-lg mb-1">
-            {justBeatBest ? 'New Best!' : 'Game Over'}
+            {skullHit ? '💀 Instant Death!' : justBeatBest ? 'New Best!' : 'Game Over'}
           </p>
           <p className="text-center font-mono text-sm mb-3" style={{ color: 'rgba(255,255,255,0.6)' }}>
             You scored {score}

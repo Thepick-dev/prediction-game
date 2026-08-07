@@ -402,3 +402,39 @@ thead th {
   80% { transform: scale(1) rotate(0deg); opacity: 1; }
   100% { transform: scale(1.05) rotate(0deg); opacity: 0; }
 }
+
+/* Cycles the goal box's own border through the palette once the shootout
+   is deep enough in to feel properly unhinged — a constant "this has gone
+   off the rails" signal on top of whatever's actually moving. */
+.pop-shoot-chaos-border {
+  animation: pop-shoot-chaos-border 1.6s linear infinite;
+  border: 3px solid transparent;
+}
+@keyframes pop-shoot-chaos-border {
+  0% { border-color: var(--pop-pink); box-shadow: 0 0 18px rgba(213,0,109,0.6); }
+  25% { border-color: var(--pop-orange); box-shadow: 0 0 18px rgba(255,61,0,0.6); }
+  50% { border-color: var(--pop-yellow); box-shadow: 0 0 18px rgba(255,234,0,0.6); }
+  75% { border-color: var(--pop-green); box-shadow: 0 0 18px rgba(0,230,118,0.6); }
+  100% { border-color: var(--pop-pink); box-shadow: 0 0 18px rgba(213,0,109,0.6); }
+}
+
+/* The hidden heart/gold bonus band on the aim track — a slow, inviting
+   pulse (as opposed to the skull's frantic warning one below) since
+   finding it is good news. */
+.pop-shoot-bonus-pulse {
+  animation: pop-shoot-bonus-pulse 1s ease-in-out infinite;
+}
+@keyframes pop-shoot-bonus-pulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+/* The skull danger patch — a fast, urgent pulse, deliberately more
+   frantic than the bonus one so it reads as "stay away" at a glance. */
+.pop-shoot-skull-pulse {
+  animation: pop-shoot-skull-pulse 0.45s ease-in-out infinite;
+}
+@keyframes pop-shoot-skull-pulse {
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
