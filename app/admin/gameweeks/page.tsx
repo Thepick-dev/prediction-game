@@ -3,24 +3,37 @@ import { calculateScoring } from '../../lib/scoring'
 import { londonInputToUtcISOString, utcToLondonInputValue } from '../../lib/londonTime'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
+import ConfirmActionButton from '../components/confirm-action-button'
 import CompetitionFilter from '../components/competition-filter'
 import GameweekQuestionForm from '../components/gameweek-question-form'
 
-export default async function GameweeksPage({ searchParams }: { searchParams: Promise<{ competition_id?: string; questionError?: string }> }) {
-  const { competition_id: selectedCompetitionId, questionError } = await searchParams
+export default async function GameweeksPage({ searchParams }: { searchParams: Promise<{ competition_id?: string; questionError?: string; recalcResult?: string }> }) {
+  const { competition_id: selectedCompetitionId, questionError, recalcResult } = await searchParams
   const supabase = await createServerSupabaseClient()
 
   let gameweeksQuery = supabase.from('gameweeks').select('*, competitions(name)').order('number', { ascending: true })
   if (selectedCompetitionId) gameweeksQuery = gameweeksQuery.eq('competition_id', selectedCompetitionId)
 
-  const [{ data: competitions }, { data: gameweeks }, { data: questions }] = await Promise.all([
+  const [{ data: competitions }, { data: gameweeks }, { data: questions }, { data: snapshots }] = await Promise.all([
     supabase.from('competitions').select('id, name').order('created_at', { ascending: false }),
     gameweeksQuery,
-    supabase.from('gameweek_questions').select('*')
+    supabase.from('gameweek_questions').select('*'),
+    // Its own request, same isolation reasoning as everywhere else in
+    // this codebase — a problem reading snapshot history must never be
+    // able to take the rest of this page (still fully usable via the
+    // manual status dropdown) down with it.
+    supabase.from('gameweek_snapshots').select('*').order('taken_at', { ascending: false }),
   ])
 
   const questionsByGw: Record<string, any> = {}
   questions?.forEach(q => { questionsByGw[q.gameweek_id] = q })
+
+  // Most recent snapshot per gameweek — snapshots is already sorted
+  // newest-first, so the first one seen per gameweek_id wins.
+  const latestSnapshotByGw: Record<string, any> = {}
+  snapshots?.forEach(s => { if (!latestSnapshotByGw[s.gameweek_id]) latestSnapshotByGw[s.gameweek_id] = s })
+  const snapshotCountByGw: Record<string, number> = {}
+  snapshots?.forEach(s => { snapshotCountByGw[s.gameweek_id] = (snapshotCountByGw[s.gameweek_id] || 0) + 1 })
 
   async function createGameweek(formData: FormData) {
     'use server'
@@ -50,22 +63,36 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
         .single()
 
       if (gw) {
-        const { data: assignments } = await supabase
-          .from('tier_assignments')
-          .select('team_id, tier')
-          .eq('competition_id', gw.competition_id)
+        // Only fall back to a fresh, LIVE copy of tier_assignments if this
+        // gameweek never went through Prepare & Open (an older gameweek,
+        // or the raw status dropdown was used to skip it) — a gameweek
+        // that already has quartiles frozen from its own snapshot must
+        // never have those silently overwritten by whatever the table
+        // happens to say weeks later, at completion time.
+        const { data: existingQuartiles } = await supabase
+          .from('gameweek_quartiles')
+          .select('team_id')
+          .eq('gameweek_id', id)
+          .limit(1)
 
-        if (assignments && assignments.length > 0) {
-          await supabase
-            .from('gameweek_quartiles')
-            .upsert(
-              assignments.map(a => ({
-                gameweek_id: id,
-                team_id: a.team_id,
-                quartile: a.tier
-              })),
-              { onConflict: 'gameweek_id,team_id' }
-            )
+        if (!existingQuartiles || existingQuartiles.length === 0) {
+          const { data: assignments } = await supabase
+            .from('tier_assignments')
+            .select('team_id, tier')
+            .eq('competition_id', gw.competition_id)
+
+          if (assignments && assignments.length > 0) {
+            await supabase
+              .from('gameweek_quartiles')
+              .upsert(
+                assignments.map(a => ({
+                  gameweek_id: id,
+                  team_id: a.team_id,
+                  quartile: a.tier
+                })),
+                { onConflict: 'gameweek_id,team_id' }
+              )
+          }
         }
 
         await calculateScoring(supabase, id)
@@ -73,6 +100,75 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
     }
 
     redirect('/admin/gameweeks')
+  }
+
+  // Captures the league table, quartiles, and fixtures as they stand
+  // right now into a permanent snapshot row, AND freezes gameweek_quartiles
+  // from it immediately — rather than waiting until completion, when the
+  // table may have moved on from whatever players actually saw while
+  // picking. Can be re-run any number of times before the gameweek is
+  // actually opened (each call is its own row, so nothing is lost —
+  // it's a genuine audit trail, not a single overwritten value).
+  async function prepareSnapshot(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    const id = formData.get('id') as string
+
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: gw } = await supabase.from('gameweeks').select('competition_id').eq('id', id).single()
+    if (!gw) redirect('/admin/gameweeks')
+
+    const [{ data: standings }, { data: quartiles }, { data: fixtures }] = await Promise.all([
+      supabase.from('team_league_positions').select('*').order('recorded_at', { ascending: false }).limit(20),
+      supabase.from('tier_assignments').select('team_id, tier').eq('competition_id', gw!.competition_id),
+      supabase.from('fixtures').select('id, home_team_id, away_team_id, kickoff_time').eq('gameweek_id', id),
+    ])
+
+    await supabase.from('gameweek_snapshots').insert({
+      gameweek_id: id,
+      taken_by: user?.id ?? null,
+      standings: standings ?? [],
+      quartiles: quartiles ?? [],
+      fixtures: fixtures ?? [],
+    })
+
+    if (quartiles && quartiles.length > 0) {
+      await supabase
+        .from('gameweek_quartiles')
+        .upsert(
+          quartiles.map(q => ({ gameweek_id: id, team_id: q.team_id, quartile: q.tier })),
+          { onConflict: 'gameweek_id,team_id' }
+        )
+    }
+
+    redirect('/admin/gameweeks')
+  }
+
+  async function confirmOpen(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    await supabase.from('gameweeks').update({ status: 'open' }).eq('id', formData.get('id') as string)
+    redirect('/admin/gameweeks')
+  }
+
+  async function reopenGameweek(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    await supabase.from('gameweeks').update({ status: 'open' }).eq('id', formData.get('id') as string)
+    redirect('/admin/gameweeks')
+  }
+
+  // A standalone way to re-run scoring — separate from the status
+  // dropdown's "completed" side effect, so it can be used to correct a
+  // gameweek's points (after fixing a result, a quartile, a pick, etc.)
+  // without needing to fake a status change to trigger it.
+  async function recalculatePoints(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    const id = formData.get('id') as string
+    const result = await calculateScoring(supabase, id)
+    const message = 'error' in result ? `error: ${result.error}` : 'success' in result ? `recalculated ${result.points_calculated} picks` : 'no picks found'
+    redirect(`/admin/gameweeks?recalcResult=${encodeURIComponent(message)}`)
   }
 
   async function updateDeadline(formData: FormData) {
@@ -155,6 +251,12 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
       {questionError && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-6 text-sm">
           Couldn&apos;t save that question: {questionError}
+        </div>
+      )}
+
+      {recalcResult && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg p-4 mb-6 text-sm">
+          Recalculate: {recalcResult}
         </div>
       )}
 
@@ -251,6 +353,82 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
                       />
                       <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Update</button>
                     </form>
+                  </div>
+
+                  <div className="border-t pt-4 mb-4">
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Snapshot &amp; Scoring</p>
+                    {(() => {
+                      const snapshot = latestSnapshotByGw[gw.id]
+                      const snapshotCount = snapshotCountByGw[gw.id] ?? 0
+                      return (
+                        <>
+                          {snapshot ? (
+                            <div className="bg-gray-50 border rounded-lg p-3 mb-3 text-xs text-gray-600">
+                              <p className="mb-1">
+                                Last snapshot: {new Date(snapshot.taken_at).toLocaleString('en-GB', {
+                                  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London'
+                                })}
+                                {snapshotCount > 1 ? ` (${snapshotCount} taken total)` : ''}
+                              </p>
+                              <p>
+                                {Array.isArray(snapshot.standings) ? snapshot.standings.length : 0} teams in table
+                                {' · '}{Array.isArray(snapshot.quartiles) ? snapshot.quartiles.length : 0} quartile assignments
+                                {' · '}{Array.isArray(snapshot.fixtures) ? snapshot.fixtures.length : 0} fixtures
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400 mb-3">No snapshot taken yet — the league table, quartiles, and fixtures haven&apos;t been frozen for this gameweek.</p>
+                          )}
+
+                          <div className="flex gap-2 flex-wrap items-center">
+                            {gw.status === 'upcoming' && !snapshot && (
+                              <form action={prepareSnapshot}>
+                                <input type="hidden" name="id" value={gw.id} />
+                                <button type="submit" className="text-xs bg-blue-600 text-white rounded px-3 py-1.5">
+                                  📸 Prepare to Open
+                                </button>
+                              </form>
+                            )}
+                            {gw.status === 'upcoming' && snapshot && (
+                              <>
+                                <form action={confirmOpen}>
+                                  <input type="hidden" name="id" value={gw.id} />
+                                  <button type="submit" className="text-xs bg-green-600 text-white rounded px-3 py-1.5">
+                                    ✓ Confirm &amp; Open
+                                  </button>
+                                </form>
+                                <form action={prepareSnapshot}>
+                                  <input type="hidden" name="id" value={gw.id} />
+                                  <button type="submit" className="text-xs border rounded px-3 py-1.5 hover:bg-gray-50">
+                                    Re-take snapshot
+                                  </button>
+                                </form>
+                              </>
+                            )}
+                            {(gw.status === 'locked' || gw.status === 'completed') && (
+                              <>
+                                <ConfirmActionButton
+                                  action={recalculatePoints}
+                                  hiddenFields={{ id: gw.id }}
+                                  label="🔁 Recalculate Points"
+                                  confirmText="Re-score this gameweek using current results and picks?"
+                                  confirmLabel="Yes, recalculate"
+                                  className="text-xs bg-blue-600 text-white rounded px-3 py-1.5"
+                                />
+                                <ConfirmActionButton
+                                  action={reopenGameweek}
+                                  hiddenFields={{ id: gw.id }}
+                                  label="↩ Reopen"
+                                  confirmText="Reopen this gameweek? Picks become editable again."
+                                  confirmLabel="Yes, reopen"
+                                  className="text-xs bg-yellow-600 text-white rounded px-3 py-1.5"
+                                />
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )
+                    })()}
                   </div>
 
                   <div className="border-t pt-4">
