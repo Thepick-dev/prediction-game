@@ -8,9 +8,10 @@ type Props = {
   competitionName: string
   standings: Row[]
   onClose: () => void
+  popArt?: boolean
 }
 
-export default function LeaderboardShareCard({ competitionName, standings, onClose }: Props) {
+export default function LeaderboardShareCard({ competitionName, standings, onClose, popArt = false }: Props) {
   return (
     <TicketModal
       eyebrow={competitionName}
@@ -18,6 +19,7 @@ export default function LeaderboardShareCard({ competitionName, standings, onClo
       subtitle={new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
       filenameBase="league-standings"
       onClose={onClose}
+      popArt={popArt}
     >
       <div className="px-5 py-4 space-y-1.5">
         {standings.map((row, i) => (

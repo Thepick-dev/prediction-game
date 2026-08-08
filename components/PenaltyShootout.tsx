@@ -49,6 +49,13 @@ const JITTER = 0.3
 // static CSS animation for smooth GPU-composited motion, so it can't read
 // this constant directly.
 const MARKER_WIDTH = 5
+// Hit tests get a small forgiving margin either side of the marker's
+// dead-centre, rather than requiring the exact centre point to land
+// inside a zone — a fast-moving marker read at the instant of a click
+// can be a percent or two off from what the eye perceived by the time
+// the click actually registers, and this absorbs that without loosening
+// the difficulty curve itself.
+const HIT_TOLERANCE = 1.5
 
 // The zone stays put until you're this far toward 99 — the first chunk of
 // the game is deliberately still "just" a fast-narrowing static target,
@@ -264,8 +271,12 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
     let newZones: Band[]
     if (useMulti) {
       // Wider than the single-zone equivalent at this difficulty — the
-      // extra target IS the relief, not just more surface area.
-      const mtWidth = Math.min(BASE_WIDTH * 0.55, singleWidth * 1.9)
+      // extra target IS the relief, not just more surface area. Scaled
+      // as a multiple of singleWidth (not a flat cap) so the relief
+      // stays proportionally the same "easier than usual" at every
+      // difficulty level, instead of the flat cap quietly stopping it
+      // from shrinking much past the mid-game.
+      const mtWidth = Math.min(BASE_WIDTH * 0.9, singleWidth * 1.4)
       const gap = 10
       const firstLeft = Math.random() * Math.max(0, 100 - mtWidth * 2 - gap)
       const secondMin = firstLeft + mtWidth + gap
@@ -396,14 +407,17 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
     // Which zone (if any) got hit. Multi-target zones are static, so the
     // stored values are already current; the single/moving zone's real
     // position has to be read live off the DOM since it may be mid-drift.
+    // HIT_TOLERANCE only applies here (and to the bonus pickup below) —
+    // deliberately not to the skull, so the danger zone stays exactly as
+    // punishing as it's always been rather than getting easier to trigger.
     let hit: Band | null = null
     if (multiTarget) {
-      hit = zones.find(z => markerCenterPct >= z.left && markerCenterPct <= z.left + z.width) ?? null
+      hit = zones.find(z => markerCenterPct >= z.left - HIT_TOLERANCE && markerCenterPct <= z.left + z.width + HIT_TOLERANCE) ?? null
     } else if (zoneRef.current) {
       const zoneRect = zoneRef.current.getBoundingClientRect()
       const zLeft = ((zoneRect.left - trackRect.left) / trackRect.width) * 100
       const zWidth = (zoneRect.width / trackRect.width) * 100
-      if (markerCenterPct >= zLeft && markerCenterPct <= zLeft + zWidth) hit = { left: zLeft, width: zWidth }
+      if (markerCenterPct >= zLeft - HIT_TOLERANCE && markerCenterPct <= zLeft + zWidth + HIT_TOLERANCE) hit = { left: zLeft, width: zWidth }
     }
 
     // The bonus pickup — read its live position too, since it may be
@@ -414,7 +428,7 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
       const bRect = bonusRef.current.getBoundingClientRect()
       const bLeft = ((bRect.left - trackRect.left) / trackRect.width) * 100
       const bWidth = (bRect.width / trackRect.width) * 100
-      bonusHit = markerCenterPct >= bLeft && markerCenterPct <= bLeft + bWidth
+      bonusHit = markerCenterPct >= bLeft - HIT_TOLERANCE && markerCenterPct <= bLeft + bWidth + HIT_TOLERANCE
     }
 
     if (hit || bonusHit) {

@@ -11,14 +11,28 @@ type Props = {
   onClose: () => void
   children: React.ReactNode
   footerNote?: string
+  // Opt-in — defaults to the original cream "matchday ticket" look so
+  // existing callers (pick slip, gameweek recap) render exactly as
+  // before. Colours are literal hex rather than var(--pop-*): this gets
+  // captured to a PNG via html-to-image, and after real trouble getting
+  // pop-art CSS variables to resolve reliably in trickier rendering
+  // contexts elsewhere this session, they're just not worth the risk here.
+  popArt?: boolean
 }
 
-// Shared "matchday ticket" chrome (scalloped edges, dashed dividers, cream
-// card) plus a share mechanism, used everywhere something needs to be
-// shareable as an image: the pick confirmation slip, the gameweek recap,
-// and the leaderboard snapshot. One implementation so all three actually
-// look identical, not just "similar".
-export default function TicketModal({ eyebrow, title, subtitle, filenameBase, onClose, children, footerNote }: Props) {
+// Shared "matchday ticket" chrome (scalloped edges, dashed dividers) plus
+// a share mechanism, used everywhere something needs to be shareable as
+// an image: the pick confirmation slip, the gameweek recap, and the
+// leaderboard snapshot. One implementation so all three actually look
+// identical, not just "similar" — the pop-art variant keeps the same
+// ticket shape, just restyled in the site's actual palette.
+export default function TicketModal({ eyebrow, title, subtitle, filenameBase, onClose, children, footerNote, popArt = false }: Props) {
+  const bg = popArt ? '#1B1B1B' : '#F5ECD9'
+  const fg = popArt ? '#FFFFFF' : '#241a12'
+  const accent = popArt ? '#D5006D' : '#B5493C'
+  const dashed = popArt ? 'rgba(255,255,255,0.2)' : '#241a1733'
+  const muted = popArt ? 'rgba(255,255,255,0.6)' : '#241a1799'
+  const punchHole = popArt ? '#0A0A0A' : '#1e1914'
   const cardRef = useRef<HTMLDivElement>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -65,33 +79,33 @@ export default function TicketModal({ eyebrow, title, subtitle, filenameBase, on
     <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="w-full max-w-xs" onClick={e => e.stopPropagation()}>
 
-        <div ref={cardRef} className="relative shadow-2xl" style={{ backgroundColor: '#F5ECD9', color: '#241a12' }}>
+        <div ref={cardRef} className="relative shadow-2xl" style={{ backgroundColor: bg, color: fg, border: popArt ? '2px solid rgba(255,255,255,0.12)' : undefined }}>
           <div className="absolute -top-2 left-0 right-0 flex justify-between px-1" style={{ height: '16px' }}>
             {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="rounded-full" style={{ width: '10px', height: '10px', backgroundColor: '#1e1914' }} />
+              <div key={i} className="rounded-full" style={{ width: '10px', height: '10px', backgroundColor: punchHole }} />
             ))}
           </div>
 
-          <div className="px-5 pt-6 pb-4 text-center border-b-2 border-dashed" style={{ borderColor: '#241a1733' }}>
-            <p className="text-[10px] uppercase tracking-[0.2em] mb-1" style={{ color: '#B5493C' }}>{eyebrow}</p>
-            <p className="text-xl font-bold uppercase tracking-wider" style={{ fontFamily: 'var(--font-heading), serif' }}>{title}</p>
-            {subtitle && <p className="text-xs uppercase tracking-widest mt-1" style={{ color: '#241a1799' }}>{subtitle}</p>}
+          <div className="px-5 pt-6 pb-4 text-center border-b-2 border-dashed" style={{ borderColor: dashed }}>
+            <p className="text-[10px] uppercase tracking-[0.2em] mb-1 font-bold" style={{ color: accent }}>{eyebrow}</p>
+            <p className="text-xl font-black uppercase tracking-wider" style={{ fontFamily: popArt ? 'var(--font-display), sans-serif' : 'var(--font-heading), serif' }}>{title}</p>
+            {subtitle && <p className="text-xs uppercase tracking-widest mt-1" style={{ color: muted }}>{subtitle}</p>}
           </div>
 
           {children}
 
-          <div className="relative border-t-2 border-dashed" style={{ borderColor: '#241a1733' }}>
-            <div className="absolute -left-2 -top-2 rounded-full" style={{ width: '16px', height: '16px', backgroundColor: '#1e1914' }} />
-            <div className="absolute -right-2 -top-2 rounded-full" style={{ width: '16px', height: '16px', backgroundColor: '#1e1914' }} />
+          <div className="relative border-t-2 border-dashed" style={{ borderColor: dashed }}>
+            <div className="absolute -left-2 -top-2 rounded-full" style={{ width: '16px', height: '16px', backgroundColor: punchHole }} />
+            <div className="absolute -right-2 -top-2 rounded-full" style={{ width: '16px', height: '16px', backgroundColor: punchHole }} />
           </div>
 
           <div className="px-5 py-3 text-center">
-            <p className="text-[10px] uppercase tracking-widest" style={{ color: '#241a1799' }}>{footerNote ?? 'LMS All-Stars Predictions'}</p>
+            <p className="text-[10px] uppercase tracking-widest" style={{ color: muted }}>{footerNote ?? 'LMS All-Stars Predictions'}</p>
           </div>
 
           <div className="absolute -bottom-2 left-0 right-0 flex justify-between px-1" style={{ height: '16px' }}>
             {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="rounded-full" style={{ width: '10px', height: '10px', backgroundColor: '#1e1914' }} />
+              <div key={i} className="rounded-full" style={{ width: '10px', height: '10px', backgroundColor: punchHole }} />
             ))}
           </div>
         </div>

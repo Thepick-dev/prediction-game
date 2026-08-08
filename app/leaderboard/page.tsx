@@ -795,6 +795,7 @@ export default function LeaderboardPage() {
             competitionName={competition.name}
             standings={ranked.map(p => ({ name: p.display_name, points: p.total_points }))}
             onClose={() => setShowShare(false)}
+            popArt
           />
         )}
       </>
