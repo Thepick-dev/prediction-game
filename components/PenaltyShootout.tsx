@@ -72,8 +72,12 @@ const TICK_MS = 500
 // Two friendlier zones instead of one brutal one, occasionally, once
 // things are properly fast — a deliberate breather stage, not a reward
 // for skill, so it's random whether any given late-game round gets it.
+// The chance itself tapers down through the 60s/70s/80s rather than
+// staying flat all the way to 99 — a few relief rounds help, too many
+// undercuts the climb to a genuinely hard finish.
 const MULTI_TARGET_START_T = 0.55
-const MULTI_TARGET_CHANCE = 0.4
+const MULTI_TARGET_CHANCE_BASE = 0.2
+const MULTI_TARGET_CHANCE_MIN = 0.06
 
 // Bonus pickup, single-target rounds only. Mutually exclusive per round —
 // only one of the two can show up.
@@ -273,7 +277,13 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
     const widthJitter = 1 + (Math.random() - 0.5) * JITTER
     const singleWidth = Math.max(MIN_WIDTH, (BASE_WIDTH - tEff * (BASE_WIDTH - MIN_WIDTH)) * widthJitter)
 
-    const useMulti = t > MULTI_TARGET_START_T && Math.random() < MULTI_TARGET_CHANCE
+    // Tapers from MULTI_TARGET_CHANCE_BASE right as relief rounds start
+    // becoming possible, down to MULTI_TARGET_CHANCE_MIN by the time
+    // you're near 99 — rarer the harder the game gets, not a flat rate
+    // the whole way.
+    const multiT = Math.min(1, Math.max(0, (t - MULTI_TARGET_START_T) / (1 - MULTI_TARGET_START_T)))
+    const multiChance = MULTI_TARGET_CHANCE_BASE - (MULTI_TARGET_CHANCE_BASE - MULTI_TARGET_CHANCE_MIN) * multiT
+    const useMulti = t > MULTI_TARGET_START_T && Math.random() < multiChance
     let newZones: Band[]
     if (useMulti) {
       // Wider than the single-zone equivalent at this difficulty — the
@@ -282,7 +292,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
       // stays proportionally the same "easier than usual" at every
       // difficulty level, instead of the flat cap quietly stopping it
       // from shrinking much past the mid-game.
-      const mtWidth = Math.min(BASE_WIDTH * 0.9, singleWidth * 1.4)
+      const mtWidth = Math.min(BASE_WIDTH * 0.9, singleWidth * 1.2)
       const gap = 10
       const firstLeft = Math.random() * Math.max(0, 100 - mtWidth * 2 - gap)
       const secondMin = firstLeft + mtWidth + gap
@@ -517,7 +527,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
       if (nextLives <= 0) {
         setPhase('gameover')
         setTimeout(() => setShowViolin(true), 700)
-        if (bestScore !== null && score > bestScore) {
+        if (!testModeUsed && bestScore !== null && score > bestScore) {
           setJustBeatBest(true)
           saveScore(score)
         }
