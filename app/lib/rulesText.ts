@@ -17,6 +17,12 @@ export const RULES_TEXT = {
     'Each gameweek, pick one team and two different players before the deadline. Each team is usable once (twice for tier picks). Each player is usable twice per competition.',
     'Picks can be edited until the deadline, then locked and visible to everyone. Miss the deadline and you receive an autopick — see below for how that works.',
   ],
+  autopick: [
+    "Miss the deadline and the site picks for you automatically: the lowest-placed available team in the league table, and two players who haven't already been used twice.",
+    'Players are drawn from those valued at £5.5m or more on Fantasy Premier League — a deliberately recognisable pool of well-known names, not a random pick from the entire player list.',
+    'Autopicks are marked clearly wherever they appear, and a banker is never applied to one.',
+    "If an autopicked team or player has a double gameweek, the pick defaults to whichever of the two matches is against the higher-placed opponent — the tougher game, in keeping with the rest of the scoring rewarding an upset. This only applies to autopick: if you pick a double-gameweek team or player yourself, you choose the match it's for.",
+  ],
   banker: [
     'Two bankers per competition. A banker doubles your entire gameweek score — team and both players. Declare it with your pick. Unused bankers are worth nothing. Bankers are never applied to autopicks.',
   ],
@@ -26,7 +32,7 @@ export const RULES_TEXT = {
   ],
   quartiles: [
     'The 20 Premier League clubs are divided into four quartiles of five — Q1 (strongest) to Q4 (weakest). Quartiles are used to calculate team points based on the difficulty of the result.',
-    "Betting odds only ever set the quartiles once: gameweek 1 of the very first competition of a season, before a ball's been kicked and there's no league table yet to go on. Every gameweek after that — including gameweek 2 of that same competition, and the whole of any later competition in the same season (e.g. a second half starting in January) — uses the current real league table instead. The table doesn't reset between competitions; a new competition simply carries on from wherever the table stood when it started.",
+    "Betting odds set the quartiles for the first 6 gameweeks of a brand new season, before there's enough of a real league table to go on. From gameweek 7 onward, the actual table takes over. A competition starting partway through a season (e.g. a second half beginning in January) uses the real table from its very first gameweek, since one already exists by then.",
     'Quartiles are locked at the point each gameweek deadline passes — past scores are never affected by future quartile changes.',
   ],
   scoringIntro: "Team points depend on the result and the quartile differential between your team and their opponent. ↑ means your team is the underdog, ↓ means favourite. Bigger upsets, bigger points.",

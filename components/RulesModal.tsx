@@ -105,6 +105,14 @@ export default function RulesModal({ onClose }: RulesModalProps) {
               </section>
 
               <section>
+                <h3 className="pop-headline text-sm mb-2">Autopick</h3>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[0]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[1]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[2]}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[3]}</p>
+              </section>
+
+              <section>
                 <h3 className="pop-headline text-sm mb-2">Quartiles</h3>
                 <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.quartiles[0]}</p>
                 <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.quartiles[1]}</p>

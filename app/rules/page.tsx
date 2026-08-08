@@ -112,29 +112,6 @@ export default function RulesPage() {
             </section>
 
             <section className="pop-panel p-5">
-              <h2 className="pop-headline text-sm mb-2">Autopick</h2>
-              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Miss the deadline and the site picks for you automatically: the lowest-placed available team in the
-                league table, and two players who haven&apos;t already been used twice.
-              </p>
-              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Players are drawn from those valued at £5.5m or more on Fantasy Premier League — a deliberately
-                recognisable pool of well-known names, not a random pick from the entire player list. (If that pool
-                has run too low for you specifically late in a season, it falls back to any available player rather
-                than skip your pick entirely.)
-              </p>
-              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Autopicks are marked clearly wherever they appear, and a banker is never applied to one.
-              </p>
-              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                If an autopicked team or player has a double gameweek, the pick defaults to whichever of the two
-                matches is against the higher-placed opponent — the tougher game, in keeping with the rest of the
-                scoring rewarding an upset. This only applies to autopick: if you pick a double-gameweek team or
-                player yourself, you choose the match it&apos;s for.
-              </p>
-            </section>
-
-            <section className="pop-panel p-5">
               <h2 className="pop-headline text-sm mb-2">The Banker</h2>
               <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.banker[0]}</p>
             </section>
@@ -156,6 +133,14 @@ export default function RulesPage() {
                   </ul>
                 </div>
               )}
+            </section>
+
+            <section className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-2">Autopick</h2>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[0]}</p>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[1]}</p>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[2]}</p>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[3]}</p>
             </section>
 
             <section className="pop-panel p-5">
@@ -284,29 +269,6 @@ export default function RulesPage() {
             </section>
 
             <section className={cardClass}>
-              <h2 className="text-lg font-bold mb-3 text-[#D9A441]">Autopick</h2>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
-                Miss the deadline and the site picks for you automatically: the lowest-placed available team in the
-                league table, and two players who haven&apos;t already been used twice.
-              </p>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
-                Players are drawn from those valued at £5.5m or more on Fantasy Premier League — a deliberately
-                recognisable pool of well-known names, not a random pick from the entire player list. (If that pool
-                has run too low for you specifically late in a season, it falls back to any available player rather
-                than skip your pick entirely.)
-              </p>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">
-                Autopicks are marked clearly wherever they appear, and a banker is never applied to one.
-              </p>
-              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">
-                If an autopicked team or player has a double gameweek, the pick defaults to whichever of the two
-                matches is against the higher-placed opponent — the tougher game, in keeping with the rest of the
-                scoring rewarding an upset. This only applies to autopick: if you pick a double-gameweek team or
-                player yourself, you choose the match it&apos;s for.
-              </p>
-            </section>
-
-            <section className={cardClass}>
               <h2 className="text-lg font-bold mb-3 text-[#D9A441]">The Banker</h2>
               <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">{RULES_TEXT.banker[0]}</p>
             </section>
@@ -328,6 +290,14 @@ export default function RulesPage() {
                   </ul>
                 </div>
               )}
+            </section>
+
+            <section className={cardClass}>
+              <h2 className="text-lg font-bold mb-3 text-[#D9A441]">Autopick</h2>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.autopick[0]}</p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.autopick[1]}</p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.autopick[2]}</p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">{RULES_TEXT.autopick[3]}</p>
             </section>
 
             <section className={cardClass}>
