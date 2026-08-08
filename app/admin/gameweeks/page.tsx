@@ -381,7 +381,7 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
                           )}
 
                           <div className="flex gap-2 flex-wrap items-center">
-                            {gw.status === 'upcoming' && !snapshot && (
+                            {!snapshot && (
                               <form action={prepareSnapshot}>
                                 <input type="hidden" name="id" value={gw.id} />
                                 <button type="submit" className="text-xs bg-blue-600 text-white rounded px-3 py-1.5">
@@ -389,21 +389,21 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
                                 </button>
                               </form>
                             )}
-                            {gw.status === 'upcoming' && snapshot && (
-                              <>
-                                <form action={confirmOpen}>
-                                  <input type="hidden" name="id" value={gw.id} />
-                                  <button type="submit" className="text-xs bg-green-600 text-white rounded px-3 py-1.5">
-                                    ✓ Confirm &amp; Open
-                                  </button>
-                                </form>
-                                <form action={prepareSnapshot}>
-                                  <input type="hidden" name="id" value={gw.id} />
-                                  <button type="submit" className="text-xs border rounded px-3 py-1.5 hover:bg-gray-50">
-                                    Re-take snapshot
-                                  </button>
-                                </form>
-                              </>
+                            {snapshot && gw.status === 'upcoming' && (
+                              <form action={confirmOpen}>
+                                <input type="hidden" name="id" value={gw.id} />
+                                <button type="submit" className="text-xs bg-green-600 text-white rounded px-3 py-1.5">
+                                  ✓ Confirm &amp; Open
+                                </button>
+                              </form>
+                            )}
+                            {snapshot && (
+                              <form action={prepareSnapshot}>
+                                <input type="hidden" name="id" value={gw.id} />
+                                <button type="submit" className="text-xs border rounded px-3 py-1.5 hover:bg-gray-50">
+                                  🔄 Correct quartiles (re-take snapshot)
+                                </button>
+                              </form>
                             )}
                             {(gw.status === 'locked' || gw.status === 'completed') && (
                               <>
@@ -426,6 +426,13 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
                               </>
                             )}
                           </div>
+                          {snapshot && gw.status === 'completed' && (
+                            <p className="text-xs text-gray-400 mt-2">
+                              Correcting quartiles here only updates what future recalculations will use —
+                              it doesn&apos;t retroactively change existing points. Click Recalculate Points
+                              afterward to actually apply the correction.
+                            </p>
+                          )}
                         </>
                       )
                     })()}
