@@ -234,6 +234,20 @@ thead th {
 .pop-badge--green { background: var(--pop-green); color: var(--pop-black); }
 .pop-badge--red { background: var(--pop-red); color: var(--pop-white); }
 
+/* Countdown clock — a once-a-second border/glow tick, distinct from
+   .pop-panel--pulse's slower 2.4s breathing glow used elsewhere, so this
+   one reads as "the clock is actually ticking" rather than just idle
+   decoration. */
+@keyframes pop-countdown-tick {
+  0%, 100% { border-color: rgba(213, 0, 109, 0.35); box-shadow: 0 0 6px rgba(213, 0, 109, 0.25); }
+  50% { border-color: var(--pop-pink); box-shadow: 0 0 16px rgba(213, 0, 109, 0.8); }
+}
+.pop-countdown-box {
+  border: 2px solid rgba(213, 0, 109, 0.35);
+  border-radius: 12px;
+  animation: pop-countdown-tick 1s ease-in-out infinite;
+}
+
 /* Buttons are actions, not passive content — a bold filled colour here
    is expected, not part of the "boxed content" clutter problem. */
 .pop-button {

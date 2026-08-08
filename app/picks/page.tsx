@@ -56,16 +56,20 @@ function CountdownClock({ time, theme = 'classic' }: { time: CountdownTime | nul
     if (time.expired) {
       return <span className="pop-badge pop-badge--red px-3 py-1.5 text-xs">Deadline passed</span>
     }
+    // Each unit gets its own colour off the same palette used everywhere
+    // else in this theme, rather than every badge being the same flat
+    // yellow — and the whole clock ticks with a once-a-second border
+    // flash (.pop-countdown-box) so it visibly reads as live, not static.
     const units = [
-      { label: 'D', value: time.days },
-      { label: 'H', value: time.hours },
-      { label: 'M', value: time.mins },
-      { label: 'S', value: time.secs },
+      { label: 'D', value: time.days, bg: 'var(--pop-pink)', fg: 'var(--pop-white)' },
+      { label: 'H', value: time.hours, bg: 'var(--pop-blue)', fg: 'var(--pop-black)' },
+      { label: 'M', value: time.mins, bg: 'var(--pop-green)', fg: 'var(--pop-black)' },
+      { label: 'S', value: time.secs, bg: 'var(--pop-orange)', fg: 'var(--pop-black)' },
     ]
     return (
-      <div className="flex items-center gap-1.5">
+      <div className="pop-countdown-box flex items-center gap-1.5 px-1.5 py-1">
         {units.map(u => (
-          <div key={u.label} className="pop-badge flex flex-col items-center px-2.5 py-1 leading-tight">
+          <div key={u.label} className="flex flex-col items-center px-2.5 py-1 leading-tight" style={{ background: u.bg, color: u.fg, borderRadius: 999 }}>
             <span className="font-mono text-sm font-bold">{String(u.value).padStart(2, '0')}</span>
             <span className="text-[8px]">{u.label}</span>
           </div>
