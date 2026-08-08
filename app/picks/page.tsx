@@ -108,6 +108,7 @@ function CountdownClock({ time, theme = 'classic' }: { time: CountdownTime | nul
 export default function PicksPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
   const [competition, setCompetition] = useState<any>(null)
   const [gameweek, setGameweek] = useState<Gameweek | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
@@ -214,6 +215,12 @@ export default function PicksPage() {
 
     const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', user.id).single()
     setDisplayName(profile?.display_name ?? '')
+
+    // Its own query, same isolation reasoning as everywhere else — only
+    // gates the shootout's admin test-mode controls, so a problem here
+    // must never be able to take anything else on this page down with it.
+    const { data: adminProfile } = await supabase.from('profiles').select('is_admin, is_super_admin').eq('id', user.id).single()
+    setIsAdmin(!!(adminProfile?.is_admin || adminProfile?.is_super_admin))
 
     const { data: comp } = await supabase
       .from('competitions')
@@ -672,7 +679,7 @@ export default function PicksPage() {
               style={{ maxWidth: 420, maxHeight: '90vh', overflowY: 'auto' }}
               onClick={e => e.stopPropagation()}
             >
-              <PenaltyShootout userId={user.id} />
+              <PenaltyShootout userId={user.id} isAdmin={isAdmin} />
               <button
                 onClick={() => setShootoutOpen(false)}
                 className="pop-button pop-button--blue w-full mt-4 py-2 text-sm"

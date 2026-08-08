@@ -125,7 +125,7 @@ type Band = { left: number; width: number }
 // can optionally carry its own independent drift (`move`).
 type Bonus = { kind: 'heart' | 'gold'; mode: 'embedded' | 'separate'; band: Band; move: ZoneMove } | null
 
-export default function PenaltyShootout({ userId }: { userId: string }) {
+export default function PenaltyShootout({ userId, isAdmin = false }: { userId: string; isAdmin?: boolean }) {
   const [score, setScore] = useState(0)
   const [lives, setLives] = useState(STARTING_LIVES)
   const [bestScore, setBestScore] = useState<number | null>(null)
@@ -160,6 +160,12 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
   // FINAL miss (lives run out) does he switch to the violin taunt — with
   // up to 5 lives now, doing that on every single miss would get old fast.
   const [showViolin, setShowViolin] = useState(false)
+  // Admin-only difficulty preview — jumping the score straight to a
+  // target so a difficulty tier can be checked without having to
+  // actually be good enough to reach it by playing. Once used, this run
+  // can never save to the real leaderboard — otherwise it'd just be a
+  // way to fake a best score.
+  const [testModeUsed, setTestModeUsed] = useState(false)
 
   const trackRef = useRef<HTMLDivElement>(null)
   const markerRef = useRef<HTMLDivElement>(null)
@@ -379,7 +385,23 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
     setJustBeatBest(false)
     setShowViolin(false)
     setMilestone(null)
+    setTestModeUsed(false)
     newRound(0, STARTING_LIVES)
+  }
+
+  // Admin-only. Jumps straight into a round at the given difficulty,
+  // starting a game first if one isn't already in progress. Marks the
+  // run as test-mode so it can never overwrite a real best score.
+  function jumpToScore(target: number) {
+    const clamped = Math.max(0, Math.min(MAX_SCORE - 1, target))
+    setTestModeUsed(true)
+    setJustBeatBest(false)
+    setShowViolin(false)
+    setMilestone(null)
+    setScore(clamped)
+    const currentLives = phase === 'ready' || lives <= 0 ? STARTING_LIVES : lives
+    setLives(currentLives)
+    newRound(clamped, currentLives)
   }
 
   function shoot() {
@@ -397,7 +419,7 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
       setLives(0)
       setPhase('gameover')
       setTimeout(() => setShowViolin(true), 700)
-      if (bestScore !== null && score > bestScore) {
+      if (!testModeUsed && bestScore !== null && score > bestScore) {
         setJustBeatBest(true)
         saveScore(score)
       }
@@ -478,7 +500,7 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
 
       if (nextScore >= MAX_SCORE) {
         setPhase('win')
-        if (bestScore === null || nextScore > bestScore) {
+        if (!testModeUsed && (bestScore === null || nextScore > bestScore)) {
           setJustBeatBest(true)
           saveScore(nextScore)
         }
@@ -546,6 +568,31 @@ export default function PenaltyShootout({ userId }: { userId: string }) {
           </p>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="rounded-lg p-2.5 mb-3" style={{ background: 'rgba(255,234,0,0.08)', border: '1px solid rgba(255,234,0,0.3)' }}>
+          <p className="font-mono text-[9px] uppercase tracking-wider mb-1.5" style={{ color: 'var(--pop-yellow)' }}>
+            Admin test mode — jumps difficulty, never saves to the leaderboard
+          </p>
+          <div className="flex gap-1.5 flex-wrap">
+            {[60, 70, 80, 90, 95].map(s => (
+              <button
+                key={s}
+                onClick={() => jumpToScore(s)}
+                className="font-mono text-xs font-bold px-2.5 py-1 rounded"
+                style={{ background: 'rgba(255,234,0,0.15)', color: 'var(--pop-yellow)', border: '1px solid rgba(255,234,0,0.4)' }}
+              >
+                → {s}
+              </button>
+            ))}
+          </div>
+          {testModeUsed && (
+            <p className="font-mono text-[9px] mt-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              This run won&apos;t save — start a fresh game to play for real.
+            </p>
+          )}
+        </div>
+      )}
 
       {phase !== 'ready' && (
         <div className="flex items-center justify-between mb-3">
