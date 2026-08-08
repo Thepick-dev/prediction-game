@@ -21,16 +21,24 @@ export default function WeeklyHelpPage() {
             a week while a transfer window is open, so the pick lists stay accurate and no one can pick a player who’s moved on.
             Outside of transfer windows, this doesn’t need to be done weekly — the squads aren’t changing.
           </p>
+          <p className="text-sm text-gray-700 mt-2">
+            One real risk this creates: if a player transfers clubs and you later use <strong>Recalculate Points</strong>
+            (below) on an OLD gameweek from before the move, it rescores that historical pick against the player&apos;s
+            new club instead of the one they actually played for that week. Avoid recalculating gameweeks from before
+            a transfer window once players have been re-synced — if you do need to, check the result looks sane
+            afterward.
+          </p>
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
           <h2 className="font-bold mb-2 text-blue-900">The weekly cycle, in order</h2>
           <p className="text-sm text-gray-700 mb-3">
-            The important thing to understand: <strong>quartiles for a gameweek must be set BEFORE that gameweek opens
-            for picking</strong>, not afterwards. Players need to see the actual bands (which team is the "underdog",
-            worth more points) while they&apos;re choosing — so the cycle below always sets up gameweek N+1&apos;s
-            quartiles as part of closing out gameweek N, not as a separate later job. If you find yourself resetting
-            quartiles on a gameweek that&apos;s already open for picking, something&apos;s out of order.
+            The important thing to understand hasn&apos;t changed: <strong>quartiles for a gameweek must be locked in
+            BEFORE that gameweek opens for picking</strong>, not afterwards — players need to see the real bands
+            while they&apos;re choosing. What HAS changed is how that gets enforced: instead of a manual "reset
+            quartiles, then remember not to touch it again" discipline, opening a gameweek now goes through a
+            dedicated <strong>Prepare → Confirm</strong> step on the <a href="/admin/gameweeks" className="underline">Gameweeks</a> page
+            that freezes everything at the moment you do it.
           </p>
           <ol className="list-decimal pl-5 text-sm text-gray-700 space-y-2">
             <li>Go to <a href="/admin/sync" className="underline">Sync</a> and click <strong>Sync Results</strong> — pulls in the finished scores for the gameweek that just finished.</li>
@@ -44,30 +52,29 @@ export default function WeeklyHelpPage() {
             </li>
             <li>
               Go to <a href="/admin/gameweeks" className="underline">Gameweeks</a>, find that gameweek, and set its status to <strong>completed</strong>.
-              This is what actually calculates everyone&apos;s points for it — it takes a permanent snapshot of
-              whatever quartile bands are <em>currently</em> set and works out points from the results and any
-              goals/assists against that snapshot. (The Scoring page is only for editing the points formula itself,
-              it doesn&apos;t calculate anything.) This is exactly why step 5 below has to happen <em>after</em> this,
-              not before — the snapshot needs to match what players actually picked against, i.e. the OLD bands, not
-              the ones about to be set for next week.
+              This is what actually calculates everyone&apos;s points for it. It uses the quartile bands that were
+              frozen for THIS gameweek back when it was prepared and opened (see step 6, below, from when this was
+              the "next" gameweek) — not whatever the live table says right now. Timing this step no longer matters
+              the way it used to; the snapshot already locked in the right bands weeks ago.
             </li>
             <li>
               Spot-check the <a href="/leaderboard" className="underline">Leaderboard</a> — does it look right?
             </li>
             <li>
-              Now go to <a href="/admin/quartiles" className="underline">Quartiles</a> and click <strong>Reset to League Table</strong>.
-              This re-splits the 20 clubs into four bands based on the table you just synced in step 2 — <strong>this
-              is what the players picking the NEXT gameweek will see and use</strong>, so it needs to be done before
-              that gameweek opens, ideally right away as the last step of this cycle. <strong>This is the step that&apos;s
-              easy to get wrong</strong> — if you skip it, or do it too late, the next gameweek opens with stale bands
-              from two gameweeks ago instead of the current table.
+              Now go to <a href="/admin/gameweeks" className="underline">Gameweeks</a>, find the NEXT gameweek (still
+              showing as "upcoming"), and click <strong>📸 Prepare to Open</strong>. This takes a permanent snapshot
+              of the league table, quartiles, and fixtures as they stand right now, and freezes that gameweek&apos;s
+              bands from it immediately. Check the summary it shows you (team/quartile/fixture counts), then click
+              <strong> ✓ Confirm &amp; Open</strong>. <strong>This is the step that used to be easy to get wrong</strong> —
+              now, nothing opens for picking until you&apos;ve explicitly reviewed and confirmed it.
             </li>
           </ol>
           <p className="text-sm text-gray-700 mt-3">
-            One thing to avoid: once a gameweek is open for picking, don&apos;t touch <a href="/admin/quartiles" className="underline">Quartiles</a> again
-            until it&apos;s locked and completed (step 4) — whatever the bands say at the exact moment you mark it
-            completed is what gets frozen and scored, so changing them mid-week would mean players are scored against
-            different bands to the ones they actually saw when picking.
+            The old warning about never touching Quartiles once a gameweek is open still applies in spirit, but it&apos;s
+            no longer as fragile: if you do need to fix a mistake after opening, use that specific gameweek&apos;s own
+            <strong> 🔄 Correct quartiles</strong> button on the Gameweeks page (see "Fixing a mistake" below) rather
+            than the general <a href="/admin/quartiles" className="underline">Quartiles</a> page — that button only
+            changes what was frozen for THAT gameweek, without risking anything else.
           </p>
         </div>
 
@@ -79,12 +86,28 @@ export default function WeeklyHelpPage() {
             than adding on top, so it&apos;s safe to re-run. You can also add or delete individual events by hand on that
             same page if something needs a manual correction FPL wouldn&apos;t reflect.
           </p>
+          <p className="text-sm text-gray-700 mb-2">
+            If the quartiles themselves were wrong for a gameweek — open or already completed — go to
+            that gameweek on <a href="/admin/gameweeks" className="underline">Gameweeks</a> and click
+            <strong> 🔄 Correct quartiles (re-take snapshot)</strong>. This re-freezes that gameweek&apos;s bands from
+            the current league table. On an already-completed gameweek this only affects future recalculations —
+            it does <em>not</em> retroactively change existing points on its own, so follow it with Recalculate
+            Points (next) to actually apply the fix.
+          </p>
+          <p className="text-sm text-gray-700 mb-2">
+            Once events and/or quartiles are right, click <strong>🔁 Recalculate Points</strong> on that gameweek
+            (Gameweeks page — needs status locked or completed) to re-run its scoring. Safe to run as many times as
+            you need, it always recalculates from scratch. The <strong>Recalculate Scoring</strong> box
+            on <a href="/admin/sync" className="underline">the Sync page</a> does the same underlying thing if you
+            prefer working from there.
+          </p>
+          <p className="text-sm text-gray-700 mb-2">
+            Need to fully reopen a completed or locked gameweek — say, picks need changing too? Use
+            <strong> ↩ Reopen</strong> on that gameweek. It asks you to confirm first, since picks become editable
+            again.
+          </p>
           <p className="text-sm text-gray-700">
-            Once the events are right, use the <strong>Recalculate Scoring</strong> box
-            on <a href="/admin/sync" className="underline">the Sync page</a> to re-run points for that gameweek — safe to run as many times as
-            you need, it always recalculates from scratch. Note this does <em>not</em> refresh the quartile snapshot — if
-            the quartiles themselves were wrong for that week, you’d need to fix that gameweek’s row directly, or ask
-            Claude. To fix an individual player’s pick directly, use <a href="/admin/edit-pick" className="underline">Edit Pick</a>.
+            To fix an individual player&apos;s pick directly, use <a href="/admin/edit-pick" className="underline">Edit Pick</a>.
           </p>
         </div>
       </div>
