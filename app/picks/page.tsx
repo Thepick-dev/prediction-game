@@ -1315,9 +1315,9 @@ export default function PicksPage() {
                           </div>
                           {bonusCardAvailable && (
                             <div className="flex items-center justify-between rounded-lg p-2.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                              <span className="font-mono text-xs uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>Bonus Card</span>
+                              <span className="font-mono text-xs uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>{bonusCardName}</span>
                               <span className="font-black text-sm">
-                                {bonusCardSpentElsewhere ? 'Used elsewhere' : playBonusCard ? `★ Playing on ${bonusCardPlayerShortName}` : 'Not used'}
+                                {bonusCardSpentElsewhere ? 'Used elsewhere' : playBonusCard ? '★ Declared' : 'Not used'}
                               </span>
                             </div>
                           )}
