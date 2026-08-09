@@ -61,7 +61,7 @@ export default function ArchivePage() {
     return (
       <Shell active="WINNERS" user={user} displayName={displayName} theme="pop-art">
         <div className="pop-art-theme">
-          <h1 className="pop-hero pop-hero--blue pop-hero-texture text-5xl sm:text-6xl mb-6 mt-2">Winners</h1>
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-6 mt-2">Winners</h1>
 
           <div className="space-y-8">
 

@@ -85,7 +85,7 @@ export default function NewsListPage() {
         <div className="pop-art-theme">
 
           <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
-            <h1 className="pop-hero pop-hero--blue pop-hero-texture text-5xl sm:text-6xl">News</h1>
+            <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">News</h1>
             <div className="flex gap-2 flex-wrap">
               {canWrite && (
                 <Link href="/news/write" className="pop-button pop-button--yellow px-3 py-1.5 text-xs">

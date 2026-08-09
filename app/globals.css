@@ -166,24 +166,6 @@ thead th {
 .pop-hero--blue { text-shadow: 0 0 6px var(--pop-blue), 0 0 22px var(--pop-blue); }
 .pop-hero--green { text-shadow: 0 0 6px var(--pop-green), 0 0 22px var(--pop-green); }
 
-/* A single, deliberately quiet halftone dot-screen behind each page's
-   hero title only — nowhere else in the theme. Static, no motion; masked
-   to fade at the edges so it reads as texture, not a hard-edged pattern.
-   Pink regardless of the title's own glow colour — one consistent ink,
-   like a printed poster's screen tint, not tied to each page's accent. */
-.pop-hero-texture { position: relative; }
-.pop-hero-texture::before {
-  content: '';
-  position: absolute;
-  inset: -10px -16px;
-  background-image: radial-gradient(circle, rgba(160, 0, 250, 0.5) 1px, transparent 1.4px);
-  background-size: 9px 9px;
-  opacity: 0.5;
-  mask-image: radial-gradient(ellipse 70% 85% at center, black 35%, transparent 80%);
-  -webkit-mask-image: radial-gradient(ellipse 70% 85% at center, black 35%, transparent 80%);
-  pointer-events: none;
-}
-
 /* Base card — dark surface, thin neutral border, soft ordinary shadow
    for depth. No hard offset "comic" shadow, no coloured fill: colour
    only ever shows up here as a border + glow (the --accent-* variants
@@ -272,6 +254,51 @@ thead th {
 }
 .pop-second-tick {
   animation: pop-second-tick 1s ease-in-out infinite;
+}
+
+/* Shootout mini-game — a lazy spin on the ball icon (button + loading
+   screen) and a surging bar while the "warming up" beat plays. */
+@keyframes pop-shoot-spin {
+  to { transform: rotate(360deg); }
+}
+.pop-shoot-spin {
+  animation: pop-shoot-spin 2.2s linear infinite;
+}
+@keyframes pop-shoot-bar {
+  0% { width: 8%; }
+  50% { width: 85%; }
+  100% { width: 8%; }
+}
+.pop-shoot-bar {
+  width: 8%;
+  animation: pop-shoot-bar 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pop-shoot-spin { animation: none; }
+  .pop-shoot-bar { animation: none; width: 60%; }
+}
+
+/* Submit/Update Pick button — only moves when you interact with it, no
+   looping animation. Ball nudges forward on hover; a one-shot confetti
+   burst plays alongside the existing .pop-celebrate pulse on success. */
+.pop-submit-kick {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.pop-submit-btn:hover .pop-submit-kick {
+  transform: translateX(3px) rotate(25deg);
+}
+@keyframes pop-confetti-burst {
+  0% { transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)); opacity: 0; }
+}
+.pop-confetti-piece {
+  animation: pop-confetti-burst 0.7s ease-out forwards;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pop-submit-kick { transition: none; }
+  .pop-submit-btn:hover .pop-submit-kick { transform: none; }
+  .pop-confetti-piece { display: none; }
 }
 
 /* Buttons are actions, not passive content — a bold filled colour here

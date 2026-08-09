@@ -14,11 +14,6 @@ import PenaltyShootout from '../../components/PenaltyShootout'
 import { BoltIcon } from '../../components/icons'
 import { QUARTILE_RING_COLORS } from '../lib/quartileColors'
 
-// Cycled across the fixture list as a left-edge accent stripe only — same
-// palette as everywhere else in the theme, just breaking up a long list of
-// otherwise-identical dark cards.
-const POP_FIXTURE_STRIPE = ['var(--pop-pink)', 'var(--pop-blue)', 'var(--pop-green)', 'var(--pop-orange)']
-
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
 type Player = { id: number; name: string; web_name: string | null; team_id: number; value: number | null; active: boolean | null }
 type Gameweek = { id: string; number: number; deadline: string; status: string }
@@ -193,6 +188,10 @@ export default function PicksPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
+  // One-shot confetti on a successful save — pieces are regenerated fresh
+  // each time rather than reused, so the burst always looks the same
+  // random way even if you save twice in a row.
+  const [confettiPieces, setConfettiPieces] = useState<{ id: number; dx: number; dy: number; rot: number; color: string }[]>([])
   const [message, setMessage] = useState('')
   const [deadlinePassed, setDeadlinePassed] = useState(false)
 
@@ -201,6 +200,16 @@ export default function PicksPage() {
   // Penalty shootout mini-game popup — entirely separate from the pick
   // itself (own table, own scoring), just a bit of fun reachable from here.
   const [shootoutOpen, setShootoutOpen] = useState(false)
+  // Brief loading beat before the game itself renders — also doubles as
+  // the moment to make clear this is just a bonus toy, not part of the
+  // competition, before the player's even looking at the game screen.
+  const [shootoutLoading, setShootoutLoading] = useState(false)
+
+  function openShootout() {
+    setShootoutOpen(true)
+    setShootoutLoading(true)
+    setTimeout(() => setShootoutLoading(false), 1400)
+  }
 
   const supabase = createClient()
   const countdown = useCountdown(gameweek?.deadline ?? null)
@@ -506,6 +515,15 @@ export default function PicksPage() {
       // silent state change. Harmless to set unconditionally; the classic
       // view never reads this state.
       setJustSaved(true)
+      const colors = ['var(--pop-pink)', 'var(--pop-blue)', 'var(--pop-green)', 'var(--pop-yellow)', 'var(--pop-orange)']
+      setConfettiPieces(Array.from({ length: 14 }, (_, i) => ({
+        id: Date.now() + i,
+        dx: Math.cos(Math.random() * Math.PI * 2) * (40 + Math.random() * 50),
+        dy: Math.sin(Math.random() * Math.PI * 2) * (40 + Math.random() * 50),
+        rot: Math.random() * 360,
+        color: colors[i % colors.length],
+      })))
+      setTimeout(() => setConfettiPieces([]), 750)
       setTimeout(() => setJustSaved(false), 1400)
       loadData()
     }
@@ -698,13 +716,28 @@ export default function PicksPage() {
               style={{ maxWidth: 420, maxHeight: '90vh', overflowY: 'auto' }}
               onClick={e => e.stopPropagation()}
             >
-              <PenaltyShootout userId={user.id} isAdmin={isAdmin} />
-              <button
-                onClick={() => setShootoutOpen(false)}
-                className="pop-button pop-button--blue w-full mt-4 py-2 text-sm"
-              >
-                Close
-              </button>
+              {shootoutLoading ? (
+                <div className="text-center py-10">
+                  <div className="pop-shoot-spin inline-block" style={{ fontSize: 44 }}>⚽</div>
+                  <p className="pop-headline text-sm mt-3 mb-1">Warming up the keeper&hellip;</p>
+                  <p className="text-xs mb-5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    100% pointless, 100% fun — this never touches your league score.
+                  </p>
+                  <div className="rounded-full overflow-hidden mx-auto" style={{ height: 8, maxWidth: 220, background: 'rgba(255,255,255,0.12)' }}>
+                    <div className="pop-shoot-bar" style={{ height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, var(--pop-pink), var(--pop-blue))' }} />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <PenaltyShootout userId={user.id} isAdmin={isAdmin} />
+                  <button
+                    onClick={() => setShootoutOpen(false)}
+                    className="pop-button pop-button--blue w-full mt-4 py-2 text-sm"
+                  >
+                    Close
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -752,14 +785,18 @@ export default function PicksPage() {
             )}
 
             <div className="flex items-start justify-between gap-3 flex-wrap mb-4 sm:mb-6 mt-2">
-              <h1 className="pop-hero pop-hero--blue pop-hero-texture text-5xl sm:text-6xl">Picks</h1>
+              <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">Picks</h1>
               {user && (
-                <button
-                  onClick={() => setShootoutOpen(true)}
-                  className="pop-button pop-button--green px-3 py-1.5 text-xs"
-                >
-                  ⚽ Shootout
-                </button>
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className="font-mono" style={{ fontSize: '8.5px', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.45)' }}>★ MINI-GAME</span>
+                  <button
+                    onClick={openShootout}
+                    className="pop-button pop-button--green px-3 py-1.5 text-xs inline-flex items-center gap-1.5"
+                    style={{ border: '2px dashed rgba(0,0,0,0.35)' }}
+                  >
+                    <span className="pop-shoot-spin inline-block">⚽</span> Shootout
+                  </button>
+                </div>
               )}
             </div>
 
@@ -784,7 +821,7 @@ export default function PicksPage() {
                 <p className="pop-headline text-2xl sm:text-3xl mb-2 sm:mb-3">Pick Your Team</p>
                 {hasFixtures ? (
                   <div className="grid gap-3 sm:gap-4 mb-4 sm:mb-6">
-                    {fixtures.map((fixture, fixtureIndex) => {
+                    {fixtures.map((fixture) => {
                       const homeStatus = getTeamStatus(fixture.home_team_id)
                       const awayStatus = getTeamStatus(fixture.away_team_id)
                       const homeTeam = getTeam(fixture.home_team_id)
@@ -795,26 +832,28 @@ export default function PicksPage() {
                       const awaySelected = selectedTeam === fixture.away_team_id && selectedFixture === fixture.id
                       const homeWD = homeWinDraw(fixture)
                       const awayWD = awayWinDraw(fixture)
-                      // A thin coloured left edge, cycling through the same
-                      // palette used everywhere else (pink/blue/green/
-                      // orange) — enough colour to break up a long list of
-                      // otherwise-identical dark cards, without touching
-                      // the panel's own background or border language.
-                      const stripeColor = POP_FIXTURE_STRIPE[fixtureIndex % POP_FIXTURE_STRIPE.length]
+                      // Quartile colour now lives on the box itself (border
+                      // + a faint tint of the same colour) rather than as a
+                      // ring around the crest — keeps the crest looking like
+                      // a normal badge. Selected state still wins outright
+                      // (solid green fill), so "picked" is never ambiguous
+                      // with "this is a Q2 team".
+                      const homeRing = getQuartileRingColor(fixture.home_team_id)
+                      const awayRing = getQuartileRingColor(fixture.away_team_id)
                       return (
-                        <div key={fixture.id} className="pop-panel p-2.5 sm:p-3 grid grid-cols-2 gap-2.5 sm:gap-3" style={{ borderLeft: `4px solid ${stripeColor}` }}>
+                        <div key={fixture.id} className="pop-panel p-2.5 sm:p-3 grid grid-cols-2 gap-2.5 sm:gap-3">
                           <button
                             onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
                             disabled={homeStatus.isUsed && !homeSelected}
                             className={`pop-select-btn rounded-lg p-2.5 sm:p-3 flex flex-col items-center justify-between text-center gap-1.5 h-28 sm:h-36 ${homeSelected ? 'pop-pop-in' : ''}`}
                             style={{
-                              border: homeSelected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
+                              border: homeSelected ? '2px solid var(--pop-green)' : homeStatus.isUsed ? '2px solid rgba(255,255,255,0.15)' : `2px solid ${homeRing ?? 'rgba(255,255,255,0.15)'}`,
                               boxShadow: homeSelected ? '0 0 20px rgba(204,250,0,0.5)' : 'none',
-                              background: homeSelected ? 'var(--pop-green)' : homeStatus.isUsed ? '#111111' : 'transparent',
+                              background: homeSelected ? 'var(--pop-green)' : homeStatus.isUsed ? '#111111' : homeRing ? `color-mix(in srgb, ${homeRing} 10%, transparent)` : 'transparent',
                               color: homeSelected ? 'var(--pop-black)' : homeStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
                             }}
                           >
-                            <TeamCrest crestUrl={homeTeam?.crest_url ?? null} teamName={teamDisplayName(homeTeam)} size={52} ringColor={getQuartileRingColor(fixture.home_team_id)} />
+                            <TeamCrest crestUrl={homeTeam?.crest_url ?? null} teamName={teamDisplayName(homeTeam)} size={52} />
                             <div className="flex items-center gap-1.5 flex-wrap justify-center min-h-[18px]">
                               {homeQ && <span className={`pop-badge ${popQuartileBadgeClass[homeQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{homeQ}</span>}
                               <span className="font-mono text-[9px]" style={{ color: homeSelected ? 'rgba(0,0,0,0.6)' : homeStatus.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.55)' }}>{homeStatus.isUsed ? 'used' : `${homeStatus.remaining}/${homeStatus.maxUses} left`}</span>
@@ -826,13 +865,13 @@ export default function PicksPage() {
                             disabled={awayStatus.isUsed && !awaySelected}
                             className={`pop-select-btn rounded-lg p-2.5 sm:p-3 flex flex-col items-center justify-between text-center gap-1.5 h-28 sm:h-36 ${awaySelected ? 'pop-pop-in' : ''}`}
                             style={{
-                              border: awaySelected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
+                              border: awaySelected ? '2px solid var(--pop-green)' : awayStatus.isUsed ? '2px solid rgba(255,255,255,0.15)' : `2px solid ${awayRing ?? 'rgba(255,255,255,0.15)'}`,
                               boxShadow: awaySelected ? '0 0 20px rgba(204,250,0,0.5)' : 'none',
-                              background: awaySelected ? 'var(--pop-green)' : awayStatus.isUsed ? '#111111' : 'transparent',
+                              background: awaySelected ? 'var(--pop-green)' : awayStatus.isUsed ? '#111111' : awayRing ? `color-mix(in srgb, ${awayRing} 10%, transparent)` : 'transparent',
                               color: awaySelected ? 'var(--pop-black)' : awayStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
                             }}
                           >
-                            <TeamCrest crestUrl={awayTeam?.crest_url ?? null} teamName={teamDisplayName(awayTeam)} size={52} ringColor={getQuartileRingColor(fixture.away_team_id)} />
+                            <TeamCrest crestUrl={awayTeam?.crest_url ?? null} teamName={teamDisplayName(awayTeam)} size={52} />
                             <div className="flex items-center gap-1.5 flex-wrap justify-center min-h-[18px]">
                               {awayQ && <span className={`pop-badge ${popQuartileBadgeClass[awayQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{awayQ}</span>}
                               <span className="font-mono text-[9px]" style={{ color: awaySelected ? 'rgba(0,0,0,0.6)' : awayStatus.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.55)' }}>{awayStatus.isUsed ? 'used' : `${awayStatus.remaining}/${awayStatus.maxUses} left`}</span>
@@ -1143,7 +1182,7 @@ export default function PicksPage() {
                           <div className="flex items-center justify-between rounded-lg p-2.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
                             <span className="font-mono text-xs uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>Team</span>
                             <span className="font-black text-sm flex items-center gap-2">
-                              <TeamCrest crestUrl={getTeam(selectedTeam)?.crest_url ?? null} teamName={getTeam(selectedTeam)?.name ?? ''} size={20} ringColor={getQuartileRingColor(selectedTeam)} />
+                              <TeamCrest crestUrl={getTeam(selectedTeam)?.crest_url ?? null} teamName={getTeam(selectedTeam)?.name ?? ''} size={20} />
                               {teamDisplayName(getTeam(selectedTeam))}
                             </span>
                           </div>
@@ -1180,12 +1219,25 @@ export default function PicksPage() {
                         <button
                           onClick={savePick}
                           disabled={saving}
-                          className={`pop-button ${saving ? '' : justSaved ? 'pop-button--green pop-celebrate' : 'pop-button--yellow'} w-full py-4 text-xl`}
+                          className={`pop-button pop-submit-btn ${saving ? '' : justSaved ? 'pop-button--green pop-celebrate' : 'pop-button--yellow'} w-full py-4 text-xl inline-flex items-center justify-center gap-2`}
                           style={saving
-                            ? { background: '#CCCCCC', color: 'var(--pop-black)', opacity: 1 }
-                            : { opacity: 1 }}
+                            ? { background: '#CCCCCC', color: 'var(--pop-black)', opacity: 1, position: 'relative' }
+                            : { opacity: 1, position: 'relative' }}
                         >
+                          {!saving && <span className="pop-submit-kick inline-block">⚽</span>}
                           {saving ? 'Saving...' : justSaved ? 'Locked In!' : hasPick ? 'Update Pick!' : 'Submit Pick!'}
+                          {confettiPieces.map(p => (
+                            <span
+                              key={p.id}
+                              className="pop-confetti-piece"
+                              style={{
+                                position: 'absolute', left: '50%', top: '50%',
+                                width: 6, height: 6, borderRadius: 2, background: p.color,
+                                // @ts-expect-error custom properties aren't in the CSS typings
+                                '--dx': `${p.dx}px`, '--dy': `${p.dy}px`, '--rot': `${p.rot}deg`,
+                              }}
+                            />
+                          ))}
                         </button>
                       </div>
                     )}

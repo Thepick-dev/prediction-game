@@ -11,7 +11,6 @@ import GameweekRecapCard from '../../components/GameweekRecapCard'
 import PopArtLoading from '../../components/PopArtLoading'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import { CrownIcon, CheckIcon, CrossIcon, BoltIcon } from '../../components/icons'
-import { QUARTILE_RING_COLORS } from '../lib/quartileColors'
 
 type Gameweek = {
   id: string
@@ -407,7 +406,7 @@ export default function ResultsPage() {
       <Shell active="RESULTS" user={user} displayName={displayName} theme="pop-art">
         <div className="pop-art-theme">
 
-          <h1 className="pop-hero pop-hero--blue pop-hero-texture text-5xl sm:text-6xl mb-1 mt-2">Results</h1>
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-1 mt-2">Results</h1>
           <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name}</p>
 
           {potwUserId && (
@@ -659,7 +658,7 @@ export default function ResultsPage() {
                         </div>
 
                         <div className="flex items-center gap-1 uppercase flex-wrap">
-                          <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={15} ringColor={pts?.breakdown?.team_detail?.team_quartile ? QUARTILE_RING_COLORS[`Q${pts.breakdown.team_detail.team_quartile}`] : undefined} />
+                          <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={15} />
                           <span>{teamDisplayName(t)}</span>
                           {pick.is_banker && <span className="font-black px-1 rounded" style={{ fontSize: '9px', background: 'var(--pop-yellow)', color: 'var(--pop-white)' }}>★ BANKER</span>}
                           {showScoring && <span className="ml-auto font-mono" style={{ color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>{pts?.team_points ?? '—'} pts</span>}

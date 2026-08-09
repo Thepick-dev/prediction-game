@@ -146,7 +146,7 @@ export default function SettingsPage() {
       <Shell active="SETTINGS" user={user} displayName={currentName} theme="pop-art">
         <div className="pop-art-theme">
 
-          <h1 className="pop-hero pop-hero--blue pop-hero-texture text-5xl sm:text-6xl mb-6 mt-2">Settings</h1>
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-6 mt-2">Settings</h1>
 
           <div className="space-y-5">
 

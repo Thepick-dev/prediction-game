@@ -535,7 +535,7 @@ export default function LeaderboardPage() {
           <div className="pop-art-theme">
 
             <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
-              <h1 className="pop-hero pop-hero--blue pop-hero-texture text-5xl sm:text-6xl">Leaderboard</h1>
+              <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">Leaderboard</h1>
               {ranked.length > 0 && (
                 <button
                   onClick={() => setShowShare(true)}

@@ -377,7 +377,7 @@ export default function StatsHubPage() {
     return (
       <Shell active="STATS HUB" user={user} displayName={displayName} theme="pop-art">
         <div className="pop-art-theme">
-          <h1 className="pop-hero pop-hero--blue pop-hero-texture text-5xl sm:text-6xl mb-1 mt-2">Stats Hub</h1>
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-1 mt-2">Stats Hub</h1>
           <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name} — every number the game has generated so far.</p>
 
           {error && (
