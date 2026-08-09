@@ -49,6 +49,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${bebasNeue.variable}`}>
+      <head>
+        {/* Preloaded so the loading-screen mascot (logo.png) and its player-photo
+            cap patch (mascot-cap-photo.png) are already cached by the time
+            PopArtLoading ever mounts — otherwise the photo can visibly pop onto
+            the cap a beat after the base logo, mid-pulse-animation. */}
+        <link rel="preload" as="image" href="/logo.png" />
+        <link rel="preload" as="image" href="/mascot-cap-photo.png" />
+      </head>
       <body>{children}</body>
     </html>
   )

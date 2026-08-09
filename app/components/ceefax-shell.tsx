@@ -219,7 +219,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             >
               {isPopArt ? (
                 <>
-                  <img src="/logo.png" alt="" className="w-[54px] sm:w-9 h-auto" />
+                  <img src="/logo.png" alt="" width={1118} height={960} className="w-[54px] sm:w-9 h-auto" />
                   <span className="pop-hero pop-hero--pink inline-block text-lg sm:text-2xl tracking-wide uppercase">
                     LMS All-Stars
                   </span>
