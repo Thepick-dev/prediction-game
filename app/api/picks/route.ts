@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  const { gameweek_id, competition_id, team_id, player1_id, player2_id, player1_fixture_id, player2_fixture_id, is_banker, question_answer, comments, all_or_nothing_player_id } = await request.json()
+  const { gameweek_id, competition_id, team_id, player1_id, player2_id, player1_fixture_id, player2_fixture_id, is_banker, question_answer, comments, all_or_nothing_player_id, play_bonus_card, bonus_card_fixture_id } = await request.json()
 
   if (player1_id === player2_id) {
     return NextResponse.json({ error: 'Please pick two different players' }, { status: 400 })
@@ -205,6 +205,63 @@ export async function POST(request: Request) {
     }
   }
 
+  // Bonus Card — an independent, whole-competition-once bonus on top of the
+  // two normal picks above. The existing play (if any) is fetched
+  // unconditionally, same reasoning as All or Nothing above — needed both
+  // to validate a new play AND to un-play one (unchecking the box).
+  const { data: existingBonusCardPlay } = await supabase
+    .from('bonus_card_plays')
+    .select('id, gameweek_id, fixture_id')
+    .eq('competition_id', competition_id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  let bonusCardPlayerId: number | null = null
+  let bonusCardFixtureToStore: number | null = null
+
+  if (play_bonus_card) {
+    const { data: comp } = await supabase
+      .from('competitions')
+      .select('bonus_card_enabled, bonus_card_player_id')
+      .eq('id', competition_id)
+      .single()
+
+    if (!comp?.bonus_card_enabled || !comp.bonus_card_player_id) {
+      return NextResponse.json({ error: 'The Bonus Card is not currently available for this competition' }, { status: 400 })
+    }
+
+    bonusCardPlayerId = comp.bonus_card_player_id
+
+    if (bonusCardPlayerId === player1_id || bonusCardPlayerId === player2_id) {
+      return NextResponse.json({ error: "You can't play the Bonus Card on a player who's already one of your two picks this gameweek" }, { status: 400 })
+    }
+
+    if (existingBonusCardPlay && existingBonusCardPlay.gameweek_id !== gameweek_id) {
+      return NextResponse.json({ error: "You've already played your Bonus Card this competition" }, { status: 400 })
+    }
+
+    // Same double-gameweek disambiguation normal picks already require,
+    // reusing the fixturesByTeam lookup built above for player1/player2.
+    const { data: cardPlayer } = await supabase
+      .from('players')
+      .select('team_id')
+      .eq('id', bonusCardPlayerId)
+      .single()
+
+    const cardPlayerTeamFixtures = cardPlayer?.team_id != null ? (fixturesByTeam[cardPlayer.team_id] ?? []) : []
+    if (cardPlayerTeamFixtures.length >= 2) {
+      if (bonus_card_fixture_id == null || !cardPlayerTeamFixtures.includes(bonus_card_fixture_id)) {
+        return NextResponse.json({
+          error: "The Bonus Card player's team plays twice this gameweek — you need to choose which match this is for.",
+          double_gameweek: true,
+          player: 'bonus_card',
+          fixture_ids: cardPlayerTeamFixtures,
+        }, { status: 400 })
+      }
+      bonusCardFixtureToStore = bonus_card_fixture_id
+    }
+  }
+
   // Only ever persist a nominated fixture for a player actually in a double
   // gameweek — anything sent for a single-fixture player is meaningless and
   // discarded here rather than trusted from the client.
@@ -280,9 +337,63 @@ export async function POST(request: Request) {
       pick_id: pickId,
       nominatedPlayerId: all_or_nothing_player_id ?? null,
     })
+
+    await syncBonusCardPlay(supabase, {
+      existingPlay: existingBonusCardPlay,
+      competition_id,
+      user_id: user.id,
+      gameweek_id,
+      pick_id: pickId,
+      playBonusCard: !!play_bonus_card,
+      frozenPlayerId: bonusCardPlayerId,
+      fixtureId: bonusCardFixtureToStore,
+    })
   }
 
   return NextResponse.json({ success: true })
+}
+
+async function syncBonusCardPlay(
+  supabase: any,
+  opts: {
+    existingPlay: { id: string; gameweek_id: string; fixture_id: number | null } | null
+    competition_id: string
+    user_id: string
+    gameweek_id: string
+    pick_id: string
+    playBonusCard: boolean
+    frozenPlayerId: number | null
+    fixtureId: number | null
+  }
+) {
+  const { existingPlay, competition_id, user_id, gameweek_id, pick_id, playBonusCard, frozenPlayerId, fixtureId } = opts
+
+  // A row for THIS gameweek that's no longer wanted is removed first —
+  // covers unchecking the card before the deadline. A row belonging to a
+  // past gameweek is never reachable here (the earlier validation already
+  // blocks submitting a play for any gameweek but the one it was made in).
+  if (existingPlay && existingPlay.gameweek_id === gameweek_id && !playBonusCard) {
+    await supabase.from('bonus_card_plays').delete().eq('id', existingPlay.id)
+    return
+  }
+
+  if (!playBonusCard || !frozenPlayerId) return
+
+  if (existingPlay && existingPlay.gameweek_id === gameweek_id) {
+    // Already exists for this gameweek — the frozen player never changes
+    // once the row exists, only the fixture nomination can still move.
+    if (existingPlay.fixture_id !== fixtureId) {
+      await supabase.from('bonus_card_plays').update({ fixture_id: fixtureId }).eq('id', existingPlay.id)
+    }
+    return
+  }
+
+  // This is the moment "frozen at play time" actually happens — the live
+  // nomination was read once, earlier in this request, and is copied in
+  // here as a plain value, never re-read from competitions again.
+  await supabase.from('bonus_card_plays').insert({
+    competition_id, user_id, gameweek_id, pick_id, player_id: frozenPlayerId, fixture_id: fixtureId,
+  })
 }
 
 async function syncAllOrNothingNomination(
@@ -378,6 +489,25 @@ export async function GET(request: Request) {
       ? { [allOrNothing.player_id]: allOrNothing.outcome === 'success' ? 3 : 1 }
       : {}
 
+  // Same isolated-query reasoning as All or Nothing above. Returns the
+  // live/current nomination (name resolved client-side from the already-
+  // loaded players list) alongside the user's own play, if any — the Picks
+  // page needs both to know what the card currently is AND whether/where
+  // this user has already used theirs.
+  const [{ data: bonusCard }, { data: bonusCardPlay }] = await Promise.all([
+    supabase
+      .from('competitions')
+      .select('bonus_card_enabled, bonus_card_player_id')
+      .eq('id', competition_id!)
+      .single(),
+    supabase
+      .from('bonus_card_plays')
+      .select('gameweek_id, player_id, fixture_id, points')
+      .eq('competition_id', competition_id!)
+      .eq('user_id', user.id)
+      .maybeSingle()
+  ])
+
   return NextResponse.json({
     pick,
     usedTeams,
@@ -385,6 +515,8 @@ export async function GET(request: Request) {
     doubleUseTeams,
     bankersUsed,
     allOrNothing,
-    playerMaxOverride
+    playerMaxOverride,
+    bonusCard,
+    bonusCardPlay
   })
 }

@@ -173,6 +173,16 @@ export default function PicksPage() {
   // week's own saved pick so other on-page counters read correctly).
   const [savedPickPlayers, setSavedPickPlayers] = useState<{ p1: number | null; p2: number | null }>({ p1: null, p2: null })
 
+  // Bonus Card — a whole-competition-once bonus on top of the two normal
+  // picks, independent of Banker and All or Nothing. `bonusCard` is the
+  // live/current admin nomination; `bonusCardPlay` is this user's own
+  // resolved play (if any exists at all, for ANY gameweek); `playBonusCard`
+  // is the LOCAL, not-yet-saved choice to play it on THIS gameweek.
+  const [bonusCard, setBonusCard] = useState<{ bonus_card_enabled: boolean; bonus_card_player_id: number | null } | null>(null)
+  const [bonusCardPlay, setBonusCardPlay] = useState<{ gameweek_id: string; player_id: number; fixture_id: number | null; points: number | null } | null>(null)
+  const [playBonusCard, setPlayBonusCard] = useState(false)
+  const [bonusCardFixture, setBonusCardFixture] = useState<number | null>(null)
+
   const [playerSearch1, setPlayerSearch1] = useState('')
   const [playerSearch2, setPlayerSearch2] = useState('')
   const [player1Club, setPlayer1Club] = useState<number | null>(null)
@@ -223,6 +233,18 @@ export default function PicksPage() {
   useEffect(() => {
     if (aonChoice != null && aonChoice !== player1 && aonChoice !== player2) setAonChoice(null)
   }, [player1, player2, aonChoice])
+
+  // Same reasoning as the All or Nothing effect above — if either normal
+  // pick changes to match the Bonus Card's player, the card can no longer
+  // be played this gameweek (can't be both a normal pick and the card),
+  // so an already-toggled-on choice needs clearing rather than silently
+  // becoming invalid.
+  useEffect(() => {
+    if (playBonusCard && bonusCard?.bonus_card_player_id != null &&
+        (bonusCard.bonus_card_player_id === player1 || bonusCard.bonus_card_player_id === player2)) {
+      setPlayBonusCard(false)
+    }
+  }, [player1, player2, playBonusCard, bonusCard])
 
   // Jump straight to the wizard the moment a team's picked — the whole
   // point of it living below a long fixture list is that you shouldn't
@@ -368,6 +390,12 @@ export default function PicksPage() {
       setAllOrNothing(aonFromApi)
       setAonChoice(aonFromApi && aonFromApi.gameweek_id === gw.id ? aonFromApi.player_id : null)
 
+      const bonusCardFromApi = pickData.bonusCardPlay ?? null
+      setBonusCard(pickData.bonusCard ?? null)
+      setBonusCardPlay(bonusCardFromApi)
+      setPlayBonusCard(bonusCardFromApi != null && bonusCardFromApi.gameweek_id === gw.id)
+      setBonusCardFixture(bonusCardFromApi && bonusCardFromApi.gameweek_id === gw.id ? bonusCardFromApi.fixture_id : null)
+
       const qMap: Record<number, number> = {}
       quartilesData?.forEach(q => { qMap[q.team_id] = q.tier })
       setQuartileMap(qMap)
@@ -501,7 +529,9 @@ export default function PicksPage() {
         is_banker: isBanker,
         question_answer: questionAnswer,
         comments: comments.trim() || null,
-        all_or_nothing_player_id: aonChoice
+        all_or_nothing_player_id: aonChoice,
+        play_bonus_card: playBonusCard,
+        bonus_card_fixture_id: bonusCardFixture
       })
     })
     const data = await res.json()
@@ -610,6 +640,20 @@ export default function PicksPage() {
   const aonEligible1 = player1 != null && !aonExclusion1 && aonPriorUses(player1) <= 0
   const aonEligible2 = player2 != null && !aonExclusion2 && aonPriorUses(player2) <= 0
 
+  // Bonus Card eligibility — same "spent for the rest of the competition
+  // once a record exists for any OTHER gameweek" shape as All or Nothing,
+  // plus its own extra rule: can't be played on a player who's already one
+  // of this gameweek's two normal picks.
+  const bonusCardSpentElsewhere = !!bonusCardPlay && (!gameweek || bonusCardPlay.gameweek_id !== gameweek.id)
+  const bonusCardPlayerId = bonusCard?.bonus_card_player_id ?? null
+  const bonusCardPlayer = bonusCardPlayerId != null ? players.find(p => p.id === bonusCardPlayerId) : undefined
+  const bonusCardName = bonusCardPlayer ? playerName(bonusCardPlayerId!) : null
+  const bonusCardIsOneOfThisWeeksPicks = bonusCardPlayerId != null && (bonusCardPlayerId === player1 || bonusCardPlayerId === player2)
+  const bonusCardAvailable = !!bonusCard?.bonus_card_enabled && bonusCardPlayerId != null
+  const bonusCardEligibleThisWeek = bonusCardAvailable && !bonusCardSpentElsewhere && !bonusCardIsOneOfThisWeeksPicks
+  const bonusCardFixtures = fixturesForTeam(bonusCardPlayer?.team_id ?? null)
+  const bonusCardNeedsFixtureChoice = bonusCardFixtures.length >= 2
+
   // Pop-art wizard step gating — can't move on until the current step's
   // player is picked, and, for a double-gameweek player, until they've
   // nominated which of the two matches the pick is for too.
@@ -617,6 +661,7 @@ export default function PicksPage() {
     (fixturesForTeam(players.find(p => p.id === player1)?.team_id ?? null).length < 2 || player1Fixture != null)
   const wizardStep1Valid = player2 != null && player2 !== player1 &&
     (fixturesForTeam(players.find(p => p.id === player2)?.team_id ?? null).length < 2 || player2Fixture != null)
+  const wizardStep2Valid = !playBonusCard || !bonusCardNeedsFixtureChoice || bonusCardFixture != null
 
   function getTeamStatus(teamId: number) {
     const isUsed = usedTeams.includes(teamId)
@@ -1121,6 +1166,55 @@ export default function PicksPage() {
                           <span className="pop-badge pop-badge--blue px-2.5 py-1.5 text-xs">{bankersUsed} of 2 used</span>
                         </div>
 
+                        {bonusCardAvailable && (
+                          <div className="pop-panel p-4 mb-4">
+                            {bonusCardSpentElsewhere ? (
+                              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                Bonus Card ({bonusCardName}) — already played
+                                {bonusCardPlay?.points != null ? `, scored ${bonusCardPlay.points} pts` : ' this competition'}.
+                              </p>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-3 mb-2 flex-wrap justify-center">
+                                  <button
+                                    onClick={() => bonusCardEligibleThisWeek && setPlayBonusCard(!playBonusCard)}
+                                    disabled={!bonusCardEligibleThisWeek && !playBonusCard}
+                                    title={bonusCardIsOneOfThisWeeksPicks ? "Can't play the card on a player who's already one of this week's two picks" : undefined}
+                                    className={`pop-button ${playBonusCard ? 'pop-button--green pop-pop-in' : 'pop-button--yellow'} px-4 py-2.5`}
+                                    style={!bonusCardEligibleThisWeek && !playBonusCard ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                                  >
+                                    {playBonusCard ? `★ Playing ${bonusCardName} Card` : `Play ${bonusCardName} Card`}
+                                  </button>
+                                </div>
+                                <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                  One-off bonus on top of your normal picks — never doubled by Banker, usable once across the whole competition.
+                                </p>
+                              </>
+                            )}
+                            {playBonusCard && bonusCardNeedsFixtureChoice && (
+                              <div className="rounded-lg p-3 mt-3" style={{ background: 'rgba(125,55,165,0.08)', border: '1px solid rgba(125,55,165,0.3)' }}>
+                                <p className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--pop-yellow)' }}>
+                                  {bonusCardName}&apos;s team plays twice — which match is this for?
+                                </p>
+                                <div className="flex flex-col gap-1.5">
+                                  {bonusCardFixtures.map(f => (
+                                    <button
+                                      key={f.id}
+                                      onClick={() => setBonusCardFixture(f.id)}
+                                      className="text-left px-2.5 py-1.5 rounded text-xs font-bold"
+                                      style={bonusCardFixture === f.id
+                                        ? { background: 'var(--pop-yellow)', color: 'var(--pop-white)' }
+                                        : { background: 'rgba(255,255,255,0.05)', color: 'var(--pop-white)', border: '1px solid rgba(255,255,255,0.15)' }}
+                                    >
+                                      {opponentLabel(f, bonusCardPlayer?.team_id ?? 0)}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {question && (
                           <div className="pop-panel pop-panel--yellow p-4 mb-4">
                             <p className="pop-headline text-lg mb-2">This Week&apos;s Question</p>
@@ -1204,6 +1298,14 @@ export default function PicksPage() {
                             <span className="font-mono text-xs uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>Banker</span>
                             <span className="font-black text-sm">{isBanker ? '★ Declared' : 'Not used'}</span>
                           </div>
+                          {bonusCardAvailable && (
+                            <div className="flex items-center justify-between rounded-lg p-2.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                              <span className="font-mono text-xs uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>Bonus Card</span>
+                              <span className="font-black text-sm">
+                                {bonusCardSpentElsewhere ? 'Used elsewhere' : playBonusCard ? `★ Playing on ${bonusCardName}` : 'Not used'}
+                              </span>
+                            </div>
+                          )}
                           {question && questionAnswerLabel && (
                             <div className="flex items-center justify-between rounded-lg p-2.5 gap-3" style={{ background: 'rgba(255,255,255,0.04)' }}>
                               <span className="font-mono text-xs uppercase shrink-0" style={{ color: 'rgba(255,255,255,0.5)' }}>Answer</span>
@@ -1218,7 +1320,7 @@ export default function PicksPage() {
 
                         <button
                           onClick={savePick}
-                          disabled={saving}
+                          disabled={saving || !wizardStep2Valid}
                           className={`pop-button pop-submit-btn ${saving ? '' : justSaved ? 'pop-button--green pop-celebrate' : 'pop-button--yellow'} w-full py-4 text-xl inline-flex items-center justify-center gap-2`}
                           style={saving
                             ? { background: '#CCCCCC', color: 'var(--pop-black)', opacity: 1, position: 'relative' }
@@ -1254,7 +1356,7 @@ export default function PicksPage() {
                       {wizardStep < 3 && (
                         <button
                           onClick={() => setWizardStep(s => Math.min(3, s + 1))}
-                          disabled={wizardStep === 0 ? !wizardStep0Valid : wizardStep === 1 ? !wizardStep1Valid : false}
+                          disabled={wizardStep === 0 ? !wizardStep0Valid : wizardStep === 1 ? !wizardStep1Valid : wizardStep === 2 ? !wizardStep2Valid : false}
                           className="pop-button px-5 py-2 text-sm"
                         >
                           Next →

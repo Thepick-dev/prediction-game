@@ -1,6 +1,8 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
+import BonusCardPlayerPicker from '../components/bonus-card-player-picker'
+import { buildPlayerDisplayNames } from '../../lib/players'
 
 export default async function CompetitionsPage({
   searchParams,
@@ -22,7 +24,7 @@ export default async function CompetitionsPage({
     ?? competitions?.[0]?.id
     ?? null
 
-  const [{ data: entries }, { data: profiles }] = await Promise.all([
+  const [{ data: entries }, { data: profiles }, { data: players }, { data: teams }] = await Promise.all([
     selectedCompId
       ? supabase
           .from('competition_entries')
@@ -31,10 +33,23 @@ export default async function CompetitionsPage({
           .order('joined_at', { ascending: true })
       : Promise.resolve({ data: null }),
     supabase.from('profiles').select('id, display_name'),
+    supabase.from('players').select('id, name, web_name, team_id'),
+    supabase.from('teams').select('id, name, short_name, short_code').eq('active', true),
   ])
 
   const nameByUserId: Record<string, string> = {}
   profiles?.forEach(p => { nameByUserId[p.id] = p.display_name ?? 'Unknown' })
+
+  const teamMap: Record<number, { short_code?: string | null; short_name?: string | null; name: string }> = {}
+  teams?.forEach(t => { teamMap[t.id] = t })
+  const teamNameById: Record<number, string> = {}
+  teams?.forEach(t => { teamNameById[t.id] = t.short_name ?? t.name })
+
+  const playerDisplayNames = buildPlayerDisplayNames(players ?? [], teamMap)
+  const bonusCardPlayerOptions = (players ?? [])
+    .filter(p => teamNameById[p.team_id] != null)
+    .map(p => ({ id: p.id, name: p.web_name?.trim() || p.name, team_name: teamNameById[p.team_id] }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   async function toggleEntryRemoved(formData: FormData) {
     'use server'
@@ -113,6 +128,30 @@ export default async function CompetitionsPage({
       .delete()
       .eq('id', id)
     redirect('/admin/competitions')
+  }
+
+  async function toggleBonusCard(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    const id = formData.get('id') as string
+    const current = formData.get('current') === 'true'
+    await supabase
+      .from('competitions')
+      .update({ bonus_card_enabled: !current })
+      .eq('id', id)
+    redirect(`/admin/competitions?comp=${id}#bonus-card`)
+  }
+
+  async function setBonusCardPlayer(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    const competitionId = formData.get('competition_id') as string
+    const playerId = Number(formData.get('player_id'))
+    await supabase
+      .from('competitions')
+      .update({ bonus_card_player_id: playerId })
+      .eq('id', competitionId)
+    redirect(`/admin/competitions?comp=${competitionId}#bonus-card`)
   }
 
   const hasActiveCompetition = competitions?.some(c => c.status === 'active') ?? false
@@ -299,6 +338,43 @@ export default async function CompetitionsPage({
           )}
         </div>
       )}
+
+      {selectedCompId && (() => {
+        const selectedComp = competitions?.find(c => c.id === selectedCompId)
+        const currentPlayerName = selectedComp?.bonus_card_player_id != null
+          ? (playerDisplayNames[selectedComp.bonus_card_player_id] ?? null)
+          : null
+        return (
+          <div id="bonus-card" className="bg-white border rounded-lg p-6 mt-8">
+            <h2 className="font-bold mb-1">Bonus Card</h2>
+            <p className="text-xs text-gray-500 mb-4">
+              One nominated player every entrant can use once, on any gameweek of their choosing, for a bonus score
+              on top of their normal picks. See{' '}
+              <a href="/admin/help/bonus-card" className="underline">the Bonus Card guide</a> for how this works day to day.
+            </p>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-xs text-gray-500">Status:</span>
+              <span className={`px-2 py-0.5 rounded text-xs ${selectedComp?.bonus_card_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                {selectedComp?.bonus_card_enabled ? 'Enabled' : 'Disabled'}
+              </span>
+              <form action={toggleBonusCard}>
+                <input type="hidden" name="id" value={selectedCompId} />
+                <input type="hidden" name="current" value={String(selectedComp?.bonus_card_enabled ?? false)} />
+                <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">
+                  {selectedComp?.bonus_card_enabled ? 'Disable' : 'Enable'}
+                </button>
+              </form>
+              <span className="text-xs text-gray-400">Disabling only blocks new plays — nothing already played is affected.</span>
+            </div>
+            <BonusCardPlayerPicker
+              action={setBonusCardPlayer}
+              competitionId={selectedCompId}
+              players={bonusCardPlayerOptions}
+              currentPlayerName={currentPlayerName}
+            />
+          </div>
+        )
+      })()}
     </div>
   )
 }
