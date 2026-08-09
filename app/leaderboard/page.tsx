@@ -668,20 +668,20 @@ export default function LeaderboardPage() {
                                 />
                                 <div className="flex items-start gap-4 flex-wrap justify-end">
                                   <div className="text-right">
-                                    <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>Best Gameweek (tiebreaker #3)</p>
+                                    <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>Best Gameweek (tiebreaker #3)</p>
                                     <p className="text-sm font-black" style={{ color: 'var(--pop-green)' }}>{player.best_gameweek_score} pts</p>
                                   </div>
                                   <div className="text-right">
-                                    <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>Bankers Left</p>
+                                    <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>Bankers Left</p>
                                     <p className="text-sm font-black" style={{ color: 'var(--pop-pink)' }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} / 2</p>
                                   </div>
                                   <div className="text-right">
-                                    <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>All or Nothing</p>
+                                    <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>All or Nothing</p>
                                     <p className="text-sm font-black" style={{ color: 'var(--pop-pink)' }}>{aonUsedByPlayer.has(player.user_id) ? 'Used' : 'Available'}</p>
                                   </div>
                                   {showBonusCard && (
                                     <div className="text-right">
-                                      <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>{bonusCardName}</p>
+                                      <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>{bonusCardName}</p>
                                       <p className="text-sm font-black" style={{ color: 'var(--pop-pink)' }}>
                                         {bonusCardPlayedByUser.has(player.user_id)
                                           ? `Used${bonusCardPlayByUser[player.user_id] ? ` — GW${allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}` : ''}`
@@ -692,11 +692,11 @@ export default function LeaderboardPage() {
                                 </div>
                               </div>
                               {allGameweeks.length === 0 ? (
-                                <p className="mb-3" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>No picks yet.</p>
+                                <p className="mb-3" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)' }}>No picks yet.</p>
                               ) : (
                                 <table className="w-full mb-4" style={{ fontSize: '9px' }}>
                                   <thead>
-                                    <tr className="text-left uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+                                    <tr className="text-left uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.6)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
                                       <th className="py-1 pr-1">GW</th>
                                       <th className="py-1 pr-1">Team</th>
                                       <th className="py-1 pr-1 text-right">Pts</th>
@@ -712,7 +712,7 @@ export default function LeaderboardPage() {
                                       if (row.kind === 'run') {
                                         if (row.from === row.to) {
                                           return (
-                                            <tr key={`gw-${row.from}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)' }}>
+                                            <tr key={`gw-${row.from}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.55)' }}>
                                               <td className="py-1 pr-1 font-black">{row.from}</td>
                                               <td className="py-1 pr-1 uppercase" colSpan={6}>{row.label}</td>
                                               <td className="py-1 text-right font-black">—</td>
@@ -720,9 +720,9 @@ export default function LeaderboardPage() {
                                           )
                                         }
                                         return (
-                                          <tr key={`run-${row.from}-${row.to}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)' }}>
+                                          <tr key={`run-${row.from}-${row.to}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }}>
                                             <td className="py-1 pr-1 font-black" colSpan={7}>
-                                              GW {row.from}&ndash;{row.to} <span className="normal-case" style={{ color: 'rgba(255,255,255,0.3)' }}>({row.to - row.from + 1} gameweeks)</span> &mdash; {row.label}
+                                              GW {row.from}&ndash;{row.to} <span className="normal-case" style={{ color: 'rgba(255,255,255,0.55)' }}>({row.to - row.from + 1} gameweeks)</span> &mdash; {row.label}
                                             </td>
                                             <td className="py-1 text-right font-black">—</td>
                                           </tr>
@@ -730,7 +730,7 @@ export default function LeaderboardPage() {
                                       }
                                       if (row.kind === 'hidden') {
                                         return (
-                                          <tr key={row.gw.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)' }}>
+                                          <tr key={row.gw.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.55)' }}>
                                             <td className="py-1 pr-1 font-black">{row.gw.number}</td>
                                             <td className="py-1 pr-1 uppercase" colSpan={6}>Picked — hidden until deadline</td>
                                             <td className="py-1 text-right font-black">—</td>
@@ -750,7 +750,7 @@ export default function LeaderboardPage() {
                                               {(d.provisional || d.is_autopick) && <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }} title="No pick was made in time, so the computer picked automatically">AP</span>}
                                             </div>
                                             {d.team_detail?.opponent_team_id != null && (
-                                              <div className="normal-case" style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)' }}>
+                                              <div className="normal-case" style={{ fontSize: '8px', color: 'rgba(255,255,255,0.6)' }}>
                                                 <span
                                                   className="inline-block px-0.5 rounded font-black mr-1"
                                                   style={d.team_detail.is_home
@@ -770,7 +770,7 @@ export default function LeaderboardPage() {
                                               </div>
                                             )}
                                           </td>
-                                          <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.5)' }}>{d.team_points ?? '—'}</td>
+                                          <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.68)' }}>{d.team_points ?? '—'}</td>
                                           <td className="py-1 pr-1 uppercase">
                                             {d.player1}
                                             {goalPlayers.has(d.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
@@ -781,7 +781,7 @@ export default function LeaderboardPage() {
                                               </span>
                                             )}
                                           </td>
-                                          <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.5)' }}>{d.player1_points ?? '—'}</td>
+                                          <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.68)' }}>{d.player1_points ?? '—'}</td>
                                           <td className="py-1 pr-1 uppercase">
                                             {d.player2}
                                             {goalPlayers.has(d.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
@@ -792,7 +792,7 @@ export default function LeaderboardPage() {
                                               </span>
                                             )}
                                           </td>
-                                          <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.5)' }}>{d.player2_points ?? '—'}</td>
+                                          <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.68)' }}>{d.player2_points ?? '—'}</td>
                                           <td className="py-1 text-right font-black">{d.points ?? '—'}</td>
                                         </tr>
                                       )
@@ -802,11 +802,11 @@ export default function LeaderboardPage() {
                               )}
 
                               <div style={{ fontSize: '9px' }}>
-                                <p className="uppercase tracking-wider font-black mb-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                <p className="uppercase tracking-wider font-black mb-1.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
                                   Teams ({teamsWithAvailability.filter(t => t.remaining > 0).length} available)
                                 </p>
                                 {teamsWithAvailability.length === 0 ? (
-                                  <p style={{ color: 'rgba(255,255,255,0.4)' }}>No teams.</p>
+                                  <p style={{ color: 'rgba(255,255,255,0.6)' }}>No teams.</p>
                                 ) : (
                                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
                                     {teamsWithAvailability.map(team => {

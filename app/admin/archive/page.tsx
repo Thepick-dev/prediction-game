@@ -53,6 +53,19 @@ export default async function AdminArchivePage() {
     redirect('/admin/archive')
   }
 
+  async function editHonour(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    await supabase.from('honours').update({
+      season: formData.get('season') as string,
+      competition_name: formData.get('competition_name') as string,
+      winner: formData.get('winner') as string,
+      notes: formData.get('notes') as string || null,
+      sort_order: parseInt(formData.get('sort_order') as string) || 0
+    }).eq('id', formData.get('id') as string)
+    redirect('/admin/archive')
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-8">Archive Admin</h1>
@@ -135,33 +148,58 @@ export default async function AdminArchivePage() {
         {(!honours || honours.length === 0) ? (
           <p className="text-sm text-gray-400">None yet.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-500 border-b">
-                <th className="pb-2">Season</th>
-                <th className="pb-2">Competition</th>
-                <th className="pb-2">Winner</th>
-                <th className="pb-2">Notes</th>
-                <th className="pb-2">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {honours.map(h => (
-                <tr key={h.id} className="border-b last:border-0">
-                  <td className="py-2">{h.season}</td>
-                  <td className="py-2">{h.competition_name}</td>
-                  <td className="py-2 font-bold">🏆 {h.winner}</td>
-                  <td className="py-2 text-gray-500 text-xs">{h.notes ?? '—'}</td>
-                  <td className="py-2">
-                    <form action={deleteHonour}>
-                      <input type="hidden" name="id" value={h.id} />
-                      <button type="submit" className="text-xs text-red-500 hover:text-red-700">Delete</button>
-                    </form>
-                  </td>
+          <>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500 border-b">
+                  <th className="pb-2">Season</th>
+                  <th className="pb-2">Competition</th>
+                  <th className="pb-2">Winner</th>
+                  <th className="pb-2">Notes</th>
+                  <th className="pb-2">Sort</th>
+                  <th className="pb-2">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {honours.map(h => (
+                  <tr key={h.id} className="border-b last:border-0">
+                    <td className="py-2">
+                      <input form={`honour-${h.id}`} name="season" defaultValue={h.season} className="w-full border rounded px-2 py-1 text-xs" />
+                    </td>
+                    <td className="py-2">
+                      <input form={`honour-${h.id}`} name="competition_name" defaultValue={h.competition_name} className="w-full border rounded px-2 py-1 text-xs" />
+                    </td>
+                    <td className="py-2">
+                      <input form={`honour-${h.id}`} name="winner" defaultValue={h.winner} className="w-full border rounded px-2 py-1 text-xs font-bold" />
+                    </td>
+                    <td className="py-2">
+                      <input form={`honour-${h.id}`} name="notes" defaultValue={h.notes ?? ''} className="w-full border rounded px-2 py-1 text-xs" />
+                    </td>
+                    <td className="py-2">
+                      <input form={`honour-${h.id}`} name="sort_order" type="number" defaultValue={h.sort_order ?? 0} className="w-16 border rounded px-2 py-1 text-xs" />
+                    </td>
+                    <td className="py-2">
+                      <div className="flex gap-2">
+                        <button type="submit" form={`honour-${h.id}`} className="text-xs bg-black text-white rounded px-2 py-1">Save</button>
+                        <form action={deleteHonour}>
+                          <input type="hidden" name="id" value={h.id} />
+                          <button type="submit" className="text-xs text-red-500 hover:text-red-700">Delete</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {/* One empty form per row, kept outside the table (a <form> can't
+                validly wrap <tr>/<td> elements) — the visible inputs/button
+                above reference it via the HTML `form` attribute instead. */}
+            {honours.map(h => (
+              <form key={h.id} id={`honour-${h.id}`} action={editHonour}>
+                <input type="hidden" name="id" value={h.id} />
+              </form>
+            ))}
+          </>
         )}
       </div>
     </div>
