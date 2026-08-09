@@ -847,7 +847,7 @@ export default function LeaderboardPage() {
 
             <div className="mt-3 uppercase tracking-wider flex items-center flex-wrap" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
               <span className="font-black mr-2">Key:</span>
-              <span className="inline-flex items-center gap-1"><CrownIcon size={11} /> Leader</span>
+              <span className="inline-flex items-center gap-1"><CrownIcon size={11} color="var(--pop-green)" /> Leader</span>
               <span className="mx-2">·</span>
               <span className="inline-flex items-center gap-1"><FlameIcon size={11} /> Streak (3+ wks above avg)</span>
               <span className="mx-2">·</span>

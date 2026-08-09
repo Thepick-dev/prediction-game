@@ -302,6 +302,26 @@ thead th {
   .pop-confetti-piece { display: none; }
 }
 
+/* Picks wizard — each step slides in from the direction you navigated,
+   keyed by step index so React remounts (and re-triggers) the animation
+   on every change. Only the entering content animates (the outgoing step
+   is simply gone), so this never needs overflow:hidden on an ancestor —
+   which matters because popovers inside a step must be free to overflow
+   their own step's box. */
+@keyframes pop-wizard-slide-forward {
+  0% { transform: translateX(28px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes pop-wizard-slide-back {
+  0% { transform: translateX(-28px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+.pop-wizard-slide-forward { animation: pop-wizard-slide-forward 0.28s ease-out; }
+.pop-wizard-slide-back { animation: pop-wizard-slide-back 0.28s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .pop-wizard-slide-forward, .pop-wizard-slide-back { animation: none; }
+}
+
 /* Buttons are actions, not passive content — a bold filled colour here
    is expected, not part of the "boxed content" clutter problem. */
 .pop-button {

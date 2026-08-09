@@ -44,6 +44,48 @@ function teamDisplayName(team: Team | undefined) {
   return team.short_name ?? team.name.replace(' FC', '').replace(' AFC', '')
 }
 
+const AON_INFO_TEXT = "Once per competition, nominate one of your two picks. Score a goal or assist and you get a bonus third use of them for the rest of the competition; blank and you lose all remaining uses of them. Only on your own two picks — never the Bonus Card."
+const BANKER_INFO_TEXT = 'Two per competition. Doubles your entire gameweek score — team and both players. Declare it with your pick. Never applied to autopicks.'
+
+// A small "?" trigger that reveals a short explainer beneath it. Not
+// portalled — stays inside the normal DOM flow so it keeps resolving the
+// theme's CSS variables correctly, and the wizard step content it lives in
+// deliberately has no overflow:hidden, so it's free to sit above anything.
+function InfoPopover({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <span className="relative inline-flex" style={{ verticalAlign: 'middle' }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="inline-flex items-center justify-center rounded-full shrink-0"
+        style={{ width: 18, height: 18, fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.18)', color: 'var(--pop-white)', lineHeight: 1 }}
+        aria-label="More info"
+        aria-expanded={open}
+      >
+        ?
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden="true" />
+          <div
+            role="tooltip"
+            className="absolute z-50 rounded-lg p-3 text-xs font-normal normal-case text-left"
+            style={{
+              top: '130%', left: '50%', transform: 'translateX(-50%)',
+              width: 'min(240px, 80vw)', background: 'var(--pop-surface)',
+              border: '2px solid rgba(255,255,255,0.15)', boxShadow: '0 4px 18px rgba(0,0,0,0.5)',
+              color: 'rgba(255,255,255,0.8)', lineHeight: 1.4,
+            }}
+          >
+            {text}
+          </div>
+        </>
+      )}
+    </span>
+  )
+}
+
 // A ceefax-teletext-style flip clock in classic mode; a bold comic
 // countdown badge in pop-art mode.
 function CountdownClock({ time, theme = 'classic' }: { time: CountdownTime | null; theme?: 'classic' | 'pop-art' }) {
@@ -190,10 +232,18 @@ export default function PicksPage() {
 
   // Pop-art only — the picking process below the fixture grid is a
   // step-by-step wizard rather than everything stacked at once. Classic
-  // keeps the old flat layout untouched. 0=Player 1, 1=Player 2,
-  // 2=Banker/Question/Comments, 3=Review & Submit. Starts on Review if a
-  // pick already exists (returning to edit), otherwise Player 1.
-  const [wizardStep, setWizardStep] = useState(0)
+  // keeps the old flat layout untouched. Each concern (player 1, player 2,
+  // banker, bonus card, weekly question, comments, review) is its own
+  // step rather than several grouped together — the step LIST itself is
+  // built dynamically further down (see wizardSteps) since Bonus Card and
+  // the weekly Question only exist for some competitions/gameweeks.
+  // Identifying the current step by KEY (not array index) means jumping
+  // straight to "review" when a pick already exists doesn't need to know
+  // how many dynamic steps precede it. wizardDirection just tracks which
+  // way to slide the incoming step.
+  type WizardStepKey = 'player1' | 'player2' | 'banker' | 'bonus' | 'question' | 'comments' | 'review'
+  const [wizardStep, setWizardStep] = useState<WizardStepKey>('player1')
+  const [wizardDirection, setWizardDirection] = useState<'forward' | 'back'>('forward')
   const wizardRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -375,7 +425,7 @@ export default function PicksPage() {
         setSavedPickPlayers({ p1: pickData.pick.player1_id, p2: pickData.pick.player2_id })
         // Returning to an already-submitted pick — land on the review
         // step showing it, not back at square one.
-        setWizardStep(3)
+        setWizardStep('review')
       } else {
         setSavedPickPlayers({ p1: null, p2: null })
       }
@@ -666,7 +716,36 @@ export default function PicksPage() {
     (fixturesForTeam(players.find(p => p.id === player1)?.team_id ?? null).length < 2 || player1Fixture != null)
   const wizardStep1Valid = player2 != null && player2 !== player1 &&
     (fixturesForTeam(players.find(p => p.id === player2)?.team_id ?? null).length < 2 || player2Fixture != null)
-  const wizardStep2Valid = !playBonusCard || !bonusCardNeedsFixtureChoice || bonusCardFixture != null
+  const bonusStepValid = !playBonusCard || !bonusCardNeedsFixtureChoice || bonusCardFixture != null
+
+  const bonusInfoText = `One nominated player, playable once across the whole competition, on any gameweek. Points add on top of your normal picks — never doubled by Banker. Can't be played on a player who's already one of this week's two picks.`
+
+  // The step LIST itself — Bonus Card and the weekly Question are only
+  // included when this competition/gameweek actually has one, so a
+  // competition without the feature (or a week with no question set)
+  // simply has a shorter wizard, not an empty step.
+  const wizardSteps: { key: WizardStepKey; label: string; valid: boolean }[] = [
+    { key: 'player1', label: 'Player 1', valid: wizardStep0Valid },
+    { key: 'player2', label: 'Player 2', valid: wizardStep1Valid },
+    { key: 'banker', label: 'Banker', valid: true },
+    ...(bonusCardAvailable ? [{ key: 'bonus' as const, label: 'Bonus', valid: bonusStepValid }] : []),
+    ...(question ? [{ key: 'question' as const, label: 'Question', valid: true }] : []),
+    { key: 'comments', label: 'Comments', valid: true },
+    { key: 'review', label: 'Review', valid: true },
+  ]
+  const wizardIndex = Math.max(0, wizardSteps.findIndex(s => s.key === wizardStep))
+  const wizardStepsValid = wizardSteps.every(s => s.valid)
+  function goToWizardStep(key: WizardStepKey) {
+    const targetIndex = wizardSteps.findIndex(s => s.key === key)
+    setWizardDirection(targetIndex < wizardIndex ? 'back' : 'forward')
+    setWizardStep(key)
+  }
+  function wizardBack() {
+    if (wizardIndex > 0) goToWizardStep(wizardSteps[wizardIndex - 1].key)
+  }
+  function wizardNext() {
+    if (wizardIndex < wizardSteps.length - 1) goToWizardStep(wizardSteps[wizardIndex + 1].key)
+  }
 
   function getTeamStatus(teamId: number) {
     const isUsed = usedTeams.includes(teamId)
@@ -938,18 +1017,18 @@ export default function PicksPage() {
 
                 {selectedTeam != null && (
                   <div ref={wizardRef} className="pop-panel p-5 mb-6">
-                    <div className="flex items-center justify-center gap-2 mb-5">
-                      {['Player 1', 'Player 2', 'Extras', 'Review'].map((label, i) => (
-                        <div key={label} className="flex items-center gap-2">
+                    <div className="flex items-center justify-center gap-1.5 mb-5 flex-wrap">
+                      {wizardSteps.map((step, i) => (
+                        <div key={step.key} className="flex items-center gap-1.5">
                           <button
                             type="button"
-                            onClick={() => i < wizardStep && setWizardStep(i)}
-                            disabled={i >= wizardStep}
+                            onClick={() => i < wizardIndex && goToWizardStep(step.key)}
+                            disabled={i >= wizardIndex}
                             className="w-2.5 h-2.5 rounded-full"
-                            style={{ background: i <= wizardStep ? 'var(--pop-pink)' : 'rgba(255,255,255,0.15)', cursor: i < wizardStep ? 'pointer' : 'default' }}
-                            aria-label={label}
+                            style={{ background: i <= wizardIndex ? 'var(--pop-pink)' : 'rgba(255,255,255,0.15)', cursor: i < wizardIndex ? 'pointer' : 'default' }}
+                            aria-label={step.label}
                           />
-                          {i < 3 && <div className="w-4 h-0.5" style={{ background: i < wizardStep ? 'var(--pop-pink)' : 'rgba(255,255,255,0.15)' }} />}
+                          {i < wizardSteps.length - 1 && <div className="w-3 h-0.5" style={{ background: i < wizardIndex ? 'var(--pop-pink)' : 'rgba(255,255,255,0.15)' }} />}
                         </div>
                       ))}
                     </div>
@@ -961,7 +1040,9 @@ export default function PicksPage() {
                       </p>
                     )}
 
-                    {wizardStep === 0 && (
+                    <div key={wizardStep} className={wizardDirection === 'forward' ? 'pop-wizard-slide-forward' : 'pop-wizard-slide-back'}>
+
+                    {wizardStep === 'player1' && (
                       <div>
                         <p className="pop-headline text-xl mb-3 text-center">Pick Player 1</p>
                         {player1 ? (
@@ -999,22 +1080,25 @@ export default function PicksPage() {
                               </div>
                             )}
                             {!aonCardSpentElsewhere && (
-                              aonChoice === player1 ? (
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="pop-badge pop-badge--pink px-3 py-1.5 text-xs inline-flex items-center gap-1"><BoltIcon size={12} color="var(--pop-white)" /> Playing All or Nothing on {playerName(player1)}</span>
-                                  <button onClick={() => setAonChoice(null)} className="pop-button pop-button--yellow px-3 py-1.5 text-xs">Cancel</button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => aonEligible1 && setAonChoice(player1)}
-                                  disabled={!aonEligible1}
-                                  title={aonExclusion1 ?? (!aonEligible1 ? 'Already used this player this competition' : undefined)}
-                                  className="pop-button px-3 py-1.5 text-xs"
-                                  style={!aonEligible1 ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' } : { background: 'var(--pop-pink)' }}
-                                >
-                                  Play All or Nothing on {playerName(player1)}?
-                                </button>
-                              )
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {aonChoice === player1 ? (
+                                  <>
+                                    <span className="pop-badge pop-badge--pink px-3 py-1.5 text-xs inline-flex items-center gap-1"><BoltIcon size={12} color="var(--pop-white)" /> Playing All or Nothing on {playerName(player1)}</span>
+                                    <button onClick={() => setAonChoice(null)} className="pop-button pop-button--yellow px-3 py-1.5 text-xs">Cancel</button>
+                                  </>
+                                ) : (
+                                  <button
+                                    onClick={() => aonEligible1 && setAonChoice(player1)}
+                                    disabled={!aonEligible1}
+                                    title={aonExclusion1 ?? (!aonEligible1 ? 'Already used this player this competition' : undefined)}
+                                    className="pop-button px-3 py-1.5 text-xs"
+                                    style={!aonEligible1 ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' } : { background: 'var(--pop-pink)' }}
+                                  >
+                                    Play All or Nothing on {playerName(player1)}?
+                                  </button>
+                                )}
+                                <InfoPopover text={AON_INFO_TEXT} />
+                              </div>
                             )}
                           </>
                         ) : (
@@ -1059,7 +1143,7 @@ export default function PicksPage() {
                       </div>
                     )}
 
-                    {wizardStep === 1 && (
+                    {wizardStep === 'player2' && (
                       <div>
                         <p className="pop-headline text-xl mb-3 text-center">Pick Player 2</p>
                         {player2 ? (
@@ -1097,22 +1181,25 @@ export default function PicksPage() {
                               </div>
                             )}
                             {!aonCardSpentElsewhere && (
-                              aonChoice === player2 ? (
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="pop-badge pop-badge--pink px-3 py-1.5 text-xs inline-flex items-center gap-1"><BoltIcon size={12} color="var(--pop-white)" /> Playing All or Nothing on {playerName(player2)}</span>
-                                  <button onClick={() => setAonChoice(null)} className="pop-button pop-button--yellow px-3 py-1.5 text-xs">Cancel</button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => aonEligible2 && setAonChoice(player2)}
-                                  disabled={!aonEligible2}
-                                  title={aonExclusion2 ?? (!aonEligible2 ? 'Already used this player this competition' : undefined)}
-                                  className="pop-button px-3 py-1.5 text-xs"
-                                  style={!aonEligible2 ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' } : { background: 'var(--pop-pink)' }}
-                                >
-                                  Play All or Nothing on {playerName(player2)}?
-                                </button>
-                              )
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {aonChoice === player2 ? (
+                                  <>
+                                    <span className="pop-badge pop-badge--pink px-3 py-1.5 text-xs inline-flex items-center gap-1"><BoltIcon size={12} color="var(--pop-white)" /> Playing All or Nothing on {playerName(player2)}</span>
+                                    <button onClick={() => setAonChoice(null)} className="pop-button pop-button--yellow px-3 py-1.5 text-xs">Cancel</button>
+                                  </>
+                                ) : (
+                                  <button
+                                    onClick={() => aonEligible2 && setAonChoice(player2)}
+                                    disabled={!aonEligible2}
+                                    title={aonExclusion2 ?? (!aonEligible2 ? 'Already used this player this competition' : undefined)}
+                                    className="pop-button px-3 py-1.5 text-xs"
+                                    style={!aonEligible2 ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' } : { background: 'var(--pop-pink)' }}
+                                  >
+                                    Play All or Nothing on {playerName(player2)}?
+                                  </button>
+                                )}
+                                <InfoPopover text={AON_INFO_TEXT} />
+                              </div>
                             )}
                           </>
                         ) : (
@@ -1157,10 +1244,10 @@ export default function PicksPage() {
                       </div>
                     )}
 
-                    {wizardStep === 2 && (
+                    {wizardStep === 'banker' && (
                       <div>
-                        <p className="pop-headline text-xl mb-3 text-center">Banker, Question &amp; Comments</p>
-                        <div className="flex items-center gap-3 mb-5 flex-wrap justify-center">
+                        <p className="pop-headline text-xl mb-3 text-center">Banker</p>
+                        <div className="flex items-center gap-3 flex-wrap justify-center">
                           <button
                             onClick={() => setIsBanker(!isBanker)}
                             disabled={!isBanker && bankersUsed >= 2}
@@ -1169,109 +1256,122 @@ export default function PicksPage() {
                             {isBanker ? '★ Banker Declared' : 'Declare Banker'}
                           </button>
                           <span className="pop-badge pop-badge--blue px-2.5 py-1.5 text-xs">{bankersUsed} of 2 used</span>
+                          <InfoPopover text={BANKER_INFO_TEXT} />
                         </div>
+                      </div>
+                    )}
 
-                        {bonusCardAvailable && (
-                          <div className="pop-panel p-4 mb-4">
-                            {/* Admin-managed static file (see /admin/help/deploying-changes) —
-                                optional, so a missing file just quietly shows nothing rather
-                                than a broken-image icon. */}
-                            <img
-                              src="/bonus-card-player.png"
-                              alt=""
-                              className="mx-auto mb-3 rounded-lg"
-                              style={{ maxHeight: 120, maxWidth: '100%' }}
-                              onError={e => { e.currentTarget.style.display = 'none' }}
-                            />
-                            {bonusCardSpentElsewhere ? (
-                              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                                {bonusCardName} — already played
-                                {bonusCardPlay?.points != null ? `, scored ${bonusCardPlay.points} pts` : ' this competition'}.
-                              </p>
-                            ) : (
-                              <>
-                                <div className="flex items-center gap-3 mb-2 flex-wrap justify-center">
-                                  <button
-                                    onClick={() => bonusCardEligibleThisWeek && setPlayBonusCard(!playBonusCard)}
-                                    disabled={!bonusCardEligibleThisWeek && !playBonusCard}
-                                    title={bonusCardIsOneOfThisWeeksPicks ? "Can't play the card on a player who's already one of this week's two picks" : undefined}
-                                    className={`pop-button ${playBonusCard ? 'pop-button--green pop-pop-in' : 'pop-button--yellow'} px-4 py-2.5`}
-                                    style={!bonusCardEligibleThisWeek && !playBonusCard ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
-                                  >
-                                    {playBonusCard ? `★ Playing ${bonusCardName}` : `Play ${bonusCardName}`}
-                                  </button>
-                                </div>
-                                <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                                  One-off bonus on top of your normal picks — never doubled by Banker, usable once across the whole competition.
-                                </p>
-                              </>
-                            )}
-                            {playBonusCard && bonusCardNeedsFixtureChoice && (
-                              <div className="rounded-lg p-3 mt-3" style={{ background: 'rgba(125,55,165,0.08)', border: '1px solid rgba(125,55,165,0.3)' }}>
-                                <p className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--pop-yellow)' }}>
-                                  {bonusCardPlayerShortName}&apos;s team plays twice — which match is this for?
-                                </p>
-                                <div className="flex flex-col gap-1.5">
-                                  {bonusCardFixtures.map(f => (
-                                    <button
-                                      key={f.id}
-                                      onClick={() => setBonusCardFixture(f.id)}
-                                      className="text-left px-2.5 py-1.5 rounded text-xs font-bold"
-                                      style={bonusCardFixture === f.id
-                                        ? { background: 'var(--pop-yellow)', color: 'var(--pop-white)' }
-                                        : { background: 'rgba(255,255,255,0.05)', color: 'var(--pop-white)', border: '1px solid rgba(255,255,255,0.15)' }}
-                                    >
-                                      {opponentLabel(f, bonusCardPlayer?.team_id ?? 0)}
-                                    </button>
-                                  ))}
-                                </div>
+                    {wizardStep === 'bonus' && (
+                      <div>
+                        <p className="pop-headline text-xl mb-3 text-center inline-flex items-center gap-1.5 justify-center w-full">
+                          {bonusCardName}
+                          <InfoPopover text={bonusInfoText} />
+                        </p>
+                        <div className="pop-panel p-4">
+                          {/* Admin-managed static file (see /admin/help/deploying-changes) —
+                              optional, so a missing file just quietly shows nothing rather
+                              than a broken-image icon. */}
+                          <img
+                            src="/bonus-card-player.png"
+                            alt=""
+                            className="mx-auto mb-3 rounded-lg"
+                            style={{ maxHeight: 170, maxWidth: '100%' }}
+                            onError={e => { e.currentTarget.style.display = 'none' }}
+                          />
+                          {bonusCardSpentElsewhere ? (
+                            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                              {bonusCardName} — already played
+                              {bonusCardPlay?.points != null ? `, scored ${bonusCardPlay.points} pts` : ' this competition'}.
+                            </p>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-3 mb-2 flex-wrap justify-center">
+                                <button
+                                  onClick={() => bonusCardEligibleThisWeek && setPlayBonusCard(!playBonusCard)}
+                                  disabled={!bonusCardEligibleThisWeek && !playBonusCard}
+                                  title={bonusCardIsOneOfThisWeeksPicks ? "Can't play the card on a player who's already one of this week's two picks" : undefined}
+                                  className={`pop-button ${playBonusCard ? 'pop-button--green pop-pop-in' : 'pop-button--yellow'} px-4 py-2.5`}
+                                  style={!bonusCardEligibleThisWeek && !playBonusCard ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                                >
+                                  {playBonusCard ? `★ Playing ${bonusCardName}` : `Play ${bonusCardName}`}
+                                </button>
                               </div>
-                            )}
-                          </div>
-                        )}
-
-                        {question && (
-                          <div className="pop-panel pop-panel--yellow p-4 mb-4">
-                            <p className="pop-headline text-lg mb-2">This Week&apos;s Question</p>
-                            <p className="font-bold text-sm mb-3">{question.question}</p>
-                            {question.question_type === 'freetext' ? (
-                              <input
-                                type="text"
-                                value={questionAnswer}
-                                onChange={e => setQuestionAnswer(e.target.value)}
-                                placeholder="Type your answer..."
-                                maxLength={200}
-                                className="pop-input w-full p-2 font-bold text-sm"
-                              />
-                            ) : (
-                              <div className="grid grid-cols-2 gap-2">
-                                {[
-                                  { key: 'A', label: question.option_a },
-                                  { key: 'B', label: question.option_b },
-                                  question.option_c ? { key: 'C', label: question.option_c } : null,
-                                  question.option_d ? { key: 'D', label: question.option_d } : null,
-                                ].filter(Boolean).map((opt: any) => (
+                              <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                One-off bonus on top of your normal picks — never doubled by Banker, usable once across the whole competition.
+                              </p>
+                            </>
+                          )}
+                          {playBonusCard && bonusCardNeedsFixtureChoice && (
+                            <div className="rounded-lg p-3 mt-3" style={{ background: 'rgba(125,55,165,0.08)', border: '1px solid rgba(125,55,165,0.3)' }}>
+                              <p className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--pop-yellow)' }}>
+                                {bonusCardPlayerShortName}&apos;s team plays twice — which match is this for?
+                              </p>
+                              <div className="flex flex-col gap-1.5">
+                                {bonusCardFixtures.map(f => (
                                   <button
-                                    key={opt.key}
-                                    onClick={() => setQuestionAnswer(opt.key)}
-                                    className="pop-select-btn rounded-lg p-2 font-black uppercase text-sm"
-                                    style={{
-                                      border: questionAnswer === opt.key ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
-                                      boxShadow: questionAnswer === opt.key ? '0 0 16px rgba(204,250,0,0.4)' : 'none',
-                                      background: questionAnswer === opt.key ? 'var(--pop-green)' : 'transparent',
-                                      color: questionAnswer === opt.key ? 'var(--pop-black)' : 'var(--pop-white)',
-                                    }}
+                                    key={f.id}
+                                    onClick={() => setBonusCardFixture(f.id)}
+                                    className="text-left px-2.5 py-1.5 rounded text-xs font-bold"
+                                    style={bonusCardFixture === f.id
+                                      ? { background: 'var(--pop-yellow)', color: 'var(--pop-white)' }
+                                      : { background: 'rgba(255,255,255,0.05)', color: 'var(--pop-white)', border: '1px solid rgba(255,255,255,0.15)' }}
                                   >
-                                    {opt.label}
+                                    {opponentLabel(f, bonusCardPlayer?.team_id ?? 0)}
                                   </button>
                                 ))}
                               </div>
-                            )}
-                          </div>
-                        )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
+                    {wizardStep === 'question' && question && (
+                      <div>
+                        <p className="pop-headline text-xl mb-3 text-center">This Week&apos;s Question</p>
+                        <div className="pop-panel pop-panel--yellow p-4">
+                          <p className="font-bold text-sm mb-3">{question.question}</p>
+                          {question.question_type === 'freetext' ? (
+                            <input
+                              type="text"
+                              value={questionAnswer}
+                              onChange={e => setQuestionAnswer(e.target.value)}
+                              placeholder="Type your answer..."
+                              maxLength={200}
+                              className="pop-input w-full p-2 font-bold text-sm"
+                            />
+                          ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                              {[
+                                { key: 'A', label: question.option_a },
+                                { key: 'B', label: question.option_b },
+                                question.option_c ? { key: 'C', label: question.option_c } : null,
+                                question.option_d ? { key: 'D', label: question.option_d } : null,
+                              ].filter(Boolean).map((opt: any) => (
+                                <button
+                                  key={opt.key}
+                                  onClick={() => setQuestionAnswer(opt.key)}
+                                  className="pop-select-btn rounded-lg p-2 font-black uppercase text-sm"
+                                  style={{
+                                    border: questionAnswer === opt.key ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
+                                    boxShadow: questionAnswer === opt.key ? '0 0 16px rgba(204,250,0,0.4)' : 'none',
+                                    background: questionAnswer === opt.key ? 'var(--pop-green)' : 'transparent',
+                                    color: questionAnswer === opt.key ? 'var(--pop-black)' : 'var(--pop-white)',
+                                  }}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {wizardStep === 'comments' && (
+                      <div>
+                        <p className="pop-headline text-xl mb-3 text-center">Any Comments</p>
                         <div className="pop-panel p-4">
-                          <p className="pop-headline text-lg mb-2">Any Comments</p>
                           <textarea
                             value={comments}
                             onChange={e => setComments(e.target.value)}
@@ -1284,7 +1384,7 @@ export default function PicksPage() {
                       </div>
                     )}
 
-                    {wizardStep === 3 && (
+                    {wizardStep === 'review' && (
                       <div>
                         <p className="pop-headline text-xl mb-3 text-center">Review &amp; Submit</p>
                         <div className="space-y-2 mb-4">
@@ -1335,7 +1435,7 @@ export default function PicksPage() {
 
                         <button
                           onClick={savePick}
-                          disabled={saving || !wizardStep2Valid}
+                          disabled={saving || !wizardStepsValid}
                           className={`pop-button pop-submit-btn ${saving ? '' : justSaved ? 'pop-button--green pop-celebrate' : 'pop-button--yellow'} w-full py-4 text-xl inline-flex items-center justify-center gap-2`}
                           style={saving
                             ? { background: '#CCCCCC', color: 'var(--pop-black)', opacity: 1, position: 'relative' }
@@ -1359,19 +1459,21 @@ export default function PicksPage() {
                       </div>
                     )}
 
+                    </div>
+
                     <div className="flex items-center justify-between mt-5" style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 16 }}>
                       <button
-                        onClick={() => setWizardStep(s => Math.max(0, s - 1))}
-                        disabled={wizardStep === 0}
+                        onClick={wizardBack}
+                        disabled={wizardIndex === 0}
                         className="font-bold text-sm px-3 py-2"
-                        style={{ color: wizardStep === 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.6)' }}
+                        style={{ color: wizardIndex === 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.6)' }}
                       >
                         ← Back
                       </button>
-                      {wizardStep < 3 && (
+                      {wizardIndex < wizardSteps.length - 1 && (
                         <button
-                          onClick={() => setWizardStep(s => Math.min(3, s + 1))}
-                          disabled={wizardStep === 0 ? !wizardStep0Valid : wizardStep === 1 ? !wizardStep1Valid : wizardStep === 2 ? !wizardStep2Valid : false}
+                          onClick={wizardNext}
+                          disabled={!wizardSteps[wizardIndex]?.valid}
                           className="pop-button px-5 py-2 text-sm"
                         >
                           Next →
