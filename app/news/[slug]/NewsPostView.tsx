@@ -30,7 +30,7 @@ export default function NewsPostView({
               day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London'
             }) : ''}
           </p>
-          <h1 className="pop-hero pop-hero--blue text-4xl sm:text-5xl mb-2">{post.title}</h1>
+          <h1 className="font-black text-3xl sm:text-4xl mb-2" style={{ color: 'var(--pop-white)' }}>{post.title}</h1>
           <p className="uppercase tracking-wider mb-6" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', minHeight: '1em' }}>
             {byline.length > 0 ? byline.join(' · ') : ' '}
           </p>

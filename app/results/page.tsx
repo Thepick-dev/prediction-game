@@ -498,7 +498,7 @@ export default function ResultsPage() {
                         <div key={f.id} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                           <button
                             onClick={() => setExpandedFixture(isExpanded ? null : f.id)}
-                            className="w-full flex items-center justify-between px-3 py-2.5 text-left"
+                            className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-white/[0.04] transition-colors"
                           >
                             <div className="flex items-center gap-1.5 text-xs uppercase flex-wrap min-w-0">
                               <TeamCrest crestUrl={teams[f.home_team_id]?.crest_url ?? null} teamName={teams[f.home_team_id]?.name ?? ''} size={16} />
@@ -606,6 +606,7 @@ export default function ResultsPage() {
                   {sortedPicks.map((pick, i) => {
                     const pts = pointsMap[pick.id]
                     const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
+                    const isOwnPick = pick.user_id === user?.id
                     const t = teams[pick.team_id]
                     const answerLabel = pick.question_answer
                       ? questionOptions.find(([letter]) => letter === pick.question_answer)?.[1] ?? pick.question_answer
@@ -622,7 +623,7 @@ export default function ResultsPage() {
                       <div
                         key={pick.id}
                         className="p-2.5"
-                        style={{ fontSize: '11px', borderTop: '1px solid rgba(255,255,255,0.06)', background: isWinner ? 'rgba(255,234,0,0.06)' : undefined }}
+                        style={{ fontSize: '11px', borderTop: '1px solid rgba(255,255,255,0.06)', background: isWinner ? 'rgba(255,234,0,0.06)' : isOwnPick ? 'rgba(255,255,255,0.04)' : undefined }}
                       >
                         <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
                           <div className="flex items-center gap-1.5 font-black uppercase min-w-0">

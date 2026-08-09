@@ -163,7 +163,9 @@ export default function KitEditor({
   }
 
   if (loading) {
-    return <p className="text-sm text-[#F5ECD9]/50 text-center py-4">Loading...</p>
+    return isPopArt
+      ? <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.5)' }}>Loading...</p>
+      : <p className="text-sm text-[#F5ECD9]/50 text-center py-4">Loading...</p>
   }
 
   const swatchSize = compact ? 'w-6 h-6' : 'w-8 h-8'
@@ -192,7 +194,7 @@ export default function KitEditor({
 
   return (
     <div>
-      <div className={isPopArt ? 'pop-panel rounded-xl p-4 mb-3 flex justify-center' : 'flex justify-center mb-3'}>
+      <div className={isPopArt ? 'rounded-xl p-4 mb-3 flex justify-center' : 'flex justify-center mb-3'} style={isPopArt ? { background: 'rgba(255,255,255,0.03)' } : undefined}>
         <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={compact ? 120 : 160} topScore={topScore} starColor={isPopArt ? 'var(--pop-pink)' : undefined} />
       </div>
       {(kitStars > 0 || kitEarths > 0) && (

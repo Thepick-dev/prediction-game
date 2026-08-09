@@ -108,13 +108,13 @@ export default function NewsListPage() {
           ) : (
             <div className="space-y-3">
               {posts.map(post => (
-                <Link key={post.slug} href={`/news/${post.slug}`} className="pop-panel block p-4">
+                <Link key={post.slug} href={`/news/${post.slug}`} className="pop-panel block p-4 hover:brightness-110 transition-[filter]">
                   <p className="uppercase tracking-widest mb-1" style={{ fontSize: '10px', color: 'var(--pop-blue)' }}>
                     {post.published_at ? new Date(post.published_at).toLocaleDateString('en-GB', {
                       day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London'
                     }) : ''}
                   </p>
-                  <h2 className="pop-headline text-lg mb-1">{post.title}</h2>
+                  <h2 className="font-black text-lg mb-1" style={{ color: 'var(--pop-white)' }}>{post.title}</h2>
                   {post.author_id && authorNames[post.author_id] && (
                     <p className="uppercase tracking-wider mb-1.5" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>By {authorNames[post.author_id]}</p>
                   )}

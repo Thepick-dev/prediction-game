@@ -263,8 +263,8 @@ export default function ArchivedCompetitionPage() {
                                     <td className="py-1.5 pr-4 font-black">{d.gw}</td>
                                     <td className="py-1.5 pr-4">
                                       {d.team}
-                                      {d.is_banker && <span className="ml-1 px-1 rounded font-black" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-black)' }}>B</span>}
-                                      {d.is_autopick && <span className="ml-1 px-1 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>A</span>}
+                                      {d.is_banker && <span className="pop-badge ml-1 px-1.5 py-0.5 text-[9px]">B</span>}
+                                      {d.is_autopick && <span className="pop-badge ml-1 px-1.5 py-0.5 text-[9px]" style={{ background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.7)' }}>A</span>}
                                     </td>
                                     <td className="py-1.5 pr-4" style={{ color: 'rgba(255,255,255,0.5)' }}>{d.player1} & {d.player2}</td>
                                     <td className="py-1.5 text-right font-black">{d.points ?? '—'}</td>

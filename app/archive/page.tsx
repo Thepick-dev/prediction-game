@@ -76,7 +76,7 @@ export default function ArchivePage() {
                     <Link
                       key={comp.id}
                       href={`/archive/${comp.id}`}
-                      className="flex items-center justify-between p-4"
+                      className="flex items-center justify-between p-4 hover:bg-white/[0.04] transition-colors"
                       style={i > 0 ? { borderTop: '1px solid rgba(255,255,255,0.1)' } : undefined}
                     >
                       <div>

@@ -109,8 +109,8 @@ thead th {
 .pop-input {
   background: var(--pop-surface);
   color: var(--pop-white);
-  border: 2px solid rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -234,21 +234,6 @@ thead th {
 .pop-badge--green { background: var(--pop-green); color: var(--pop-black); }
 .pop-badge--red { background: var(--pop-red); color: var(--pop-white); }
 
-/* Unused since the countdown clock's "live" cue moved to a scale pulse
-   on the seconds chip alone (see .pop-second-tick below) — a border/glow
-   flash on the whole box competed with the deadline panel's own animated
-   pulse right next to it. Kept as a no-op rather than deleted, same
-   precedent as .pop-rotate-l/r. */
-@keyframes pop-countdown-tick {
-  0%, 100% { border-color: rgba(213, 0, 109, 0.35); box-shadow: 0 0 6px rgba(213, 0, 109, 0.25); }
-  50% { border-color: var(--pop-pink); box-shadow: 0 0 16px rgba(213, 0, 109, 0.8); }
-}
-.pop-countdown-box {
-  border: 2px solid rgba(213, 0, 109, 0.35);
-  border-radius: 12px;
-  animation: pop-countdown-tick 1s ease-in-out infinite;
-}
-
 /* The countdown clock's seconds chip only — a transform-only bounce, not
    a glow, so it never competes with .pop-panel--pulse for attention even
    though both can be on screen together (the clock sits inside the
@@ -270,7 +255,7 @@ thead th {
   background: var(--pop-pink);
   color: var(--pop-white);
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.08s ease;

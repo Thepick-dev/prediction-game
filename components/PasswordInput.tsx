@@ -8,12 +8,15 @@ interface PasswordInputProps {
   placeholder?: string
   className: string
   disabled?: boolean
+  // Classic gold by default (backwards compatible); pop-art callers pass
+  // true so the eye icon doesn't show a leftover classic-theme colour.
+  popArt?: boolean
 }
 
 // A password <input> with an eye button to toggle showing it in plain text
 // — swaps type="password"/"text" rather than anything fancier, so it works
 // anywhere a plain input did before.
-export default function PasswordInput({ value, onChange, placeholder, className, disabled }: PasswordInputProps) {
+export default function PasswordInput({ value, onChange, placeholder, className, disabled, popArt }: PasswordInputProps) {
   const [show, setShow] = useState(false)
 
   return (
@@ -31,7 +34,9 @@ export default function PasswordInput({ value, onChange, placeholder, className,
         onClick={() => setShow(s => !s)}
         tabIndex={-1}
         aria-label={show ? 'Hide password' : 'Show password'}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#F5ECD9]/40 hover:text-[#F5ECD9] transition-colors"
+        className={popArt
+          ? "absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
+          : "absolute right-3 top-1/2 -translate-y-1/2 text-[#F5ECD9]/40 hover:text-[#F5ECD9] transition-colors"}
       >
         {show ? (
           // Eye with a slash — currently showing plain text, click to hide

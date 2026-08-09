@@ -137,7 +137,7 @@ export default function LoginPage() {
           {mode === 'login' ? (
             <>
               <input type="text" placeholder="Username or email" value={identifier} onChange={e => setIdentifier(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
-              <PasswordInput placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
+              <PasswordInput placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" popArt />
               <button onClick={handleLogin} disabled={loading || !identifier || !password} className="pop-button w-full py-2.5 text-sm">
                 {loading ? 'Logging in...' : 'Log In'}
               </button>
@@ -149,7 +149,7 @@ export default function LoginPage() {
             <>
               <input type="text" placeholder="Choose a username" value={username} onChange={e => setUsername(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
               <input type="email" placeholder="Your email" value={email} onChange={e => setEmail(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
-              <PasswordInput placeholder="Set a password" value={password} onChange={e => setPassword(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
+              <PasswordInput placeholder="Set a password" value={password} onChange={e => setPassword(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" popArt />
               <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 An admin needs to approve your account before you can play — you&apos;ll be able to log in as soon as they do.
               </p>
@@ -163,7 +163,8 @@ export default function LoginPage() {
 
           <button
             onClick={() => setShowRules(true)}
-            className="pop-button pop-button--yellow w-full py-2.5 text-sm mt-6"
+            className="block w-full text-center text-xs mt-6"
+            style={{ color: 'rgba(255,255,255,0.5)' }}
           >
             Read the Rules
           </button>

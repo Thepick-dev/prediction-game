@@ -197,6 +197,7 @@ export default function SettingsPage() {
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
                 className="pop-input w-full p-2 mb-3 font-bold text-sm"
+                popArt
               />
               {passwordMessage && (
                 <p className={`pop-badge ${passwordMessage.startsWith('Password updated') ? 'pop-badge--green' : 'pop-badge--red'} px-2.5 py-1 text-xs mb-3 inline-block`}>{passwordMessage}</p>

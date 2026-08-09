@@ -553,33 +553,34 @@ export default function LeaderboardPage() {
                   visible here too. Fixed layout makes the browser wrap a
                   long name instead of stretching the table past 100% width
                   (which is what was clipping the rightmost columns before). */}
-              <table className="w-full" style={{ fontSize: '10.5px', tableLayout: 'fixed' }}>
+              <table className="w-full" style={{ fontSize: '11.5px', tableLayout: 'fixed' }}>
                 <thead>
-                  <tr className="text-left" style={{ fontSize: '8.5px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-                    <th className="py-2 pl-1 pr-0.5 sm:px-2 uppercase tracking-wider" style={{ width: '7%' }}>#</th>
-                    <th className="py-2 px-0.5 sm:px-2 uppercase tracking-wider" style={{ width: '32%' }}>Player</th>
-                    <th className="py-2 px-0.5 sm:px-2 text-center uppercase tracking-wider" style={{ width: '8.5%' }}>HW</th>
-                    <th className="py-2 px-0.5 sm:px-2 text-center uppercase tracking-wider" style={{ width: '8.5%' }}>AW</th>
-                    <th className="py-2 px-0.5 sm:px-2 text-right uppercase tracking-wider" style={{ width: '9%' }} title="Best single-gameweek score (tiebreaker #3)">Best</th>
-                    <th className="py-2 px-0.5 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Tm</th>
-                    <th className="py-2 px-0.5 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Pl</th>
-                    <th className="py-2 px-0.5 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Bk</th>
-                    <th className="py-2 pl-0.5 pr-1 sm:px-2 text-right uppercase tracking-wider font-black" style={{ width: '9.5%' }}>Tot</th>
+                  <tr className="text-left" style={{ fontSize: '9.5px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+                    <th className="py-2 pl-1.5 pr-1 sm:px-2 uppercase tracking-wider" style={{ width: '7%' }}>#</th>
+                    <th className="py-2 px-1 sm:px-2 uppercase tracking-wider" style={{ width: '32%' }}>Player</th>
+                    <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider" style={{ width: '8.5%' }}>HW</th>
+                    <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider" style={{ width: '8.5%' }}>AW</th>
+                    <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '9%' }} title="Best single-gameweek score (tiebreaker #3)">Best</th>
+                    <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Tm</th>
+                    <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Pl</th>
+                    <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Bk</th>
+                    <th className="py-2 pl-1 pr-1.5 sm:px-2 text-right uppercase tracking-wider font-black" style={{ width: '9.5%' }}>Tot</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ranked.map((player, index) => {
                     const streak = getStreak(player)
                     const teamsWithAvailability = getTeamsWithAvailability(player.user_id)
+                    const isOwnRow = player.user_id === user?.id
                     return (
                       <React.Fragment key={player.user_id}>
                         <tr
                           onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
-                          className="cursor-pointer"
-                          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                          className="cursor-pointer hover:bg-white/[0.04] transition-colors"
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: isOwnRow ? 'rgba(255,234,0,0.06)' : undefined }}
                         >
-                          <td className="py-2 pl-1 pr-0.5 sm:px-2" style={{ color: 'rgba(255,255,255,0.35)' }}>{index + 1}</td>
-                          <td className="py-2 px-0.5 sm:px-2 font-black uppercase" style={{ wordBreak: 'break-word' }}>
+                          <td className="py-2 pl-1.5 pr-1 sm:px-2" style={{ color: 'rgba(255,255,255,0.35)' }}>{index + 1}</td>
+                          <td className="py-2 px-1 sm:px-2 font-black uppercase" style={{ wordBreak: 'break-word' }}>
                             <div className="flex items-center gap-1 flex-wrap">
                               <KitBadge
                                 pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
@@ -594,13 +595,13 @@ export default function LeaderboardPage() {
                               <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '8px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                             </div>
                           </td>
-                          <td className="py-2 px-0.5 sm:px-2 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.home_wins}</td>
-                          <td className="py-2 px-0.5 sm:px-2 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.away_wins}</td>
-                          <td className="py-2 px-0.5 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.best_gameweek_score}</td>
-                          <td className="py-2 px-0.5 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.team_points)}</td>
-                          <td className="py-2 px-0.5 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.player_points)}</td>
-                          <td className="py-2 px-0.5 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.banker_points)}</td>
-                          <td className="py-2 pl-0.5 pr-1 sm:px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{player.total_points}</td>
+                          <td className="py-2 px-1 sm:px-2 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.home_wins}</td>
+                          <td className="py-2 px-1 sm:px-2 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.away_wins}</td>
+                          <td className="py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.best_gameweek_score}</td>
+                          <td className="py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.team_points)}</td>
+                          <td className="py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.player_points)}</td>
+                          <td className="py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.banker_points)}</td>
+                          <td className="py-2 pl-1 pr-1.5 sm:px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{player.total_points}</td>
                         </tr>
                         {expandedUser === player.user_id && (
                           <tr>
@@ -745,13 +746,13 @@ export default function LeaderboardPage() {
                                       return (
                                         <div
                                           key={team.id}
-                                          className="flex items-center gap-1 rounded px-1.5 py-1"
+                                          className="flex items-center gap-1 rounded px-1.5 py-1 min-w-0"
                                           style={used
                                             ? { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', opacity: 0.4 }
                                             : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}
                                         >
                                           <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={14} />
-                                          <span className="uppercase truncate">{teamDisplayName(team)}</span>
+                                          <span className="uppercase truncate flex-1 min-w-0">{teamDisplayName(team)}</span>
                                           {team.isDouble && !used && team.remaining === 2 && (
                                             <span className="font-black shrink-0" style={{ color: 'var(--pop-yellow)' }}>×2</span>
                                           )}
