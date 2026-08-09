@@ -53,7 +53,7 @@ export function CrossIcon({ size = 16, color = 'var(--pop-red)', className }: Ic
   )
 }
 
-export function TrophyIcon({ size = 16, color = 'var(--pop-yellow)', className }: IconProps) {
+export function TrophyIcon({ size = 16, color = 'var(--pop-pink)', className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={color} className={className} aria-hidden="true">
       <path d="M8 3h8v2h3a1 1 0 0 1 1 1c0 3-2 5-4.5 5.3A5 5 0 0 1 13 15v3h3v2H8v-2h3v-3a5 5 0 0 1-2.5-3.7C6 10 4 8 4 5a1 1 0 0 1 1-1h3V3z" />

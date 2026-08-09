@@ -84,7 +84,7 @@ export default function ArchivePage() {
                         <p className="font-black text-sm">{comp.name}</p>
                         <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{comp.season}</p>
                         {comp.manual_winner && (
-                          <p className="text-xs mt-0.5 inline-flex items-center gap-1" style={{ color: 'var(--pop-yellow)' }}><TrophyIcon size={12} /> {comp.manual_winner}</p>
+                          <p className="text-xs mt-0.5 inline-flex items-center gap-1" style={{ color: 'var(--pop-pink)' }}><TrophyIcon size={12} /> {comp.manual_winner}</p>
                         )}
                       </div>
                       <span className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>Final table →</span>
@@ -116,7 +116,7 @@ export default function ArchivePage() {
                         <tr key={i} style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.1)' : undefined }}>
                           <td className="py-2 px-4" style={{ color: 'rgba(255,255,255,0.5)' }}>{h.season}</td>
                           <td className="py-2 px-4">{h.competition_name}</td>
-                          <td className="py-2 px-4 font-black" style={{ color: 'var(--pop-yellow)' }}><span className="inline-flex items-center gap-1"><TrophyIcon size={12} /> {h.winner}</span></td>
+                          <td className="py-2 px-4 font-black" style={{ color: 'var(--pop-pink)' }}><span className="inline-flex items-center gap-1"><TrophyIcon size={12} /> {h.winner}</span></td>
                         </tr>
                       ))}
                     </tbody>

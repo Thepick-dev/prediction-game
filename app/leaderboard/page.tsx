@@ -539,7 +539,7 @@ export default function LeaderboardPage() {
               {ranked.length > 0 && (
                 <button
                   onClick={() => setShowShare(true)}
-                  className="pop-button pop-button--yellow px-3 py-1.5 text-xs"
+                  className="pop-button px-3 py-1.5 text-xs"
                 >
                   Share Standings
                 </button>
@@ -548,10 +548,10 @@ export default function LeaderboardPage() {
             <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name}</p>
 
             {potwUserId && (
-              <div className="pop-panel pop-panel--yellow p-4 mb-6 flex items-center gap-3">
+              <div className="pop-panel pop-panel--pink p-4 mb-6 flex items-center gap-3">
                 <CrownIcon size={26} />
                 <div>
-                  <p className="pop-headline text-xs" style={{ color: 'var(--pop-yellow)' }}>Current Leader</p>
+                  <p className="pop-headline text-xs" style={{ color: 'var(--pop-pink)' }}>Current Leader</p>
                   <p className="font-black uppercase">{ranked[0]?.display_name}</p>
                 </div>
               </div>
@@ -587,7 +587,7 @@ export default function LeaderboardPage() {
                         <tr
                           onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
                           className="cursor-pointer hover:bg-white/[0.04] transition-colors"
-                          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: isOwnRow ? 'rgba(125,55,165,0.06)' : undefined }}
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: isOwnRow ? 'rgba(160,0,250,0.06)' : undefined }}
                         >
                           <td className="py-2 pl-1.5 pr-1 sm:px-2" style={{ color: 'rgba(255,255,255,0.35)' }}>{index + 1}</td>
                           <td className="py-2 px-1 sm:px-2 font-black uppercase" style={{ wordBreak: 'break-word' }}>
@@ -636,7 +636,7 @@ export default function LeaderboardPage() {
                                   </div>
                                   <div className="text-right">
                                     <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>Bankers Left</p>
-                                    <p className="text-sm font-black" style={{ color: 'var(--pop-yellow)' }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} / 2</p>
+                                    <p className="text-sm font-black" style={{ color: 'var(--pop-pink)' }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} / 2</p>
                                   </div>
                                   <div className="text-right">
                                     <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>All or Nothing</p>
@@ -699,7 +699,7 @@ export default function LeaderboardPage() {
                                             <div className="flex items-center gap-1">
                                               <TeamCrest crestUrl={teamMap[d.team_id]?.crest_url ?? null} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
                                               {teamDisplayName(teamMap[d.team_id])}
-                                              {d.is_banker && <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-white)' }}>★</span>}
+                                              {d.is_banker && <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-pink)', color: 'var(--pop-white)' }}>★</span>}
                                               {(d.provisional || d.is_autopick) && <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }} title="No pick was made in time, so the computer picked automatically">AP</span>}
                                             </div>
                                             {d.team_detail?.opponent_team_id != null && (
@@ -775,7 +775,7 @@ export default function LeaderboardPage() {
                                           <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={14} />
                                           <span className="uppercase truncate flex-1 min-w-0">{teamDisplayName(team)}</span>
                                           {team.isDouble && !used && team.remaining === 2 && (
-                                            <span className="font-black shrink-0" style={{ color: 'var(--pop-yellow)' }}>×2</span>
+                                            <span className="font-black shrink-0" style={{ color: 'var(--pop-pink)' }}>×2</span>
                                           )}
                                         </div>
                                       )
