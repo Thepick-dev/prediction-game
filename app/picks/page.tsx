@@ -5,7 +5,7 @@ import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
-import { buildPlayerDisplayNames } from '../lib/players'
+import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import { useCountdown, type CountdownTime } from '../lib/useCountdown'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import TicketModal from '../../components/TicketModal'
@@ -178,7 +178,7 @@ export default function PicksPage() {
   // live/current admin nomination; `bonusCardPlay` is this user's own
   // resolved play (if any exists at all, for ANY gameweek); `playBonusCard`
   // is the LOCAL, not-yet-saved choice to play it on THIS gameweek.
-  const [bonusCard, setBonusCard] = useState<{ bonus_card_enabled: boolean; bonus_card_player_id: number | null } | null>(null)
+  const [bonusCard, setBonusCard] = useState<{ bonus_card_enabled: boolean; bonus_card_player_id: number | null; bonus_card_name: string | null } | null>(null)
   const [bonusCardPlay, setBonusCardPlay] = useState<{ gameweek_id: string; player_id: number; fixture_id: number | null; points: number | null } | null>(null)
   const [playBonusCard, setPlayBonusCard] = useState(false)
   const [bonusCardFixture, setBonusCardFixture] = useState<number | null>(null)
@@ -647,7 +647,12 @@ export default function PicksPage() {
   const bonusCardSpentElsewhere = !!bonusCardPlay && (!gameweek || bonusCardPlay.gameweek_id !== gameweek.id)
   const bonusCardPlayerId = bonusCard?.bonus_card_player_id ?? null
   const bonusCardPlayer = bonusCardPlayerId != null ? players.find(p => p.id === bonusCardPlayerId) : undefined
-  const bonusCardName = bonusCardPlayer ? playerName(bonusCardPlayerId!) : null
+  // The player's own short name — needed specifically for the "X's team
+  // plays twice" fixture-disambiguation message, which is about the player,
+  // not the card. Everywhere else, `bonusCardName` (the admin-nameable,
+  // resolved display name) is what's shown.
+  const bonusCardPlayerShortName = bonusCardPlayer ? playerName(bonusCardPlayerId!) : null
+  const bonusCardName = bonusCardDisplayName(bonusCard?.bonus_card_name, bonusCardPlayerShortName)
   const bonusCardIsOneOfThisWeeksPicks = bonusCardPlayerId != null && (bonusCardPlayerId === player1 || bonusCardPlayerId === player2)
   const bonusCardAvailable = !!bonusCard?.bonus_card_enabled && bonusCardPlayerId != null
   const bonusCardEligibleThisWeek = bonusCardAvailable && !bonusCardSpentElsewhere && !bonusCardIsOneOfThisWeeksPicks
@@ -1168,9 +1173,19 @@ export default function PicksPage() {
 
                         {bonusCardAvailable && (
                           <div className="pop-panel p-4 mb-4">
+                            {/* Admin-managed static file (see /admin/help/deploying-changes) —
+                                optional, so a missing file just quietly shows nothing rather
+                                than a broken-image icon. */}
+                            <img
+                              src="/bonus-card-player.png"
+                              alt=""
+                              className="mx-auto mb-3 rounded-lg"
+                              style={{ maxHeight: 120, maxWidth: '100%' }}
+                              onError={e => { e.currentTarget.style.display = 'none' }}
+                            />
                             {bonusCardSpentElsewhere ? (
                               <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                                Bonus Card ({bonusCardName}) — already played
+                                {bonusCardName} — already played
                                 {bonusCardPlay?.points != null ? `, scored ${bonusCardPlay.points} pts` : ' this competition'}.
                               </p>
                             ) : (
@@ -1183,7 +1198,7 @@ export default function PicksPage() {
                                     className={`pop-button ${playBonusCard ? 'pop-button--green pop-pop-in' : 'pop-button--yellow'} px-4 py-2.5`}
                                     style={!bonusCardEligibleThisWeek && !playBonusCard ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                                   >
-                                    {playBonusCard ? `★ Playing ${bonusCardName} Card` : `Play ${bonusCardName} Card`}
+                                    {playBonusCard ? `★ Playing ${bonusCardName}` : `Play ${bonusCardName}`}
                                   </button>
                                 </div>
                                 <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>
@@ -1194,7 +1209,7 @@ export default function PicksPage() {
                             {playBonusCard && bonusCardNeedsFixtureChoice && (
                               <div className="rounded-lg p-3 mt-3" style={{ background: 'rgba(125,55,165,0.08)', border: '1px solid rgba(125,55,165,0.3)' }}>
                                 <p className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--pop-yellow)' }}>
-                                  {bonusCardName}&apos;s team plays twice — which match is this for?
+                                  {bonusCardPlayerShortName}&apos;s team plays twice — which match is this for?
                                 </p>
                                 <div className="flex flex-col gap-1.5">
                                   {bonusCardFixtures.map(f => (
@@ -1302,7 +1317,7 @@ export default function PicksPage() {
                             <div className="flex items-center justify-between rounded-lg p-2.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
                               <span className="font-mono text-xs uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>Bonus Card</span>
                               <span className="font-black text-sm">
-                                {bonusCardSpentElsewhere ? 'Used elsewhere' : playBonusCard ? `★ Playing on ${bonusCardName}` : 'Not used'}
+                                {bonusCardSpentElsewhere ? 'Used elsewhere' : playBonusCard ? `★ Playing on ${bonusCardPlayerShortName}` : 'Not used'}
                               </span>
                             </div>
                           )}

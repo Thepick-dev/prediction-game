@@ -6,7 +6,7 @@ import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
-import { buildPlayerDisplayNames } from '../lib/players'
+import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import GameweekRecapCard from '../../components/GameweekRecapCard'
 import PopArtLoading from '../../components/PopArtLoading'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
@@ -87,6 +87,10 @@ export default function ResultsPage() {
   // only ever fetched below the same "deadline passed" gate as picks
   // themselves, same hidden-until-deadline rule.
   const [aonByUser, setAonByUser] = useState<Record<string, { player_id: number; outcome: string }>>({})
+  // Bonus Card plays for the selected gameweek, keyed by user — same
+  // "deadline passed" gate as everything else on this page.
+  const [bonusCardByUser, setBonusCardByUser] = useState<Record<string, { player_id: number; points: number | null }>>({})
+  const [bonusCardName, setBonusCardName] = useState<string | null>(null)
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
   const [profiles, setProfiles] = useState<Record<string, string>>({})
   const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }>>({})
@@ -118,7 +122,7 @@ export default function ResultsPage() {
 
     const { data: comp } = await supabase
       .from('competitions')
-      .select('id, name')
+      .select('id, name, bonus_card_enabled, bonus_card_player_id, bonus_card_name')
       .eq('status', 'active')
       .single()
 
@@ -173,6 +177,7 @@ export default function ResultsPage() {
     setKitByUser(kitMap)
     setTeams(teamMap)
     setPlayers(playerMap)
+    setBonusCardName(bonusCardDisplayName(comp.bonus_card_name, comp.bonus_card_player_id != null ? playerMap[comp.bonus_card_player_id] : null))
     setGameweeks(gws ?? [])
 
     if (gws && gws.length > 0) {
@@ -283,6 +288,14 @@ export default function ResultsPage() {
     const aonMap: Record<string, { player_id: number; outcome: string }> = {}
     aonRows?.forEach(a => { aonMap[a.user_id] = { player_id: a.player_id, outcome: a.outcome } })
     setAonByUser(aonMap)
+
+    const { data: bonusCardRows } = await supabase
+      .from('bonus_card_plays')
+      .select('user_id, player_id, points')
+      .eq('gameweek_id', gwId)
+    const bonusCardMap: Record<string, { player_id: number; points: number | null }> = {}
+    bonusCardRows?.forEach(b => { bonusCardMap[b.user_id] = { player_id: b.player_id, points: b.points } })
+    setBonusCardByUser(bonusCardMap)
 
     // Once the deadline's passed but before a gameweek is marked "completed",
     // there's no frozen points row yet — show a live calculation instead,
@@ -630,6 +643,7 @@ export default function ResultsPage() {
                       : aon?.outcome === 'failed'
                       ? <CrossIcon size={9} color="var(--pop-white)" />
                       : <BoltIcon size={9} color="var(--pop-white)" />
+                    const bonusCardPlay = bonusCardByUser[pick.user_id]
 
                     return (
                       <div
@@ -700,6 +714,15 @@ export default function ResultsPage() {
                             {showScoring && <span className="normal-case ml-1 font-mono" style={{ color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>({pts?.player2_points ?? '—'} pts)</span>}
                           </span>
                         </div>
+
+                        {bonusCardPlay && (
+                          <div className="mt-1.5">
+                            <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[9px] inline-flex items-center gap-1">
+                              {bonusCardName}: {players[bonusCardPlay.player_id] ?? 'Unknown'}
+                              {showScoring && bonusCardPlay.points != null && <span className="font-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>+{bonusCardPlay.points} pts</span>}
+                            </span>
+                          </div>
+                        )}
 
                         {question && (
                           <div className="normal-case mt-1.5" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>

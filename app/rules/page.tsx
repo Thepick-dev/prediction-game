@@ -8,6 +8,7 @@ import SportingPanelLink from '../../components/SportingPanelLink'
 import PopArtLoading from '../../components/PopArtLoading'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import { RULES_TEXT } from '../lib/rulesText'
+import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 
 const DIFFS = [-3, -2, -1, 0, 1, 2, 3]
 const DIFF_LABELS = ['3↓', '2↓', '1↓', '=', '1↑', '2↑', '3↑']
@@ -25,6 +26,8 @@ export default function RulesPage() {
   const [goalPts, setGoalPts] = useState(12)
   const [assistPts, setAssistPts] = useState(6)
   const [aonExclusions, setAonExclusions] = useState<{ name: string; reason: string }[]>([])
+  const [bonusCardEnabled, setBonusCardEnabled] = useState(false)
+  const [bonusCardName, setBonusCardName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
@@ -44,7 +47,7 @@ export default function RulesPage() {
 
     const { data: competition } = await supabase
       .from('competitions')
-      .select('id, name')
+      .select('id, name, bonus_card_enabled, bonus_card_player_id, bonus_card_name')
       .eq('status', 'active')
       .single()
 
@@ -59,6 +62,18 @@ export default function RulesPage() {
       setRuleMap(map)
       setGoalPts(playerRules?.find(r => r.event_type === 'goal')?.points ?? 12)
       setAssistPts(playerRules?.find(r => r.event_type === 'assist')?.points ?? 6)
+
+      setBonusCardEnabled(!!competition.bonus_card_enabled)
+      if (competition.bonus_card_player_id != null) {
+        const { data: player } = await supabase.from('players').select('id, name, web_name, team_id').eq('id', competition.bonus_card_player_id).single()
+        if (player) {
+          const { data: team } = await supabase.from('teams').select('short_code, short_name, name').eq('id', player.team_id).single()
+          const resolvedName = buildPlayerDisplayNames([player], team ? { [player.team_id]: team } : {})[player.id] ?? null
+          setBonusCardName(bonusCardDisplayName(competition.bonus_card_name, resolvedName))
+        }
+      } else {
+        setBonusCardName(bonusCardDisplayName(competition.bonus_card_name, null))
+      }
     }
 
     // Its own isolated query, same reasoning as everywhere else this
@@ -134,6 +149,16 @@ export default function RulesPage() {
                 </div>
               )}
             </section>
+
+            {bonusCardEnabled && (
+              <section className="pop-panel p-5">
+                <h2 className="pop-headline text-sm mb-2">{bonusCardName}</h2>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[0]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[1]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[2]}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[3]}</p>
+              </section>
+            )}
 
             <section className="pop-panel p-5">
               <h2 className="pop-headline text-sm mb-2">Autopick</h2>
@@ -291,6 +316,16 @@ export default function RulesPage() {
                 </div>
               )}
             </section>
+
+            {bonusCardEnabled && (
+              <section className={cardClass}>
+                <h2 className="text-lg font-bold mb-3 text-[#D9A441]">{bonusCardName}</h2>
+                <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.bonusCard[0]}</p>
+                <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.bonusCard[1]}</p>
+                <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.bonusCard[2]}</p>
+                <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">{RULES_TEXT.bonusCard[3]}</p>
+              </section>
+            )}
 
             <section className={cardClass}>
               <h2 className="text-lg font-bold mb-3 text-[#D9A441]">Autopick</h2>

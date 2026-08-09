@@ -33,3 +33,14 @@ export function buildPlayerDisplayNames(
   })
   return result
 }
+
+// The one place the Bonus Card's label gets decided, reused everywhere it's
+// shown (Picks, Results, Leaderboard, Rules, admin) so renaming it or
+// renominating the player is never a hunt-and-replace across the codebase.
+// An admin-set custom name always wins; otherwise it's built from whoever
+// the live nomination currently is.
+export function bonusCardDisplayName(customName: string | null | undefined, playerName: string | null | undefined): string {
+  if (customName?.trim()) return customName.trim()
+  if (playerName?.trim()) return `The ${playerName.trim()} Card`
+  return 'The Bonus Card'
+}

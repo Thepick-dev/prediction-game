@@ -17,6 +17,8 @@ export default function RulesModal({ onClose }: RulesModalProps) {
   const [goalPts, setGoalPts] = useState(12)
   const [assistPts, setAssistPts] = useState(6)
   const [exclusions, setExclusions] = useState<{ name: string; reason: string }[]>([])
+  const [bonusCardEnabled, setBonusCardEnabled] = useState(false)
+  const [bonusCardName, setBonusCardName] = useState<string | null>(null)
 
   const diffs = [-3, -2, -1, 0, 1, 2, 3]
   const diffLabels = ['3↓', '2↓', '1↓', '=', '1↑', '2↑', '3↑']
@@ -45,6 +47,8 @@ export default function RulesModal({ onClose }: RulesModalProps) {
       setGoalPts(data.goalPoints ?? 12)
       setAssistPts(data.assistPoints ?? 6)
       setExclusions(data.exclusions ?? [])
+      setBonusCardEnabled(!!data.bonusCardEnabled)
+      setBonusCardName(data.bonusCardName ?? null)
     } catch {
       // leave defaults in place
     }
@@ -103,6 +107,16 @@ export default function RulesModal({ onClose }: RulesModalProps) {
                   </p>
                 )}
               </section>
+
+              {bonusCardEnabled && (
+                <section>
+                  <h3 className="pop-headline text-sm mb-2">{bonusCardName}</h3>
+                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[0]}</p>
+                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[1]}</p>
+                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[2]}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[3]}</p>
+                </section>
+              )}
 
               <section>
                 <h3 className="pop-headline text-sm mb-2">Autopick</h3>

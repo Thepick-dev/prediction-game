@@ -16,6 +16,7 @@ export const RULES_TEXT = {
   weeklyPicks: [
     'Each gameweek, pick one team and two different players before the deadline. Each team is usable once (twice for tier picks). Each player is usable twice per competition.',
     'Picks can be edited until the deadline, then locked and visible to everyone. Miss the deadline and you receive an autopick — see below for how that works.',
+    "If a picked player doesn't play at all that gameweek (injured, benched, rested, transferred), the pick still counts as one of their two uses and scores zero for them — the same applies to a Bonus Card play, below.",
   ],
   autopick: [
     "Miss the deadline and the site picks for you automatically: the lowest-placed available team in the league table, and two players who haven't already been used twice.",
@@ -29,6 +30,13 @@ export const RULES_TEXT = {
   allOrNothing: [
     "Once per competition, you can play All or Nothing on one of your two weekly picks — but only a player you haven't used at all yet this competition. Nominate them when you submit that gameweek's pick. Can be played alongside a banker or on its own.",
     "If they score a goal or register an assist that gameweek, you get a bonus third use of them for the rest of the competition. If they don't, you lose all remaining uses of them — for the rest of the competition, even if you'd normally have had a second go.",
+    'All or Nothing can only ever be played on one of your own two weekly picks — never on the Bonus Card, below.',
+  ],
+  bonusCard: [
+    "Some competitions have a Bonus Card — one nominated player, chosen by the admin, that every entrant can play once across the whole competition, in any gameweek of their choosing, up until that gameweek's normal deadline.",
+    "The card's points are calculated exactly like a normal player pick (goals and assists) and are added on top of your normal team and two player picks that gameweek — nothing is replaced, and a banker never applies to the card's points, even if you also play a banker that same week.",
+    "You can't play the card in a gameweek where its player is already one of your own two picks that same week — using the card on a player you've picked normally in a different gameweek is fine. Playing the card doesn't count towards that player's own separate two-uses-per-competition cap.",
+    "If the nominated player doesn't play at all that gameweek, the card still counts as used and scores zero. The card's points don't count towards the best-single-gameweek tiebreaker below.",
   ],
   quartiles: [
     'The 20 Premier League clubs are divided into four quartiles of five — Q1 (strongest) to Q4 (weakest). Quartiles are used to calculate team points based on the difficulty of the result.',

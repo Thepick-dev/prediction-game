@@ -2,7 +2,7 @@ import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
 import BonusCardPlayerPicker from '../components/bonus-card-player-picker'
-import { buildPlayerDisplayNames } from '../../lib/players'
+import { buildPlayerDisplayNames, bonusCardDisplayName } from '../../lib/players'
 
 export default async function CompetitionsPage({
   searchParams,
@@ -150,6 +150,20 @@ export default async function CompetitionsPage({
     await supabase
       .from('competitions')
       .update({ bonus_card_player_id: playerId })
+      .eq('id', competitionId)
+    redirect(`/admin/competitions?comp=${competitionId}#bonus-card`)
+  }
+
+  // Purely cosmetic — unlike renominating the player, renaming never
+  // affects scoring or history, so this saves directly with no confirm step.
+  async function setBonusCardName(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    const competitionId = formData.get('competition_id') as string
+    const name = (formData.get('name') as string)?.trim() || null
+    await supabase
+      .from('competitions')
+      .update({ bonus_card_name: name })
       .eq('id', competitionId)
     redirect(`/admin/competitions?comp=${competitionId}#bonus-card`)
   }
@@ -344,9 +358,10 @@ export default async function CompetitionsPage({
         const currentPlayerName = selectedComp?.bonus_card_player_id != null
           ? (playerDisplayNames[selectedComp.bonus_card_player_id] ?? null)
           : null
+        const resolvedName = bonusCardDisplayName(selectedComp?.bonus_card_name, currentPlayerName)
         return (
           <div id="bonus-card" className="bg-white border rounded-lg p-6 mt-8">
-            <h2 className="font-bold mb-1">Bonus Card</h2>
+            <h2 className="font-bold mb-1">Bonus Card — &quot;{resolvedName}&quot;</h2>
             <p className="text-xs text-gray-500 mb-4">
               One nominated player every entrant can use once, on any gameweek of their choosing, for a bonus score
               on top of their normal picks. See{' '}
@@ -365,6 +380,21 @@ export default async function CompetitionsPage({
                 </button>
               </form>
               <span className="text-xs text-gray-400">Disabling only blocks new plays — nothing already played is affected.</span>
+            </div>
+            <div className="mb-4">
+              <label className="block text-xs text-gray-500 mb-1">
+                Display name <span className="text-gray-400">(optional — leave blank to just use &quot;The {'{Player}'} Card&quot;)</span>
+              </label>
+              <form action={setBonusCardName} className="flex items-center gap-2">
+                <input type="hidden" name="competition_id" value={selectedCompId} />
+                <input
+                  name="name"
+                  defaultValue={selectedComp?.bonus_card_name ?? ''}
+                  placeholder={currentPlayerName ? `The ${currentPlayerName} Card` : 'The Bonus Card'}
+                  className="border rounded px-2 py-1 text-xs w-64"
+                />
+                <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Save name</button>
+              </form>
             </div>
             <BonusCardPlayerPicker
               action={setBonusCardPlayer}

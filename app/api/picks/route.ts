@@ -497,7 +497,7 @@ export async function GET(request: Request) {
   const [{ data: bonusCard }, { data: bonusCardPlay }] = await Promise.all([
     supabase
       .from('competitions')
-      .select('bonus_card_enabled, bonus_card_player_id')
+      .select('bonus_card_enabled, bonus_card_player_id, bonus_card_name')
       .eq('id', competition_id!)
       .single(),
     supabase

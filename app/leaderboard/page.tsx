@@ -7,7 +7,7 @@ import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon } from '../../comp
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
-import { buildPlayerDisplayNames } from '../lib/players'
+import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import LeaderboardShareCard from '../../components/LeaderboardShareCard'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import PopArtLoading from '../../components/PopArtLoading'
@@ -21,6 +21,7 @@ type RankedPlayer = {
   team_points: number
   player_points: number
   banker_points: number
+  bonus_card_points: number
   total_points: number
   points_without_banker: number
   goals: number
@@ -81,6 +82,9 @@ export default function LeaderboardPage() {
   // deliberately built to expose only that (see all_or_nothing_status),
   // so this is safe to show for everyone regardless of any deadline.
   const [aonUsedByPlayer, setAonUsedByPlayer] = useState<Set<string>>(new Set())
+  const [bonusCardPlayedByUser, setBonusCardPlayedByUser] = useState<Set<string>>(new Set())
+  const [bonusCardPlayByUser, setBonusCardPlayByUser] = useState<Record<string, { gameweek_id: string; player_id: number; fixture_id: number | null; points: number | null }>>({})
+  const [bonusCardName, setBonusCardName] = useState<string | null>(null)
   const [avgByGw, setAvgByGw] = useState<Record<number, number>>({})
   const [submittedKeys, setSubmittedKeys] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -103,14 +107,14 @@ export default function LeaderboardPage() {
 
     const { data: comp } = await supabase
       .from('competitions')
-      .select('id, name')
+      .select('id, name, bonus_card_enabled, bonus_card_player_id, bonus_card_name')
       .eq('status', 'active')
       .single()
 
     if (!comp) { setLoading(false); return }
     setCompetition(comp)
 
-    const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: rawPicks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }, { data: fixtures }, { data: submissions }, { data: aonPicks }] = await Promise.all([
+    const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: rawPicks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }, { data: fixtures }, { data: submissions }, { data: aonPicks }, { data: bonusCardPlays }] = await Promise.all([
       supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id).eq('removed', false),
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
@@ -130,7 +134,11 @@ export default function LeaderboardPage() {
       // Same table Results reads (there per-gameweek, here for the whole
       // competition at once) so the per-gameweek dropdown can show who
       // played All-or-Nothing, not just whether they ever have this season.
-      supabase.from('all_or_nothing_picks').select('user_id, gameweek_id, player_id, outcome').eq('competition_id', comp.id)
+      supabase.from('all_or_nothing_picks').select('user_id, gameweek_id, player_id, outcome').eq('competition_id', comp.id),
+      // Same table Results reads — every play across the whole competition,
+      // so both the "have they used it" status chip and the total-points
+      // summation below can be computed without a second round trip.
+      supabase.from('bonus_card_plays').select('user_id, gameweek_id, player_id, fixture_id, points').eq('competition_id', comp.id)
     ])
 
     // Kept as its own request, deliberately separate from the profiles query
@@ -283,6 +291,12 @@ export default function LeaderboardPage() {
     const { data: aonStatus } = await supabase.from('all_or_nothing_status').select('user_id').eq('competition_id', comp.id)
     setAonUsedByPlayer(new Set((aonStatus ?? []).map(a => a.user_id)))
 
+    setBonusCardPlayedByUser(new Set((bonusCardPlays ?? []).map(p => p.user_id)))
+    const bonusCardPlayMap: Record<string, { gameweek_id: string; player_id: number; fixture_id: number | null; points: number | null }> = {}
+    bonusCardPlays?.forEach(p => { bonusCardPlayMap[p.user_id] = p })
+    setBonusCardPlayByUser(bonusCardPlayMap)
+    setBonusCardName(bonusCardDisplayName(comp.bonus_card_name, comp.bonus_card_player_id != null ? playerMap[comp.bonus_card_player_id] : null))
+
     const gwPointsMap: Record<string, Record<string, number>> = {}
     pointsData?.forEach(p => {
       if (!gwPointsMap[p.gameweek_id]) gwPointsMap[p.gameweek_id] = {}
@@ -328,6 +342,7 @@ export default function LeaderboardPage() {
         team_points: 0,
         player_points: 0,
         banker_points: 0,
+        bonus_card_points: 0,
         total_points: 0,
         points_without_banker: 0,
         goals: 0,
@@ -366,6 +381,18 @@ export default function LeaderboardPage() {
 
       const gwNum = gwMap[p.gameweek_id]
       if (gwNum) t.weekly_points[gwNum] = p.total_points ?? 0
+    })
+
+    // Bonus Card points are real points but deliberately NOT folded into
+    // weekly_points above — the owner confirmed the card shouldn't count
+    // toward the "best single gameweek score" tiebreaker, only toward the
+    // actual ranking totals below.
+    bonusCardPlays?.forEach(play => {
+      const t = totals[play.user_id]
+      if (!t || play.points == null) return
+      t.bonus_card_points += play.points
+      t.total_points += play.points
+      t.points_without_banker += play.points
     })
 
     // Tiebreaker #3: best single gameweek score, banker included — already
@@ -529,6 +556,10 @@ export default function LeaderboardPage() {
   }
 
   if (popArt) {
+    // Only take up a column/chip for this when the competition has actually
+    // configured a player at some point — most competitions won't use this
+    // feature, and an always-present empty column would be pure clutter.
+    const showBonusCard = competition?.bonus_card_player_id != null
     return (
       <>
         <Shell active="LEADERBOARD" user={user} displayName={displayName} theme="pop-art">
@@ -549,7 +580,7 @@ export default function LeaderboardPage() {
 
             {potwUserId && (
               <div className="pop-panel pop-panel--pink p-4 mb-6 flex items-center gap-3">
-                <CrownIcon size={26} />
+                <CrownIcon size={26} color="var(--pop-green)" />
                 <div>
                   <p className="pop-headline text-xs" style={{ color: 'var(--pop-pink)' }}>Current Leader</p>
                   <p className="font-black uppercase">{ranked[0]?.display_name}</p>
@@ -567,13 +598,16 @@ export default function LeaderboardPage() {
                 <thead>
                   <tr className="text-left" style={{ fontSize: '9.5px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
                     <th className="py-2 pl-1.5 pr-1 sm:px-2 uppercase tracking-wider" style={{ width: '7%' }}>#</th>
-                    <th className="py-2 px-1 sm:px-2 uppercase tracking-wider" style={{ width: '32%' }}>Player</th>
+                    <th className="py-2 px-1 sm:px-2 uppercase tracking-wider" style={{ width: showBonusCard ? '27%' : '32%' }}>Player</th>
                     <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider" style={{ width: '8.5%' }}>HW</th>
                     <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider" style={{ width: '8.5%' }}>AW</th>
                     <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '9%' }} title="Best single-gameweek score (tiebreaker #3)">Best</th>
                     <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Tm</th>
                     <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Pl</th>
                     <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Bk</th>
+                    {showBonusCard && (
+                      <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '5%' }} title={bonusCardName ?? undefined}>BC</th>
+                    )}
                     <th className="py-2 pl-1 pr-1.5 sm:px-2 text-right uppercase tracking-wider font-black" style={{ width: '9.5%' }}>Tot</th>
                   </tr>
                 </thead>
@@ -601,7 +635,7 @@ export default function LeaderboardPage() {
                               />
                               <span>{player.display_name}</span>
                               {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
-                              {index === 0 && <CrownIcon size={13} />}
+                              {index === 0 && <CrownIcon size={13} color="var(--pop-green)" />}
                               {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={13} /></span>}
                               <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '8px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                             </div>
@@ -612,11 +646,14 @@ export default function LeaderboardPage() {
                           <td className="py-2 px-1 sm:px-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{Math.round(player.team_points)}</td>
                           <td className="py-2 px-1 sm:px-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{Math.round(player.player_points)}</td>
                           <td className="py-2 px-1 sm:px-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{Math.round(player.banker_points)}</td>
+                          {showBonusCard && (
+                            <td className="py-2 px-1 sm:px-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{Math.round(player.bonus_card_points) || '—'}</td>
+                          )}
                           <td className="py-2 pl-1 pr-1.5 sm:px-2 text-right font-black font-mono" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums' }}>{player.total_points}</td>
                         </tr>
                         {expandedUser === player.user_id && (
                           <tr>
-                            <td colSpan={9} className="px-1.5 sm:px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
+                            <td colSpan={showBonusCard ? 10 : 9} className="px-1.5 sm:px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
                               <div className="flex items-center justify-between gap-3 mb-4 pb-3 flex-wrap" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
                                 <KitBadge
                                   pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
@@ -642,6 +679,16 @@ export default function LeaderboardPage() {
                                     <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>All or Nothing</p>
                                     <p className="text-sm font-black" style={{ color: 'var(--pop-pink)' }}>{aonUsedByPlayer.has(player.user_id) ? 'Used' : 'Available'}</p>
                                   </div>
+                                  {showBonusCard && (
+                                    <div className="text-right">
+                                      <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>{bonusCardName}</p>
+                                      <p className="text-sm font-black" style={{ color: 'var(--pop-pink)' }}>
+                                        {bonusCardPlayedByUser.has(player.user_id)
+                                          ? `Used${bonusCardPlayByUser[player.user_id] ? ` — GW${allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}` : ''}`
+                                          : 'Available'}
+                                      </p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               {allGameweeks.length === 0 ? (
@@ -805,6 +852,8 @@ export default function LeaderboardPage() {
               <span className="inline-flex items-center gap-1"><FlameIcon size={11} /> Streak (3+ wks above avg)</span>
               <span className="mx-2">·</span>
               <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — computer picked it (deadline passed, no pick made)
+              <span className="mx-2">·</span>
+              <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-white)' }}>★</span> Banker declared — doubles that gameweek's score
               <span className="mx-2">·</span>
               <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-pink)', color: 'var(--pop-white)' }}><BoltIcon size={9} color="var(--pop-white)" /> AoN</span> All or Nothing played, result pending
               <span className="mx-2">·</span>

@@ -98,6 +98,7 @@ export default async function AdminLayout({
                 <a href="/admin/help/weekly" className="block hover:text-white">Weekly Routine</a>
                 <a href="/admin/help/pre-season" className="block hover:text-white">New Season Setup</a>
                 <a href="/admin/help/deploying-changes" className="block hover:text-white">Making Changes Yourself</a>
+                <a href="/admin/help/bonus-card" className="block hover:text-white">The Bonus Card</a>
               </div>
             </div>
 
