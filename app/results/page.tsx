@@ -10,6 +10,8 @@ import { buildPlayerDisplayNames } from '../lib/players'
 import GameweekRecapCard from '../../components/GameweekRecapCard'
 import PopArtLoading from '../../components/PopArtLoading'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
+import { CrownIcon, CheckIcon, CrossIcon, BoltIcon } from '../../components/icons'
+import { QUARTILE_RING_COLORS } from '../lib/quartileColors'
 
 type Gameweek = {
   id: string
@@ -405,12 +407,12 @@ export default function ResultsPage() {
       <Shell active="RESULTS" user={user} displayName={displayName} theme="pop-art">
         <div className="pop-art-theme">
 
-          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-1 mt-2">Results</h1>
+          <h1 className="pop-hero pop-hero--blue pop-hero-texture text-5xl sm:text-6xl mb-1 mt-2">Results</h1>
           <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name}</p>
 
           {potwUserId && (
             <div className="pop-panel pop-panel--yellow p-4 mb-5 flex items-center gap-3">
-              <span className="text-2xl">👑</span>
+              <CrownIcon size={26} />
               <div>
                 <p className="pop-headline text-xs" style={{ color: 'var(--pop-yellow)' }}>Season Leader</p>
                 <p className="font-black uppercase">{profiles[potwUserId] ?? 'Unknown'}</p>
@@ -420,7 +422,7 @@ export default function ResultsPage() {
 
           {gameweeks.length === 0 ? (
             <div className="pop-panel p-6">
-              <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>No gameweeks have passed their deadline yet.</p>
+              <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>First results land once GW1&apos;s deadline passes.</p>
             </div>
           ) : (
             <>
@@ -503,9 +505,16 @@ export default function ResultsPage() {
                             <div className="flex items-center gap-1.5 text-xs uppercase flex-wrap min-w-0">
                               <TeamCrest crestUrl={teams[f.home_team_id]?.crest_url ?? null} teamName={teams[f.home_team_id]?.name ?? ''} size={16} />
                               <span className="font-black">{teamDisplayName(teams[f.home_team_id])}</span>
-                              <span className="font-black shrink-0" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                                {played ? `${f.home_score} - ${f.away_score}` : 'vs'}
-                              </span>
+                              {played ? (
+                                <span
+                                  className="font-mono font-bold shrink-0 rounded"
+                                  style={{ color: 'var(--pop-white)', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', padding: '2px 8px', fontVariantNumeric: 'tabular-nums' }}
+                                >
+                                  {f.home_score} – {f.away_score}
+                                </span>
+                              ) : (
+                                <span className="font-black shrink-0" style={{ color: 'rgba(255,255,255,0.4)' }}>vs</span>
+                              )}
                               <span className="font-black">{teamDisplayName(teams[f.away_team_id])}</span>
                               <TeamCrest crestUrl={teams[f.away_team_id]?.crest_url ?? null} teamName={teams[f.away_team_id]?.name ?? ''} size={16} />
                               {!played && <span className="normal-case shrink-0" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}>Not played yet</span>}
@@ -599,7 +608,7 @@ export default function ResultsPage() {
                 </div>
               ) : sortedPicks.length === 0 ? (
                 <div className="pop-panel p-6">
-                  <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>No picks for this gameweek.</p>
+                  <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>Nobody picked for this one yet.</p>
                 </div>
               ) : (
                 <div className="pop-panel mb-3" style={{ overflow: 'hidden' }}>
@@ -617,7 +626,11 @@ export default function ResultsPage() {
                       : aon?.outcome === 'failed'
                       ? { background: 'var(--pop-red)', color: 'var(--pop-white)' }
                       : { background: 'var(--pop-pink)', color: 'var(--pop-white)' }
-                    const aonLabel = aon?.outcome === 'success' ? '✓ AoN' : aon?.outcome === 'failed' ? '✕ AoN' : '⚡ AoN'
+                    const aonIcon = aon?.outcome === 'success'
+                      ? <CheckIcon size={9} color="var(--pop-black)" />
+                      : aon?.outcome === 'failed'
+                      ? <CrossIcon size={9} color="var(--pop-white)" />
+                      : <BoltIcon size={9} color="var(--pop-white)" />
 
                     return (
                       <div
@@ -635,20 +648,21 @@ export default function ResultsPage() {
                               size={14}
                             />
                             <span className="truncate">{profiles[pick.user_id] ?? 'Unknown'}</span>
+                            {isOwnPick && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px] shrink-0">You</span>}
                             {(pick.provisional || pick.is_autopick) && (
                               <span className="px-1 rounded shrink-0" style={{ fontSize: '9px', background: 'rgba(255,255,255,0.15)' }} title="No pick was made in time, so the computer picked automatically">AP</span>
                             )}
                           </div>
                           {showScoring && (
-                            <span className="font-black shrink-0" style={{ color: 'var(--pop-green)' }}>{pts?.total_points ?? '—'} pts</span>
+                            <span className="font-black font-mono shrink-0" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums' }}>{pts?.total_points ?? '—'} pts</span>
                           )}
                         </div>
 
                         <div className="flex items-center gap-1 uppercase flex-wrap">
-                          <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={15} />
+                          <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={15} ringColor={pts?.breakdown?.team_detail?.team_quartile ? QUARTILE_RING_COLORS[`Q${pts.breakdown.team_detail.team_quartile}`] : undefined} />
                           <span>{teamDisplayName(t)}</span>
                           {pick.is_banker && <span className="font-black px-1 rounded" style={{ fontSize: '9px', background: 'var(--pop-yellow)', color: 'var(--pop-black)' }}>★ BANKER</span>}
-                          {showScoring && <span className="ml-auto" style={{ color: 'rgba(255,255,255,0.5)' }}>{pts?.team_points ?? '—'} pts</span>}
+                          {showScoring && <span className="ml-auto font-mono" style={{ color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>{pts?.team_points ?? '—'} pts</span>}
                         </div>
                         {showScoring && pts?.breakdown?.team_detail?.opponent_team_id != null && (
                           <div className="normal-case mt-0.5" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>
@@ -676,15 +690,15 @@ export default function ResultsPage() {
                             {players[pick.player1_id] ?? 'Unknown'}
                             {goalPlayers.has(pick.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
                             {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span>}
-                            {aon?.player_id === pick.player1_id && <span className="ml-0.5 px-1 rounded font-black" style={{ fontSize: '9px', ...aonStyle }}>{aonLabel}</span>}
-                            {showScoring && <span className="normal-case ml-1" style={{ color: 'rgba(255,255,255,0.5)' }}>({pts?.player1_points ?? '—'} pts)</span>}
+                            {aon?.player_id === pick.player1_id && <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '9px', ...aonStyle }}>{aonIcon} AoN</span>}
+                            {showScoring && <span className="normal-case ml-1 font-mono" style={{ color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>({pts?.player1_points ?? '—'} pts)</span>}
                           </span>
                           <span>
                             {players[pick.player2_id] ?? 'Unknown'}
                             {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
                             {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span>}
-                            {aon?.player_id === pick.player2_id && <span className="ml-0.5 px-1 rounded font-black" style={{ fontSize: '9px', ...aonStyle }}>{aonLabel}</span>}
-                            {showScoring && <span className="normal-case ml-1" style={{ color: 'rgba(255,255,255,0.5)' }}>({pts?.player2_points ?? '—'} pts)</span>}
+                            {aon?.player_id === pick.player2_id && <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '9px', ...aonStyle }}>{aonIcon} AoN</span>}
+                            {showScoring && <span className="normal-case ml-1 font-mono" style={{ color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>({pts?.player2_points ?? '—'} pts)</span>}
                           </span>
                         </div>
 
@@ -709,11 +723,11 @@ export default function ResultsPage() {
                     <span className="mx-2">·</span>
                     <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — computer picked it (deadline passed, no pick made)
                     <span className="mx-2">·</span>
-                    <span className="px-1 rounded font-black" style={{ background: 'var(--pop-pink)', color: 'var(--pop-white)' }}>⚡ AoN</span> All or Nothing played, result pending
+                    <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-pink)', color: 'var(--pop-white)' }}><BoltIcon size={9} color="var(--pop-white)" /> AoN</span> All or Nothing played, result pending
                     <span className="mx-2">·</span>
-                    <span className="px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>✓ AoN</span> succeeded
+                    <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}><CheckIcon size={9} color="var(--pop-black)" /> AoN</span> succeeded
                     <span className="mx-2">·</span>
-                    <span className="px-1 rounded font-black" style={{ background: 'var(--pop-red)', color: 'var(--pop-white)' }}>✕ AoN</span> failed
+                    <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-red)', color: 'var(--pop-white)' }}><CrossIcon size={9} color="var(--pop-white)" /> AoN</span> failed
                   </div>
                 </div>
               )}

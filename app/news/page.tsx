@@ -85,7 +85,7 @@ export default function NewsListPage() {
         <div className="pop-art-theme">
 
           <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
-            <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">News</h1>
+            <h1 className="pop-hero pop-hero--blue pop-hero-texture text-5xl sm:text-6xl">News</h1>
             <div className="flex gap-2 flex-wrap">
               {canWrite && (
                 <Link href="/news/write" className="pop-button pop-button--yellow px-3 py-1.5 text-xs">
@@ -103,7 +103,7 @@ export default function NewsListPage() {
 
           {posts.length === 0 ? (
             <div className="pop-panel p-6">
-              <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>No articles published yet.</p>
+              <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>Nothing published yet — check back after the next gameweek.</p>
             </div>
           ) : (
             <div className="space-y-3">

@@ -7,6 +7,7 @@ import Shell from '../../components/ceefax-shell'
 import PopArtLoading from '../../../components/PopArtLoading'
 import { usePopArtTheme } from '../../lib/usePopArtTheme'
 import Link from 'next/link'
+import { TrophyIcon } from '../../../components/icons'
 
 type RankedPlayer = {
   user_id: string
@@ -233,7 +234,7 @@ export default function ArchivedCompetitionPage() {
                       <td className="py-3 pl-3 pr-1" style={{ color: 'rgba(255,255,255,0.35)' }}>{index + 1}</td>
                       <td className="py-3 px-1 font-black" style={{ wordBreak: 'break-word' }}>
                         {player.display_name}
-                        {index === 0 && <span className="ml-2">🏆</span>}
+                        {index === 0 && <span className="ml-2 inline-flex"><TrophyIcon size={13} /></span>}
                         <span className="ml-2 text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                       </td>
                       <td className="py-3 px-1 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.home_wins}</td>

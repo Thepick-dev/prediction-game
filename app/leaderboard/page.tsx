@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
+import { CrownIcon, FlameIcon } from '../../components/icons'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
@@ -525,7 +526,7 @@ export default function LeaderboardPage() {
           <div className="pop-art-theme">
 
             <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
-              <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">Leaderboard</h1>
+              <h1 className="pop-hero pop-hero--blue pop-hero-texture text-5xl sm:text-6xl">Leaderboard</h1>
               {ranked.length > 0 && (
                 <button
                   onClick={() => setShowShare(true)}
@@ -539,7 +540,7 @@ export default function LeaderboardPage() {
 
             {potwUserId && (
               <div className="pop-panel pop-panel--yellow p-4 mb-6 flex items-center gap-3">
-                <span className="text-2xl">👑</span>
+                <CrownIcon size={26} />
                 <div>
                   <p className="pop-headline text-xs" style={{ color: 'var(--pop-yellow)' }}>Current Leader</p>
                   <p className="font-black uppercase">{ranked[0]?.display_name}</p>
@@ -590,18 +591,19 @@ export default function LeaderboardPage() {
                                 size={14}
                               />
                               <span>{player.display_name}</span>
-                              {index === 0 && <span style={{ color: 'var(--pop-yellow)' }}>👑</span>}
-                              {streak && <span title={`${streak} weeks above average`}>🔥</span>}
+                              {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
+                              {index === 0 && <CrownIcon size={13} />}
+                              {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={13} /></span>}
                               <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '8px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                             </div>
                           </td>
-                          <td className="py-2 px-1 sm:px-2 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.home_wins}</td>
-                          <td className="py-2 px-1 sm:px-2 text-center" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.away_wins}</td>
-                          <td className="py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{player.best_gameweek_score}</td>
-                          <td className="py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.team_points)}</td>
-                          <td className="py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.player_points)}</td>
-                          <td className="py-2 px-1 sm:px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{Math.round(player.banker_points)}</td>
-                          <td className="py-2 pl-1 pr-1.5 sm:px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{player.total_points}</td>
+                          <td className="py-2 px-1 sm:px-2 text-center font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{player.home_wins}</td>
+                          <td className="py-2 px-1 sm:px-2 text-center font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{player.away_wins}</td>
+                          <td className="py-2 px-1 sm:px-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{player.best_gameweek_score}</td>
+                          <td className="py-2 px-1 sm:px-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{Math.round(player.team_points)}</td>
+                          <td className="py-2 px-1 sm:px-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{Math.round(player.player_points)}</td>
+                          <td className="py-2 px-1 sm:px-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{Math.round(player.banker_points)}</td>
+                          <td className="py-2 pl-1 pr-1.5 sm:px-2 text-right font-black font-mono" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums' }}>{player.total_points}</td>
                         </tr>
                         {expandedUser === player.user_id && (
                           <tr>
@@ -777,11 +779,11 @@ export default function LeaderboardPage() {
               </table>
             </div>
 
-            <div className="mt-3 uppercase tracking-wider" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+            <div className="mt-3 uppercase tracking-wider flex items-center flex-wrap" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
               <span className="font-black mr-2">Key:</span>
-              👑 Leader
+              <span className="inline-flex items-center gap-1"><CrownIcon size={11} /> Leader</span>
               <span className="mx-2">·</span>
-              🔥 Streak (3+ wks above avg)
+              <span className="inline-flex items-center gap-1"><FlameIcon size={11} /> Streak (3+ wks above avg)</span>
               <span className="mx-2">·</span>
               <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — computer picked it (deadline passed, no pick made)
               <span className="mx-2">·</span>

@@ -160,6 +160,24 @@ thead th {
 .pop-hero--blue { text-shadow: 0 0 6px var(--pop-blue), 0 0 22px var(--pop-blue); }
 .pop-hero--green { text-shadow: 0 0 6px var(--pop-green), 0 0 22px var(--pop-green); }
 
+/* A single, deliberately quiet halftone dot-screen behind each page's
+   hero title only — nowhere else in the theme. Static, no motion; masked
+   to fade at the edges so it reads as texture, not a hard-edged pattern.
+   Pink regardless of the title's own glow colour — one consistent ink,
+   like a printed poster's screen tint, not tied to each page's accent. */
+.pop-hero-texture { position: relative; }
+.pop-hero-texture::before {
+  content: '';
+  position: absolute;
+  inset: -10px -16px;
+  background-image: radial-gradient(circle, rgba(213, 0, 109, 0.5) 1px, transparent 1.4px);
+  background-size: 9px 9px;
+  opacity: 0.5;
+  mask-image: radial-gradient(ellipse 70% 85% at center, black 35%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 85% at center, black 35%, transparent 80%);
+  pointer-events: none;
+}
+
 /* Base card — dark surface, thin neutral border, soft ordinary shadow
    for depth. No hard offset "comic" shadow, no coloured fill: colour
    only ever shows up here as a border + glow (the --accent-* variants
@@ -271,6 +289,15 @@ thead th {
 }
 
 .pop-select-btn:focus-visible {
+  outline: 3px solid var(--pop-white);
+  outline-offset: 2px;
+}
+
+/* Same white keyboard-focus ring, applied theme-wide so every clickable
+   element gets it instead of just Picks' own buttons — replaces each
+   browser's mismatched default blue ring. Inputs keep their own existing
+   pink focus treatment (.pop-input:focus below), so they're excluded here. */
+.pop-art-theme :focus-visible:not(.pop-input) {
   outline: 3px solid var(--pop-white);
   outline-offset: 2px;
 }

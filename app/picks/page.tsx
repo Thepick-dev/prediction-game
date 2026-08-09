@@ -11,6 +11,8 @@ import { usePopArtTheme } from '../lib/usePopArtTheme'
 import TicketModal from '../../components/TicketModal'
 import PopArtLoading from '../../components/PopArtLoading'
 import PenaltyShootout from '../../components/PenaltyShootout'
+import { BoltIcon } from '../../components/icons'
+import { QUARTILE_RING_COLORS } from '../lib/quartileColors'
 
 // Cycled across the fixture list as a left-edge accent stripe only — same
 // palette as everywhere else in the theme, just breaking up a long list of
@@ -612,6 +614,11 @@ export default function PicksPage() {
     return q ? `Q${q}` : null
   }
 
+  function getQuartileRingColor(teamId: number) {
+    const q = getQuartileLabel(teamId)
+    return q ? QUARTILE_RING_COLORS[q] : undefined
+  }
+
   // Same maths as the real scoring engine (app/lib/scoring.ts) — quartile
   // diff is "our team's quartile minus the opponent's", clamped to ±3, so a
   // positive diff means we were the weaker side (beating/drawing a stronger
@@ -745,7 +752,7 @@ export default function PicksPage() {
             )}
 
             <div className="flex items-start justify-between gap-3 flex-wrap mb-4 sm:mb-6 mt-2">
-              <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">Picks</h1>
+              <h1 className="pop-hero pop-hero--blue pop-hero-texture text-5xl sm:text-6xl">Picks</h1>
               {user && (
                 <button
                   onClick={() => setShootoutOpen(true)}
@@ -807,7 +814,7 @@ export default function PicksPage() {
                               color: homeSelected ? 'var(--pop-black)' : homeStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
                             }}
                           >
-                            <TeamCrest crestUrl={homeTeam?.crest_url ?? null} teamName={teamDisplayName(homeTeam)} size={52} />
+                            <TeamCrest crestUrl={homeTeam?.crest_url ?? null} teamName={teamDisplayName(homeTeam)} size={52} ringColor={getQuartileRingColor(fixture.home_team_id)} />
                             <div className="flex items-center gap-1.5 flex-wrap justify-center min-h-[18px]">
                               {homeQ && <span className={`pop-badge ${popQuartileBadgeClass[homeQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{homeQ}</span>}
                               <span className="font-mono text-[9px]" style={{ color: homeSelected ? 'rgba(0,0,0,0.6)' : homeStatus.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.55)' }}>{homeStatus.isUsed ? 'used' : `${homeStatus.remaining}/${homeStatus.maxUses} left`}</span>
@@ -825,7 +832,7 @@ export default function PicksPage() {
                               color: awaySelected ? 'var(--pop-black)' : awayStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
                             }}
                           >
-                            <TeamCrest crestUrl={awayTeam?.crest_url ?? null} teamName={teamDisplayName(awayTeam)} size={52} />
+                            <TeamCrest crestUrl={awayTeam?.crest_url ?? null} teamName={teamDisplayName(awayTeam)} size={52} ringColor={getQuartileRingColor(fixture.away_team_id)} />
                             <div className="flex items-center gap-1.5 flex-wrap justify-center min-h-[18px]">
                               {awayQ && <span className={`pop-badge ${popQuartileBadgeClass[awayQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{awayQ}</span>}
                               <span className="font-mono text-[9px]" style={{ color: awaySelected ? 'rgba(0,0,0,0.6)' : awayStatus.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.55)' }}>{awayStatus.isUsed ? 'used' : `${awayStatus.remaining}/${awayStatus.maxUses} left`}</span>
@@ -905,7 +912,7 @@ export default function PicksPage() {
                             {!aonCardSpentElsewhere && (
                               aonChoice === player1 ? (
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="pop-badge pop-badge--pink px-3 py-1.5 text-xs">⚡ Playing All or Nothing on {playerName(player1)}</span>
+                                  <span className="pop-badge pop-badge--pink px-3 py-1.5 text-xs inline-flex items-center gap-1"><BoltIcon size={12} color="var(--pop-white)" /> Playing All or Nothing on {playerName(player1)}</span>
                                   <button onClick={() => setAonChoice(null)} className="pop-button pop-button--yellow px-3 py-1.5 text-xs">Cancel</button>
                                 </div>
                               ) : (
@@ -1003,7 +1010,7 @@ export default function PicksPage() {
                             {!aonCardSpentElsewhere && (
                               aonChoice === player2 ? (
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="pop-badge pop-badge--pink px-3 py-1.5 text-xs">⚡ Playing All or Nothing on {playerName(player2)}</span>
+                                  <span className="pop-badge pop-badge--pink px-3 py-1.5 text-xs inline-flex items-center gap-1"><BoltIcon size={12} color="var(--pop-white)" /> Playing All or Nothing on {playerName(player2)}</span>
                                   <button onClick={() => setAonChoice(null)} className="pop-button pop-button--yellow px-3 py-1.5 text-xs">Cancel</button>
                                 </div>
                               ) : (
@@ -1136,7 +1143,7 @@ export default function PicksPage() {
                           <div className="flex items-center justify-between rounded-lg p-2.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
                             <span className="font-mono text-xs uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>Team</span>
                             <span className="font-black text-sm flex items-center gap-2">
-                              <TeamCrest crestUrl={getTeam(selectedTeam)?.crest_url ?? null} teamName={getTeam(selectedTeam)?.name ?? ''} size={20} />
+                              <TeamCrest crestUrl={getTeam(selectedTeam)?.crest_url ?? null} teamName={getTeam(selectedTeam)?.name ?? ''} size={20} ringColor={getQuartileRingColor(selectedTeam)} />
                               {teamDisplayName(getTeam(selectedTeam))}
                             </span>
                           </div>
