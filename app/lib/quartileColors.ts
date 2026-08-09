@@ -6,5 +6,5 @@ export const QUARTILE_RING_COLORS: Record<string, string> = {
   Q1: 'var(--pop-blue)',
   Q2: 'var(--pop-green)',
   Q3: 'var(--pop-yellow)',
-  Q4: 'var(--pop-red)',
+  Q4: 'var(--pop-orange)',
 }

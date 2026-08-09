@@ -664,7 +664,7 @@ export default function PicksPage() {
     Q1: 'pop-badge--blue',
     Q2: 'pop-badge--green',
     Q3: '',
-    Q4: 'pop-badge--red',
+    Q4: 'pop-badge--orange',
   }
 
   // Every fixture row uses the same plain dark card now — cycling a

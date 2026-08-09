@@ -242,6 +242,7 @@ thead th {
 .pop-badge--blue { background: var(--pop-blue); color: var(--pop-black); }
 .pop-badge--green { background: var(--pop-green); color: var(--pop-black); }
 .pop-badge--red { background: var(--pop-red); color: var(--pop-white); }
+.pop-badge--orange { background: var(--pop-orange); color: var(--pop-black); }
 
 /* The countdown clock's seconds chip only — a transform-only bounce, not
    a glow, so it never competes with .pop-panel--pulse for attention even
