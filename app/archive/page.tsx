@@ -12,17 +12,17 @@ import Link from 'next/link'
 type PastCompetition = { id: string; name: string; season: string; start_date: string | null; end_date: string | null; manual_winner: string | null; manual_winner_note: string | null }
 type Honour = { season: string; competition_name: string; winner: string; notes: string | null }
 
-// One consistent "trophy" identity — a warm orange badge, reused
-// everywhere a winner's name appears on this page — rather than cycling
+// One consistent "trophy" identity per competition — a warm orange badge
+// for LMS, a lime/blue two-tone badge for IC — rather than cycling
 // through random colours per row, which had no actual meaning behind
 // which name got which colour.
-function TrophyBadge({ name }: { name: string }) {
+function TrophyBadge({ name, ic = false }: { name: string; ic?: boolean }) {
+  const style = ic
+    ? { background: 'rgba(0,242,250,0.12)', border: '1px solid rgba(204,250,0,0.5)', color: 'var(--pop-green)' }
+    : { background: 'rgba(250,97,0,0.15)', border: '1px solid rgba(250,97,0,0.4)', color: 'var(--pop-orange)' }
   return (
-    <span
-      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-black"
-      style={{ background: 'rgba(250,97,0,0.15)', color: 'var(--pop-orange)', border: '1px solid rgba(250,97,0,0.4)' }}
-    >
-      <TrophyIcon size={12} /> {name}
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-black" style={style}>
+      <TrophyIcon size={12} color={ic ? 'var(--pop-blue)' : 'var(--pop-orange)'} /> {name}
     </span>
   )
 }
@@ -131,7 +131,7 @@ export default function ArchivePage() {
                         <tr key={i} style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.1)' : undefined }}>
                           <td className="py-2 px-4" style={{ color: 'rgba(255,255,255,0.5)' }}>{h.season}</td>
                           <td className="py-2 px-4">{h.competition_name}</td>
-                          <td className="py-2 px-4"><TrophyBadge name={h.winner} /></td>
+                          <td className="py-2 px-4"><TrophyBadge name={h.winner} ic={h.competition_name === 'IC'} /></td>
                         </tr>
                       ))}
                     </tbody>
