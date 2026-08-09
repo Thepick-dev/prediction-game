@@ -10,22 +10,27 @@ interface KitPreviewProps {
   // same treatment; kept in sync so the header badge and this preview
   // always show the same number.
   topScore?: number
+  // Override the default gold star colour — same purpose and pattern as
+  // KitBadge's own starColor prop. The gold reads fine on the classic
+  // theme but has no contrast against pop-art's own palette, so a
+  // pop-art caller passes something with actual contrast.
+  starColor?: string
 }
 
 // Actual repeated icons, not a "x3" count — shown prominently right next
 // to the shirt (this preview has plenty of room, so a bigger size than the
 // compact header/table badge).
-function BadgeStats({ stars, earths }: { stars: number; earths: number }) {
+function BadgeStats({ stars, earths, starColor }: { stars: number; earths: number; starColor: string }) {
   if (!stars && !earths) return null
   return (
     <div className="flex flex-col gap-1.5 text-left" style={{ fontSize: '22px' }}>
-      {stars > 0 && <div style={{ color: '#D9A441' }}>{'★'.repeat(stars)}</div>}
+      {stars > 0 && <div style={{ color: starColor }}>{'★'.repeat(stars)}</div>}
       {earths > 0 && <div>{'🌍'.repeat(earths)}</div>}
     </div>
   )
 }
 
-export default function KitPreview({ pattern, colour1, colour2, colour3, stars = 0, earths = 0, size = 120, topScore }: KitPreviewProps) {
+export default function KitPreview({ pattern, colour1, colour2, colour3, stars = 0, earths = 0, size = 120, topScore, starColor = '#D9A441' }: KitPreviewProps) {
   const shirtPath = "M8 2 L11 2 L12 4 L16 4 L17 2 L20 2 L26 7 L23 11 L20 9 L20 24 L8 24 L8 9 L5 11 L2 7 Z"
   const shortsPath = "M8 25 L20 25 L20 33 L15 33 L14 30 L13 33 L8 33 Z"
   const leftSockPath = "M9 34 L13 34 L13 46 L9 46 Z"
@@ -155,7 +160,7 @@ export default function KitPreview({ pattern, colour1, colour2, colour3, stars =
         <path d={leftSockPath} fill={colour1} stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
         <path d={rightSockPath} fill={colour1} stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
       </svg>
-      <BadgeStats stars={stars} earths={earths} />
+      <BadgeStats stars={stars} earths={earths} starColor={starColor} />
     </div>
   )
 }

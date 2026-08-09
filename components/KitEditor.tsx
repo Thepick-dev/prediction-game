@@ -193,7 +193,7 @@ export default function KitEditor({
   return (
     <div>
       <div className={isPopArt ? 'pop-panel rounded-xl p-4 mb-3 flex justify-center' : 'flex justify-center mb-3'}>
-        <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={compact ? 120 : 160} topScore={topScore} />
+        <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={compact ? 120 : 160} topScore={topScore} starColor={isPopArt ? 'var(--pop-pink)' : undefined} />
       </div>
       {(kitStars > 0 || kitEarths > 0) && (
         <p

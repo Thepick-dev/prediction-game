@@ -234,10 +234,11 @@ thead th {
 .pop-badge--green { background: var(--pop-green); color: var(--pop-black); }
 .pop-badge--red { background: var(--pop-red); color: var(--pop-white); }
 
-/* Countdown clock — a once-a-second border/glow tick, distinct from
-   .pop-panel--pulse's slower 2.4s breathing glow used elsewhere, so this
-   one reads as "the clock is actually ticking" rather than just idle
-   decoration. */
+/* Unused since the countdown clock's "live" cue moved to a scale pulse
+   on the seconds chip alone (see .pop-second-tick below) — a border/glow
+   flash on the whole box competed with the deadline panel's own animated
+   pulse right next to it. Kept as a no-op rather than deleted, same
+   precedent as .pop-rotate-l/r. */
 @keyframes pop-countdown-tick {
   0%, 100% { border-color: rgba(213, 0, 109, 0.35); box-shadow: 0 0 6px rgba(213, 0, 109, 0.25); }
   50% { border-color: var(--pop-pink); box-shadow: 0 0 16px rgba(213, 0, 109, 0.8); }
@@ -246,6 +247,19 @@ thead th {
   border: 2px solid rgba(213, 0, 109, 0.35);
   border-radius: 12px;
   animation: pop-countdown-tick 1s ease-in-out infinite;
+}
+
+/* The countdown clock's seconds chip only — a transform-only bounce, not
+   a glow, so it never competes with .pop-panel--pulse for attention even
+   though both can be on screen together (the clock sits inside the
+   pulsing deadline panel). Tied specifically to the one unit that's
+   actually changing every tick. */
+@keyframes pop-second-tick {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+.pop-second-tick {
+  animation: pop-second-tick 1s ease-in-out infinite;
 }
 
 /* Buttons are actions, not passive content — a bold filled colour here

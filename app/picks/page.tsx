@@ -58,18 +58,26 @@ function CountdownClock({ time, theme = 'classic' }: { time: CountdownTime | nul
     }
     // Each unit gets its own colour off the same palette used everywhere
     // else in this theme, rather than every badge being the same flat
-    // yellow — and the whole clock ticks with a once-a-second border
-    // flash (.pop-countdown-box) so it visibly reads as live, not static.
+    // yellow. The clock's "this is live" cue lives on the seconds chip
+    // alone now (a scale pulse, not a glow) — it used to be a once-a-
+    // second border/glow flash on the whole box, but that competed with
+    // the deadline panel's own animated pulse right next to it. Seconds
+    // is also the only unit actually changing every tick, so tying the
+    // motion to it specifically reads as "ticking," not just decoration.
     const units = [
       { label: 'D', value: time.days, bg: 'var(--pop-pink)', fg: 'var(--pop-white)' },
       { label: 'H', value: time.hours, bg: 'var(--pop-blue)', fg: 'var(--pop-black)' },
       { label: 'M', value: time.mins, bg: 'var(--pop-green)', fg: 'var(--pop-black)' },
-      { label: 'S', value: time.secs, bg: 'var(--pop-orange)', fg: 'var(--pop-black)' },
+      { label: 'S', value: time.secs, bg: 'var(--pop-orange)', fg: 'var(--pop-black)', pulse: true },
     ]
     return (
-      <div className="pop-countdown-box flex items-center gap-1.5 px-1.5 py-1">
+      <div className="flex items-center gap-1.5 px-1.5 py-1">
         {units.map(u => (
-          <div key={u.label} className="flex flex-col items-center px-2.5 py-1 leading-tight" style={{ background: u.bg, color: u.fg, borderRadius: 999 }}>
+          <div
+            key={u.label}
+            className={`flex flex-col items-center px-2.5 py-1 leading-tight ${u.pulse ? 'pop-second-tick' : ''}`}
+            style={{ background: u.bg, color: u.fg, borderRadius: 999 }}
+          >
             <span className="font-mono text-sm font-bold">{String(u.value).padStart(2, '0')}</span>
             <span className="text-[8px]">{u.label}</span>
           </div>
@@ -736,7 +744,7 @@ export default function PicksPage() {
               </div>
             )}
 
-            <div className="flex items-start justify-between gap-3 flex-wrap mb-6 mt-2">
+            <div className="flex items-start justify-between gap-3 flex-wrap mb-4 sm:mb-6 mt-2">
               <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">Picks</h1>
               {user && (
                 <button
@@ -749,7 +757,7 @@ export default function PicksPage() {
             </div>
 
             {gameweek && (
-              <div className={`pop-panel pop-panel--pulse ${!deadlinePassed && !hasPick ? 'pop-panel--yellow pop-rotate-r' : 'pop-panel--blue pop-rotate-l'} p-4 mb-6 flex items-center justify-between gap-3 flex-wrap`}>
+              <div className={`pop-panel pop-panel--pulse ${!deadlinePassed && !hasPick ? 'pop-panel--yellow pop-rotate-r' : 'pop-panel--blue pop-rotate-l'} p-3 sm:p-4 mb-4 sm:mb-6 flex items-center justify-between gap-3 flex-wrap`}>
                 <div>
                   <p className="pop-headline text-2xl sm:text-3xl mb-0.5">GW{gameweek.number}</p>
                   <p className="font-black text-xs uppercase">
@@ -766,9 +774,9 @@ export default function PicksPage() {
               </div>
             ) : (
               <>
-                <p className="pop-headline text-2xl sm:text-3xl mb-3">Pick Your Team</p>
+                <p className="pop-headline text-2xl sm:text-3xl mb-2 sm:mb-3">Pick Your Team</p>
                 {hasFixtures ? (
-                  <div className="grid gap-4 mb-6">
+                  <div className="grid gap-3 sm:gap-4 mb-4 sm:mb-6">
                     {fixtures.map((fixture, fixtureIndex) => {
                       const homeStatus = getTeamStatus(fixture.home_team_id)
                       const awayStatus = getTeamStatus(fixture.away_team_id)
@@ -787,11 +795,11 @@ export default function PicksPage() {
                       // the panel's own background or border language.
                       const stripeColor = POP_FIXTURE_STRIPE[fixtureIndex % POP_FIXTURE_STRIPE.length]
                       return (
-                        <div key={fixture.id} className="pop-panel p-3 grid grid-cols-2 gap-3" style={{ borderLeft: `4px solid ${stripeColor}` }}>
+                        <div key={fixture.id} className="pop-panel p-2.5 sm:p-3 grid grid-cols-2 gap-2.5 sm:gap-3" style={{ borderLeft: `4px solid ${stripeColor}` }}>
                           <button
                             onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
                             disabled={homeStatus.isUsed && !homeSelected}
-                            className={`pop-select-btn rounded-lg p-3 flex flex-col items-center justify-between text-center gap-1.5 h-32 sm:h-36 ${homeSelected ? 'pop-pop-in' : ''}`}
+                            className={`pop-select-btn rounded-lg p-2.5 sm:p-3 flex flex-col items-center justify-between text-center gap-1.5 h-28 sm:h-36 ${homeSelected ? 'pop-pop-in' : ''}`}
                             style={{
                               border: homeSelected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
                               boxShadow: homeSelected ? '0 0 20px rgba(0,230,118,0.5)' : 'none',
@@ -809,7 +817,7 @@ export default function PicksPage() {
                           <button
                             onClick={() => !awayStatus.isUsed && selectTeamInFixture(fixture.away_team_id, fixture.id)}
                             disabled={awayStatus.isUsed && !awaySelected}
-                            className={`pop-select-btn rounded-lg p-3 flex flex-col items-center justify-between text-center gap-1.5 h-32 sm:h-36 ${awaySelected ? 'pop-pop-in' : ''}`}
+                            className={`pop-select-btn rounded-lg p-2.5 sm:p-3 flex flex-col items-center justify-between text-center gap-1.5 h-28 sm:h-36 ${awaySelected ? 'pop-pop-in' : ''}`}
                             style={{
                               border: awaySelected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
                               boxShadow: awaySelected ? '0 0 20px rgba(0,230,118,0.5)' : 'none',
