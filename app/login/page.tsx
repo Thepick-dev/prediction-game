@@ -51,6 +51,18 @@ export default function LoginPage() {
       return
     }
 
+    // Re-checked on every login, not just right after signup — otherwise
+    // a not-yet-approved user who's already been sent to /pending once
+    // could freely browse the rest of the site on their next visit.
+    const { data: { user: loggedInUser } } = await supabase.auth.getUser()
+    if (loggedInUser) {
+      const { data: profile } = await supabase.from('profiles').select('approved').eq('id', loggedInUser.id).single()
+      if (profile && !profile.approved) {
+        window.location.href = '/pending'
+        return
+      }
+    }
+
     window.location.href = '/picks'
   }
 

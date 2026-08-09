@@ -24,6 +24,20 @@ export default async function UsersPage({
     .order('approved', { ascending: true })
     .order('pending_since', { ascending: true })
 
+  // Flags pending signups whose account was created after the active
+  // competition's Gameweek 1 deadline — they can't join mid-competition,
+  // so it's worth knowing which pending users are "just waiting their
+  // turn" vs "genuinely can't get in yet" at a glance.
+  const { data: activeComp } = await supabase.from('competitions').select('id').eq('status', 'active').single()
+  let gw1Deadline: string | null = null
+  if (activeComp) {
+    const { data: gw1 } = await supabase.from('gameweeks').select('deadline').eq('competition_id', activeComp.id).eq('number', 1).single()
+    gw1Deadline = gw1?.deadline ?? null
+  }
+  function isLateJoiner(pendingSince: string | null) {
+    return !!pendingSince && !!gw1Deadline && new Date(pendingSince) > new Date(gw1Deadline)
+  }
+
   // Kept as its own request, same defensive-isolation reason as kit_extras
   // below — if these columns ever have a problem, it should only affect
   // these three toggles, never take down the whole page.
@@ -241,7 +255,14 @@ export default async function UsersPage({
               {pending.map(profile => (
                 <tr key={profile.id} className="border-b last:border-0">
                   <td className="py-2 text-sm">{emailMap[profile.id] ?? '—'}</td>
-                  <td className="py-2">{profile.display_name ?? <span className="text-gray-400">Not set</span>}</td>
+                  <td className="py-2">
+                    {profile.display_name ?? <span className="text-gray-400">Not set</span>}
+                    {isLateJoiner(profile.pending_since) && (
+                      <span className="ml-2 text-[10px] font-bold uppercase bg-red-100 text-red-700 rounded px-1.5 py-0.5" title="Signed up after this competition's Gameweek 1 deadline">
+                        Missed GW1
+                      </span>
+                    )}
+                  </td>
                   <td className="py-2 text-xs text-gray-500">
                     {profile.pending_since ? new Date(profile.pending_since).toLocaleDateString('en-GB', {
                       day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London'
