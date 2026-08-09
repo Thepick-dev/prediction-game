@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
-import { CrownIcon, FlameIcon } from '../../components/icons'
+import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon } from '../../components/icons'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
@@ -40,6 +40,7 @@ type PickDetail = {
   is_banker: boolean
   is_autopick: boolean
   provisional: boolean
+  aon: { player_id: number; outcome: string } | null
   points: number | null
   team_points: number | null
   player1_points: number | null
@@ -109,7 +110,7 @@ export default function LeaderboardPage() {
     if (!comp) { setLoading(false); return }
     setCompetition(comp)
 
-    const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: rawPicks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }, { data: fixtures }, { data: submissions }] = await Promise.all([
+    const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: rawPicks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }, { data: fixtures }, { data: submissions }, { data: aonPicks }] = await Promise.all([
       supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id).eq('removed', false),
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
@@ -125,7 +126,11 @@ export default function LeaderboardPage() {
       // entirely, so this is the only way left to know THAT they've picked,
       // which is what lets the row below still say "Picked — hidden until
       // deadline" instead of misreading a hidden pick as "Not yet due".
-      supabase.from('pick_submission_status').select('user_id, gameweek_id').eq('competition_id', comp.id)
+      supabase.from('pick_submission_status').select('user_id, gameweek_id').eq('competition_id', comp.id),
+      // Same table Results reads (there per-gameweek, here for the whole
+      // competition at once) so the per-gameweek dropdown can show who
+      // played All-or-Nothing, not just whether they ever have this season.
+      supabase.from('all_or_nothing_picks').select('user_id, gameweek_id, player_id, outcome').eq('competition_id', comp.id)
     ])
 
     // Kept as its own request, deliberately separate from the profiles query
@@ -385,6 +390,9 @@ export default function LeaderboardPage() {
     setRanked(rankedList)
     if (rankedList.length > 0) setPotwUserId(rankedList[0].user_id)
 
+    const aonMap: Record<string, { player_id: number; outcome: string }> = {}
+    aonPicks?.forEach(a => { aonMap[`${a.user_id}_${a.gameweek_id}`] = { player_id: a.player_id, outcome: a.outcome } })
+
     const details: Record<string, PickDetail[]> = {}
     combinedPicks.forEach(pick => {
       if (!details[pick.user_id]) details[pick.user_id] = []
@@ -406,7 +414,8 @@ export default function LeaderboardPage() {
         team_points: pts?.team_points ?? null,
         player1_points: pts?.player1_points ?? null,
         player2_points: pts?.player2_points ?? null,
-        team_detail: pts?.breakdown?.team_detail ?? null
+        team_detail: pts?.breakdown?.team_detail ?? null,
+        aon: aonMap[`${pick.user_id}_${pick.gameweek_id}`] ?? null
       })
     })
     Object.values(details).forEach(list => list.sort((a, b) => a.gw - b.gw))
@@ -719,12 +728,22 @@ export default function LeaderboardPage() {
                                             {d.player1}
                                             {goalPlayers.has(d.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
                                             {assistPlayers.has(d.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                                            {d.aon?.player_id === d.player1_id && (
+                                              <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '8px', ...(d.aon.outcome === 'success' ? { background: 'var(--pop-green)', color: 'var(--pop-black)' } : d.aon.outcome === 'failed' ? { background: 'var(--pop-red)', color: 'var(--pop-white)' } : { background: 'var(--pop-pink)', color: 'var(--pop-white)' }) }}>
+                                                {d.aon.outcome === 'success' ? <CheckIcon size={8} color="var(--pop-black)" /> : d.aon.outcome === 'failed' ? <CrossIcon size={8} color="var(--pop-white)" /> : <BoltIcon size={8} color="var(--pop-white)" />} AoN
+                                              </span>
+                                            )}
                                           </td>
                                           <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.5)' }}>{d.player1_points ?? '—'}</td>
                                           <td className="py-1 pr-1 uppercase">
                                             {d.player2}
                                             {goalPlayers.has(d.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
                                             {assistPlayers.has(d.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                                            {d.aon?.player_id === d.player2_id && (
+                                              <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '8px', ...(d.aon.outcome === 'success' ? { background: 'var(--pop-green)', color: 'var(--pop-black)' } : d.aon.outcome === 'failed' ? { background: 'var(--pop-red)', color: 'var(--pop-white)' } : { background: 'var(--pop-pink)', color: 'var(--pop-white)' }) }}>
+                                                {d.aon.outcome === 'success' ? <CheckIcon size={8} color="var(--pop-black)" /> : d.aon.outcome === 'failed' ? <CrossIcon size={8} color="var(--pop-white)" /> : <BoltIcon size={8} color="var(--pop-white)" />} AoN
+                                              </span>
+                                            )}
                                           </td>
                                           <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.5)' }}>{d.player2_points ?? '—'}</td>
                                           <td className="py-1 text-right font-black">{d.points ?? '—'}</td>
@@ -786,6 +805,12 @@ export default function LeaderboardPage() {
               <span className="inline-flex items-center gap-1"><FlameIcon size={11} /> Streak (3+ wks above avg)</span>
               <span className="mx-2">·</span>
               <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — computer picked it (deadline passed, no pick made)
+              <span className="mx-2">·</span>
+              <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-pink)', color: 'var(--pop-white)' }}><BoltIcon size={9} color="var(--pop-white)" /> AoN</span> All or Nothing played, result pending
+              <span className="mx-2">·</span>
+              <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}><CheckIcon size={9} color="var(--pop-black)" /> AoN</span> succeeded
+              <span className="mx-2">·</span>
+              <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-red)', color: 'var(--pop-white)' }}><CrossIcon size={9} color="var(--pop-white)" /> AoN</span> failed
               <span className="mx-2">·</span>
               Click a row to expand
             </div>

@@ -393,9 +393,15 @@ thead th {
   animation: pop-logo-pulse 1.3s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
+/* Deliberately kept pink here, not the new primary purple used everywhere
+   else — the mascot artwork itself is a fixed raster image (public/logo.png,
+   public/mascot-cap-photo.png) whose own illustrated colours weren't part
+   of the palette swap, and the purple glow was clashing with them. Revert
+   to rgba(160, 0, 250, ...) to match the rest of the theme if the mascot
+   art itself is ever repainted to suit the new palette. */
 @keyframes pop-logo-pulse {
-  0%, 100% { transform: scale(0.92); filter: drop-shadow(0 0 8px rgba(160, 0, 250, 0.4)); }
-  50% { transform: scale(1.12); filter: drop-shadow(0 0 40px rgba(160, 0, 250, 0.95)); }
+  0%, 100% { transform: scale(0.92); filter: drop-shadow(0 0 8px rgba(213, 0, 109, 0.4)); }
+  50% { transform: scale(1.12); filter: drop-shadow(0 0 40px rgba(213, 0, 109, 0.95)); }
 }
 
 /* Penalty shootout aim marker — sweeps the width of the track and back.
