@@ -63,6 +63,83 @@ export type PickScoreRow = {
   }
 }
 
+// The exact goal/assist calculation a normal player pick uses, pulled out
+// into its own reusable builder so the Bonus Card (a pure player-pick slice
+// — no team scoring, no quartiles) can share it instead of duplicating the
+// double-gameweek disambiguation logic. Built once per scoring run, then
+// called once per player, same cost profile as before the extraction.
+export function buildPlayerPointsCalculator(
+  fixtures: Fixture[],
+  players: PlayerInfo[],
+  matchEvents: MatchEvent[],
+  playerScoringRules: PlayerScoringRule[]
+): (playerId: number, nominatedFixtureId: number | null) => number {
+  const playerPointsMap: Record<string, number> = {}
+  playerScoringRules.forEach(r => { playerPointsMap[r.event_type] = r.points })
+
+  const fixturesByTeamId: Record<number, Fixture[]> = {}
+  fixtures.forEach(f => {
+    if (f.home_team_id) (fixturesByTeamId[f.home_team_id] ??= []).push(f)
+    if (f.away_team_id) (fixturesByTeamId[f.away_team_id] ??= []).push(f)
+  })
+
+  const teamIdByPlayerId: Record<number, number> = {}
+  players.forEach(p => { teamIdByPlayerId[p.id] = p.team_id })
+
+  const playerEventsByFixture: Record<number, Record<number, { goals: number; assists: number }>> = {}
+  matchEvents.forEach(event => {
+    if (!event.player_id) return
+    const byFixture = (playerEventsByFixture[event.player_id] ??= {})
+    const entry = (byFixture[event.fixture_id] ??= { goals: 0, assists: 0 })
+    if (event.event_type === 'goal') entry.goals++
+    if (event.event_type === 'assist') entry.assists++
+  })
+
+  // If a player's team has 0 or 1 fixtures this gameweek, there's no
+  // ambiguity — score normally regardless of any nominated fixture. If they
+  // have 2+ (a double gameweek), a nomination is required: with one, only
+  // that fixture's events count; without one, the pick scores zero for that
+  // player rather than guessing or adding both games together.
+  return function getPlayerPoints(playerId: number, nominatedFixtureId: number | null): number {
+    const teamId = teamIdByPlayerId[playerId]
+    // null (not just empty) specifically means "we don't know this player's
+    // team at all" — fall back to counting every event for them regardless
+    // of fixture, same as before double-gameweek detection existed, rather
+    // than wrongly treating "unknown" the same as "definitely no fixtures".
+    const teamFixtures = teamId != null ? (fixturesByTeamId[teamId] ?? []) : null
+
+    let relevantFixtureIds: number[] | null
+    if (teamFixtures === null) {
+      relevantFixtureIds = null
+    } else if (teamFixtures.length <= 1) {
+      relevantFixtureIds = teamFixtures.map(f => f.id)
+    } else if (nominatedFixtureId != null && teamFixtures.some(f => f.id === nominatedFixtureId)) {
+      relevantFixtureIds = [nominatedFixtureId]
+    } else {
+      return 0
+    }
+
+    let goals = 0
+    let assists = 0
+    const byFixture = playerEventsByFixture[playerId] ?? {}
+    if (relevantFixtureIds === null) {
+      Object.values(byFixture).forEach(events => { goals += events.goals; assists += events.assists })
+    } else {
+      relevantFixtureIds.forEach(fixtureId => {
+        const events = byFixture[fixtureId]
+        if (events) {
+          goals += events.goals
+          assists += events.assists
+        }
+      })
+    }
+
+    const goalPoints = playerPointsMap['goal'] ?? 12
+    const assistPoints = playerPointsMap['assist'] ?? 6
+    return (goals * goalPoints) + (assists * assistPoints)
+  }
+}
+
 // The actual maths, shared by both the real scoring run (frozen quartiles,
 // writes to the database) and the live preview (current quartiles, read-only)
 // — one calculation, two different quartile sources. Exported so it can be
@@ -82,36 +159,23 @@ export function computePickScores(
     scoringMap[`${r.result_type}_${r.quartile_diff}`] = r.points
   })
 
-  const playerPointsMap: Record<string, number> = {}
-  playerScoringRules.forEach(r => { playerPointsMap[r.event_type] = r.points })
-
   const fixtureById: Record<number, Fixture> = {}
   fixtures.forEach(f => { fixtureById[f.id] = f })
 
   // A team can have more than one fixture in the same gameweek (a genuine
-  // "double gameweek" from rearranged fixtures) — both team and player
-  // scoring need to know about ALL of a team's fixtures this gameweek to
-  // detect that ambiguous case, not just the last one seen.
+  // "double gameweek" from rearranged fixtures) — team scoring needs to know
+  // about ALL of a team's fixtures this gameweek to detect that ambiguous
+  // case, not just the last one seen. (Player scoring needs the identical
+  // per-team fixture grouping too — see buildPlayerPointsCalculator, which
+  // builds its own copy rather than sharing this one, so it stays a fully
+  // standalone, independently reusable function.)
   const fixturesByTeamId: Record<number, Fixture[]> = {}
   fixtures.forEach(f => {
     if (f.home_team_id) (fixturesByTeamId[f.home_team_id] ??= []).push(f)
     if (f.away_team_id) (fixturesByTeamId[f.away_team_id] ??= []).push(f)
   })
 
-  const teamIdByPlayerId: Record<number, number> = {}
-  players.forEach(p => { teamIdByPlayerId[p.id] = p.team_id })
-
-  // goals/assists per player, split out per fixture (not summed across all
-  // of them) — needed so a double-gameweek player's two matches can be told
-  // apart rather than silently added together.
-  const playerEventsByFixture: Record<number, Record<number, { goals: number; assists: number }>> = {}
-  matchEvents.forEach(event => {
-    if (!event.player_id) return
-    const byFixture = (playerEventsByFixture[event.player_id] ??= {})
-    const entry = (byFixture[event.fixture_id] ??= { goals: 0, assists: 0 })
-    if (event.event_type === 'goal') entry.goals++
-    if (event.event_type === 'assist') entry.assists++
-  })
+  const getPlayerPoints = buildPlayerPointsCalculator(fixtures, players, matchEvents, playerScoringRules)
 
   type TeamPointsDetail = { points: number; breakdown: string; detail: PickScoreRow['breakdown']['team_detail'] }
 
@@ -215,50 +279,6 @@ export function computePickScores(
     }
   }
 
-  // If a player's team has 0 or 1 fixtures this gameweek, there's no
-  // ambiguity — score normally regardless of any nominated fixture. If they
-  // have 2+ (a double gameweek), a nomination is required: with one, only
-  // that fixture's events count; without one, the pick scores zero for that
-  // player rather than guessing or adding both games together.
-  function getPlayerPoints(playerId: number, nominatedFixtureId: number | null): number {
-    const teamId = teamIdByPlayerId[playerId]
-    // null (not just empty) specifically means "we don't know this player's
-    // team at all" — fall back to counting every event for them regardless
-    // of fixture, same as before double-gameweek detection existed, rather
-    // than wrongly treating "unknown" the same as "definitely no fixtures".
-    const teamFixtures = teamId != null ? (fixturesByTeamId[teamId] ?? []) : null
-
-    let relevantFixtureIds: number[] | null
-    if (teamFixtures === null) {
-      relevantFixtureIds = null
-    } else if (teamFixtures.length <= 1) {
-      relevantFixtureIds = teamFixtures.map(f => f.id)
-    } else if (nominatedFixtureId != null && teamFixtures.some(f => f.id === nominatedFixtureId)) {
-      relevantFixtureIds = [nominatedFixtureId]
-    } else {
-      return 0
-    }
-
-    let goals = 0
-    let assists = 0
-    const byFixture = playerEventsByFixture[playerId] ?? {}
-    if (relevantFixtureIds === null) {
-      Object.values(byFixture).forEach(events => { goals += events.goals; assists += events.assists })
-    } else {
-      relevantFixtureIds.forEach(fixtureId => {
-        const events = byFixture[fixtureId]
-        if (events) {
-          goals += events.goals
-          assists += events.assists
-        }
-      })
-    }
-
-    const goalPoints = playerPointsMap['goal'] ?? 12
-    const assistPoints = playerPointsMap['assist'] ?? 6
-    return (goals * goalPoints) + (assists * assistPoints)
-  }
-
   return picks.map(pick => {
     const teamResult = getTeamPoints(pick.team_id, pick.fixture_id)
     const player1Points = getPlayerPoints(pick.player1_id, pick.player1_fixture_id)
@@ -292,6 +312,32 @@ export function computePickScores(
       }
     }
   })
+}
+
+export type BonusCardPlay = { id: string; user_id: string; gameweek_id: string; player_id: number; fixture_id: number | null }
+export type BonusCardPointsRow = { play_id: string; user_id: string; gameweek_id: string; player_id: number; points: number }
+
+// The Bonus Card is a pure player-pick slice — goals/assists only, no team
+// scoring, no quartiles, no banker doubling — computed with the exact same
+// calculator a normal pick uses (see buildPlayerPointsCalculator) so it can
+// never drift out of sync with how player scoring actually works. Deliberately
+// its own function, not folded into computePickScores, since a card play
+// isn't a pick and must never be able to reach the banker-doubling block above.
+export function computeBonusCardPoints(
+  plays: BonusCardPlay[],
+  fixtures: Fixture[],
+  players: PlayerInfo[],
+  matchEvents: MatchEvent[],
+  playerScoringRules: PlayerScoringRule[]
+): BonusCardPointsRow[] {
+  const getPlayerPoints = buildPlayerPointsCalculator(fixtures, players, matchEvents, playerScoringRules)
+  return plays.map(play => ({
+    play_id: play.id,
+    user_id: play.user_id,
+    gameweek_id: play.gameweek_id,
+    player_id: play.player_id,
+    points: getPlayerPoints(play.player_id, play.fixture_id),
+  }))
 }
 
 async function loadCommonScoringData(supabase: SupabaseClient, gameweek_id: string, competition_id: string) {
@@ -371,6 +417,7 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
   }
 
   await resolveAllOrNothing(supabase, gameweek_id, picks, pointsToUpsert)
+  await resolveBonusCard(supabase, gameweek_id, fixtures, players, matchEvents, playerScoringRules)
 
   return {
     success: true,
@@ -418,9 +465,41 @@ async function resolveAllOrNothing(supabase: SupabaseClient, gameweek_id: string
   }
 }
 
+// Its own isolated step, same placement/reasoning as resolveAllOrNothing —
+// run only after the real points have already been written successfully,
+// so a problem here can never stop or roll back everyone else's scoring.
+// Deliberately recomputes EVERY play in this gameweek on every call (not
+// just ones without a points value yet), so a later "Recalculate Points"
+// run — e.g. after fixing a wrong match event — fixes the card's score too,
+// consistently with how normal player points already behave.
+async function resolveBonusCard(
+  supabase: SupabaseClient,
+  gameweek_id: string,
+  fixtures: Fixture[],
+  players: PlayerInfo[],
+  matchEvents: MatchEvent[],
+  playerScoringRules: PlayerScoringRule[]
+) {
+  const { data: plays } = await supabase
+    .from('bonus_card_plays')
+    .select('id, user_id, gameweek_id, player_id, fixture_id')
+    .eq('gameweek_id', gameweek_id)
+
+  if (!plays || plays.length === 0) return
+
+  const rows = computeBonusCardPoints(plays, fixtures, players, matchEvents, playerScoringRules)
+
+  await Promise.all(rows.map(row =>
+    supabase
+      .from('bonus_card_plays')
+      .update({ points: row.points, resolved_at: new Date().toISOString() })
+      .eq('id', row.play_id)
+  ))
+}
+
 export type PreviewScoringResult =
   | { error: string }
-  | { rows: PickScoreRow[] }
+  | { rows: PickScoreRow[]; bonusCardRows: BonusCardPointsRow[] }
 
 // Read-only version for a gameweek that's locked (deadline passed) but not
 // yet marked "completed" — no gameweek_quartiles snapshot exists yet, so
@@ -449,7 +528,7 @@ export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_
   // shouldn't have to gate this correctly themselves. Nothing about a
   // gameweek, autopick included, is shown before its deadline actually passes.
   if (new Date() < new Date(gameweek.deadline)) {
-    return { rows: [] }
+    return { rows: [], bonusCardRows: [] }
   }
 
   const { picks, fixtures, scoringRules, playerScoringRules, matchEvents, players } = await loadCommonScoringData(supabase, gameweek_id, gameweek.competition_id)
@@ -493,5 +572,15 @@ export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_
 
   const provisionalRows = computePickScores(gameweek_id, provisionalPicks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players)
 
-  return { rows: [...realRows, ...provisionalRows] }
+  // Read-only, same as everything else in this function — computed fresh
+  // from live data, never written back, so it can be called as often as the
+  // UI wants without side effects.
+  const { data: bonusCardPlays } = await supabase
+    .from('bonus_card_plays')
+    .select('id, user_id, gameweek_id, player_id, fixture_id')
+    .eq('gameweek_id', gameweek_id)
+
+  const bonusCardRows = computeBonusCardPoints(bonusCardPlays ?? [], fixtures, players, matchEvents, playerScoringRules)
+
+  return { rows: [...realRows, ...provisionalRows], bonusCardRows }
 }

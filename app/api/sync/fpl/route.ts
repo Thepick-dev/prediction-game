@@ -197,6 +197,12 @@ export async function POST() {
       adminSupabase.from('picks').update({ player1_id: currentId }).eq('player1_id', staleId),
       adminSupabase.from('picks').update({ player2_id: currentId }).eq('player2_id', staleId),
       adminSupabase.from('match_events').update({ player_id: currentId }).eq('player_id', staleId),
+      // Bonus Card history/nomination reference players by id too — without
+      // this, a reissued id would either FK-violate the delete below or,
+      // if that constraint were ever loosened, silently orphan a frozen
+      // play's identity.
+      adminSupabase.from('bonus_card_plays').update({ player_id: currentId }).eq('player_id', staleId),
+      adminSupabase.from('competitions').update({ bonus_card_player_id: currentId }).eq('bonus_card_player_id', staleId),
     ])
   )
   if (staleToCurrentId.size > 0) {
