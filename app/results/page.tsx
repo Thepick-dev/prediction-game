@@ -536,7 +536,7 @@ export default function ResultsPage() {
                                   ))}
                                   {assists.map((e, i) => (
                                     <div key={`a${i}`} className="flex items-center gap-1.5">
-                                      <span className="px-1 rounded font-black" style={{ fontSize: '9px', background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span>
+                                      <span className="px-1 rounded font-black" style={{ fontSize: '9px', background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>
                                       <span className="uppercase">{players[e.player_id] ?? 'Unknown'}</span>
                                       {e.minute != null && <span style={{ color: 'rgba(255,255,255,0.4)' }}>{e.minute}&apos;</span>}
                                     </div>
@@ -636,7 +636,7 @@ export default function ResultsPage() {
                       <div
                         key={pick.id}
                         className="p-2.5"
-                        style={{ fontSize: '11px', borderTop: '1px solid rgba(255,255,255,0.06)', background: isWinner ? 'rgba(255,234,0,0.06)' : isOwnPick ? 'rgba(255,255,255,0.04)' : undefined }}
+                        style={{ fontSize: '11px', borderTop: '1px solid rgba(255,255,255,0.06)', background: isWinner ? 'rgba(125,55,165,0.06)' : isOwnPick ? 'rgba(255,255,255,0.04)' : undefined }}
                       >
                         <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
                           <div className="flex items-center gap-1.5 font-black uppercase min-w-0">
@@ -661,7 +661,7 @@ export default function ResultsPage() {
                         <div className="flex items-center gap-1 uppercase flex-wrap">
                           <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={15} ringColor={pts?.breakdown?.team_detail?.team_quartile ? QUARTILE_RING_COLORS[`Q${pts.breakdown.team_detail.team_quartile}`] : undefined} />
                           <span>{teamDisplayName(t)}</span>
-                          {pick.is_banker && <span className="font-black px-1 rounded" style={{ fontSize: '9px', background: 'var(--pop-yellow)', color: 'var(--pop-black)' }}>★ BANKER</span>}
+                          {pick.is_banker && <span className="font-black px-1 rounded" style={{ fontSize: '9px', background: 'var(--pop-yellow)', color: 'var(--pop-white)' }}>★ BANKER</span>}
                           {showScoring && <span className="ml-auto font-mono" style={{ color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>{pts?.team_points ?? '—'} pts</span>}
                         </div>
                         {showScoring && pts?.breakdown?.team_detail?.opponent_team_id != null && (
@@ -669,8 +669,8 @@ export default function ResultsPage() {
                             <span
                               className="inline-block px-1 rounded font-black mr-1"
                               style={pts.breakdown.team_detail.is_home
-                                ? { background: 'rgba(0,176,255,0.2)', color: 'var(--pop-blue)' }
-                                : { background: 'rgba(255,61,0,0.2)', color: 'var(--pop-orange)' }}
+                                ? { background: 'rgba(0,242,250,0.2)', color: 'var(--pop-blue)' }
+                                : { background: 'rgba(250,97,0,0.2)', color: 'var(--pop-orange)' }}
                               title={pts.breakdown.team_detail.is_home ? 'Played at home' : 'Played away'}
                             >
                               {pts.breakdown.team_detail.is_home ? 'H' : 'A'}
@@ -689,14 +689,14 @@ export default function ResultsPage() {
                           <span>
                             {players[pick.player1_id] ?? 'Unknown'}
                             {goalPlayers.has(pick.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
-                            {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                            {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
                             {aon?.player_id === pick.player1_id && <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '9px', ...aonStyle }}>{aonIcon} AoN</span>}
                             {showScoring && <span className="normal-case ml-1 font-mono" style={{ color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>({pts?.player1_points ?? '—'} pts)</span>}
                           </span>
                           <span>
                             {players[pick.player2_id] ?? 'Unknown'}
                             {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
-                            {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                            {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
                             {aon?.player_id === pick.player2_id && <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '9px', ...aonStyle }}>{aonIcon} AoN</span>}
                             {showScoring && <span className="normal-case ml-1 font-mono" style={{ color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>({pts?.player2_points ?? '—'} pts)</span>}
                           </span>
@@ -715,11 +715,11 @@ export default function ResultsPage() {
                     <span className="font-black mr-2">Key:</span>
                     <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span> Goal
                     <span className="mx-2">·</span>
-                    <span className="px-0.5 rounded font-black" style={{ background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span> Assist
+                    <span className="px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span> Assist
                     <span className="mx-2">·</span>
-                    <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-black)' }}>★B</span> Banker
+                    <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-white)' }}>★B</span> Banker
                     <span className="mx-2">·</span>
-                    <span className="px-0.5 rounded font-black" style={{ background: 'rgba(0,176,255,0.2)', color: 'var(--pop-blue)' }}>H</span>/<span className="px-0.5 rounded font-black" style={{ background: 'rgba(255,61,0,0.2)', color: 'var(--pop-orange)' }}>A</span> Home/Away
+                    <span className="px-0.5 rounded font-black" style={{ background: 'rgba(0,242,250,0.2)', color: 'var(--pop-blue)' }}>H</span>/<span className="px-0.5 rounded font-black" style={{ background: 'rgba(250,97,0,0.2)', color: 'var(--pop-orange)' }}>A</span> Home/Away
                     <span className="mx-2">·</span>
                     <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — computer picked it (deadline passed, no pick made)
                     <span className="mx-2">·</span>

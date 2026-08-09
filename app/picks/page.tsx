@@ -809,7 +809,7 @@ export default function PicksPage() {
                             className={`pop-select-btn rounded-lg p-2.5 sm:p-3 flex flex-col items-center justify-between text-center gap-1.5 h-28 sm:h-36 ${homeSelected ? 'pop-pop-in' : ''}`}
                             style={{
                               border: homeSelected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
-                              boxShadow: homeSelected ? '0 0 20px rgba(0,230,118,0.5)' : 'none',
+                              boxShadow: homeSelected ? '0 0 20px rgba(204,250,0,0.5)' : 'none',
                               background: homeSelected ? 'var(--pop-green)' : homeStatus.isUsed ? '#111111' : 'transparent',
                               color: homeSelected ? 'var(--pop-black)' : homeStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
                             }}
@@ -827,7 +827,7 @@ export default function PicksPage() {
                             className={`pop-select-btn rounded-lg p-2.5 sm:p-3 flex flex-col items-center justify-between text-center gap-1.5 h-28 sm:h-36 ${awaySelected ? 'pop-pop-in' : ''}`}
                             style={{
                               border: awaySelected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
-                              boxShadow: awaySelected ? '0 0 20px rgba(0,230,118,0.5)' : 'none',
+                              boxShadow: awaySelected ? '0 0 20px rgba(204,250,0,0.5)' : 'none',
                               background: awaySelected ? 'var(--pop-green)' : awayStatus.isUsed ? '#111111' : 'transparent',
                               color: awaySelected ? 'var(--pop-black)' : awayStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
                             }}
@@ -877,7 +877,7 @@ export default function PicksPage() {
                         <p className="pop-headline text-xl mb-3 text-center">Pick Player 1</p>
                         {player1 ? (
                           <>
-                            <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5 mb-3" style={{ border: '2px solid var(--pop-green)', boxShadow: '0 0 16px rgba(0,230,118,0.4)' }}>
+                            <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5 mb-3" style={{ border: '2px solid var(--pop-green)', boxShadow: '0 0 16px rgba(204,250,0,0.4)' }}>
                               <span className="font-black uppercase text-sm">{playerName(player1)}</span>
                               <button
                                 onClick={() => { setPlayer1(null); setPlayer1Fixture(null); setPlayer1Club(null) }}
@@ -889,7 +889,7 @@ export default function PicksPage() {
                               </button>
                             </div>
                             {fixturesForTeam(players.find(p => p.id === player1)?.team_id ?? null).length >= 2 && (
-                              <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(255,234,0,0.08)', border: '1px solid rgba(255,234,0,0.3)' }}>
+                              <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(125,55,165,0.08)', border: '1px solid rgba(125,55,165,0.3)' }}>
                                 <p className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--pop-yellow)' }}>
                                   {playerName(player1)}&apos;s team plays twice — which match is this pick for?
                                 </p>
@@ -900,7 +900,7 @@ export default function PicksPage() {
                                       onClick={() => setPlayer1Fixture(f.id)}
                                       className="text-left px-2.5 py-1.5 rounded text-xs font-bold"
                                       style={player1Fixture === f.id
-                                        ? { background: 'var(--pop-yellow)', color: 'var(--pop-black)' }
+                                        ? { background: 'var(--pop-yellow)', color: 'var(--pop-white)' }
                                         : { background: 'rgba(255,255,255,0.05)', color: 'var(--pop-white)', border: '1px solid rgba(255,255,255,0.15)' }}
                                     >
                                       {opponentLabel(f, players.find(p => p.id === player1)?.team_id ?? 0)}
@@ -975,7 +975,7 @@ export default function PicksPage() {
                         <p className="pop-headline text-xl mb-3 text-center">Pick Player 2</p>
                         {player2 ? (
                           <>
-                            <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5 mb-3" style={{ border: '2px solid var(--pop-green)', boxShadow: '0 0 16px rgba(0,230,118,0.4)' }}>
+                            <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5 mb-3" style={{ border: '2px solid var(--pop-green)', boxShadow: '0 0 16px rgba(204,250,0,0.4)' }}>
                               <span className="font-black uppercase text-sm">{playerName(player2)}</span>
                               <button
                                 onClick={() => { setPlayer2(null); setPlayer2Fixture(null); setPlayer2Club(null) }}
@@ -987,7 +987,7 @@ export default function PicksPage() {
                               </button>
                             </div>
                             {fixturesForTeam(players.find(p => p.id === player2)?.team_id ?? null).length >= 2 && (
-                              <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(255,234,0,0.08)', border: '1px solid rgba(255,234,0,0.3)' }}>
+                              <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(125,55,165,0.08)', border: '1px solid rgba(125,55,165,0.3)' }}>
                                 <p className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--pop-yellow)' }}>
                                   {playerName(player2)}&apos;s team plays twice — which match is this pick for?
                                 </p>
@@ -998,7 +998,7 @@ export default function PicksPage() {
                                       onClick={() => setPlayer2Fixture(f.id)}
                                       className="text-left px-2.5 py-1.5 rounded text-xs font-bold"
                                       style={player2Fixture === f.id
-                                        ? { background: 'var(--pop-yellow)', color: 'var(--pop-black)' }
+                                        ? { background: 'var(--pop-yellow)', color: 'var(--pop-white)' }
                                         : { background: 'rgba(255,255,255,0.05)', color: 'var(--pop-white)', border: '1px solid rgba(255,255,255,0.15)' }}
                                     >
                                       {opponentLabel(f, players.find(p => p.id === player2)?.team_id ?? 0)}
@@ -1109,7 +1109,7 @@ export default function PicksPage() {
                                     className="pop-select-btn rounded-lg p-2 font-black uppercase text-sm"
                                     style={{
                                       border: questionAnswer === opt.key ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
-                                      boxShadow: questionAnswer === opt.key ? '0 0 16px rgba(0,230,118,0.4)' : 'none',
+                                      boxShadow: questionAnswer === opt.key ? '0 0 16px rgba(204,250,0,0.4)' : 'none',
                                       background: questionAnswer === opt.key ? 'var(--pop-green)' : 'transparent',
                                       color: questionAnswer === opt.key ? 'var(--pop-black)' : 'var(--pop-white)',
                                     }}

@@ -578,7 +578,7 @@ export default function LeaderboardPage() {
                         <tr
                           onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
                           className="cursor-pointer hover:bg-white/[0.04] transition-colors"
-                          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: isOwnRow ? 'rgba(255,234,0,0.06)' : undefined }}
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: isOwnRow ? 'rgba(125,55,165,0.06)' : undefined }}
                         >
                           <td className="py-2 pl-1.5 pr-1 sm:px-2" style={{ color: 'rgba(255,255,255,0.35)' }}>{index + 1}</td>
                           <td className="py-2 px-1 sm:px-2 font-black uppercase" style={{ wordBreak: 'break-word' }}>
@@ -690,7 +690,7 @@ export default function LeaderboardPage() {
                                             <div className="flex items-center gap-1">
                                               <TeamCrest crestUrl={teamMap[d.team_id]?.crest_url ?? null} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
                                               {teamDisplayName(teamMap[d.team_id])}
-                                              {d.is_banker && <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-black)' }}>★</span>}
+                                              {d.is_banker && <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-white)' }}>★</span>}
                                               {(d.provisional || d.is_autopick) && <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }} title="No pick was made in time, so the computer picked automatically">AP</span>}
                                             </div>
                                             {d.team_detail?.opponent_team_id != null && (
@@ -698,8 +698,8 @@ export default function LeaderboardPage() {
                                                 <span
                                                   className="inline-block px-0.5 rounded font-black mr-1"
                                                   style={d.team_detail.is_home
-                                                    ? { background: 'rgba(0,176,255,0.2)', color: 'var(--pop-blue)' }
-                                                    : { background: 'rgba(255,61,0,0.2)', color: 'var(--pop-orange)' }}
+                                                    ? { background: 'rgba(0,242,250,0.2)', color: 'var(--pop-blue)' }
+                                                    : { background: 'rgba(250,97,0,0.2)', color: 'var(--pop-orange)' }}
                                                   title={d.team_detail.is_home ? 'Played at home' : 'Played away'}
                                                 >
                                                   {d.team_detail.is_home ? 'H' : 'A'}
@@ -718,13 +718,13 @@ export default function LeaderboardPage() {
                                           <td className="py-1 pr-1 uppercase">
                                             {d.player1}
                                             {goalPlayers.has(d.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
-                                            {assistPlayers.has(d.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                                            {assistPlayers.has(d.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
                                           </td>
                                           <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.5)' }}>{d.player1_points ?? '—'}</td>
                                           <td className="py-1 pr-1 uppercase">
                                             {d.player2}
                                             {goalPlayers.has(d.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
-                                            {assistPlayers.has(d.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(0,230,118,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                                            {assistPlayers.has(d.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
                                           </td>
                                           <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.5)' }}>{d.player2_points ?? '—'}</td>
                                           <td className="py-1 text-right font-black">{d.points ?? '—'}</td>

@@ -83,13 +83,19 @@ thead th {
      read as "lifted" off the background without needing a coloured
      fill to separate them. */
   --pop-surface: #1B1B1B;
-  --pop-orange: #FF3D00;
-  --pop-yellow: #FFEA00;
-  --pop-green: #00E676;
-  --pop-blue: #00B0FF;
-  --pop-pink: #D5006D;
+  /* Palette swap — values only, names unchanged, so this stays a
+     one-file, easily reversible change (every var(--pop-*) reference
+     elsewhere in the app keeps working with no other edits needed).
+     To revert: restore the six hex values below to
+     orange #FF3D00, yellow #FFEA00, green #00E676, blue #00B0FF,
+     pink #D5006D, red #E8262A. */
+  --pop-orange: #FA6100;
+  --pop-yellow: #7D37A5;
+  --pop-green: #CCFA00;
+  --pop-blue: #00F2FA;
+  --pop-pink: #A000FA;
   --pop-white: #FFFFFF;
-  --pop-red: #E8262A;
+  --pop-red: #FA003C;
   background: var(--pop-black);
   color: var(--pop-white);
   /* Every form control in this theme is now explicitly dark-styled (see
@@ -117,7 +123,7 @@ thead th {
 .pop-input:focus {
   outline: none;
   border-color: var(--pop-pink);
-  box-shadow: 0 0 0 3px rgba(213, 0, 109, 0.25);
+  box-shadow: 0 0 0 3px rgba(160, 0, 250, 0.25);
 }
 
 /* ::placeholder is a separate pseudo-element inline styles can never
@@ -170,7 +176,7 @@ thead th {
   content: '';
   position: absolute;
   inset: -10px -16px;
-  background-image: radial-gradient(circle, rgba(213, 0, 109, 0.5) 1px, transparent 1.4px);
+  background-image: radial-gradient(circle, rgba(160, 0, 250, 0.5) 1px, transparent 1.4px);
   background-size: 9px 9px;
   opacity: 0.5;
   mask-image: radial-gradient(ellipse 70% 85% at center, black 35%, transparent 80%);
@@ -193,10 +199,10 @@ thead th {
 
 /* Accent variants: a coloured border and matching glow, surface stays
    dark. This is the "pop of colour" — never a filled box. */
-.pop-panel--pink { border-color: var(--pop-pink); box-shadow: 0 0 18px rgba(213, 0, 109, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
-.pop-panel--blue { border-color: var(--pop-blue); box-shadow: 0 0 18px rgba(0, 176, 255, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
-.pop-panel--green { border-color: var(--pop-green); box-shadow: 0 0 18px rgba(0, 230, 118, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
-.pop-panel--yellow { border-color: var(--pop-yellow); box-shadow: 0 0 18px rgba(255, 234, 0, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
+.pop-panel--pink { border-color: var(--pop-pink); box-shadow: 0 0 18px rgba(160, 0, 250, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+.pop-panel--blue { border-color: var(--pop-blue); box-shadow: 0 0 18px rgba(0, 242, 250, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+.pop-panel--green { border-color: var(--pop-green); box-shadow: 0 0 18px rgba(204, 250, 0, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+.pop-panel--yellow { border-color: var(--pop-yellow); box-shadow: 0 0 18px rgba(125, 55, 165, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
 
 /* Opt-in "breathing" glow — same accent colours as the variants above, just
    animated, so it reads as an extension of the existing look rather than a
@@ -208,20 +214,20 @@ thead th {
 .pop-panel--pulse.pop-panel--yellow { animation: pop-pulse-yellow 2.4s ease-in-out infinite; }
 
 @keyframes pop-pulse-pink {
-  0%, 100% { box-shadow: 0 0 18px rgba(213, 0, 109, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
-  50% { box-shadow: 0 0 32px rgba(213, 0, 109, 0.75), 0 4px 18px rgba(0, 0, 0, 0.5); }
+  0%, 100% { box-shadow: 0 0 18px rgba(160, 0, 250, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+  50% { box-shadow: 0 0 32px rgba(160, 0, 250, 0.75), 0 4px 18px rgba(0, 0, 0, 0.5); }
 }
 @keyframes pop-pulse-blue {
-  0%, 100% { box-shadow: 0 0 18px rgba(0, 176, 255, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
-  50% { box-shadow: 0 0 32px rgba(0, 176, 255, 0.75), 0 4px 18px rgba(0, 0, 0, 0.5); }
+  0%, 100% { box-shadow: 0 0 18px rgba(0, 242, 250, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+  50% { box-shadow: 0 0 32px rgba(0, 242, 250, 0.75), 0 4px 18px rgba(0, 0, 0, 0.5); }
 }
 @keyframes pop-pulse-green {
-  0%, 100% { box-shadow: 0 0 18px rgba(0, 230, 118, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
-  50% { box-shadow: 0 0 32px rgba(0, 230, 118, 0.75), 0 4px 18px rgba(0, 0, 0, 0.5); }
+  0%, 100% { box-shadow: 0 0 18px rgba(204, 250, 0, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+  50% { box-shadow: 0 0 32px rgba(204, 250, 0, 0.75), 0 4px 18px rgba(0, 0, 0, 0.5); }
 }
 @keyframes pop-pulse-yellow {
-  0%, 100% { box-shadow: 0 0 18px rgba(255, 234, 0, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
-  50% { box-shadow: 0 0 32px rgba(255, 234, 0, 0.7), 0 4px 18px rgba(0, 0, 0, 0.5); }
+  0%, 100% { box-shadow: 0 0 18px rgba(125, 55, 165, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
+  50% { box-shadow: 0 0 32px rgba(125, 55, 165, 0.7), 0 4px 18px rgba(0, 0, 0, 0.5); }
 }
 
 /* Panels sit flat now, not tilted — kept as (no-op) classes rather than
@@ -242,7 +248,10 @@ thead th {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  color: var(--pop-black);
+  /* White, not black — --pop-yellow is a dark muted purple in the swapped
+     palette, not the light yellow this pairing was originally chosen for.
+     Revert this alongside the token values above if reverting the swap. */
+  color: var(--pop-white);
   border-radius: 999px;
   line-height: 1;
 }
@@ -307,7 +316,7 @@ thead th {
   cursor: not-allowed;
 }
 
-.pop-button--yellow { background: var(--pop-yellow); color: var(--pop-black); }
+.pop-button--yellow { background: var(--pop-yellow); color: var(--pop-white); }
 .pop-button--blue { background: var(--pop-blue); color: var(--pop-black); }
 .pop-button--green { background: var(--pop-green); color: var(--pop-black); }
 
@@ -385,8 +394,8 @@ thead th {
 }
 
 @keyframes pop-logo-pulse {
-  0%, 100% { transform: scale(0.92); filter: drop-shadow(0 0 8px rgba(213, 0, 109, 0.4)); }
-  50% { transform: scale(1.12); filter: drop-shadow(0 0 40px rgba(213, 0, 109, 0.95)); }
+  0%, 100% { transform: scale(0.92); filter: drop-shadow(0 0 8px rgba(160, 0, 250, 0.4)); }
+  50% { transform: scale(1.12); filter: drop-shadow(0 0 40px rgba(160, 0, 250, 0.95)); }
 }
 
 /* Penalty shootout aim marker — sweeps the width of the track and back.
@@ -451,11 +460,11 @@ thead th {
   border: 3px solid transparent;
 }
 @keyframes pop-shoot-chaos-border {
-  0% { border-color: var(--pop-pink); box-shadow: 0 0 18px rgba(213,0,109,0.6); }
-  25% { border-color: var(--pop-orange); box-shadow: 0 0 18px rgba(255,61,0,0.6); }
-  50% { border-color: var(--pop-yellow); box-shadow: 0 0 18px rgba(255,234,0,0.6); }
-  75% { border-color: var(--pop-green); box-shadow: 0 0 18px rgba(0,230,118,0.6); }
-  100% { border-color: var(--pop-pink); box-shadow: 0 0 18px rgba(213,0,109,0.6); }
+  0% { border-color: var(--pop-pink); box-shadow: 0 0 18px rgba(160,0,250,0.6); }
+  25% { border-color: var(--pop-orange); box-shadow: 0 0 18px rgba(250,97,0,0.6); }
+  50% { border-color: var(--pop-yellow); box-shadow: 0 0 18px rgba(125,55,165,0.6); }
+  75% { border-color: var(--pop-green); box-shadow: 0 0 18px rgba(204,250,0,0.6); }
+  100% { border-color: var(--pop-pink); box-shadow: 0 0 18px rgba(160,0,250,0.6); }
 }
 
 /* The hidden heart/gold bonus band on the aim track — a slow, inviting

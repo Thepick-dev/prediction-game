@@ -62,7 +62,7 @@ function popAxisProps() {
 }
 function popTooltipStyle() {
   return {
-    contentStyle: { background: '#1B1B1B', border: '1px solid rgba(0,176,255,0.4)', borderRadius: 10, fontSize: 12 },
+    contentStyle: { background: '#1B1B1B', border: '1px solid rgba(0,242,250,0.4)', borderRadius: 10, fontSize: 12 },
     labelStyle: { color: POP_ACCENT },
     itemStyle: { color: '#ffffff' }
   }

@@ -42,7 +42,7 @@ export default function PopArtLogo({ size = 120, showText = true, className, col
             <path id={textPathId} d="M 8,100 A 92,92 0 0 1 192,100" fill="none" />
           </defs>
           <text
-            fill="var(--pop-pink, #D5006D)"
+            fill="var(--pop-pink, #A000FA)"
             fontSize="15"
             fontWeight="800"
             letterSpacing="2.5"

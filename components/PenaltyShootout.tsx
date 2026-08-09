@@ -580,7 +580,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
       </div>
 
       {isAdmin && (
-        <div className="rounded-lg p-2.5 mb-3" style={{ background: 'rgba(255,234,0,0.08)', border: '1px solid rgba(255,234,0,0.3)' }}>
+        <div className="rounded-lg p-2.5 mb-3" style={{ background: 'rgba(125,55,165,0.08)', border: '1px solid rgba(125,55,165,0.3)' }}>
           <p className="font-mono text-[9px] uppercase tracking-wider mb-1.5" style={{ color: 'var(--pop-yellow)' }}>
             Admin test mode — jumps difficulty, never saves to the leaderboard
           </p>
@@ -590,7 +590,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
                 key={s}
                 onClick={() => jumpToScore(s)}
                 className="font-mono text-xs font-bold px-2.5 py-1 rounded"
-                style={{ background: 'rgba(255,234,0,0.15)', color: 'var(--pop-yellow)', border: '1px solid rgba(255,234,0,0.4)' }}
+                style={{ background: 'rgba(125,55,165,0.15)', color: 'var(--pop-yellow)', border: '1px solid rgba(125,55,165,0.4)' }}
               >
                 → {s}
               </button>
@@ -666,7 +666,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
               position: 'absolute', top: '4%', left: 0, right: 0, textAlign: 'center',
               fontFamily: 'var(--font-display)', fontSize: 34, letterSpacing: '0.04em',
               color: result === 'goal' ? 'var(--pop-green)' : 'var(--pop-red)',
-              textShadow: `0 0 14px ${result === 'goal' ? 'rgba(0,230,118,0.7)' : 'rgba(232,38,42,0.7)'}`,
+              textShadow: `0 0 14px ${result === 'goal' ? 'rgba(204,250,0,0.7)' : 'rgba(250,0,60,0.7)'}`,
             }}
           >
             {result === 'goal' ? 'GOAL!' : 'SAVED!'}
@@ -677,7 +677,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
             style={{
               position: 'absolute', top: '4%', left: 0, right: 0, textAlign: 'center',
               fontFamily: 'var(--font-display)', fontSize: 30, letterSpacing: '0.03em',
-              color: 'var(--pop-red)', textShadow: '0 0 16px rgba(232,38,42,0.85)',
+              color: 'var(--pop-red)', textShadow: '0 0 16px rgba(250,0,60,0.85)',
             }}
           >
             💀 INSTANT DEATH!
@@ -705,7 +705,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
             style={{
               position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
               textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: 30, letterSpacing: '0.03em',
-              color: 'var(--pop-yellow)', textShadow: '0 0 20px rgba(255,234,0,0.8), 0 0 6px rgba(0,0,0,0.9)',
+              color: 'var(--pop-yellow)', textShadow: '0 0 20px rgba(125,55,165,0.8), 0 0 6px rgba(0,0,0,0.9)',
               background: 'rgba(0,0,0,0.25)',
             }}
           >
@@ -728,20 +728,20 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
             <div
               key={i}
               className="absolute top-0 bottom-0 rounded-full"
-              style={{ left: `${z.left}%`, width: `${z.width}%`, background: 'rgba(255,61,0,0.4)', border: '1px solid var(--pop-orange)' }}
+              style={{ left: `${z.left}%`, width: `${z.width}%`, background: 'rgba(250,97,0,0.4)', border: '1px solid var(--pop-orange)' }}
             />
           ))
         ) : (
           <div
             ref={zoneRef}
             className="absolute top-0 bottom-0 rounded-full"
-            style={{ left: `${zones[0].left}%`, width: `${zones[0].width}%`, background: 'rgba(255,61,0,0.4)', border: '1px solid var(--pop-orange)' }}
+            style={{ left: `${zones[0].left}%`, width: `${zones[0].width}%`, background: 'rgba(250,97,0,0.4)', border: '1px solid var(--pop-orange)' }}
           >
             {bonus?.mode === 'embedded' && (
               <div
                 ref={bonusRef}
                 className="absolute rounded-full pop-shoot-bonus-pulse"
-                style={{ left: `${bonus.band.left}%`, width: `${bonus.band.width}%`, top: -7, bottom: -7, background: bonus.kind === 'heart' ? 'rgba(232,38,42,0.5)' : 'rgba(255,234,0,0.5)', border: `1px solid ${bonus.kind === 'heart' ? 'var(--pop-red)' : 'var(--pop-yellow)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}
+                style={{ left: `${bonus.band.left}%`, width: `${bonus.band.width}%`, top: -7, bottom: -7, background: bonus.kind === 'heart' ? 'rgba(250,0,60,0.5)' : 'rgba(125,55,165,0.5)', border: `1px solid ${bonus.kind === 'heart' ? 'var(--pop-red)' : 'var(--pop-yellow)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}
               >
                 {bonus.kind === 'heart' ? '❤️' : '⭐'}
               </div>
@@ -752,7 +752,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
           <div
             ref={bonusRef}
             className="absolute rounded-full pop-shoot-bonus-pulse"
-            style={{ left: `${bonus.band.left}%`, width: `${bonus.band.width}%`, top: -7, bottom: -7, background: bonus.kind === 'heart' ? 'rgba(232,38,42,0.5)' : 'rgba(255,234,0,0.5)', border: `1px solid ${bonus.kind === 'heart' ? 'var(--pop-red)' : 'var(--pop-yellow)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}
+            style={{ left: `${bonus.band.left}%`, width: `${bonus.band.width}%`, top: -7, bottom: -7, background: bonus.kind === 'heart' ? 'rgba(250,0,60,0.5)' : 'rgba(125,55,165,0.5)', border: `1px solid ${bonus.kind === 'heart' ? 'var(--pop-red)' : 'var(--pop-yellow)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}
           >
             {bonus.kind === 'heart' ? '❤️' : '⭐'}
           </div>
@@ -772,7 +772,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
           style={{
             width: `${MARKER_WIDTH}%`,
             background: 'var(--pop-pink)',
-            boxShadow: '0 0 12px rgba(213,0,109,0.8)',
+            boxShadow: '0 0 12px rgba(160,0,250,0.8)',
             animationDuration: `${duration}s`,
             animationDelay: `-${markerPhaseMs}ms`,
             animationPlayState: phase === 'aiming' ? 'running' : 'paused',

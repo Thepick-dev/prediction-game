@@ -231,8 +231,8 @@ export default function KitEditor({
                 : `flex flex-col items-center gap-1 p-2 rounded border text-xs ${selected ? 'border-[#D9A441] bg-[#D9A441]/10 font-bold' : 'border-white/10'}`}
               style={isPopArt ? {
                 border: selected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
-                boxShadow: selected ? '0 0 14px rgba(0,230,118,0.4)' : 'none',
-                background: selected ? 'rgba(0,230,118,0.12)' : 'transparent',
+                boxShadow: selected ? '0 0 14px rgba(204,250,0,0.4)' : 'none',
+                background: selected ? 'rgba(204,250,0,0.12)' : 'transparent',
                 color: 'var(--pop-white)',
               } : undefined}
             >

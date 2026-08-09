@@ -176,7 +176,7 @@ export default function SportingPanelLink({ children, popArt = false }: { childr
           <button
             onClick={() => setOpen(false)}
             className="w-full mt-3 rounded-lg py-1.5 text-xs font-black uppercase tracking-wider"
-            style={{ backgroundColor: popArt ? '#FFEA00' : '#D9A441', color: popArt ? '#0A0A0A' : '#241a12' }}
+            style={{ backgroundColor: popArt ? '#7D37A5' : '#D9A441', color: popArt ? '#FFFFFF' : '#241a12' }}
           >
             Close
           </button>

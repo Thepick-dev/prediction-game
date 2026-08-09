@@ -228,8 +228,8 @@ export default function JoinPage() {
                       className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-left ${locked ? 'cursor-not-allowed opacity-60' : ''}`}
                       style={{
                         border: selected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
-                        background: selected ? 'rgba(0,230,118,0.12)' : 'transparent',
-                        boxShadow: selected ? '0 0 14px rgba(0,230,118,0.4)' : 'none',
+                        background: selected ? 'rgba(204,250,0,0.12)' : 'transparent',
+                        boxShadow: selected ? '0 0 14px rgba(204,250,0,0.4)' : 'none',
                       }}
                     >
                       <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={26} />
