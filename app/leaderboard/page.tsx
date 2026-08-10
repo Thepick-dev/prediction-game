@@ -567,14 +567,19 @@ export default function LeaderboardPage() {
 
             <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
               <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">Leaderboard</h1>
-              {ranked.length > 0 && (
-                <button
-                  onClick={() => setShowShare(true)}
-                  className="pop-button px-3 py-1.5 text-xs"
-                >
-                  Share Standings
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {ranked.length > 0 && (
+                  <button
+                    onClick={() => setShowShare(true)}
+                    className="pop-button px-3 py-1.5 text-xs"
+                  >
+                    Share Standings
+                  </button>
+                )}
+                <a href="/leaderboard/full" className="pop-button pop-button--yellow px-3 py-1.5 text-xs">
+                  Full Table →
+                </a>
+              </div>
             </div>
             <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name}</p>
 
@@ -589,26 +594,16 @@ export default function LeaderboardPage() {
             )}
 
             <div className="pop-panel" style={{ overflow: 'hidden' }}>
-              {/* table-layout: fixed + explicit column widths, rather than
-                  hiding columns on mobile — every stat classic shows stays
-                  visible here too. Fixed layout makes the browser wrap a
-                  long name instead of stretching the table past 100% width
-                  (which is what was clipping the rightmost columns before). */}
-              <table className="w-full" style={{ fontSize: '11.5px', tableLayout: 'fixed' }}>
+              {/* Deliberately just rank, player and total — everything else
+                  (team/player/banker split, best gameweek, etc.) lives on
+                  the Full Table page now. This view is about one thing:
+                  who's winning. */}
+              <table className="w-full" style={{ fontSize: '13px', tableLayout: 'fixed' }}>
                 <thead>
                   <tr className="text-left" style={{ fontSize: '9.5px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-                    <th className="py-2 pl-1.5 pr-1 sm:px-2 uppercase tracking-wider" style={{ width: '7%' }}>#</th>
-                    <th className="py-2 px-1 sm:px-2 uppercase tracking-wider" style={{ width: showBonusCard ? '27%' : '32%' }}>Player</th>
-                    <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider" style={{ width: '8.5%' }}>HW</th>
-                    <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider" style={{ width: '8.5%' }}>AW</th>
-                    <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '9%' }} title="Best single-gameweek score (tiebreaker #3)">Best</th>
-                    <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Tm</th>
-                    <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Pl</th>
-                    <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Bk</th>
-                    {showBonusCard && (
-                      <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '5%' }} title={bonusCardName ?? undefined}>BC</th>
-                    )}
-                    <th className="py-2 pl-1 pr-1.5 sm:px-2 text-right uppercase tracking-wider font-black" style={{ width: '9.5%' }}>Tot</th>
+                    <th className="py-2.5 pl-2 pr-1 uppercase tracking-wider" style={{ width: '12%' }}>#</th>
+                    <th className="py-2.5 px-1 uppercase tracking-wider" style={{ width: '58%' }}>Player</th>
+                    <th className="py-2.5 pl-1 pr-2 text-right uppercase tracking-wider font-black" style={{ width: '30%' }}>Points</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -623,37 +618,28 @@ export default function LeaderboardPage() {
                           className="cursor-pointer hover:bg-white/[0.04] transition-colors"
                           style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: isOwnRow ? 'rgba(160,0,250,0.06)' : undefined }}
                         >
-                          <td className="py-2 pl-1.5 pr-1 sm:px-2" style={{ color: 'rgba(255,255,255,0.35)' }}>{index + 1}</td>
-                          <td className="py-2 px-1 sm:px-2 font-black uppercase" style={{ wordBreak: 'break-word' }}>
-                            <div className="flex items-center gap-1 flex-wrap">
+                          <td className="py-3 pl-2 pr-1 font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>{index + 1}</td>
+                          <td className="py-3 px-1 font-black uppercase" style={{ wordBreak: 'break-word' }}>
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <KitBadge
                                 pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
                                 colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                                 colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
                                 colour3={kitByUser[player.user_id]?.colour3}
-                                size={14}
+                                size={18}
                               />
                               <span>{player.display_name}</span>
                               {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
-                              {index === 0 && <CrownIcon size={13} color="var(--pop-green)" />}
-                              {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={13} /></span>}
-                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '8px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
+                              {index === 0 && <CrownIcon size={15} color="var(--pop-green)" />}
+                              {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={15} /></span>}
+                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                             </div>
                           </td>
-                          <td className="py-2 px-1 sm:px-2 text-center font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{player.home_wins}</td>
-                          <td className="py-2 px-1 sm:px-2 text-center font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{player.away_wins}</td>
-                          <td className="py-2 px-1 sm:px-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{player.best_gameweek_score}</td>
-                          <td className="py-2 px-1 sm:px-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{Math.round(player.team_points)}</td>
-                          <td className="py-2 px-1 sm:px-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{Math.round(player.player_points)}</td>
-                          <td className="py-2 px-1 sm:px-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{Math.round(player.banker_points)}</td>
-                          {showBonusCard && (
-                            <td className="py-2 px-1 sm:px-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{Math.round(player.bonus_card_points) || '—'}</td>
-                          )}
-                          <td className="py-2 pl-1 pr-1.5 sm:px-2 text-right font-black font-mono" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums' }}>{player.total_points}</td>
+                          <td className="py-3 pl-1 pr-2 text-right font-black font-mono" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', fontSize: '18px' }}>{player.total_points}</td>
                         </tr>
                         {expandedUser === player.user_id && (
                           <tr>
-                            <td colSpan={showBonusCard ? 10 : 9} className="px-1.5 sm:px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
+                            <td colSpan={3} className="px-1.5 sm:px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
                               <div className="flex items-center justify-between gap-3 mb-4 pb-3 flex-wrap" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
                                 <KitBadge
                                   pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
@@ -666,30 +652,30 @@ export default function LeaderboardPage() {
                                   iconTextClass="text-base sm:text-xl"
                                   starColor="var(--pop-pink)"
                                 />
-                                <div className="flex items-start gap-4 flex-wrap justify-end">
-                                  <div className="text-right">
-                                    <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>Best Gameweek (tiebreaker #3)</p>
-                                    <p className="text-sm font-black" style={{ color: 'var(--pop-green)' }}>{player.best_gameweek_score} pts</p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>Bankers Left</p>
-                                    <p className="text-sm font-black" style={{ color: 'var(--pop-pink)' }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} / 2</p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>All or Nothing</p>
-                                    <p className="text-sm font-black" style={{ color: 'var(--pop-pink)' }}>{aonUsedByPlayer.has(player.user_id) ? 'Used' : 'Available'}</p>
-                                  </div>
-                                  {showBonusCard && (
-                                    <div className="text-right">
-                                      <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>{bonusCardName}</p>
-                                      <p className="text-sm font-black" style={{ color: 'var(--pop-pink)' }}>
-                                        {bonusCardPlayedByUser.has(player.user_id)
-                                          ? `Used${bonusCardPlayByUser[player.user_id] ? ` — GW${allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}` : ''}`
-                                          : 'Available'}
-                                      </p>
-                                    </div>
-                                  )}
+                              </div>
+
+                              {/* Bold status cards, not small stat text — Banker/AoN/Bonus
+                                  Card are big parts of the game and should read that way.
+                                  Best Gameweek moved to the Full Table page only. */}
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                                <div className="rounded-lg p-2.5 text-center" style={{ background: (bankersUsedByPlayer[player.user_id] ?? 0) > 0 ? 'rgba(125,55,165,0.18)' : 'rgba(255,255,255,0.04)', border: '1px solid rgba(125,55,165,0.4)' }}>
+                                  <p className="text-[9px] uppercase tracking-widest font-black mb-0.5" style={{ color: 'var(--pop-yellow)' }}>★ Banker</p>
+                                  <p className="text-sm font-black" style={{ color: 'var(--pop-white)' }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} / 2 left</p>
                                 </div>
+                                <div className="rounded-lg p-2.5 text-center" style={{ background: 'rgba(160,0,250,0.12)', border: '1px solid rgba(160,0,250,0.4)' }}>
+                                  <p className="text-[9px] uppercase tracking-widest font-black mb-0.5 inline-flex items-center justify-center gap-1" style={{ color: 'var(--pop-pink)' }}><BoltIcon size={10} color="var(--pop-pink)" /> All or Nothing</p>
+                                  <p className="text-sm font-black" style={{ color: 'var(--pop-white)' }}>{aonUsedByPlayer.has(player.user_id) ? 'Used' : 'Available'}</p>
+                                </div>
+                                {showBonusCard && (
+                                  <div className="rounded-lg p-2.5 text-center" style={{ background: 'rgba(0,242,250,0.1)', border: '1px solid rgba(0,242,250,0.4)' }}>
+                                    <p className="text-[9px] uppercase tracking-widest font-black mb-0.5" style={{ color: 'var(--pop-blue)' }}>{bonusCardName}</p>
+                                    <p className="text-sm font-black" style={{ color: 'var(--pop-white)' }}>
+                                      {bonusCardPlayedByUser.has(player.user_id)
+                                        ? `Used${bonusCardPlayByUser[player.user_id] ? ` — GW${allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}` : ''}`
+                                        : 'Available'}
+                                    </p>
+                                  </div>
+                                )}
                               </div>
                               {allGameweeks.length === 0 ? (
                                 <p className="mb-3" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)' }}>No picks yet.</p>
@@ -838,30 +824,25 @@ export default function LeaderboardPage() {
                   })}
                   {ranked.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="py-8 text-center uppercase tracking-wider" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>No players yet.</td>
+                      <td colSpan={3} className="py-8 text-center uppercase tracking-wider" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>No players yet.</td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
 
-            <div className="mt-3 uppercase tracking-wider flex items-center flex-wrap" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
-              <span className="font-black mr-2">Key:</span>
-              <span className="inline-flex items-center gap-1"><CrownIcon size={11} color="var(--pop-green)" /> Leader</span>
-              <span className="mx-2">·</span>
-              <span className="inline-flex items-center gap-1"><FlameIcon size={11} /> Streak (3+ wks above avg)</span>
-              <span className="mx-2">·</span>
-              <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — computer picked it (deadline passed, no pick made)
-              <span className="mx-2">·</span>
-              <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-white)' }}>★</span> Banker declared — doubles that gameweek's score
-              <span className="mx-2">·</span>
-              <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-pink)', color: 'var(--pop-white)' }}><BoltIcon size={9} color="var(--pop-white)" /> AoN</span> All or Nothing played, result pending
-              <span className="mx-2">·</span>
-              <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}><CheckIcon size={9} color="var(--pop-black)" /> AoN</span> succeeded
-              <span className="mx-2">·</span>
-              <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-red)', color: 'var(--pop-white)' }}><CrossIcon size={9} color="var(--pop-white)" /> AoN</span> failed
-              <span className="mx-2">·</span>
-              Click a row to expand
+            <div className="pop-panel p-4 mt-3">
+              <p className="font-black uppercase tracking-wider text-xs mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>Key</p>
+              <div className="flex flex-col gap-2.5" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)' }}>
+                <div className="flex items-center gap-2.5"><CrownIcon size={20} color="var(--pop-green)" /> Current leader</div>
+                <div className="flex items-center gap-2.5"><FlameIcon size={20} /> On a streak — 3+ weeks above average</div>
+                <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — deadline missed, computer picked</div>
+                <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-white)' }}>★</span> Banker declared that gameweek</div>
+                <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-pink)', color: 'var(--pop-white)' }}><BoltIcon size={11} color="var(--pop-white)" /> AoN</span> All or Nothing played, result pending</div>
+                <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}><CheckIcon size={11} color="var(--pop-black)" /> AoN</span> All or Nothing succeeded</div>
+                <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-red)', color: 'var(--pop-white)' }}><CrossIcon size={11} color="var(--pop-white)" /> AoN</span> All or Nothing failed</div>
+                <div className="flex items-center gap-2.5" style={{ color: 'rgba(255,255,255,0.5)' }}>▼ Tap a row to see their week-by-week picks</div>
+              </div>
             </div>
 
           </div>
