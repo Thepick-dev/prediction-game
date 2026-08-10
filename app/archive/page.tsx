@@ -12,17 +12,17 @@ import Link from 'next/link'
 type PastCompetition = { id: string; name: string; season: string; start_date: string | null; end_date: string | null; manual_winner: string | null; manual_winner_note: string | null }
 type Honour = { season: string; competition_name: string; winner: string; notes: string | null }
 
-// One consistent "trophy" identity per competition — a warm orange badge
-// for LMS, a lime/blue two-tone badge for IC — rather than cycling
-// through random colours per row, which had no actual meaning behind
-// which name got which colour.
+// One consistent two-tone "trophy" identity per competition — orange/
+// purple for LMS, lime/blue for IC — rather than cycling through random
+// colours per row, which had no actual meaning behind which name got
+// which colour.
 function TrophyBadge({ name, ic = false }: { name: string; ic?: boolean }) {
   const style = ic
     ? { background: 'rgba(0,242,250,0.12)', border: '1px solid rgba(204,250,0,0.5)', color: 'var(--pop-green)' }
-    : { background: 'rgba(250,97,0,0.15)', border: '1px solid rgba(250,97,0,0.4)', color: 'var(--pop-orange)' }
+    : { background: 'rgba(160,0,250,0.12)', border: '1px solid rgba(250,97,0,0.5)', color: 'var(--pop-orange)' }
   return (
     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-black" style={style}>
-      <TrophyIcon size={12} color={ic ? 'var(--pop-blue)' : 'var(--pop-orange)'} /> {name}
+      <TrophyIcon size={12} color={ic ? 'var(--pop-blue)' : 'var(--pop-pink)'} /> {name}
     </span>
   )
 }

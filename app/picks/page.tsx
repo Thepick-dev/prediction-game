@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
@@ -47,42 +48,59 @@ function teamDisplayName(team: Team | undefined) {
 const AON_INFO_TEXT = "Once per competition, nominate one of your two picks. Score a goal or assist and you get a bonus third use of them for the rest of the competition; blank and you lose all remaining uses of them. Only on your own two picks — never the Bonus Card."
 const BANKER_INFO_TEXT = 'Two per competition. Doubles your entire gameweek score — team and both players. Declare it with your pick. Never applied to autopicks.'
 
-// A small "?" trigger that reveals a short explainer beneath it. Not
-// portalled — stays inside the normal DOM flow so it keeps resolving the
-// theme's CSS variables correctly, and the wizard step content it lives in
-// deliberately has no overflow:hidden, so it's free to sit above anything.
+// A small "?" trigger that reveals a short explainer. Portalled to
+// <body> with its position measured and clamped to the viewport on open —
+// a plain absolutely-positioned popup centred on the trigger button used
+// to get cut off at the screen edge on mobile whenever the button itself
+// was near one. Colours are hardcoded rather than read from the theme's
+// CSS variables, since a portal to <body> sits outside .pop-art-theme's
+// scope and those variables wouldn't resolve there.
 function InfoPopover({ text }: { text: string }) {
   const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  function handleToggle() {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      const width = Math.min(260, window.innerWidth - 24)
+      const left = Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 12))
+      setPos({ top: rect.bottom + 8, left, width })
+    }
+    setOpen(o => !o)
+  }
+
   return (
-    <span className="relative inline-flex" style={{ verticalAlign: 'middle' }}>
+    <>
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={handleToggle}
         className="inline-flex items-center justify-center rounded-full shrink-0"
-        style={{ width: 18, height: 18, fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.18)', color: 'var(--pop-white)', lineHeight: 1 }}
+        style={{ width: 18, height: 18, fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.18)', color: '#FFFFFF', lineHeight: 1, verticalAlign: 'middle' }}
         aria-label="More info"
         aria-expanded={open}
       >
         ?
       </button>
-      {open && (
+      {open && pos && typeof document !== 'undefined' && createPortal(
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden="true" />
+          <div className="fixed inset-0" style={{ zIndex: 9998 }} onClick={() => setOpen(false)} aria-hidden="true" />
           <div
             role="tooltip"
-            className="absolute z-50 rounded-lg p-3 text-xs font-normal normal-case text-left"
+            className="rounded-lg p-3 text-xs font-normal normal-case text-left"
             style={{
-              top: '130%', left: '50%', transform: 'translateX(-50%)',
-              width: 'min(240px, 80vw)', background: 'var(--pop-surface)',
-              border: '2px solid rgba(255,255,255,0.15)', boxShadow: '0 4px 18px rgba(0,0,0,0.5)',
-              color: 'rgba(255,255,255,0.8)', lineHeight: 1.4,
+              position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 9999,
+              background: '#1C1424', border: '2px solid rgba(255,255,255,0.18)', boxShadow: '0 4px 18px rgba(0,0,0,0.5)',
+              color: 'rgba(255,255,255,0.85)', lineHeight: 1.4,
             }}
           >
             {text}
           </div>
-        </>
+        </>,
+        document.body
       )}
-    </span>
+    </>
   )
 }
 
@@ -1297,7 +1315,7 @@ export default function PicksPage() {
                                 </button>
                               </div>
                               <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                                One-off bonus on top of your normal picks — never doubled by Banker, usable once across the whole competition.
+                                Free extra points on top of your two picks — you only get one shot at it all competition, so pick your moment.
                               </p>
                             </>
                           )}
