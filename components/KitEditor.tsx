@@ -24,6 +24,10 @@ const SWATCHES = [
   '#2F3E2E', '#16A34A', '#4ADE80', '#065F46',
   '#D9A441', '#FBBF24', '#F59E0B', '#EAB308',
   '#7C3AED', '#A855F7', '#EC4899', '#463A4A',
+  '#0D9488', '#14B8A6', '#06B6D4', '#155E75',
+  '#84CC16', '#65A30D', '#CCFA00', '#3F6212',
+  '#F97316', '#FB923C', '#FDBA74', '#9A3412',
+  '#BE185D', '#F472B6', '#6B21A8', '#312E81',
 ]
 
 type Kit = { pattern: string; colour1: string; colour2: string; colour3: string | null }
@@ -168,7 +172,7 @@ export default function KitEditor({
       : <p className="text-sm text-[#F5ECD9]/50 text-center py-4">Loading...</p>
   }
 
-  const swatchSize = compact ? 'w-6 h-6' : 'w-8 h-8'
+  const swatchSize = compact ? 'w-5 h-5' : 'w-6 h-6'
   const btnClass = "w-full rounded px-4 py-2 text-sm font-bold disabled:opacity-50"
   const btnStyle = { backgroundColor: '#D9A441', color: '#241a12' }
   const labelClass = isPopArt

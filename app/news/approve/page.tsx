@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
 import Shell from '../../components/ceefax-shell'
 import HeroPage from '../../../components/HeroPage'
+import PopArtLoading from '../../../components/PopArtLoading'
+import { usePopArtTheme } from '../../lib/usePopArtTheme'
 
 type Dispatch = {
   id: string
@@ -30,6 +32,7 @@ export default function ApproveArticlesPage() {
   const [message, setMessage] = useState('')
 
   const supabase = createClient()
+  const { popArt } = usePopArtTheme(user?.id)
 
   useEffect(() => { init() }, [])
 
@@ -97,21 +100,107 @@ export default function ApproveArticlesPage() {
 
   if (allowed === null) {
     return (
-      <Shell active="NEWS">
-        <p className="text-gray-500">Loading...</p>
+      <Shell active="NEWS" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
       </Shell>
     )
   }
 
   if (!allowed) {
     return (
-      <Shell active="NEWS" user={user} displayName={displayName}>
-        <HeroPage>
-          <div className="w-full text-[#F5ECD9] text-center">
-            <h1 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Not Available</h1>
-            <p className="text-sm text-[#F5ECD9]/60">You&apos;re not a super admin, so this page isn&apos;t available to you.</p>
+      <Shell active="NEWS" user={user} displayName={displayName} theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? (
+          <div className="pop-art-theme text-center py-12">
+            <p className="pop-headline text-2xl mb-2">Not Available</p>
+            <p style={{ color: 'rgba(255,255,255,0.5)' }}>You&apos;re not a super admin, so this page isn&apos;t available to you.</p>
           </div>
-        </HeroPage>
+        ) : (
+          <HeroPage>
+            <div className="w-full text-[#F5ECD9] text-center">
+              <h1 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Not Available</h1>
+              <p className="text-sm text-[#F5ECD9]/60">You&apos;re not a super admin, so this page isn&apos;t available to you.</p>
+            </div>
+          </HeroPage>
+        )}
+      </Shell>
+    )
+  }
+
+  if (popArt) {
+    return (
+      <Shell active="NEWS" user={user} displayName={displayName} theme="pop-art">
+        <div className="pop-art-theme">
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-1">Review Submissions</h1>
+          <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>Articles submitted by news authors, awaiting approval.</p>
+
+          {message && <p className="pop-badge pop-badge--green px-3 py-1.5 text-xs inline-block mb-4">{message}</p>}
+
+          <div className="pop-panel mb-6" style={{ overflow: 'hidden' }}>
+            <div className="px-4 py-2.5 font-black uppercase tracking-wider text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>
+              Pending ({pending.length})
+            </div>
+            {pending.length === 0 ? (
+              <p className="text-sm p-4" style={{ color: 'rgba(255,255,255,0.4)' }}>Nothing waiting for review.</p>
+            ) : (
+              <div>
+                {pending.map((d, i) => (
+                  <div key={d.id} className="p-4" style={i > 0 ? { borderTop: '1px solid rgba(255,255,255,0.08)' } : undefined}>
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div>
+                        <p className="font-black uppercase text-sm">{d.title}</p>
+                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>By {authorNames[d.author_id ?? ''] ?? 'Unknown'}</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0 flex-wrap">
+                        <button onClick={() => setExpanded(expanded === d.id ? null : d.id)} className="pop-button pop-button--yellow text-xs px-2.5 py-1.5">
+                          {expanded === d.id ? 'Hide' : 'Preview'}
+                        </button>
+                        <button onClick={() => approveAndPublish(d)} className="pop-button pop-button--green text-xs px-2.5 py-1.5">
+                          ✓ Approve &amp; Publish
+                        </button>
+                        <button onClick={() => sendBack(d)} className="pop-button pop-button--yellow text-xs px-2.5 py-1.5">
+                          Send Back
+                        </button>
+                        <button onClick={() => deleteArticle(d.id)} className="pop-button text-xs px-2.5 py-1.5" style={{ background: 'var(--pop-red)' }}>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    {expanded === d.id && (
+                      <div className="mt-3 rounded-lg p-3 text-sm whitespace-pre-wrap" style={{ background: 'rgba(0,0,0,0.3)', color: 'rgba(255,255,255,0.8)' }}>
+                        {d.content}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="pop-panel" style={{ overflow: 'hidden' }}>
+            <div className="px-4 py-2.5 font-black uppercase tracking-wider text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>
+              Approved articles ({live.length})
+            </div>
+            {live.length === 0 ? (
+              <p className="text-sm p-4" style={{ color: 'rgba(255,255,255,0.4)' }}>No author-submitted articles approved yet.</p>
+            ) : (
+              <div>
+                {live.map((d, i) => (
+                  <div key={d.id} className="p-4 flex items-center justify-between gap-3 flex-wrap" style={i > 0 ? { borderTop: '1px solid rgba(255,255,255,0.08)' } : undefined}>
+                    <div>
+                      <p className="font-black uppercase text-sm">{d.title}</p>
+                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>By {authorNames[d.author_id ?? ''] ?? 'Unknown'} · {d.published ? 'Live' : 'Unpublished'}</p>
+                    </div>
+                    {d.published && (
+                      <button onClick={() => unpublish(d)} className="pop-button pop-button--yellow text-xs px-2.5 py-1.5">
+                        Unpublish
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </Shell>
     )
   }

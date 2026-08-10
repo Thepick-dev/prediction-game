@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
 import Shell from '../../components/ceefax-shell'
 import HeroPage from '../../../components/HeroPage'
+import PopArtLoading from '../../../components/PopArtLoading'
+import { usePopArtTheme } from '../../lib/usePopArtTheme'
 
 type Dispatch = {
   id: string
@@ -32,6 +34,7 @@ export default function WriteArticlePage() {
   const [message, setMessage] = useState('')
 
   const supabase = createClient()
+  const { popArt } = usePopArtTheme(user?.id)
 
   useEffect(() => { init() }, [])
 
@@ -125,21 +128,103 @@ export default function WriteArticlePage() {
 
   if (allowed === null) {
     return (
-      <Shell active="NEWS">
-        <p className="text-gray-500">Loading...</p>
+      <Shell active="NEWS" theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
       </Shell>
     )
   }
 
   if (!allowed) {
     return (
-      <Shell active="NEWS" user={user} displayName={displayName}>
-        <HeroPage>
-          <div className="w-full text-[#F5ECD9] text-center">
-            <h1 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Not Available</h1>
-            <p className="text-sm text-[#F5ECD9]/60">You don&apos;t have permission to write articles. Ask an admin if you think this should change.</p>
+      <Shell active="NEWS" user={user} displayName={displayName} theme={popArt ? 'pop-art' : 'classic'}>
+        {popArt ? (
+          <div className="pop-art-theme text-center py-12">
+            <p className="pop-headline text-2xl mb-2">Not Available</p>
+            <p style={{ color: 'rgba(255,255,255,0.5)' }}>You don&apos;t have permission to write articles. Ask an admin if you think this should change.</p>
           </div>
-        </HeroPage>
+        ) : (
+          <HeroPage>
+            <div className="w-full text-[#F5ECD9] text-center">
+              <h1 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Not Available</h1>
+              <p className="text-sm text-[#F5ECD9]/60">You don&apos;t have permission to write articles. Ask an admin if you think this should change.</p>
+            </div>
+          </HeroPage>
+        )}
+      </Shell>
+    )
+  }
+
+  if (popArt) {
+    return (
+      <Shell active="NEWS" user={user} displayName={displayName} theme="pop-art">
+        <div className="pop-art-theme">
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-1">Write Article</h1>
+          <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>Submitted articles go to a super admin for review before they go live.</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="pop-panel p-5">
+              <p className="pop-headline text-sm mb-4">{editing ? 'Edit Draft' : 'New Article'}</p>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={title}
+                  onChange={e => { setTitle(e.target.value); if (!editing) setSlug(generateSlug(e.target.value)) }}
+                  placeholder="Title"
+                  className="pop-input w-full p-2.5 font-bold text-sm"
+                />
+                <textarea
+                  value={excerpt}
+                  onChange={e => setExcerpt(e.target.value)}
+                  rows={2}
+                  placeholder="Short excerpt (shown in the list)"
+                  className="pop-input w-full p-2.5 font-bold text-sm"
+                />
+                <textarea
+                  value={content}
+                  onChange={e => setContent(e.target.value)}
+                  rows={12}
+                  placeholder="Write the article. Separate paragraphs with a blank line."
+                  className="pop-input w-full p-2.5 font-bold text-sm"
+                />
+                {message && (
+                  <p className={`pop-badge ${message.startsWith('Error') ? 'pop-badge--red' : 'pop-badge--green'} px-3 py-1.5 text-xs inline-block`}>{message}</p>
+                )}
+                <div className="flex items-center gap-3">
+                  <button onClick={submit} disabled={saving} className="pop-button px-5 py-2.5 text-sm">
+                    {saving ? 'Submitting...' : editing ? 'Resubmit for Review' : 'Submit for Review'}
+                  </button>
+                  {editing && (
+                    <button onClick={startNew} className="font-bold text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>Cancel</button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="pop-panel p-5">
+              <p className="pop-headline text-sm mb-4">Your Articles</p>
+              {dispatches.length === 0 ? (
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>Nothing submitted yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {dispatches.map(d => (
+                    <div key={d.id} className="pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-black text-sm">{d.title}</p>
+                        <span className={`pop-badge ${d.published ? 'pop-badge--green' : d.approved ? 'pop-badge--blue' : 'pop-badge--yellow'} px-2 py-0.5 text-[10px] shrink-0`}>
+                          {d.published ? 'Live' : d.approved ? 'Approved' : 'Pending Review'}
+                        </span>
+                      </div>
+                      <div className="flex gap-3 mt-1.5">
+                        <button onClick={() => startEdit(d)} className="text-xs font-bold" style={{ color: 'var(--pop-blue)' }}>Edit</button>
+                        <button onClick={() => deleteDraft(d.id)} className="text-xs font-bold" style={{ color: 'var(--pop-red)' }}>Delete</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </Shell>
     )
   }
