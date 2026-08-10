@@ -786,7 +786,18 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
         </button>
       )}
       {phase === 'aiming' && (
-        <button onClick={shoot} className="pop-button w-full py-3 text-lg" style={{ background: 'var(--pop-pink)' }}>
+        // onPointerDown, not onClick — the marker can be sweeping the full
+        // track in as little as 0.28s, so the ~50-300ms a browser can take
+        // to synthesize a click event after a tap (waiting to rule out a
+        // double-tap) was enough lag on its own to make a shot land
+        // somewhere the marker had already moved on from. Firing on the
+        // very first contact event removes that lag; touchAction stops
+        // the browser treating it as a possible double-tap-to-zoom.
+        <button
+          onPointerDown={shoot}
+          className="pop-button w-full py-3 text-lg"
+          style={{ background: 'var(--pop-pink)', touchAction: 'manipulation' }}
+        >
           Shoot
         </button>
       )}

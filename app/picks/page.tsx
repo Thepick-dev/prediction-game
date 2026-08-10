@@ -935,7 +935,9 @@ export default function PicksPage() {
               <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">Picks</h1>
               {user && (
                 <div className="flex flex-col items-center gap-0.5">
-                  <span className="font-mono" style={{ fontSize: '8.5px', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.45)' }}>★ MINI-GAME</span>
+                  <span className="font-mono font-black" style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--pop-white)' }}>
+                    <span style={{ color: 'var(--pop-orange)' }}>★</span> MINI-GAME
+                  </span>
                   <button
                     onClick={openShootout}
                     className="pop-button pop-button--green px-3 py-1.5 text-xs inline-flex items-center gap-1.5"
