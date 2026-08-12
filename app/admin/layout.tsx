@@ -118,6 +118,7 @@ export default async function AdminLayout({
                 </a>
                 <a href="/admin/dispatch" className="block hover:text-white">News</a>
                 <a href="/admin/archive" className="block hover:text-white">Archive</a>
+                <a href="/admin/futzy" className="block hover:text-white">🤖 Futzy</a>
               </div>
             </div>
 
@@ -128,6 +129,7 @@ export default async function AdminLayout({
                 <a href="/admin/help/pre-season" className="block hover:text-white">New Season Setup</a>
                 <a href="/admin/help/deploying-changes" className="block hover:text-white">Making Changes Yourself</a>
                 <a href="/admin/help/bonus-card" className="block hover:text-white">The Bonus Card</a>
+                <a href="/admin/help/futzy" className="block hover:text-white">Futzy</a>
               </div>
             </div>
 

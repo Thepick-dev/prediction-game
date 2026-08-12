@@ -13,12 +13,12 @@ export async function GET() {
 
   const { data: competition } = await supabase
     .from('competitions')
-    .select('id, bonus_card_enabled, bonus_card_player_id, bonus_card_name')
+    .select('id, bonus_card_enabled, bonus_card_player_id, bonus_card_name, bot_enabled')
     .eq('status', 'active')
     .single()
 
   if (!competition) {
-    return NextResponse.json({ scoringRules: [], goalPoints: 12, assistPoints: 6, exclusions: [], bonusCardEnabled: false, bonusCardName: null })
+    return NextResponse.json({ scoringRules: [], goalPoints: 12, assistPoints: 6, exclusions: [], bonusCardEnabled: false, bonusCardName: null, botEnabled: false })
   }
 
   const [{ data: rules }, { data: playerRules }, { data: exclusions }] = await Promise.all([
@@ -46,5 +46,6 @@ export async function GET() {
     exclusions: (exclusions ?? []).map((e: any) => ({ name: e.players?.name ?? 'Unknown player', reason: e.reason })),
     bonusCardEnabled: !!competition.bonus_card_enabled,
     bonusCardName: bonusCardDisplayName(competition.bonus_card_name, bonusCardPlayerName),
+    botEnabled: !!competition.bot_enabled,
   })
 }

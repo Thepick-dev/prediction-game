@@ -93,6 +93,7 @@ export default function ResultsPage() {
   const [bonusCardName, setBonusCardName] = useState<string | null>(null)
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
   const [profiles, setProfiles] = useState<Record<string, string>>({})
+  const [isBotByUser, setIsBotByUser] = useState<Record<string, boolean>>({})
   const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }>>({})
   const [teams, setTeams] = useState<Record<number, Team>>({})
   const [players, setPlayers] = useState<Record<number, string>>({})
@@ -135,7 +136,7 @@ export default function ResultsPage() {
       // browsable ahead of time; loadPicksForGw is what actually keeps any
       // picks data from ever being fetched for one that isn't due yet.
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).order('number', { ascending: true }),
-      supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
+      supabase.from('profiles').select('id, display_name, is_bot, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('teams').select('id, name, short_name, short_code, crest_url'),
       supabase.from('players').select('id, name, web_name, team_id')
     ])
@@ -155,9 +156,11 @@ export default function ResultsPage() {
     kitTrims?.forEach(k => { kitTrimMap[k.id] = k.kit_colour_3 ?? null })
 
     const profileMap: Record<string, string> = {}
+    const isBotMap: Record<string, boolean> = {}
     const kitMap: Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }> = {}
     profilesData?.forEach(p => {
       profileMap[p.id] = p.display_name ?? 'Unknown'
+      isBotMap[p.id] = p.is_bot ?? false
       kitMap[p.id] = {
         pattern: p.kit_pattern ?? 'solid',
         colour1: p.kit_colour_1 ?? '#1E4D6B',
@@ -174,6 +177,7 @@ export default function ResultsPage() {
     const playerMap = buildPlayerDisplayNames(playersData ?? [], teamMap)
 
     setProfiles(profileMap)
+    setIsBotByUser(isBotMap)
     setKitByUser(kitMap)
     setTeams(teamMap)
     setPlayers(playerMap)
@@ -661,6 +665,11 @@ export default function ResultsPage() {
                               size={14}
                             />
                             <span className="truncate">{profiles[pick.user_id] ?? 'Unknown'}</span>
+                            {isBotByUser[pick.user_id] && (
+                              <span className="pop-badge px-1.5 py-0.5 text-[8px] shrink-0" style={{ background: 'rgba(255,255,255,0.15)' }} title="An AI participant, powered by Claude">
+                                🤖 Powered by Claude
+                              </span>
+                            )}
                             {isOwnPick && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px] shrink-0">You</span>}
                             {(pick.provisional || pick.is_autopick) && (
                               <span className="px-1 rounded shrink-0" style={{ fontSize: '9px', background: 'rgba(255,255,255,0.15)' }} title="No pick was made in time, so the computer picked automatically">AP</span>

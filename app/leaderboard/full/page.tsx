@@ -15,6 +15,7 @@ import Link from 'next/link'
 type RankedPlayer = {
   user_id: string
   display_name: string
+  is_bot: boolean
   joined_at: string
   home_wins: number
   away_wins: number
@@ -116,7 +117,7 @@ export default function FullLeaderboardPage() {
 
     const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: rawPicks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }, { data: fixtures }, { data: submissions }, { data: aonPicks }, { data: bonusCardPlays }] = await Promise.all([
       supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id).eq('removed', false),
-      supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
+      supabase.from('profiles').select('id, display_name, is_bot, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
       supabase.from('picks').select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('competition_id', comp.id),
       supabase.from('teams').select('id, name, short_name, short_code, crest_url').eq('active', true),
@@ -142,9 +143,11 @@ export default function FullLeaderboardPage() {
     setAllTeams(teams ?? [])
 
     const profileMap: Record<string, string> = {}
+    const isBotMap: Record<string, boolean> = {}
     const kitMap: Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }> = {}
     profiles?.forEach(p => {
       profileMap[p.id] = p.display_name ?? 'Unknown'
+      isBotMap[p.id] = p.is_bot ?? false
       kitMap[p.id] = {
         pattern: p.kit_pattern ?? 'solid',
         colour1: p.kit_colour_1 ?? '#1E4D6B',
@@ -300,6 +303,7 @@ export default function FullLeaderboardPage() {
       totals[entry.user_id] = {
         user_id: entry.user_id,
         display_name: profileMap[entry.user_id] ?? 'Unknown',
+        is_bot: isBotMap[entry.user_id] ?? false,
         joined_at: entry.joined_at,
         home_wins: 0,
         away_wins: 0,
@@ -499,6 +503,9 @@ export default function FullLeaderboardPage() {
   }
 
   const showBonusCard = competition?.bonus_card_player_id != null
+  // Futzy can appear at whatever position he's genuinely earned, but the
+  // crown belongs to the top-ranked human — he can't be crowned anything.
+  const topHumanId = ranked.find(p => !p.is_bot)?.user_id
 
   return (
     <Shell active="LEADERBOARD" user={user} displayName={displayName} theme="pop-art">
@@ -551,8 +558,13 @@ export default function FullLeaderboardPage() {
                             size={14}
                           />
                           <span>{player.display_name}</span>
+                          {player.is_bot && (
+                            <span className="pop-badge px-1.5 py-0.5 text-[8px]" style={{ background: 'rgba(255,255,255,0.15)' }} title="An AI participant, powered by Claude — can't be crowned the winner">
+                              🤖 Powered by Claude
+                            </span>
+                          )}
                           {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
-                          {index === 0 && <CrownIcon size={13} color="var(--pop-green)" />}
+                          {player.user_id === topHumanId && <CrownIcon size={13} color="var(--pop-green)" />}
                           {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={13} /></span>}
                           <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '8px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                         </div>

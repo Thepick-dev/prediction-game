@@ -38,6 +38,10 @@ export const RULES_TEXT = {
     "You can't play the card in a gameweek where its player is already one of your own two picks that same week — using the card on a player you've picked normally in a different gameweek is fine. Playing the card doesn't count towards that player's own separate two-uses-per-competition cap.",
     "If the nominated player doesn't play at all that gameweek, the card still counts as used and scores zero. The card's points don't count towards the best-single-gameweek tiebreaker below.",
   ],
+  futzy: [
+    "Some competitions include Futzy — an AI participant, powered by Claude, that submits real picks every gameweek using expected goals/assists, fixture strength and injury data rather than a person choosing. He's clearly labelled wherever he appears.",
+    "Futzy plays by the same rules as everyone else — the same deadlines, the same team/player usage caps — but he can never be crowned the winner, even if he tops the table.",
+  ],
   quartiles: [
     'The 20 Premier League clubs are divided into four quartiles of five — Q1 (strongest) to Q4 (weakest). Quartiles are used to calculate team points based on the difficulty of the result.',
     "Betting odds set the quartiles for the first 6 gameweeks of a brand new season, before there's enough of a real league table to go on. From gameweek 7 onward, the actual table takes over. A competition starting partway through a season (e.g. a second half beginning in January) uses the real table from its very first gameweek, since one already exists by then.",

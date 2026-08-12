@@ -119,7 +119,15 @@ export async function POST() {
       // Explicitly true for everyone in today's feed — this is also what
       // reactivates someone who'd previously been marked inactive below,
       // if they ever reappear in a later sync.
-      active: true
+      active: true,
+      // Feeds Futzy's projection model (app/lib/botPick.ts) — expected_goals/
+      // expected_assists/form arrive as numeric strings in FPL's own feed,
+      // hence the explicit parse. Season-cumulative, not per-gameweek.
+      xg: player.expected_goals != null ? parseFloat(player.expected_goals) : null,
+      xa: player.expected_assists != null ? parseFloat(player.expected_assists) : null,
+      form: player.form != null ? parseFloat(player.form) : null,
+      chance_of_playing: player.chance_of_playing_this_round ?? null,
+      injury_news: player.news || null,
     }))
     .filter((p: any) => p.team_id !== null)
 

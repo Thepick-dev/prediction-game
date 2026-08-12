@@ -24,7 +24,7 @@ export default async function CompetitionsPage({
     ?? competitions?.[0]?.id
     ?? null
 
-  const [{ data: entries }, { data: profiles }, { data: players }, { data: teams }] = await Promise.all([
+  const [{ data: entries }, { data: profiles }, { data: players }, { data: teams }, { data: bot }] = await Promise.all([
     selectedCompId
       ? supabase
           .from('competition_entries')
@@ -35,6 +35,7 @@ export default async function CompetitionsPage({
     supabase.from('profiles').select('id, display_name'),
     supabase.from('players').select('id, name, web_name, team_id'),
     supabase.from('teams').select('id, name, short_name, short_code').eq('active', true),
+    supabase.from('profiles').select('id').eq('is_bot', true).maybeSingle(),
   ])
 
   const nameByUserId: Record<string, string> = {}
@@ -140,6 +141,39 @@ export default async function CompetitionsPage({
       .update({ bonus_card_enabled: !current })
       .eq('id', id)
     redirect(`/admin/competitions?comp=${id}#bonus-card`)
+  }
+
+  async function toggleBotEnabled(formData: FormData) {
+    'use server'
+    const supabase = await createServerSupabaseClient()
+    const id = formData.get('id') as string
+    const current = formData.get('current') === 'true'
+    const nextEnabled = !current
+    await supabase
+      .from('competitions')
+      .update({ bot_enabled: nextEnabled })
+      .eq('id', id)
+
+    // Give Futzy a real competition_entries row the moment he's switched on,
+    // same as how a real player gets one the moment they join — the cron
+    // path also does this defensively, but doing it here means he shows up
+    // on the leaderboard immediately rather than only after tomorrow's run.
+    if (nextEnabled) {
+      const { data: bot } = await supabase.from('profiles').select('id').eq('is_bot', true).single()
+      if (bot) {
+        const { data: existingEntry } = await supabase
+          .from('competition_entries')
+          .select('user_id')
+          .eq('competition_id', id)
+          .eq('user_id', bot.id)
+          .maybeSingle()
+        if (!existingEntry) {
+          await supabase.from('competition_entries').insert({ user_id: bot.id, competition_id: id })
+        }
+      }
+    }
+
+    redirect(`/admin/competitions?comp=${id}#futzy`)
   }
 
   async function setBonusCardPlayer(formData: FormData) {
@@ -360,6 +394,7 @@ export default async function CompetitionsPage({
           : null
         const resolvedName = bonusCardDisplayName(selectedComp?.bonus_card_name, currentPlayerName)
         return (
+          <>
           <div id="bonus-card" className="bg-white border rounded-lg p-6 mt-8">
             <h2 className="font-bold mb-1">Bonus Card — &quot;{resolvedName}&quot;</h2>
             <p className="text-xs text-gray-500 mb-4">
@@ -403,6 +438,36 @@ export default async function CompetitionsPage({
               currentPlayerName={currentPlayerName}
             />
           </div>
+          <div id="futzy" className="bg-white border rounded-lg p-6 mt-8">
+            <h2 className="font-bold mb-1">🤖 Futzy</h2>
+            <p className="text-xs text-gray-500 mb-4">
+              An AI participant (powered by Claude) that submits its own real picks every gameweek, using expected
+              goals/assists and fixture strength. Visible on the leaderboard, but never eligible to be crowned the
+              winner. See <a href="/admin/help/futzy" className="underline">the Futzy guide</a> for setup and how he thinks.
+            </p>
+            {!bot ? (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-3">
+                Futzy doesn&apos;t exist yet — <a href="/admin/futzy" className="underline">create him first</a> before enabling
+                him for a competition.
+              </p>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-500">Status:</span>
+                <span className={`px-2 py-0.5 rounded text-xs ${selectedComp?.bot_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                  {selectedComp?.bot_enabled ? 'Enabled' : 'Disabled'}
+                </span>
+                <form action={toggleBotEnabled}>
+                  <input type="hidden" name="id" value={selectedCompId} />
+                  <input type="hidden" name="current" value={String(selectedComp?.bot_enabled ?? false)} />
+                  <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">
+                    {selectedComp?.bot_enabled ? 'Disable' : 'Enable'}
+                  </button>
+                </form>
+                <span className="text-xs text-gray-400">Disabling stops new picks — his history/points stand either way.</span>
+              </div>
+            )}
+          </div>
+          </>
         )
       })()}
     </div>

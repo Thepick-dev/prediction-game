@@ -28,6 +28,7 @@ export default function RulesPage() {
   const [aonExclusions, setAonExclusions] = useState<{ name: string; reason: string }[]>([])
   const [bonusCardEnabled, setBonusCardEnabled] = useState(false)
   const [bonusCardName, setBonusCardName] = useState<string | null>(null)
+  const [botEnabled, setBotEnabled] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
@@ -47,11 +48,12 @@ export default function RulesPage() {
 
     const { data: competition } = await supabase
       .from('competitions')
-      .select('id, name, bonus_card_enabled, bonus_card_player_id, bonus_card_name')
+      .select('id, name, bonus_card_enabled, bonus_card_player_id, bonus_card_name, bot_enabled')
       .eq('status', 'active')
       .single()
 
     if (competition) {
+      setBotEnabled(!!competition.bot_enabled)
       const [{ data: rules }, { data: playerRules }] = await Promise.all([
         supabase.from('competition_scoring_rules').select('result_type, quartile_diff, points').eq('competition_id', competition.id),
         supabase.from('player_scoring_rules').select('event_type, points').eq('competition_id', competition.id),
@@ -157,6 +159,14 @@ export default function RulesPage() {
                 <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[1]}</p>
                 <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[2]}</p>
                 <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[3]}</p>
+              </section>
+            )}
+
+            {botEnabled && (
+              <section className="pop-panel p-5">
+                <h2 className="pop-headline text-sm mb-2">🤖 Futzy</h2>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.futzy[0]}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.futzy[1]}</p>
               </section>
             )}
 
@@ -324,6 +334,14 @@ export default function RulesPage() {
                 <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.bonusCard[1]}</p>
                 <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.bonusCard[2]}</p>
                 <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">{RULES_TEXT.bonusCard[3]}</p>
+              </section>
+            )}
+
+            {botEnabled && (
+              <section className={cardClass}>
+                <h2 className="text-lg font-bold mb-3 text-[#D9A441]">🤖 Futzy</h2>
+                <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{RULES_TEXT.futzy[0]}</p>
+                <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">{RULES_TEXT.futzy[1]}</p>
               </section>
             )}
 

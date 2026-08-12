@@ -18,9 +18,13 @@ export default async function UsersPage({
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
 
+  // Futzy (or any future bot) is a real profiles/auth.users row so he can
+  // hold picks and a competition_entries row like anyone else, but he's not
+  // a person to approve/admin/delete here — managed from /admin/futzy instead.
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id, display_name, is_admin, approved, pending_since')
+    .eq('is_bot', false)
     .order('approved', { ascending: true })
     .order('pending_since', { ascending: true })
 
