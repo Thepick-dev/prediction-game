@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { createAdminSupabaseClient } from '../../lib/supabase-admin'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
 import BonusCardPlayerPicker from '../components/bonus-card-player-picker'
@@ -158,17 +159,24 @@ export default async function CompetitionsPage({
     // same as how a real player gets one the moment they join — the cron
     // path also does this defensively, but doing it here means he shows up
     // on the leaderboard immediately rather than only after tomorrow's run.
+    // Uses the admin client specifically: competition_entries' own RLS
+    // (mirroring how a real player joins) only lets a session insert a row
+    // for ITSELF, so the admin's own session inserting a row for Futzy's
+    // user_id was being silently rejected — this bypasses that correctly,
+    // since this is a trusted admin action creating bot infrastructure,
+    // not a user self-service one.
     if (nextEnabled) {
-      const { data: bot } = await supabase.from('profiles').select('id').eq('is_bot', true).single()
+      const admin = createAdminSupabaseClient()
+      const { data: bot } = await admin.from('profiles').select('id').eq('is_bot', true).single()
       if (bot) {
-        const { data: existingEntry } = await supabase
+        const { data: existingEntry } = await admin
           .from('competition_entries')
           .select('user_id')
           .eq('competition_id', id)
           .eq('user_id', bot.id)
           .maybeSingle()
         if (!existingEntry) {
-          await supabase.from('competition_entries').insert({ user_id: bot.id, competition_id: id })
+          await admin.from('competition_entries').insert({ user_id: bot.id, competition_id: id })
         }
       }
     }
