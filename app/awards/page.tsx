@@ -63,6 +63,13 @@ function AwardsInner() {
     if (!comp) { setCompetition(null); setLoading(false); return }
     setCompetition(comp)
 
+    // Awards are for the END of a competition, not a running mid-season
+    // guess — showing "winners" from three gameweeks of data reads as
+    // premature and a bit silly. Only ever computed once a competition
+    // is no longer active; the page still exists for the active one so
+    // the link isn't dead, it just explains it's not time yet.
+    if (comp.status === 'active') { setAwards([]); setLoading(false); return }
+
     const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: picks }, { data: teams }, { data: players }, { data: gameweeks }, { data: fixtures }, { data: events }] = await Promise.all([
       supabase.from('competition_entries').select('user_id').eq('competition_id', comp.id).eq('removed', false),
       supabase.from('profiles').select('id, display_name'),
@@ -235,12 +242,16 @@ function AwardsInner() {
           )}
         </div>
         <p className={popArt ? 'font-bold text-sm mb-6' : 'text-sm mb-6'} style={popArt ? { color: 'rgba(255,255,255,0.5)' } : { color: '#D9A44199' }}>
-          {competition.name}{competition.status !== 'active' ? ' — final' : ' — so far'}
+          {competition.name}{competition.status !== 'active' ? ' — final' : ''}
         </p>
 
-        {awards.length === 0 ? (
+        {competition.status === 'active' ? (
           <p className={popArt ? 'text-sm' : 'text-sm text-gray-500'} style={popArt ? { color: 'rgba(255,255,255,0.5)' } : undefined}>
-            Not enough scored gameweeks yet to hand anything out.
+            Awards get handed out once this competition finishes — check back then.
+          </p>
+        ) : awards.length === 0 ? (
+          <p className={popArt ? 'text-sm' : 'text-sm text-gray-500'} style={popArt ? { color: 'rgba(255,255,255,0.5)' } : undefined}>
+            Not enough scored gameweeks to hand anything out.
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
