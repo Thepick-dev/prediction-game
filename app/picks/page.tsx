@@ -761,7 +761,7 @@ export default function PicksPage() {
     (fixturesForTeam(players.find(p => p.id === player2)?.team_id ?? null).length < 2 || player2Fixture != null)
   const bonusStepValid = !playBonusCard || !bonusCardNeedsFixtureChoice || bonusCardFixture != null
 
-  const bonusInfoText = `One nominated player, playable once across the whole competition, on any gameweek. Points add on top of your normal picks — never doubled by Banker. Can't be played on a player who's already one of this week's two picks.`
+  const bonusInfoText = `${bonusCardPlayerShortName ?? 'This player'} is nominated by the admin for the whole competition — everyone plays the same player, you don't choose one yourself. You can play it once, on any gameweek you like. Points add on top of your normal picks — never doubled by Banker. Can't be played on a gameweek where they're already one of your two normal picks.`
 
   // The step LIST itself — Bonus Card and the weekly Question are only
   // included when this competition/gameweek actually has one, so a

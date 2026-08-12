@@ -182,6 +182,14 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
   // round and switch the keeper to the violin pose with nothing left to
   // reset it, so he'd stay stood there instead of ever diving again.
   const violinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Guards "Play Again"/"Start" against a rapid double-tap bleeding
+  // through from the shot that just ended the game — the Shoot button
+  // fires on pointerdown (see the comment on that button below) precisely
+  // because the marker can be moving fast, and enthusiastic rapid tapping
+  // near the moment of a game-ending shot could otherwise land a second,
+  // unintended contact on whichever button renders in that same screen
+  // position next, silently starting a new game nobody asked for.
+  const lastShotAtRef = useRef(0)
   const supabase = createClient()
 
   useEffect(() => { loadScores() }, [])
@@ -394,6 +402,14 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
     setPhase('aiming')
   }
 
+  // Only for the Play Again buttons on the result screens (win/gameover) —
+  // the very first Start button, from the 'ready' phase, has no preceding
+  // shot to bleed through from, so it calls startGame directly.
+  function handlePlayAgain() {
+    if (Date.now() - lastShotAtRef.current < 400) return
+    startGame()
+  }
+
   function startGame() {
     if (violinTimeoutRef.current) {
       clearTimeout(violinTimeoutRef.current)
@@ -425,6 +441,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
 
   function shoot() {
     if (phase !== 'aiming' || !trackRef.current || !markerRef.current) return
+    lastShotAtRef.current = Date.now()
     const trackRect = trackRef.current.getBoundingClientRect()
     const markerRect = markerRef.current.getBoundingClientRect()
     const markerCenterPct = ((markerRect.left + markerRect.width / 2 - trackRect.left) / trackRect.width) * 100
@@ -823,7 +840,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
           <p className="text-center font-mono text-sm mb-3" style={{ color: 'rgba(255,255,255,0.6)' }}>
             Perfect run — not many people ever see this screen.
           </p>
-          <button onClick={startGame} className="pop-button pop-button--green w-full py-3 text-lg">
+          <button onClick={handlePlayAgain} className="pop-button pop-button--green w-full py-3 text-lg">
             Play Again
           </button>
         </div>
@@ -836,7 +853,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
           <p className="text-center font-mono text-sm mb-3" style={{ color: 'rgba(255,255,255,0.6)' }}>
             You scored {score}
           </p>
-          <button onClick={startGame} className="pop-button pop-button--green w-full py-3 text-lg">
+          <button onClick={handlePlayAgain} className="pop-button pop-button--green w-full py-3 text-lg">
             Play Again
           </button>
         </div>

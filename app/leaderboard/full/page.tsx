@@ -7,6 +7,7 @@ import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon } from '../../../c
 import HeroPage from '../../../components/HeroPage'
 import TeamCrest from '../../../components/TeamCrest'
 import KitBadge from '../../../components/KitBadge'
+import BotAvatar from '../../../components/BotAvatar'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../../lib/players'
 import { usePopArtTheme } from '../../lib/usePopArtTheme'
 import PopArtLoading from '../../../components/PopArtLoading'
@@ -555,13 +556,15 @@ export default function FullLeaderboardPage() {
                       <td className="py-2 pl-1.5 pr-1 sm:px-2" style={{ color: 'rgba(255,255,255,0.35)' }}>{index + 1}</td>
                       <td className="py-2 px-1 sm:px-2 font-black uppercase" style={{ wordBreak: 'break-word' }}>
                         <div className="flex items-center gap-1 flex-wrap">
-                          <KitBadge
-                            pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
-                            colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
-                            colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
-                            colour3={kitByUser[player.user_id]?.colour3}
-                            size={14}
-                          />
+                          {player.is_bot ? <BotAvatar size={14} /> : (
+                            <KitBadge
+                              pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
+                              colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
+                              colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                              colour3={kitByUser[player.user_id]?.colour3}
+                              size={14}
+                            />
+                          )}
                           <span>{player.display_name}</span>
                           {player.is_bot && (
                             <span className="pop-badge px-1.5 py-0.5 text-[8px]" style={{ background: 'rgba(255,255,255,0.15)' }} title="An AI participant, powered by Claude — can't be crowned the winner">
@@ -589,17 +592,19 @@ export default function FullLeaderboardPage() {
                       <tr>
                         <td colSpan={showBonusCard ? 10 : 9} className="px-1.5 sm:px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
                           <div className="flex items-center justify-between gap-3 mb-4 pb-3 flex-wrap" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-                            <KitBadge
-                              pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
-                              colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
-                              colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
-                              colour3={kitByUser[player.user_id]?.colour3}
-                              stars={kitByUser[player.user_id]?.stars ?? 0}
-                              earths={kitByUser[player.user_id]?.earths ?? 0}
-                              size={40}
-                              iconTextClass="text-base sm:text-xl"
-                              starColor="var(--pop-pink)"
-                            />
+                            {player.is_bot ? <BotAvatar size={40} /> : (
+                              <KitBadge
+                                pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
+                                colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
+                                colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                                colour3={kitByUser[player.user_id]?.colour3}
+                                stars={kitByUser[player.user_id]?.stars ?? 0}
+                                earths={kitByUser[player.user_id]?.earths ?? 0}
+                                size={40}
+                                iconTextClass="text-base sm:text-xl"
+                                starColor="var(--pop-pink)"
+                              />
+                            )}
                             <div className="flex items-start gap-4 flex-wrap justify-end">
                               <div className="text-right">
                                 <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>Best Gameweek (tiebreaker #3)</p>

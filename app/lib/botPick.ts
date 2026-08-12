@@ -238,7 +238,12 @@ export async function runBotPickForGameweek(supabase: SupabaseClient, gameweekId
     .single()
 
   if (!gameweek) return { skipped: 'Gameweek not found' }
-  if (gameweek.status !== 'open') return { skipped: 'Gameweek not open' }
+  // Matches the exact set of "not yet locked" statuses the existing
+  // post-deadline cron block already treats as fair game — a fresh
+  // gameweek starts as 'upcoming', not 'open', so checking for only
+  // 'open' here meant Futzy never picked for it until it later (if ever)
+  // moved to 'open'.
+  if (!['open', 'upcoming'].includes(gameweek.status)) return { skipped: 'Gameweek not open' }
   if (new Date() >= new Date(gameweek.deadline)) return { skipped: 'Deadline has passed' }
 
   const { data: competition } = await supabase

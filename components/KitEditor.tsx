@@ -200,27 +200,16 @@ export default function KitEditor({
         }
   }
 
-  // In pop-art mode, each colour picker shows its swatches grouped by hue
-  // with a small label per row, instead of one long undifferentiated strip
-  // — classic mode keeps the original flat layout untouched.
+  // One continuous wrapping strip (fills the full panel width, wrapping
+  // naturally) rather than a separate line per hue group — SWATCHES is
+  // already ordered hue-by-hue (SWATCH_GROUPS flattened), so adjacent
+  // colours still read as grouped, they just aren't forced onto their own
+  // row leaving empty space at the end of each one.
   function SwatchPicker({ selected, onSelect }: { selected: string; onSelect: (c: string) => void }) {
-    if (!isPopArt) {
-      return (
-        <div className="flex flex-wrap gap-2">
-          {SWATCHES.map(colour => (
-            <button key={colour} onClick={() => onSelect(colour)} {...swatchProps(selected === colour, colour)} />
-          ))}
-        </div>
-      )
-    }
     return (
-      <div className="space-y-1.5">
-        {SWATCH_GROUPS.map(group => (
-          <div key={group.label} className="flex items-center gap-1.5 flex-wrap">
-            {group.colours.map(colour => (
-              <button key={colour} onClick={() => onSelect(colour)} {...swatchProps(selected === colour, colour)} />
-            ))}
-          </div>
+      <div className="flex flex-wrap gap-1.5">
+        {SWATCHES.map(colour => (
+          <button key={colour} onClick={() => onSelect(colour)} {...swatchProps(selected === colour, colour)} />
         ))}
       </div>
     )

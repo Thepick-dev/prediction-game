@@ -7,6 +7,7 @@ import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon } from '../../comp
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
+import BotAvatar from '../../components/BotAvatar'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import LeaderboardShareCard from '../../components/LeaderboardShareCard'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
@@ -62,6 +63,8 @@ function teamDisplayName(team: Team | undefined) {
   return team.short_name ?? team.name.replace(' FC', '').replace(' AFC', '')
 }
 
+// Futzy has no kit — a blank KitBadge just reads as broken. A small
+// circular avatar in the same slot instead, sized to match.
 export default function LeaderboardPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
@@ -681,13 +684,15 @@ export default function LeaderboardPage() {
                           <td className="py-3 pl-2 pr-1 font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>{index + 1}</td>
                           <td className="py-3 px-1 font-black uppercase" style={{ wordBreak: 'break-word' }}>
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <KitBadge
-                                pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
-                                colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
-                                colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
-                                colour3={kitByUser[player.user_id]?.colour3}
-                                size={18}
-                              />
+                              {player.is_bot ? <BotAvatar size={18} /> : (
+                                <KitBadge
+                                  pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
+                                  colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
+                                  colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                                  colour3={kitByUser[player.user_id]?.colour3}
+                                  size={18}
+                                />
+                              )}
                               <span>{player.display_name}</span>
                               {player.is_bot && (
                                 <span className="pop-badge px-1.5 py-0.5 text-[8px]" style={{ background: 'rgba(255,255,255,0.15)' }} title="An AI participant, powered by Claude — can't be crowned the winner">
@@ -706,17 +711,19 @@ export default function LeaderboardPage() {
                           <tr>
                             <td colSpan={3} className="px-1.5 sm:px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
                               <div className="flex items-center justify-between gap-3 mb-4 pb-3 flex-wrap" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-                                <KitBadge
-                                  pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
-                                  colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
-                                  colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
-                                  colour3={kitByUser[player.user_id]?.colour3}
-                                  stars={kitByUser[player.user_id]?.stars ?? 0}
-                                  earths={kitByUser[player.user_id]?.earths ?? 0}
-                                  size={40}
-                                  iconTextClass="text-base sm:text-xl"
-                                  starColor="var(--pop-pink)"
-                                />
+                                {player.is_bot ? <BotAvatar size={40} /> : (
+                                  <KitBadge
+                                    pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
+                                    colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
+                                    colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                                    colour3={kitByUser[player.user_id]?.colour3}
+                                    stars={kitByUser[player.user_id]?.stars ?? 0}
+                                    earths={kitByUser[player.user_id]?.earths ?? 0}
+                                    size={40}
+                                    iconTextClass="text-base sm:text-xl"
+                                    starColor="var(--pop-pink)"
+                                  />
+                                )}
                               </div>
 
                               {/* Bold status cards, not small stat text — Banker/AoN/Bonus
@@ -992,7 +999,7 @@ export default function LeaderboardPage() {
               <span className="text-xl">👑</span>
               <div>
                 <p className="text-xs text-[#D9A441] font-bold uppercase tracking-wide">Current Leader</p>
-                <p className="font-bold uppercase">{ranked[0]?.display_name}</p>
+                <p className="font-bold uppercase">{ranked.find(p => p.user_id === potwUserId)?.display_name}</p>
               </div>
             </div>
           )}
@@ -1025,15 +1032,20 @@ export default function LeaderboardPage() {
                         <td className="py-2 px-1 sm:px-2 text-[#F5ECD9]/40">{index + 1}</td>
                         <td className="py-2 px-1 sm:px-2 font-bold uppercase">
                           <div className="flex items-center gap-1.5">
-                            <KitBadge
-                              pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
-                              colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
-                              colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
-                              colour3={kitByUser[player.user_id]?.colour3}
-                              size={16}
-                            />
+                            {player.is_bot ? <BotAvatar size={16} /> : (
+                              <KitBadge
+                                pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
+                                colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
+                                colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                                colour3={kitByUser[player.user_id]?.colour3}
+                                size={16}
+                              />
+                            )}
                             {player.display_name}
-                            {index === 0 && <span className="text-[#D9A441]">👑</span>}
+                            {player.is_bot && (
+                              <span className="bg-white/10 px-1 rounded" style={{ fontSize: '9px' }} title="An AI participant, powered by Claude">🤖 Powered by Claude</span>
+                            )}
+                            {index === 0 && !player.is_bot && <span className="text-[#D9A441]">👑</span>}
                             {streak && <span title={`${streak} weeks above average`}>🔥</span>}
                             <span className="text-[#F5ECD9]/30" style={{ fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                           </div>

@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     const { data: openGameweeks } = await supabase
       .from('gameweeks')
       .select('id, competition_id')
-      .eq('status', 'open')
+      .in('status', ['open', 'upcoming'])
       .gt('deadline', now.toISOString())
 
     for (const gw of (openGameweeks ?? []).filter(g => botCompetitionIds.has(g.competition_id))) {

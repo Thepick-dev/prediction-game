@@ -272,7 +272,7 @@ export async function POST(request: Request) {
 
   const { data: existingPick } = await supabase
     .from('picks')
-    .select('id, is_banker')
+    .select('id, is_banker, comments')
     .eq('user_id', user.id)
     .eq('gameweek_id', gameweek_id)
     .single()
@@ -280,6 +280,14 @@ export async function POST(request: Request) {
   let error
   let pickId: string | null = existingPick?.id ?? null
   if (existingPick) {
+    const nextComments = comments ?? null
+    // A previously-approved comment going straight back onto The Wall
+    // unreviewed the moment someone edits it would defeat the entire
+    // point of moderation — only reset when the text actually changed,
+    // so re-submitting the same pick with an unchanged comment doesn't
+    // needlessly bump an already-approved post back into the queue.
+    const commentChanged = nextComments !== (existingPick.comments ?? null)
+
     const { error: updateError } = await supabase
       .from('picks')
       .update({
@@ -292,7 +300,8 @@ export async function POST(request: Request) {
         is_autopick: false,
         submitted_at: new Date().toISOString(),
         question_answer: question_answer ?? null,
-        comments: comments ?? null
+        comments: nextComments,
+        ...(commentChanged ? { wall_status: 'pending', wall_rating: null } : {}),
       })
       .eq('id', existingPick.id)
     error = updateError

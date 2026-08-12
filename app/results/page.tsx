@@ -6,6 +6,7 @@ import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
+import BotAvatar from '../../components/BotAvatar'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import GameweekRecapCard from '../../components/GameweekRecapCard'
 import PopArtLoading from '../../components/PopArtLoading'
@@ -206,9 +207,12 @@ export default function ResultsPage() {
       .select('user_id, pick_id, total_points, gameweek_id')
       .eq('competition_id', comp.id)
 
-    if (allPoints && allPoints.length > 0) {
-      const maxPts = Math.max(...allPoints.map(p => p.total_points ?? 0))
-      const topScorer = allPoints.filter(p => (p.total_points ?? 0) === maxPts)[0]
+    // Futzy can top a gameweek like anyone else, but he can't be crowned —
+    // exclude bot rows before finding the leader.
+    const humanPoints = allPoints?.filter(p => !isBotMap[p.user_id]) ?? []
+    if (humanPoints.length > 0) {
+      const maxPts = Math.max(...humanPoints.map(p => p.total_points ?? 0))
+      const topScorer = humanPoints.filter(p => (p.total_points ?? 0) === maxPts)[0]
       if (topScorer) setPotwUserId(topScorer.user_id)
     }
 
@@ -343,7 +347,9 @@ export default function ResultsPage() {
     return bpts - apts
   })
 
-  const gwPotwUserId = isScored && sortedPicks.length > 0 ? sortedPicks[0].user_id : null
+  // Same "can't be crowned" rule as the season leader — GW Winner must be
+  // the top-scoring human, not simply whoever tops the sorted list.
+  const gwPotwUserId = isScored ? (sortedPicks.find(p => !isBotByUser[p.user_id])?.user_id ?? null) : null
 
   // Autopicked/provisional entries never have a question_answer, so they're
   // naturally excluded here — the poll only reflects people who actually
@@ -633,9 +639,9 @@ export default function ResultsPage() {
                 </div>
               ) : (
                 <div className="pop-panel mb-3" style={{ overflow: 'hidden' }}>
-                  {sortedPicks.map((pick, i) => {
+                  {sortedPicks.map((pick) => {
                     const pts = pointsMap[pick.id]
-                    const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
+                    const isWinner = isScored && pick.user_id === gwPotwUserId
                     const isOwnPick = pick.user_id === user?.id
                     const t = teams[pick.team_id]
                     const answerLabel = pick.question_answer
@@ -662,13 +668,15 @@ export default function ResultsPage() {
                       >
                         <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
                           <div className="flex items-center gap-1.5 font-black uppercase min-w-0">
-                            <KitBadge
-                              pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
-                              colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
-                              colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
-                              colour3={kitByUser[pick.user_id]?.colour3}
-                              size={14}
-                            />
+                            {isBotByUser[pick.user_id] ? <BotAvatar size={14} /> : (
+                              <KitBadge
+                                pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
+                                colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
+                                colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
+                                colour3={kitByUser[pick.user_id]?.colour3}
+                                size={14}
+                              />
+                            )}
                             <span className="truncate">{profiles[pick.user_id] ?? 'Unknown'}</span>
                             {isBotByUser[pick.user_id] && (
                               <span className="pop-badge px-1.5 py-0.5 text-[8px] shrink-0" style={{ background: 'rgba(255,255,255,0.15)' }} title="An AI participant, powered by Claude">
@@ -991,9 +999,9 @@ export default function ResultsPage() {
                 </div>
               ) : (
                 <div className="bg-white/5 border border-white/10 rounded-lg overflow-hidden mb-3 divide-y divide-white/5">
-                  {sortedPicks.map((pick, i) => {
+                  {sortedPicks.map((pick) => {
                     const pts = pointsMap[pick.id]
-                    const isWinner = isScored && pick.user_id === gwPotwUserId && i === 0
+                    const isWinner = isScored && pick.user_id === gwPotwUserId
                     const t = teams[pick.team_id]
                     const answerLabel = pick.question_answer
                       ? questionOptions.find(([letter]) => letter === pick.question_answer)?.[1] ?? pick.question_answer
@@ -1011,14 +1019,19 @@ export default function ResultsPage() {
                         {/* Player + total: everything wraps, nothing is ever clipped or needs side-scrolling */}
                         <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
                           <div className="flex items-center gap-1.5 font-bold uppercase min-w-0">
-                            <KitBadge
-                              pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
-                              colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
-                              colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
-                              colour3={kitByUser[pick.user_id]?.colour3}
-                              size={14}
-                            />
+                            {isBotByUser[pick.user_id] ? <BotAvatar size={14} /> : (
+                              <KitBadge
+                                pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
+                                colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
+                                colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
+                                colour3={kitByUser[pick.user_id]?.colour3}
+                                size={14}
+                              />
+                            )}
                             <span className="truncate">{profiles[pick.user_id] ?? 'Unknown'}</span>
+                            {isBotByUser[pick.user_id] && (
+                              <span className="bg-white/20 px-1 rounded shrink-0" style={{ fontSize: '9px' }} title="An AI participant, powered by Claude">🤖 Powered by Claude</span>
+                            )}
                             {(pick.provisional || pick.is_autopick) && (
                               <span className="bg-white/20 px-1 rounded shrink-0" style={{ fontSize: '9px' }} title="No pick was made in time, so the computer picked automatically">AP</span>
                             )}
