@@ -633,6 +633,9 @@ export default function LeaderboardPage() {
                     Share Standings
                   </button>
                 )}
+                <a href="/awards" className="pop-button px-3 py-1.5 text-xs" style={{ background: 'var(--pop-orange)' }}>
+                  🏆 Awards
+                </a>
                 <a href="/leaderboard/full" className="pop-button pop-button--yellow px-3 py-1.5 text-xs">
                   Full Table →
                 </a>

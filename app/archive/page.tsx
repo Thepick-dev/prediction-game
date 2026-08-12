@@ -89,10 +89,9 @@ export default function ArchivePage() {
               ) : (
                 <div className="pop-panel" style={{ overflow: 'hidden' }}>
                   {pastCompetitions.map((comp, i) => (
-                    <Link
+                    <div
                       key={comp.id}
-                      href={`/archive/${comp.id}`}
-                      className="flex items-center justify-between p-4 hover:bg-white/[0.04] transition-colors"
+                      className="flex items-center justify-between p-4"
                       style={i > 0 ? { borderTop: '1px solid rgba(255,255,255,0.1)' } : undefined}
                     >
                       <div>
@@ -102,8 +101,11 @@ export default function ArchivePage() {
                           <div className="mt-1"><TrophyBadge name={comp.manual_winner} /></div>
                         )}
                       </div>
-                      <span className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>Final table →</span>
-                    </Link>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <Link href={`/awards?comp=${comp.id}`} className="text-xs font-bold" style={{ color: 'var(--pop-orange)' }}>🏆 Awards</Link>
+                        <Link href={`/archive/${comp.id}`} className="text-sm hover:text-white transition-colors" style={{ color: 'rgba(255,255,255,0.4)' }}>Final table →</Link>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
