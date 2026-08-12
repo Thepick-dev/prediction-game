@@ -90,6 +90,11 @@ export default function LeaderboardPage() {
   const [submittedKeys, setSubmittedKeys] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [showShare, setShowShare] = useState(false)
+  // Rivalry — one optional standing rival per user per competition, fully
+  // public so it can show on anyone's row, not just your own.
+  const [rivalByUser, setRivalByUser] = useState<Record<string, string>>({})
+  const [rivalPickerFor, setRivalPickerFor] = useState<string | null>(null)
+  const [savingRival, setSavingRival] = useState(false)
 
   const supabase = createClient()
   const { popArt } = usePopArtTheme(user?.id)
@@ -117,7 +122,7 @@ export default function LeaderboardPage() {
 
     const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: rawPicks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }, { data: fixtures }, { data: submissions }, { data: aonPicks }, { data: bonusCardPlays }] = await Promise.all([
       supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id).eq('removed', false),
-      supabase.from('profiles').select('id, display_name, is_bot, kit_pattern, kit_colour_1, kit_colour_2'),
+      supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
       supabase.from('picks').select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('competition_id', comp.id),
       supabase.from('teams').select('id, name, short_name, short_code, crest_url').eq('active', true),
@@ -142,6 +147,15 @@ export default function LeaderboardPage() {
       supabase.from('bonus_card_plays').select('user_id, gameweek_id, player_id, fixture_id, points').eq('competition_id', comp.id)
     ])
 
+    // Its own isolated request, same reasoning as everywhere else this
+    // pattern shows up on this page — a brand new, entirely optional
+    // feature, so a problem here should never take the rest of the
+    // leaderboard down with it.
+    const { data: rivalries } = await supabase.from('rivalries').select('user_id, rival_user_id').eq('competition_id', comp.id)
+    const rivalMap: Record<string, string> = {}
+    rivalries?.forEach(r => { rivalMap[r.user_id] = r.rival_user_id })
+    setRivalByUser(rivalMap)
+
     // Kept as its own request, deliberately separate from the profiles query
     // above: if these columns ever have a problem, it should only affect kit
     // badges, never take down display names with it.
@@ -156,15 +170,20 @@ export default function LeaderboardPage() {
     const kitTrimMap: Record<string, string | null> = {}
     kitTrims?.forEach(k => { kitTrimMap[k.id] = k.kit_colour_3 ?? null })
 
+    // Also its own request, same reason — is_bot is a newer, optional
+    // column (Futzy), and this must never be able to take display names
+    // down with it if it's missing.
+    const { data: botFlags } = await supabase.from('profiles').select('id, is_bot')
+    const isBotMap: Record<string, boolean> = {}
+    botFlags?.forEach(b => { isBotMap[b.id] = b.is_bot ?? false })
+
     setMatchEvents(events ?? [])
     setAllTeams(teams ?? [])
 
     const profileMap: Record<string, string> = {}
-    const isBotMap: Record<string, boolean> = {}
     const kitMap: Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }> = {}
     profiles?.forEach(p => {
       profileMap[p.id] = p.display_name ?? 'Unknown'
-      isBotMap[p.id] = p.is_bot ?? false
       kitMap[p.id] = {
         pattern: p.kit_pattern ?? 'solid',
         colour1: p.kit_colour_1 ?? '#1E4D6B',
@@ -538,6 +557,35 @@ export default function LeaderboardPage() {
       .sort((a, b) => teamDisplayName(a).localeCompare(teamDisplayName(b)))
   }
 
+  async function setRival(rivalUserId: string) {
+    if (!competition || !user) return
+    setSavingRival(true)
+    await fetch('/api/rivalry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ competition_id: competition.id, rival_user_id: rivalUserId }),
+    })
+    setRivalByUser(prev => ({ ...prev, [user.id]: rivalUserId }))
+    setRivalPickerFor(null)
+    setSavingRival(false)
+  }
+
+  async function removeRival() {
+    if (!competition || !user) return
+    setSavingRival(true)
+    await fetch('/api/rivalry', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ competition_id: competition.id }),
+    })
+    setRivalByUser(prev => {
+      const next = { ...prev }
+      delete next[user.id]
+      return next
+    })
+    setSavingRival(false)
+  }
+
   if (loading) {
     return (
       <Shell active="LEADERBOARD" theme={popArt ? 'pop-art' : 'classic'}>
@@ -691,6 +739,50 @@ export default function LeaderboardPage() {
                                   </div>
                                 )}
                               </div>
+
+                              {/* Rivalry — a quiet, fully public line. You can set/change/
+                                  remove yours from your own row; anyone's shows on theirs. */}
+                              <div className="mb-4" style={{ fontSize: '11px' }}>
+                                {isOwnRow ? (
+                                  rivalByUser[player.user_id] ? (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span style={{ color: 'rgba(255,255,255,0.6)' }}>
+                                        Rivalry — vs <strong style={{ color: 'var(--pop-white)' }}>{ranked.find(p => p.user_id === rivalByUser[player.user_id])?.display_name ?? 'Unknown'}</strong>:{' '}
+                                        {(() => {
+                                          const rivalPoints = ranked.find(p => p.user_id === rivalByUser[player.user_id])?.total_points ?? 0
+                                          const diff = player.total_points - rivalPoints
+                                          return <strong style={{ color: diff >= 0 ? 'var(--pop-green)' : 'var(--pop-red)' }}>{diff >= 0 ? `+${diff}` : diff}</strong>
+                                        })()}
+                                      </span>
+                                      <button onClick={removeRival} disabled={savingRival} className="font-mono text-[10px] underline" style={{ color: 'rgba(255,255,255,0.4)' }}>Remove</button>
+                                      <button onClick={() => setRivalPickerFor(rivalPickerFor === player.user_id ? null : player.user_id)} className="font-mono text-[10px] underline" style={{ color: 'rgba(255,255,255,0.4)' }}>Change</button>
+                                    </div>
+                                  ) : (
+                                    <button onClick={() => setRivalPickerFor(rivalPickerFor === player.user_id ? null : player.user_id)} className="font-mono text-[10px] underline" style={{ color: 'rgba(255,255,255,0.4)' }}>+ Pick a rival</button>
+                                  )
+                                ) : (
+                                  rivalByUser[player.user_id] && (
+                                    <span style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                      Rivalry — vs {ranked.find(p => p.user_id === rivalByUser[player.user_id])?.display_name ?? 'Unknown'}:{' '}
+                                      {(() => {
+                                        const rivalPoints = ranked.find(p => p.user_id === rivalByUser[player.user_id])?.total_points ?? 0
+                                        const diff = player.total_points - rivalPoints
+                                        return <strong style={{ color: diff >= 0 ? 'var(--pop-green)' : 'var(--pop-red)' }}>{diff >= 0 ? `+${diff}` : diff}</strong>
+                                      })()}
+                                    </span>
+                                  )
+                                )}
+                                {rivalPickerFor === player.user_id && (
+                                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                    {ranked.filter(p => p.user_id !== player.user_id).map(p => (
+                                      <button key={p.user_id} onClick={() => setRival(p.user_id)} disabled={savingRival} className="pop-badge px-2 py-1 text-[10px]" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                                        {p.display_name}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
                               {allGameweeks.length === 0 ? (
                                 <p className="mb-3" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)' }}>No picks yet.</p>
                               ) : (

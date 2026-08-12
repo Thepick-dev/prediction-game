@@ -11,13 +11,15 @@ export async function GET() {
   }
 
   const { data: authUsers } = await createAdminSupabaseClient().auth.admin.listUsers()
-  const { data: profiles } = await supabase.from('profiles').select('id, display_name, is_bot')
+  const { data: profiles } = await supabase.from('profiles').select('id, display_name')
   const nameById: Record<string, string> = {}
-  const botIds = new Set<string>()
-  profiles?.forEach(p => {
-    nameById[p.id] = p.display_name ?? ''
-    if (p.is_bot) botIds.add(p.id)
-  })
+  profiles?.forEach(p => { nameById[p.id] = p.display_name ?? '' })
+
+  // Its own isolated request, same reasoning as everywhere else this
+  // pattern shows up — is_bot is a newer, optional column (Futzy), and a
+  // problem reading it should never take usernames down with it.
+  const { data: botFlags } = await supabase.from('profiles').select('id, is_bot')
+  const botIds = new Set((botFlags ?? []).filter(b => b.is_bot).map(b => b.id))
 
   const rows = [['username', 'email']]
   authUsers?.users?.forEach(u => {

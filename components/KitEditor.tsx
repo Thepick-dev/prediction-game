@@ -17,18 +17,22 @@ const PATTERNS = [
   { value: 'pinstripes', label: 'Pinstripes' },
 ]
 
-const SWATCHES = [
-  '#FFFFFF', '#F5ECD9', '#2A1F17', '#1A1A1A',
-  '#E8552B', '#B5493C', '#DC2626', '#7A2426',
-  '#1E4D6B', '#3C5A6B', '#1D4ED8', '#0EA5E9',
-  '#2F3E2E', '#16A34A', '#4ADE80', '#065F46',
-  '#D9A441', '#FBBF24', '#F59E0B', '#EAB308',
-  '#7C3AED', '#A855F7', '#EC4899', '#463A4A',
-  '#0D9488', '#14B8A6', '#06B6D4', '#155E75',
-  '#84CC16', '#65A30D', '#CCFA00', '#3F6212',
-  '#F97316', '#FB923C', '#FDBA74', '#9A3412',
-  '#BE185D', '#F472B6', '#6B21A8', '#312E81',
+// Grouped by hue (each group is 4 shades, muted-to-vivid) rather than one
+// flat, visually random-looking block — SWATCHES below stays the flattened
+// version classic mode still uses unchanged.
+const SWATCH_GROUPS: { label: string; colours: string[] }[] = [
+  { label: 'Neutrals', colours: ['#FFFFFF', '#F5ECD9', '#2A1F17', '#1A1A1A'] },
+  { label: 'Reds', colours: ['#E8552B', '#B5493C', '#DC2626', '#7A2426'] },
+  { label: 'Blues', colours: ['#1E4D6B', '#3C5A6B', '#1D4ED8', '#0EA5E9'] },
+  { label: 'Greens', colours: ['#2F3E2E', '#16A34A', '#4ADE80', '#065F46'] },
+  { label: 'Golds', colours: ['#D9A441', '#FBBF24', '#F59E0B', '#EAB308'] },
+  { label: 'Purples', colours: ['#7C3AED', '#A855F7', '#EC4899', '#463A4A'] },
+  { label: 'Teals', colours: ['#0D9488', '#14B8A6', '#06B6D4', '#155E75'] },
+  { label: 'Limes', colours: ['#84CC16', '#65A30D', '#CCFA00', '#3F6212'] },
+  { label: 'Oranges', colours: ['#F97316', '#FB923C', '#FDBA74', '#9A3412'] },
+  { label: 'Magentas', colours: ['#BE185D', '#F472B6', '#6B21A8', '#312E81'] },
 ]
+const SWATCHES = SWATCH_GROUPS.flatMap(g => g.colours)
 
 type Kit = { pattern: string; colour1: string; colour2: string; colour3: string | null }
 
@@ -183,11 +187,11 @@ export default function KitEditor({
   function swatchProps(selected: boolean, colour: string) {
     return isPopArt
       ? {
-          className: `${swatchSize} rounded-full ${selected ? 'pop-pop-in' : ''}`,
+          className: `${swatchSize} rounded-full shrink-0 ${selected ? 'pop-pop-in' : ''}`,
           style: {
             backgroundColor: colour,
-            border: selected ? '3px solid var(--pop-white)' : '3px solid rgba(255,255,255,0.2)',
-            boxShadow: selected ? '0 0 12px rgba(255,255,255,0.5)' : 'none',
+            border: selected ? '3px solid var(--pop-green)' : '3px solid rgba(255,255,255,0.2)',
+            boxShadow: selected ? '0 0 12px rgba(204,250,0,0.6)' : 'none',
           },
         }
       : {
@@ -196,10 +200,45 @@ export default function KitEditor({
         }
   }
 
+  // In pop-art mode, each colour picker shows its swatches grouped by hue
+  // with a small label per row, instead of one long undifferentiated strip
+  // — classic mode keeps the original flat layout untouched.
+  function SwatchPicker({ selected, onSelect }: { selected: string; onSelect: (c: string) => void }) {
+    if (!isPopArt) {
+      return (
+        <div className="flex flex-wrap gap-2">
+          {SWATCHES.map(colour => (
+            <button key={colour} onClick={() => onSelect(colour)} {...swatchProps(selected === colour, colour)} />
+          ))}
+        </div>
+      )
+    }
+    return (
+      <div className="space-y-1.5">
+        {SWATCH_GROUPS.map(group => (
+          <div key={group.label} className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-mono uppercase tracking-wide shrink-0" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', width: compact ? 44 : 54 }}>
+              {group.label}
+            </span>
+            {group.colours.map(colour => (
+              <button key={colour} onClick={() => onSelect(colour)} {...swatchProps(selected === colour, colour)} />
+            ))}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const sectionClass = isPopArt ? 'pop-panel p-3 mb-3' : 'mb-4'
+
   return (
     <div>
-      <div className={isPopArt ? 'rounded-xl p-4 mb-3 flex justify-center' : 'flex justify-center mb-3'} style={isPopArt ? { background: 'rgba(255,255,255,0.03)' } : undefined}>
-        <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={compact ? 120 : 160} topScore={topScore} starColor={isPopArt ? 'var(--pop-pink)' : undefined} />
+      <div
+        className={isPopArt ? 'rounded-xl p-5 mb-3 flex flex-col items-center' : 'flex justify-center mb-3'}
+        style={isPopArt ? { background: 'radial-gradient(circle at 50% 30%, rgba(160,0,250,0.14), rgba(255,255,255,0.03) 70%)', border: '1px solid rgba(255,255,255,0.08)' } : undefined}
+      >
+        {isPopArt && <p className="pop-headline text-[10px] mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>Your Kit</p>}
+        <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={compact ? 130 : 190} topScore={topScore} starColor={isPopArt ? 'var(--pop-pink)' : undefined} />
       </div>
       {(kitStars > 0 || kitEarths > 0) && (
         <p
@@ -222,65 +261,64 @@ export default function KitEditor({
         </button>
       </div>
 
-      <p className={labelClass} style={labelStyle}>Pattern</p>
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        {PATTERNS.map(p => {
-          const selected = kitPattern === p.value
-          return (
-            <button
-              key={p.value}
-              onClick={() => setKitPattern(p.value)}
-              className={isPopArt
-                ? `flex flex-col items-center gap-1 p-2 rounded-lg text-xs ${selected ? 'pop-pop-in' : ''}`
-                : `flex flex-col items-center gap-1 p-2 rounded border text-xs ${selected ? 'border-[#D9A441] bg-[#D9A441]/10 font-bold' : 'border-white/10'}`}
-              style={isPopArt ? {
-                border: selected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
-                boxShadow: selected ? '0 0 14px rgba(204,250,0,0.4)' : 'none',
-                background: selected ? 'rgba(204,250,0,0.12)' : 'transparent',
-                color: 'var(--pop-white)',
-              } : undefined}
-            >
-              <KitBadge pattern={p.value} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} size={28} />
-              {!compact && <span className="text-center">{p.label}</span>}
-            </button>
-          )
-        })}
+      <div className={sectionClass}>
+        <p className={labelClass} style={labelStyle}>Pattern</p>
+        <div className="grid grid-cols-3 gap-2">
+          {PATTERNS.map(p => {
+            const selected = kitPattern === p.value
+            return (
+              <button
+                key={p.value}
+                onClick={() => setKitPattern(p.value)}
+                className={isPopArt
+                  ? `flex flex-col items-center gap-1 p-2 rounded-lg text-xs ${selected ? 'pop-pop-in' : ''}`
+                  : `flex flex-col items-center gap-1 p-2 rounded border text-xs ${selected ? 'border-[#D9A441] bg-[#D9A441]/10 font-bold' : 'border-white/10'}`}
+                style={isPopArt ? {
+                  border: selected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
+                  boxShadow: selected ? '0 0 14px rgba(204,250,0,0.4)' : 'none',
+                  background: selected ? 'rgba(204,250,0,0.12)' : 'transparent',
+                  color: 'var(--pop-white)',
+                } : undefined}
+              >
+                <KitBadge pattern={p.value} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} size={28} />
+                {!compact && <span className="text-center">{p.label}</span>}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      <p className={labelClass} style={labelStyle}>Colour 1</p>
-      <div className="flex flex-wrap gap-2 mb-4">
-        {SWATCHES.map(colour => (
-          <button key={colour} onClick={() => setKitColour1(colour)} {...swatchProps(kitColour1 === colour, colour)} />
-        ))}
+      <div className={sectionClass}>
+        <p className={labelClass} style={labelStyle}>Colour 1</p>
+        <SwatchPicker selected={kitColour1} onSelect={setKitColour1} />
       </div>
 
-      <p className={labelClass} style={labelStyle}>Colour 2</p>
-      <div className="flex flex-wrap gap-2 mb-4">
-        {SWATCHES.map(colour => (
-          <button key={colour} onClick={() => setKitColour2(colour)} {...swatchProps(kitColour2 === colour, colour)} />
-        ))}
+      <div className={sectionClass}>
+        <p className={labelClass} style={labelStyle}>Colour 2</p>
+        <SwatchPicker selected={kitColour2} onSelect={setKitColour2} />
       </div>
 
-      <p className={labelClass} style={labelStyle}>Trim (collar &amp; cuffs, optional)</p>
-      <div className="flex flex-wrap gap-2 mb-4">
-        <button
-          onClick={() => setKitColour3(null)}
-          className={isPopArt
-            ? `${swatchSize} rounded-full flex items-center justify-center text-[10px] font-black ${kitColour3 === null ? 'pop-pop-in' : ''}`
-            : `${swatchSize} rounded-full border-2 flex items-center justify-center text-[#F5ECD9]/60 ${kitColour3 === null ? 'border-[#D9A441]' : 'border-white/10'}`}
-          style={isPopArt ? {
-            background: 'transparent',
-            color: 'var(--pop-white)',
-            border: kitColour3 === null ? '3px solid var(--pop-white)' : '3px solid rgba(255,255,255,0.2)',
-            boxShadow: kitColour3 === null ? '0 0 12px rgba(255,255,255,0.5)' : 'none',
-          } : { backgroundColor: 'transparent' }}
-          title="No trim"
-        >
-          ✕
-        </button>
-        {SWATCHES.map(colour => (
-          <button key={colour} onClick={() => setKitColour3(colour)} {...swatchProps(kitColour3 === colour, colour)} />
-        ))}
+      <div className={sectionClass}>
+        <p className={labelClass} style={labelStyle}>Trim (collar &amp; cuffs, optional)</p>
+        <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+          <button
+            onClick={() => setKitColour3(null)}
+            className={isPopArt
+              ? `${swatchSize} rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${kitColour3 === null ? 'pop-pop-in' : ''}`
+              : `${swatchSize} rounded-full border-2 flex items-center justify-center text-[#F5ECD9]/60 ${kitColour3 === null ? 'border-[#D9A441]' : 'border-white/10'}`}
+            style={isPopArt ? {
+              background: 'transparent',
+              color: 'var(--pop-white)',
+              border: kitColour3 === null ? '3px solid var(--pop-green)' : '3px solid rgba(255,255,255,0.2)',
+              boxShadow: kitColour3 === null ? '0 0 12px rgba(204,250,0,0.6)' : 'none',
+            } : { backgroundColor: 'transparent' }}
+            title="No trim"
+          >
+            ✕
+          </button>
+          {isPopArt && <span className="text-[9px] uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>No trim</span>}
+        </div>
+        <SwatchPicker selected={kitColour3 ?? ''} onSelect={setKitColour3} />
       </div>
 
       {message && (

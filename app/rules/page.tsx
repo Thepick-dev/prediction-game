@@ -48,12 +48,17 @@ export default function RulesPage() {
 
     const { data: competition } = await supabase
       .from('competitions')
-      .select('id, name, bonus_card_enabled, bonus_card_player_id, bonus_card_name, bot_enabled')
+      .select('id, name, bonus_card_enabled, bonus_card_player_id, bonus_card_name')
       .eq('status', 'active')
       .single()
 
     if (competition) {
-      setBotEnabled(!!competition.bot_enabled)
+      // Its own isolated request, same reasoning as everywhere else this
+      // pattern shows up — bot_enabled is a newer, optional column (Futzy),
+      // and a problem reading it should never take the rest of the Rules
+      // page (scoring numbers, AoN exclusions) down with it.
+      const { data: botComp } = await supabase.from('competitions').select('bot_enabled').eq('id', competition.id).single()
+      setBotEnabled(!!botComp?.bot_enabled)
       const [{ data: rules }, { data: playerRules }] = await Promise.all([
         supabase.from('competition_scoring_rules').select('result_type, quartile_diff, points').eq('competition_id', competition.id),
         supabase.from('player_scoring_rules').select('event_type, points').eq('competition_id', competition.id),

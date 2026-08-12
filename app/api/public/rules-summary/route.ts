@@ -13,13 +13,20 @@ export async function GET() {
 
   const { data: competition } = await supabase
     .from('competitions')
-    .select('id, bonus_card_enabled, bonus_card_player_id, bonus_card_name, bot_enabled')
+    .select('id, bonus_card_enabled, bonus_card_player_id, bonus_card_name')
     .eq('status', 'active')
     .single()
 
   if (!competition) {
     return NextResponse.json({ scoringRules: [], goalPoints: 12, assistPoints: 6, exclusions: [], bonusCardEnabled: false, bonusCardName: null, botEnabled: false })
   }
+
+  // Its own isolated request, same reasoning as everywhere else this
+  // pattern shows up — bot_enabled is a newer, optional column (Futzy),
+  // and a problem reading it should never take the rest of this
+  // pre-auth-visible endpoint down with it.
+  const { data: botComp } = await supabase.from('competitions').select('bot_enabled').eq('id', competition.id).single()
+  const botEnabled = !!botComp?.bot_enabled
 
   const [{ data: rules }, { data: playerRules }, { data: exclusions }] = await Promise.all([
     supabase.from('competition_scoring_rules').select('result_type, quartile_diff, points').eq('competition_id', competition.id),
@@ -46,6 +53,6 @@ export async function GET() {
     exclusions: (exclusions ?? []).map((e: any) => ({ name: e.players?.name ?? 'Unknown player', reason: e.reason })),
     bonusCardEnabled: !!competition.bonus_card_enabled,
     bonusCardName: bonusCardDisplayName(competition.bonus_card_name, bonusCardPlayerName),
-    botEnabled: !!competition.bot_enabled,
+    botEnabled,
   })
 }

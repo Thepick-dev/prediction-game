@@ -117,7 +117,7 @@ export default function FullLeaderboardPage() {
 
     const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: rawPicks }, { data: teams }, { data: players }, { data: gameweeks }, { data: events }, { data: draftPicks }, { data: fixtures }, { data: submissions }, { data: aonPicks }, { data: bonusCardPlays }] = await Promise.all([
       supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id).eq('removed', false),
-      supabase.from('profiles').select('id, display_name, is_bot, kit_pattern, kit_colour_1, kit_colour_2'),
+      supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
       supabase.from('picks').select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('competition_id', comp.id),
       supabase.from('teams').select('id, name, short_name, short_code, crest_url').eq('active', true),
@@ -139,15 +139,20 @@ export default function FullLeaderboardPage() {
     const kitTrimMap: Record<string, string | null> = {}
     kitTrims?.forEach(k => { kitTrimMap[k.id] = k.kit_colour_3 ?? null })
 
+    // Also its own request, same reason — is_bot is a newer, optional
+    // column (Futzy), and this must never be able to take display names
+    // down with it if it's missing.
+    const { data: botFlags } = await supabase.from('profiles').select('id, is_bot')
+    const isBotMap: Record<string, boolean> = {}
+    botFlags?.forEach(b => { isBotMap[b.id] = b.is_bot ?? false })
+
     setMatchEvents(events ?? [])
     setAllTeams(teams ?? [])
 
     const profileMap: Record<string, string> = {}
-    const isBotMap: Record<string, boolean> = {}
     const kitMap: Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }> = {}
     profiles?.forEach(p => {
       profileMap[p.id] = p.display_name ?? 'Unknown'
-      isBotMap[p.id] = p.is_bot ?? false
       kitMap[p.id] = {
         pattern: p.kit_pattern ?? 'solid',
         colour1: p.kit_colour_1 ?? '#1E4D6B',

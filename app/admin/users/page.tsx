@@ -18,15 +18,21 @@ export default async function UsersPage({
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
 
-  // Futzy (or any future bot) is a real profiles/auth.users row so he can
-  // hold picks and a competition_entries row like anyone else, but he's not
-  // a person to approve/admin/delete here — managed from /admin/futzy instead.
-  const { data: profiles } = await supabase
+  const { data: allProfiles } = await supabase
     .from('profiles')
     .select('id, display_name, is_admin, approved, pending_since')
-    .eq('is_bot', false)
     .order('approved', { ascending: true })
     .order('pending_since', { ascending: true })
+
+  // Its own isolated request, same reasoning as everywhere else this
+  // pattern shows up — is_bot is a newer, optional column (Futzy), and a
+  // problem reading it should never take the whole Users page down with it.
+  // Futzy is a real profiles/auth.users row so he can hold picks and a
+  // competition_entries row like anyone else, but he's not a person to
+  // approve/admin/delete here — managed from /admin/futzy instead.
+  const { data: botFlags } = await supabase.from('profiles').select('id, is_bot')
+  const botIds = new Set((botFlags ?? []).filter(b => b.is_bot).map(b => b.id))
+  const profiles = allProfiles?.filter(p => !botIds.has(p.id))
 
   // Flags pending signups whose account was created after the active
   // competition's Gameweek 1 deadline — they can't join mid-competition,

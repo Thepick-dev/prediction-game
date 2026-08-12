@@ -16,7 +16,7 @@ import { BoltIcon } from '../../components/icons'
 import { QUARTILE_RING_COLORS } from '../lib/quartileColors'
 
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
-type Player = { id: number; name: string; web_name: string | null; team_id: number; value: number | null; active: boolean | null }
+type Player = { id: number; name: string; web_name: string | null; team_id: number; value: number | null; active: boolean | null; xg: number | null; xa: number | null; form: number | null }
 type Gameweek = { id: string; number: number; deadline: string; status: string }
 type Fixture = { id: number; home_team_id: number; away_team_id: number; kickoff_time: string; home_score: number | null; away_score: number | null; status: string }
 type HistoryPick = {
@@ -370,7 +370,7 @@ export default function PicksPage() {
 
     const [{ data: teamsData }, { data: playersData }] = await Promise.all([
       supabase.from('teams').select('id, name, short_name, short_code, crest_url').eq('active', true).order('name'),
-      supabase.from('players').select('id, name, web_name, team_id, value').order('name')
+      supabase.from('players').select('id, name, web_name, team_id, value, xg, xa, form').order('name')
     ])
     setTeams(teamsData ?? [])
 
@@ -1152,7 +1152,18 @@ export default function PicksPage() {
                                       className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
                                       style={{ background: maxed ? '#0A0A0A' : 'var(--pop-surface)', color: maxed ? '#555555' : 'var(--pop-white)', borderColor: 'rgba(255,255,255,0.1)' }}
                                     >
-                                      {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/{max})</span>
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="inline-flex items-center gap-1">
+                                          {playerName(p.id)}
+                                          {!maxed && p.form != null && p.form >= 5 && <span title={`Form: ${p.form}`}>🔥</span>}
+                                        </span>
+                                        <span className="font-mono text-xs shrink-0" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/{max})</span>
+                                      </div>
+                                      {!maxed && (p.xg != null || p.xa != null) && (
+                                        <div className="font-mono font-normal" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+                                          {p.xg != null && `⚽ ${p.xg.toFixed(1)} xG`}{p.xg != null && p.xa != null && '  ·  '}{p.xa != null && `🎯 ${p.xa.toFixed(1)} xA`}
+                                        </div>
+                                      )}
                                     </button>
                                   )
                                 })}
