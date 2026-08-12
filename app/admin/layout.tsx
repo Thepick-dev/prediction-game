@@ -25,15 +25,20 @@ export default async function AdminLayout({
     redirect('/')
   }
 
-  // Two things genuinely need admin attention without them having to go
-  // looking for it: new signups waiting on approval, and password reset
-  // requests. Both live on the Users page, so one combined count badges
-  // both the top bar and that nav link.
-  const [{ count: pendingApprovals }, { count: pendingResets }] = await Promise.all([
+  // Things that genuinely need admin attention without them having to go
+  // looking for it: new signups awaiting approval, password reset
+  // requests, and anything waiting in The Wall's moderation queue. Each is
+  // its own isolated count (same reasoning as everywhere else this
+  // pattern shows up) — if a newer, optional table isn't there yet, that
+  // count just quietly reads 0 rather than breaking the nav on every
+  // admin page.
+  const [{ count: pendingApprovals }, { count: pendingResets }, { count: pendingWallComments }, { count: pendingWallReplies }] = await Promise.all([
     supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('approved', false),
     supabase.from('password_reset_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    supabase.from('picks').select('id', { count: 'exact', head: true }).eq('wall_status', 'pending').not('comments', 'is', null).neq('comments', ''),
+    supabase.from('wall_replies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
   ])
-  const notificationCount = (pendingApprovals ?? 0) + (pendingResets ?? 0)
+  const notificationCount = (pendingApprovals ?? 0) + (pendingResets ?? 0) + (pendingWallComments ?? 0) + (pendingWallReplies ?? 0)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -83,6 +88,14 @@ export default async function AdminLayout({
                 <a href="/admin/picks-log" className="block hover:text-white">Picks Log</a>
                 <a href="/admin/print-grid" className="block hover:text-white">Print Grid</a>
                 <a href="/admin/edit-pick" className="block hover:text-white">Edit Pick</a>
+                <a href="/admin/wall" className="hover:text-white inline-flex items-center gap-1.5">
+                  The Wall
+                  {((pendingWallComments ?? 0) + (pendingWallReplies ?? 0)) > 0 && (
+                    <span className="inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-bold leading-none" style={{ minWidth: 16, height: 16, padding: '0 4px' }}>
+                      {(pendingWallComments ?? 0) + (pendingWallReplies ?? 0)}
+                    </span>
+                  )}
+                </a>
               </div>
             </div>
 

@@ -36,6 +36,7 @@ const navItems = [
   { label: 'STATS HUB', href: '/stats' },
   { label: 'RULES', href: '/rules' },
   { label: 'NEWS', href: '/news' },
+  { label: 'THE WALL', href: '/wall' },
   { label: 'WINNERS', href: '/archive' },
   { label: 'SETTINGS', href: '/settings' },
 ]

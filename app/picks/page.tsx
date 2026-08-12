@@ -45,6 +45,26 @@ function teamDisplayName(team: Team | undefined) {
   return team.short_name ?? team.name.replace(' FC', '').replace(' AFC', '')
 }
 
+// A friendly quality gate for The Wall, not a security feature — catches
+// the obvious "no", "asdasd", "aaaaaa" class of submission without being
+// clever about it. Empty is fine (comments are optional); only non-empty
+// low-effort text gets blocked.
+function isLowEffortComment(raw: string): boolean {
+  const trimmed = raw.trim()
+  if (trimmed.length === 0) return false
+  if (trimmed.length < 4) return true
+  const lower = trimmed.toLowerCase()
+  if (['no', 'na', 'n/a', 'idk', 'lol', 'x', 'xx', 'xxx', 'test', 'asdf'].includes(lower)) return true
+  if (/^(.)\1{3,}$/.test(trimmed)) return true
+  if (/(.)\1{4,}/.test(trimmed)) return true
+  const letters = trimmed.replace(/[^a-zA-Z]/g, '')
+  if (letters.length >= 6) {
+    const vowels = (letters.match(/[aeiouAEIOU]/g) || []).length
+    if (vowels / letters.length < 0.15) return true
+  }
+  return false
+}
+
 const AON_INFO_TEXT = "Once per competition, nominate one of your two picks. Score a goal or assist and you get a bonus third use of them for the rest of the competition; blank and you lose all remaining uses of them. Only on your own two picks — never the Bonus Card."
 const BANKER_INFO_TEXT = 'Two per competition. Doubles your entire gameweek score — team and both players. Declare it with your pick. Never applied to autopicks.'
 
@@ -191,6 +211,7 @@ export default function PicksPage() {
   const [question, setQuestion] = useState<Question | null>(null)
   const [questionAnswer, setQuestionAnswer] = useState<string>('')
   const [comments, setComments] = useState<string>('')
+  const [lowEffortWarning, setLowEffortWarning] = useState(false)
   const [hasPick, setHasPick] = useState(false)
   const [showSlip, setShowSlip] = useState(false)
 
@@ -562,6 +583,10 @@ export default function PicksPage() {
   }
 
   async function savePick() {
+    if (isLowEffortComment(comments)) {
+      setLowEffortWarning(true)
+      return
+    }
     if (!selectedTeam || !player1 || !player2) {
       setMessage('Please select a team and two players')
       return
@@ -762,6 +787,10 @@ export default function PicksPage() {
     if (wizardIndex > 0) goToWizardStep(wizardSteps[wizardIndex - 1].key)
   }
   function wizardNext() {
+    if (wizardStep === 'comments' && isLowEffortComment(comments)) {
+      setLowEffortWarning(true)
+      return
+    }
     if (wizardIndex < wizardSteps.length - 1) goToWizardStep(wizardSteps[wizardIndex + 1].key)
   }
 
@@ -1401,13 +1430,17 @@ export default function PicksPage() {
 
                     {wizardStep === 'comments' && (
                       <div>
-                        <p className="pop-headline text-xl mb-3 text-center">Any Comments</p>
+                        <p className="pop-headline text-xl mb-3 text-center">The Wall</p>
                         <div className="pop-panel p-4">
+                          <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                            Add something to The Wall — a prediction, some banter, whatever. Keep it friendly and
+                            clean; the admin approves everything before it goes public.
+                          </p>
                           <textarea
                             value={comments}
-                            onChange={e => setComments(e.target.value)}
+                            onChange={e => { setComments(e.target.value); setLowEffortWarning(false) }}
                             rows={3}
-                            placeholder="Banter, a prediction, whatever..."
+                            placeholder="Say something..."
                             className="pop-input w-full p-2 font-bold text-sm"
                             style={{ borderColor: 'var(--pop-white)' }}
                           />
@@ -2069,7 +2102,7 @@ export default function PicksPage() {
             )}
             {comments.trim() && (
               <div className="pt-1">
-                <span className="text-[10px] uppercase tracking-widest block mb-1" style={{ color: '#241a1799' }}>Your Comments</span>
+                <span className="text-[10px] uppercase tracking-widest block mb-1" style={{ color: '#241a1799' }}>Your Wall Post</span>
                 <span className="text-sm block">{comments.trim()}</span>
               </div>
             )}
@@ -2080,6 +2113,25 @@ export default function PicksPage() {
             <p className="font-bold text-sm">{gameweek ? new Date(gameweek.deadline).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' }) : ''}</p>
           </div>
         </TicketModal>
+      )}
+
+      {lowEffortWarning && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 9999, background: 'rgba(0,0,0,0.7)' }}>
+          <div className="rounded-2xl p-6 text-center" style={{ maxWidth: 340, background: '#1C1424', border: '3px solid var(--pop-orange)' }}>
+            <p className="text-4xl mb-2">🧐</p>
+            <p className="font-black uppercase text-lg mb-2" style={{ color: 'var(--pop-orange)', fontFamily: 'var(--font-display)' }}>Try Harder!</p>
+            <p className="text-sm mb-5" style={{ color: 'rgba(255,255,255,0.75)' }}>
+              That&apos;s not going up on The Wall as-is — give it a bit more effort (or just leave it blank).
+            </p>
+            <button
+              onClick={() => setLowEffortWarning(false)}
+              className="pop-button pop-button--yellow w-full py-2.5 text-sm"
+            >
+              Fair enough
+            </button>
+          </div>
+        </div>,
+        document.body
       )}
       </Shell>
     </>
