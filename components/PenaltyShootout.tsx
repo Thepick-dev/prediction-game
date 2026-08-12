@@ -177,6 +177,11 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
   const zoneAnimRef = useRef<Animation | null>(null)
   const bonusRef = useRef<HTMLDivElement>(null)
   const bonusAnimRef = useRef<Animation | null>(null)
+  // The violin taunt is shown on a delay after game over — if a new game
+  // starts inside that 700ms window, this stale timeout used to fire mid-
+  // round and switch the keeper to the violin pose with nothing left to
+  // reset it, so he'd stay stood there instead of ever diving again.
+  const violinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const supabase = createClient()
 
   useEffect(() => { loadScores() }, [])
@@ -390,6 +395,10 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
   }
 
   function startGame() {
+    if (violinTimeoutRef.current) {
+      clearTimeout(violinTimeoutRef.current)
+      violinTimeoutRef.current = null
+    }
     setScore(0)
     setLives(STARTING_LIVES)
     setJustBeatBest(false)
@@ -526,7 +535,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
 
       if (nextLives <= 0) {
         setPhase('gameover')
-        setTimeout(() => setShowViolin(true), 700)
+        violinTimeoutRef.current = setTimeout(() => setShowViolin(true), 700)
         if (!testModeUsed && bestScore !== null && score > bestScore) {
           setJustBeatBest(true)
           saveScore(score)
