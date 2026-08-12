@@ -21,16 +21,16 @@ const PATTERNS = [
 // flat, visually random-looking block — SWATCHES below stays the flattened
 // version classic mode still uses unchanged.
 const SWATCH_GROUPS: { label: string; colours: string[] }[] = [
-  { label: 'Neutrals', colours: ['#FFFFFF', '#F5ECD9', '#2A1F17', '#1A1A1A'] },
-  { label: 'Reds', colours: ['#E8552B', '#B5493C', '#DC2626', '#7A2426'] },
-  { label: 'Blues', colours: ['#1E4D6B', '#3C5A6B', '#1D4ED8', '#0EA5E9'] },
-  { label: 'Greens', colours: ['#2F3E2E', '#16A34A', '#4ADE80', '#065F46'] },
-  { label: 'Golds', colours: ['#D9A441', '#FBBF24', '#F59E0B', '#EAB308'] },
-  { label: 'Purples', colours: ['#7C3AED', '#A855F7', '#EC4899', '#463A4A'] },
-  { label: 'Teals', colours: ['#0D9488', '#14B8A6', '#06B6D4', '#155E75'] },
-  { label: 'Limes', colours: ['#84CC16', '#65A30D', '#CCFA00', '#3F6212'] },
-  { label: 'Oranges', colours: ['#F97316', '#FB923C', '#FDBA74', '#9A3412'] },
-  { label: 'Magentas', colours: ['#BE185D', '#F472B6', '#6B21A8', '#312E81'] },
+  { label: 'Neutrals', colours: ['#FFFFFF', '#F5ECD9', '#D6C7A1', '#9CA3AF', '#2A1F17', '#1A1A1A'] },
+  { label: 'Reds', colours: ['#F87171', '#E8552B', '#B5493C', '#DC2626', '#7A2426', '#450A0A'] },
+  { label: 'Blues', colours: ['#60A5FA', '#1E4D6B', '#3C5A6B', '#1D4ED8', '#0EA5E9', '#172554'] },
+  { label: 'Greens', colours: ['#34D399', '#2F3E2E', '#16A34A', '#4ADE80', '#065F46', '#022C22'] },
+  { label: 'Golds', colours: ['#FEF08A', '#D9A441', '#FBBF24', '#F59E0B', '#EAB308', '#92400E'] },
+  { label: 'Purples', colours: ['#C4B5FD', '#7C3AED', '#A855F7', '#EC4899', '#463A4A', '#2E1065'] },
+  { label: 'Teals', colours: ['#67E8F9', '#0D9488', '#14B8A6', '#06B6D4', '#155E75', '#083344'] },
+  { label: 'Limes', colours: ['#D9F99D', '#84CC16', '#65A30D', '#CCFA00', '#3F6212', '#1A2E05'] },
+  { label: 'Oranges', colours: ['#FFEDD5', '#F97316', '#FB923C', '#FDBA74', '#9A3412', '#7C2D12'] },
+  { label: 'Magentas', colours: ['#DB2777', '#BE185D', '#F472B6', '#6B21A8', '#312E81', '#1E1B4B'] },
 ]
 const SWATCHES = SWATCH_GROUPS.flatMap(g => g.colours)
 
@@ -217,9 +217,6 @@ export default function KitEditor({
       <div className="space-y-1.5">
         {SWATCH_GROUPS.map(group => (
           <div key={group.label} className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-mono uppercase tracking-wide shrink-0" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', width: compact ? 44 : 54 }}>
-              {group.label}
-            </span>
             {group.colours.map(colour => (
               <button key={colour} onClick={() => onSelect(colour)} {...swatchProps(selected === colour, colour)} />
             ))}
