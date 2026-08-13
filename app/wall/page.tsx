@@ -247,7 +247,7 @@ export default function WallPage() {
                     )}
 
                     {sentReply[post.pick_id] ? (
-                      <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-green)' : '#4ADE80' }}>Sent for review.</p>
+                      <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-green)' : '#4ADE80' }}>Sent.</p>
                     ) : (
                       <div className="flex items-center gap-2 mt-1.5 max-w-sm">
                         <input

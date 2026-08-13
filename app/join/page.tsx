@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import PopArtLoading from '../../components/PopArtLoading'
+import KitEditor from '../../components/KitEditor'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 
 type Team = { id: number; name: string; short_name: string | null; crest_url: string | null }
@@ -13,6 +15,45 @@ type Team = { id: number; name: string; short_name: string | null; crest_url: st
 function teamDisplayName(team: Team | undefined) {
   if (!team) return 'Unknown'
   return team.short_name ?? team.name.replace(' FC', '').replace(' AFC', '')
+}
+
+// Shown once, right after a brand new player finishes their tier picks —
+// their kit is still the plain default at that point, and this is the
+// first natural pause in onboarding to ask them to personalise it. Extracted
+// as its own component (rather than defined inline in JoinPage) so it isn't
+// recreated — and KitEditor's in-progress selection lost — on every render.
+function KitSetupPopup({ userId, theme, onDone }: { userId: string; theme: 'classic' | 'pop-art'; onDone: () => void }) {
+  const isPopArt = theme === 'pop-art'
+  if (typeof document === 'undefined') return null
+  return createPortal(
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 9999, background: 'rgba(0,0,0,0.7)' }}>
+      <div
+        className={isPopArt ? 'pop-art-theme rounded-2xl p-5 w-full' : 'rounded-2xl p-5 w-full'}
+        style={{
+          maxWidth: 340, maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto',
+          ...(isPopArt
+            ? { background: 'var(--pop-surface)', border: '3px solid var(--pop-green)', boxShadow: '0 8px 30px rgba(0,0,0,0.6)' }
+            : { background: '#1e1914', border: '2px solid rgba(217,164,65,0.4)' }),
+        }}
+      >
+        <p className={isPopArt ? 'pop-headline text-lg mb-1 text-center' : 'text-lg font-bold mb-1 text-center'} style={isPopArt ? undefined : { color: '#D9A441', fontFamily: 'var(--font-heading), serif' }}>
+          One Last Thing — Your Kit
+        </p>
+        <p className="text-xs mb-4 text-center" style={{ color: isPopArt ? 'rgba(255,255,255,0.6)' : '#F5ECD9CC' }}>
+          Design the kit that appears next to your name on the leaderboard and picks. You can change it any time in Settings.
+        </p>
+        <KitEditor userId={userId} compact theme={theme} onSaved={() => { if (isPopArt) { setTimeout(onDone, 1200) } else { onDone() } }} />
+        <button
+          onClick={onDone}
+          className={isPopArt ? 'pop-button pop-button--blue w-full mt-3 py-2 text-xs' : 'w-full mt-3 rounded-lg py-2 text-xs font-bold uppercase tracking-wider'}
+          style={isPopArt ? undefined : { backgroundColor: 'rgba(245,236,217,0.1)', color: '#F5ECD9' }}
+        >
+          Skip for now
+        </button>
+      </div>
+    </div>,
+    document.body
+  )
 }
 
 export default function JoinPage() {
@@ -30,6 +71,11 @@ export default function JoinPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  // True only when this user had no tier_draft_picks row at all before this
+  // page load — i.e. genuinely their first time, not a later edit via
+  // Settings. Only that first save should trigger the kit popup.
+  const [isFirstTimeSetup, setIsFirstTimeSetup] = useState(false)
+  const [showKitPopup, setShowKitPopup] = useState(false)
 
   const supabase = createClient()
   const { popArt } = usePopArtTheme(user?.id)
@@ -81,6 +127,8 @@ export default function JoinPage() {
       .eq('competition_id', comp.id)
       .single()
 
+    setIsFirstTimeSetup(!existing)
+
     if (existing) {
       setTier1Team(existing.tier1_team_id)
       setTier2Team(existing.tier2_team_id)
@@ -118,6 +166,7 @@ export default function JoinPage() {
       if (data.error.includes('locked')) setLocked(true)
     } else {
       setMessage('saved')
+      if (isFirstTimeSetup) setShowKitPopup(true)
     }
     setSaving(false)
   }
@@ -163,6 +212,7 @@ export default function JoinPage() {
               Go to Picks
             </a>
           </div>
+          {showKitPopup && <KitSetupPopup userId={user.id} theme="pop-art" onDone={() => setShowKitPopup(false)} />}
         </Shell>
       )
     }
@@ -180,6 +230,7 @@ export default function JoinPage() {
               Go to Picks
             </a>
           </div>
+          {showKitPopup && <KitSetupPopup userId={user.id} theme="classic" onDone={() => setShowKitPopup(false)} />}
         </HeroPage>
       </Shell>
     )

@@ -115,6 +115,7 @@ export default async function AdminLayout({
                 <a href="/admin/sync" className="block hover:text-white">Sync</a>
                 <a href="/admin/teams" className="block hover:text-white">Teams</a>
                 <a href="/admin/players" className="block hover:text-white">Players</a>
+                <a href="/admin/snapshots" className="block hover:text-white">Snapshots</a>
               </div>
             </div>
 

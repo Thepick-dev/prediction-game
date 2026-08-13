@@ -26,6 +26,7 @@ export default async function FutzyPage() {
   ].filter(Boolean)))]
   const playerIds = [...new Set((logs ?? []).flatMap(l => [
     l.chosen?.player1_id, l.chosen?.player2_id,
+    l.candidates?.all_or_nothing_player_id, l.candidates?.bonus_card_player_id,
     ...(l.candidates?.players ?? []).map((p: any) => p.player_id),
   ].filter(Boolean)))]
 
@@ -75,8 +76,9 @@ export default async function FutzyPage() {
       <h1 className="text-2xl font-bold mb-2">🤖 Futzy</h1>
       <p className="text-gray-500 text-sm mb-8">
         An AI participant, powered by Claude, that submits real picks every gameweek using expected goals/assists
-        and fixture strength — never Banker/All-or-Nothing/Bonus Card yet (that&apos;s a later phase). Enable him
-        per competition from the <a href="/admin/competitions" className="underline">Competitions page</a>.
+        and fixture strength — including his own Banker, All-or-Nothing and Bonus Card decisions, and his own tier
+        draft picks at the start of a competition. Enable him per competition from the{' '}
+        <a href="/admin/competitions" className="underline">Competitions page</a>.
       </p>
 
       {!bot ? (
@@ -116,6 +118,17 @@ export default async function FutzyPage() {
                       {teamName[log.chosen?.team_id] ?? '?'} · {playerName[log.chosen?.player1_id] ?? '?'} · {playerName[log.chosen?.player2_id] ?? '?'}
                       {' '}<span className="text-gray-400">(projected {log.chosen?.projected_total ?? '?'} pts)</span>
                     </p>
+                    {(log.candidates?.banker || log.candidates?.all_or_nothing_player_id || log.candidates?.bonus_card_player_id) && (
+                      <p className="text-xs text-gray-500 mb-2">
+                        {log.candidates?.banker && <span className="mr-3">★ Banker played</span>}
+                        {log.candidates?.all_or_nothing_player_id && (
+                          <span className="mr-3">⚡ AoN on {playerName[log.candidates.all_or_nothing_player_id] ?? log.candidates.all_or_nothing_player_id}</span>
+                        )}
+                        {log.candidates?.bonus_card_player_id && (
+                          <span>🎴 Bonus Card on {playerName[log.candidates.bonus_card_player_id] ?? log.candidates.bonus_card_player_id}</span>
+                        )}
+                      </p>
+                    )}
                     <div className="grid grid-cols-2 gap-4 text-xs text-gray-500">
                       <div>
                         <p className="font-medium text-gray-600 mb-1">Top teams considered</p>

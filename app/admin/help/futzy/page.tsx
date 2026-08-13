@@ -10,9 +10,9 @@ export default function FutzyHelpPage() {
           <p className="text-sm text-gray-700">
             Futzy is a real participant — visible on the leaderboard and results, with his own picks every
             gameweek — powered by Claude rather than a person. He&apos;s clearly labelled everywhere he appears, and
-            can&apos;t be crowned the winner even if he tops the table. Phase 1 (what&apos;s live now): he makes a
-            real team + two-player pick every gameweek. He doesn&apos;t play Banker, All or Nothing, or the Bonus
-            Card yet — that&apos;s a later phase.
+            can&apos;t be crowned the winner even if he tops the table. He makes a real team + two-player pick every
+            gameweek, picks his own tier draft teams at the start of a competition, and plays Banker, All or
+            Nothing and the Bonus Card (where enabled) using the same heuristics described below.
           </p>
         </div>
 
@@ -52,6 +52,16 @@ export default function FutzyHelpPage() {
             <a href="/admin/futzy" className="underline">his page</a>, admin-only (never shown publicly, so it never
             leaks a still-hidden pick before the deadline).
           </p>
+        </div>
+
+        <div className="bg-white border rounded-lg p-6">
+          <h2 className="font-bold mb-2">Tier draft, Banker, All or Nothing &amp; the Bonus Card</h2>
+          <ul className="list-disc pl-5 text-sm text-gray-700 space-y-2">
+            <li><strong>Tier draft</strong>: the first time he&apos;s asked to pick for a competition, he automatically drafts the strongest available team in each tier (by quartile) as his double-use teams — same as a human&apos;s one-off pre-season choice, just made for him. This only works if it happens before gameweek 1&apos;s deadline, same as a human joining.</li>
+            <li><strong>Banker</strong>: played only when this week&apos;s projected score both beats his season average so far and beats his own projection for each of the next few gameweeks — i.e. only when it looks like a clearly better week than waiting.</li>
+            <li><strong>All or Nothing</strong>: nominated on whichever of his two picks that gameweek is genuinely unused so far, not on the admin&apos;s exclusion list, and projects an above-average attacking threat — never played at all if neither pick qualifies, and never more than once across the competition.</li>
+            <li><strong>Bonus Card</strong>: played on whichever upcoming gameweek gives the nominated player&apos;s team its best-projected fixture, as long as that player isn&apos;t already one of his two picks that week and isn&apos;t flagged with a fitness doubt. Like a human, once played it&apos;s never moved or replayed.</li>
+          </ul>
         </div>
 
         <div className="bg-white border rounded-lg p-6">

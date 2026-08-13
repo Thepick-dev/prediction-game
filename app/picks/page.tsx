@@ -761,7 +761,9 @@ export default function PicksPage() {
     (fixturesForTeam(players.find(p => p.id === player2)?.team_id ?? null).length < 2 || player2Fixture != null)
   const bonusStepValid = !playBonusCard || !bonusCardNeedsFixtureChoice || bonusCardFixture != null
 
-  const bonusInfoText = `${bonusCardPlayerShortName ?? 'This player'} is nominated by the admin for the whole competition — everyone plays the same player, you don't choose one yourself. You can play it once, on any gameweek you like. Points add on top of your normal picks — never doubled by Banker. Can't be played on a gameweek where they're already one of your two normal picks.`
+  const bonusInfoText = `${bonusCardPlayerShortName ?? 'This player'} is this competition's Bonus Card — the same player for everyone, set by the admin. Play it once, on any gameweek you choose. It scores like a normal pick, on top of your two picks, and is never doubled by Banker.`
+
+  const bankerInfoText = BANKER_INFO_TEXT + (bonusCardAvailable ? ` Excludes ${bonusCardName} points.` : '')
 
   // The step LIST itself — Bonus Card and the weekly Question are only
   // included when this competition/gameweek actually has one, so a
@@ -1316,7 +1318,7 @@ export default function PicksPage() {
                             {isBanker ? '★ Banker Declared' : 'Declare Banker'}
                           </button>
                           <span className="pop-badge pop-badge--blue px-2.5 py-1.5 text-xs">{bankersUsed} of 2 used</span>
-                          <InfoPopover text={BANKER_INFO_TEXT} />
+                          <InfoPopover text={bankerInfoText} />
                         </div>
                       </div>
                     )}
@@ -1433,8 +1435,7 @@ export default function PicksPage() {
                         <p className="pop-headline text-xl mb-3 text-center">The Wall</p>
                         <div className="pop-panel p-4">
                           <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                            Add something to The Wall — a prediction, some banter, whatever. Keep it friendly and
-                            clean; the admin approves everything before it goes public.
+                            Add something to The Wall — a prediction, some banter, whatever. Keep it friendly and clean.
                           </p>
                           <textarea
                             value={comments}
