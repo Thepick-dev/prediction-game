@@ -763,7 +763,13 @@ export default function LeaderboardPage() {
                                       <button onClick={() => setRivalPickerFor(rivalPickerFor === player.user_id ? null : player.user_id)} className="font-mono text-[10px] underline" style={{ color: 'rgba(255,255,255,0.4)' }}>Change</button>
                                     </div>
                                   ) : (
-                                    <button onClick={() => setRivalPickerFor(rivalPickerFor === player.user_id ? null : player.user_id)} className="font-mono text-[10px] underline" style={{ color: 'rgba(255,255,255,0.4)' }}>+ Pick a rival</button>
+                                    <button
+                                      onClick={() => setRivalPickerFor(rivalPickerFor === player.user_id ? null : player.user_id)}
+                                      className="pop-button px-3 py-1.5 text-xs"
+                                      style={{ background: 'var(--pop-red)' }}
+                                    >
+                                      Pick a Rival
+                                    </button>
                                   )
                                 ) : (
                                   rivalByUser[player.user_id] && (
