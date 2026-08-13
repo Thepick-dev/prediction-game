@@ -15,14 +15,18 @@ export async function GET(request: Request) {
   const supabase = createAdminSupabaseClient()
   const now = new Date()
 
-  // Futzy — re-derive and submit his pick for every still-OPEN gameweek
-  // (deadline still ahead) in a bot_enabled competition, every single daily
-  // run, so his pick keeps reflecting whatever's freshly synced right up
-  // until the deadline passes. Deliberately separate from the post-deadline
-  // block below: that one only ever runs once a deadline has already gone,
-  // this one only while it hasn't. Two plain queries + a JS filter rather
-  // than an embedded-join filter, matching how the rest of this codebase
-  // does cross-table lookups.
+  // Futzy — re-derive and submit his pick for ONLY the single next
+  // gameweek (deadline still ahead) in a bot_enabled competition, every
+  // single daily run, so his pick keeps reflecting whatever's freshly
+  // synced right up until the deadline passes. Deliberately mirrors
+  // exactly what a human sees on /picks — the earliest not-yet-locked
+  // gameweek, never every future gameweek at once. Without narrowing to
+  // one, he'd pick for every gameweek that already has fixtures assigned,
+  // weeks ahead of when a human even can — both looking wrong and letting
+  // his team/player use-count accounting drift out of sync with what
+  // actually happens in between now and then. Deliberately separate from
+  // the post-deadline block below: that one only ever runs once a
+  // deadline has already gone, this one only while it hasn't.
   const { data: botCompetitions } = await supabase
     .from('competitions')
     .select('id')
@@ -32,13 +36,22 @@ export async function GET(request: Request) {
   const botResults = []
 
   if (botCompetitionIds.size > 0) {
-    const { data: openGameweeks } = await supabase
+    const { data: candidateGameweeks } = await supabase
       .from('gameweeks')
       .select('id, competition_id')
       .in('status', ['open', 'upcoming'])
       .gt('deadline', now.toISOString())
+      .order('deadline', { ascending: true })
 
-    for (const gw of (openGameweeks ?? []).filter(g => botCompetitionIds.has(g.competition_id))) {
+    const nextGameweekByCompetition = new Map<string, { id: string; competition_id: string }>()
+    for (const gw of candidateGameweeks ?? []) {
+      if (!botCompetitionIds.has(gw.competition_id)) continue
+      if (!nextGameweekByCompetition.has(gw.competition_id)) {
+        nextGameweekByCompetition.set(gw.competition_id, gw)
+      }
+    }
+
+    for (const gw of nextGameweekByCompetition.values()) {
       const result = await runBotPickForGameweek(supabase, gw.id)
       botResults.push({ gameweek_id: gw.id, ...result })
     }

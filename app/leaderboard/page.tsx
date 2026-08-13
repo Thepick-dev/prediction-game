@@ -647,11 +647,11 @@ export default function LeaderboardPage() {
             <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name}</p>
 
             {potwUserId && (
-              <div className="pop-panel pop-panel--pink p-4 mb-6 flex items-center gap-3">
-                <CrownIcon size={26} color="var(--pop-green)" />
+              <div className="pop-panel pop-panel--pink p-4 mb-6 flex items-center gap-3.5">
+                <CrownIcon size={36} color="var(--pop-green)" />
                 <div>
-                  <p className="pop-headline text-xs" style={{ color: 'var(--pop-pink)' }}>Current Leader</p>
-                  <p className="font-black uppercase">{ranked.find(p => p.user_id === potwUserId)?.display_name}</p>
+                  <p className="pop-headline text-sm" style={{ color: 'var(--pop-pink)' }}>Current Leader</p>
+                  <p className="font-black uppercase text-2xl leading-tight">{ranked.find(p => p.user_id === potwUserId)?.display_name}</p>
                 </div>
               </div>
             )}
@@ -661,12 +661,12 @@ export default function LeaderboardPage() {
                   (team/player/banker split, best gameweek, etc.) lives on
                   the Full Table page now. This view is about one thing:
                   who's winning. */}
-              <table className="w-full" style={{ fontSize: '13px', tableLayout: 'fixed' }}>
+              <table className="w-full" style={{ fontSize: '16px', tableLayout: 'fixed' }}>
                 <thead>
-                  <tr className="text-left" style={{ fontSize: '9.5px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-                    <th className="py-2.5 pl-2 pr-1 uppercase tracking-wider" style={{ width: '12%' }}>#</th>
-                    <th className="py-2.5 px-1 uppercase tracking-wider" style={{ width: '58%' }}>Player</th>
-                    <th className="py-2.5 pl-1 pr-2 text-right uppercase tracking-wider font-black" style={{ width: '30%' }}>Points</th>
+                  <tr className="text-left" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+                    <th className="py-3 pl-2 pr-1 uppercase tracking-wider" style={{ width: '12%' }}>#</th>
+                    <th className="py-3 px-1 uppercase tracking-wider" style={{ width: '58%' }}>Player</th>
+                    <th className="py-3 pl-1 pr-2 text-right uppercase tracking-wider font-black" style={{ width: '30%' }}>Points</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -681,32 +681,32 @@ export default function LeaderboardPage() {
                           className="cursor-pointer hover:bg-white/[0.04] transition-colors"
                           style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: isOwnRow ? 'rgba(160,0,250,0.06)' : undefined }}
                         >
-                          <td className="py-3 pl-2 pr-1 font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>{index + 1}</td>
-                          <td className="py-3 px-1 font-black uppercase" style={{ wordBreak: 'break-word' }}>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {player.is_bot ? <BotAvatar size={18} /> : (
+                          <td className="py-3.5 pl-2 pr-1 font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>{index + 1}</td>
+                          <td className="py-3.5 px-1 font-black uppercase" style={{ wordBreak: 'break-word' }}>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {player.is_bot ? <BotAvatar size={26} /> : (
                                 <KitBadge
                                   pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
                                   colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                                   colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
                                   colour3={kitByUser[player.user_id]?.colour3}
-                                  size={18}
+                                  size={26}
                                 />
                               )}
                               <span>{player.display_name}</span>
                               {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
-                              {player.user_id === potwUserId && <CrownIcon size={15} color="var(--pop-green)" />}
-                              {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={15} /></span>}
-                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
+                              {player.user_id === potwUserId && <CrownIcon size={18} color="var(--pop-green)" />}
+                              {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={18} /></span>}
+                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                             </div>
                           </td>
-                          <td className="py-3 pl-1 pr-2 text-right font-black font-mono" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', fontSize: '18px' }}>{player.total_points}</td>
+                          <td className="py-3.5 pl-1 pr-2 text-right font-black font-mono" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', fontSize: '23px' }}>{player.total_points}</td>
                         </tr>
                         {expandedUser === player.user_id && (
                           <tr>
                             <td colSpan={3} className="px-1.5 sm:px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
                               <div className="flex items-center justify-between gap-3 mb-4 pb-3 flex-wrap" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-                                {player.is_bot ? <BotAvatar size={40} /> : (
+                                {player.is_bot ? <BotAvatar size={52} /> : (
                                   <KitBadge
                                     pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
                                     colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
@@ -714,8 +714,8 @@ export default function LeaderboardPage() {
                                     colour3={kitByUser[player.user_id]?.colour3}
                                     stars={kitByUser[player.user_id]?.stars ?? 0}
                                     earths={kitByUser[player.user_id]?.earths ?? 0}
-                                    size={40}
-                                    iconTextClass="text-base sm:text-xl"
+                                    size={52}
+                                    iconTextClass="text-lg sm:text-2xl"
                                     starColor="var(--pop-pink)"
                                   />
                                 )}

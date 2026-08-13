@@ -17,22 +17,28 @@ const PATTERNS = [
   { value: 'pinstripes', label: 'Pinstripes' },
 ]
 
-// Grouped by hue (each group is 4 shades, muted-to-vivid) rather than one
-// flat, visually random-looking block — SWATCHES below stays the flattened
-// version classic mode still uses unchanged.
+// Ordered as a genuine spectrum, both across and within groups: group order
+// runs round the colour wheel (red -> orange -> gold -> lime -> green ->
+// teal -> blue -> purple -> magenta, which lands back next to red), and
+// each group's own 6 shades run light to dark, so any two swatches that
+// are near each other always look related. Neutrals lead since they sit
+// outside the wheel entirely. SWATCHES is this flattened, and — because
+// there are exactly 60 (10 groups x 6) — the grid below divides evenly
+// into a clean rectangle at any fixed column count that divides 60.
 const SWATCH_GROUPS: { label: string; colours: string[] }[] = [
   { label: 'Neutrals', colours: ['#FFFFFF', '#F5ECD9', '#D6C7A1', '#9CA3AF', '#2A1F17', '#1A1A1A'] },
-  { label: 'Reds', colours: ['#F87171', '#E8552B', '#B5493C', '#DC2626', '#7A2426', '#450A0A'] },
-  { label: 'Blues', colours: ['#60A5FA', '#1E4D6B', '#3C5A6B', '#1D4ED8', '#0EA5E9', '#172554'] },
-  { label: 'Greens', colours: ['#34D399', '#2F3E2E', '#16A34A', '#4ADE80', '#065F46', '#022C22'] },
-  { label: 'Golds', colours: ['#FEF08A', '#D9A441', '#FBBF24', '#F59E0B', '#EAB308', '#92400E'] },
-  { label: 'Purples', colours: ['#C4B5FD', '#7C3AED', '#A855F7', '#EC4899', '#463A4A', '#2E1065'] },
-  { label: 'Teals', colours: ['#67E8F9', '#0D9488', '#14B8A6', '#06B6D4', '#155E75', '#083344'] },
-  { label: 'Limes', colours: ['#D9F99D', '#84CC16', '#65A30D', '#CCFA00', '#3F6212', '#1A2E05'] },
-  { label: 'Oranges', colours: ['#FFEDD5', '#F97316', '#FB923C', '#FDBA74', '#9A3412', '#7C2D12'] },
-  { label: 'Magentas', colours: ['#DB2777', '#BE185D', '#F472B6', '#6B21A8', '#312E81', '#1E1B4B'] },
+  { label: 'Reds', colours: ['#FECACA', '#F87171', '#EF4444', '#DC2626', '#991B1B', '#450A0A'] },
+  { label: 'Oranges', colours: ['#FED7AA', '#FB923C', '#F97316', '#EA580C', '#9A3412', '#431407'] },
+  { label: 'Golds', colours: ['#FDE68A', '#FBBF24', '#F59E0B', '#D97706', '#92400E', '#451A03'] },
+  { label: 'Limes', colours: ['#D9F99D', '#A3E635', '#84CC16', '#65A30D', '#3F6212', '#1A2E05'] },
+  { label: 'Greens', colours: ['#BBF7D0', '#4ADE80', '#22C55E', '#16A34A', '#166534', '#052E16'] },
+  { label: 'Teals', colours: ['#99F6E4', '#2DD4BF', '#14B8A6', '#0D9488', '#115E59', '#042F2E'] },
+  { label: 'Blues', colours: ['#BFDBFE', '#60A5FA', '#3B82F6', '#2563EB', '#1E40AF', '#172554'] },
+  { label: 'Purples', colours: ['#DDD6FE', '#A78BFA', '#8B5CF6', '#7C3AED', '#5B21B6', '#2E1065'] },
+  { label: 'Magentas', colours: ['#FBCFE8', '#F472B6', '#EC4899', '#DB2777', '#9D174D', '#500724'] },
 ]
 const SWATCHES = SWATCH_GROUPS.flatMap(g => g.colours)
+const SWATCH_GRID_COLUMNS = 10
 
 type Kit = { pattern: string; colour1: string; colour2: string; colour3: string | null }
 
@@ -200,14 +206,16 @@ export default function KitEditor({
         }
   }
 
-  // One continuous wrapping strip (fills the full panel width, wrapping
-  // naturally) rather than a separate line per hue group — SWATCHES is
-  // already ordered hue-by-hue (SWATCH_GROUPS flattened), so adjacent
-  // colours still read as grouped, they just aren't forced onto their own
-  // row leaving empty space at the end of each one.
+  // A fixed-column grid, not flex-wrap — flex-wrap's column count depends
+  // on whatever width the container happens to have at runtime, which is
+  // exactly what left a ragged, jumbled-looking last row before. A fixed
+  // column count (dividing the 60-swatch total evenly) is always a clean
+  // rectangle no matter how wide this renders, in either compact or full
+  // mode. SWATCHES is already ordered as a spectrum, so reading left to
+  // right, top to bottom moves smoothly through it.
   function SwatchPicker({ selected, onSelect }: { selected: string; onSelect: (c: string) => void }) {
     return (
-      <div className="flex flex-wrap gap-1.5">
+      <div className="grid gap-1.5 justify-between" style={{ gridTemplateColumns: `repeat(${SWATCH_GRID_COLUMNS}, max-content)` }}>
         {SWATCHES.map(colour => (
           <button key={colour} onClick={() => onSelect(colour)} {...swatchProps(selected === colour, colour)} />
         ))}
@@ -226,14 +234,6 @@ export default function KitEditor({
         {isPopArt && <p className="pop-headline text-[10px] mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>Your Kit</p>}
         <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={compact ? 130 : 190} topScore={topScore} starColor={isPopArt ? 'var(--pop-pink)' : undefined} />
       </div>
-      {(kitStars > 0 || kitEarths > 0) && (
-        <p
-          className={isPopArt ? 'text-xs text-center mb-3 font-bold' : 'text-xs text-center text-[#F5ECD9]/40 mb-3'}
-          style={isPopArt ? { color: 'rgba(255,255,255,0.5)' } : undefined}
-        >
-          Awarded by the league admin.
-        </p>
-      )}
 
       <div className="flex justify-center mb-4">
         <button
