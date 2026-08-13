@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { generateFutzyVoice } from './futzyVoice'
 
 // Futzy — team + two players, Banker, All-or-Nothing, the Bonus Card, and
 // tier draft participation, all reasoned from the same xG/xA/fixture-
@@ -488,7 +489,7 @@ export async function runBotPickForGameweek(supabase: SupabaseClient, gameweekId
 
   const { data: existingPick } = await supabase
     .from('picks')
-    .select('id, is_banker')
+    .select('id, is_banker, comments')
     .eq('user_id', bot.id)
     .eq('gameweek_id', gameweekId)
     .maybeSingle()
@@ -506,7 +507,7 @@ export async function runBotPickForGameweek(supabase: SupabaseClient, gameweekId
     derived.reasoning.chosen.projected_total, bankersUsedElsewhere
   )
 
-  const pickData = {
+  const pickData: Record<string, unknown> = {
     user_id: bot.id,
     competition_id: gameweek.competition_id,
     gameweek_id: gameweekId,
@@ -518,6 +519,49 @@ export async function runBotPickForGameweek(supabase: SupabaseClient, gameweekId
     player2_fixture_id: derived.player2_fixture_id,
     is_banker: playBanker,
     is_autopick: false,
+  }
+
+  // His Wall comment/question answer are generated once, the first time
+  // this gameweek gets a pick — never regenerated on later daily re-runs,
+  // so his "opinion" doesn't change as data refreshes the way his actual
+  // pick legitimately does. Best-effort only: generateFutzyVoice always
+  // resolves rather than throwing, so a Gemini outage never blocks a pick.
+  if (!existingPick?.comments) {
+    const [{ data: team }, { data: p1 }, { data: p2 }, { data: question }] = await Promise.all([
+      supabase.from('teams').select('name, short_name').eq('id', derived.team_id).single(),
+      supabase.from('players').select('name, web_name').eq('id', derived.player1_id).single(),
+      supabase.from('players').select('name, web_name').eq('id', derived.player2_id).single(),
+      supabase.from('gameweek_questions').select('question, question_type, option_a, option_b, option_c, option_d').eq('gameweek_id', gameweekId).maybeSingle(),
+    ])
+
+    const questionInput = question
+      ? {
+          text: question.question,
+          type: (question.question_type ?? 'multiple_choice') as 'multiple_choice' | 'freetext',
+          options: question.question_type === 'freetext' ? undefined : [
+            { key: 'A', label: question.option_a },
+            { key: 'B', label: question.option_b },
+            ...(question.option_c ? [{ key: 'C', label: question.option_c }] : []),
+            ...(question.option_d ? [{ key: 'D', label: question.option_d }] : []),
+          ],
+        }
+      : null
+
+    const voice = await generateFutzyVoice({
+      teamName: team?.short_name ?? team?.name ?? 'my team',
+      player1Name: p1?.web_name?.trim() || p1?.name || 'my first pick',
+      player2Name: p2?.web_name?.trim() || p2?.name || 'my second pick',
+      question: questionInput,
+    })
+
+    if (voice.comment) {
+      pickData.comments = voice.comment
+      pickData.wall_status = 'pending'
+      pickData.wall_rating = null
+    }
+    if (voice.questionAnswer) {
+      pickData.question_answer = voice.questionAnswer
+    }
   }
 
   let pickId: string
