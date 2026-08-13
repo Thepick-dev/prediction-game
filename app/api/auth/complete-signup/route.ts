@@ -18,6 +18,9 @@ export async function POST(request: Request) {
   if (!userId || !username || !username.trim()) {
     return NextResponse.json({ error: 'Missing signup details' }, { status: 400 })
   }
+  if (username.trim().length > 12) {
+    return NextResponse.json({ error: 'Username must be 12 characters or fewer' }, { status: 400 })
+  }
 
   const { error } = await createAdminSupabaseClient()
     .from('profiles')
