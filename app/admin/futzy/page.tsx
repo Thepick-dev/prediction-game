@@ -3,7 +3,7 @@ import { createAdminSupabaseClient } from '../../lib/supabase-admin'
 import { redirect } from 'next/navigation'
 
 const BOT_EMAIL = 'futzy@internal.invalid'
-const BOT_DISPLAY_NAME = 'Futzy'
+const BOT_DISPLAY_NAME = 'Futzy (AI)'
 
 export default async function FutzyPage() {
   const supabase = await createServerSupabaseClient()
@@ -75,10 +75,11 @@ export default async function FutzyPage() {
     <div>
       <h1 className="text-2xl font-bold mb-2">🤖 Futzy</h1>
       <p className="text-gray-500 text-sm mb-8">
-        An AI participant, powered by Claude, that submits real picks every gameweek using expected goals/assists
-        and fixture strength — including his own Banker, All-or-Nothing and Bonus Card decisions, and his own tier
-        draft picks at the start of a competition. Enable him per competition from the{' '}
-        <a href="/admin/competitions" className="underline">Competitions page</a>.
+        An automated participant — display name &quot;Futzy (AI)&quot; is the only place this is disclosed, deliberately
+        low-key — that submits real picks every gameweek using expected goals/assists and fixture strength,
+        including his own Banker, All-or-Nothing and Bonus Card decisions, and his own tier draft picks at the
+        start of a competition. He can never be crowned the winner, even if he tops the table. Enable him per
+        competition from the <a href="/admin/competitions" className="underline">Competitions page</a>.
       </p>
 
       {!bot ? (

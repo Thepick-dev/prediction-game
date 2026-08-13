@@ -566,11 +566,6 @@ export default function FullLeaderboardPage() {
                             />
                           )}
                           <span>{player.display_name}</span>
-                          {player.is_bot && (
-                            <span className="pop-badge px-1.5 py-0.5 text-[8px]" style={{ background: 'rgba(255,255,255,0.15)' }} title="An AI participant, powered by Claude — can't be crowned the winner">
-                              🤖 Powered by Claude
-                            </span>
-                          )}
                           {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
                           {player.user_id === topHumanId && <CrownIcon size={13} color="var(--pop-green)" />}
                           {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={13} /></span>}

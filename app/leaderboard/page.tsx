@@ -694,11 +694,6 @@ export default function LeaderboardPage() {
                                 />
                               )}
                               <span>{player.display_name}</span>
-                              {player.is_bot && (
-                                <span className="pop-badge px-1.5 py-0.5 text-[8px]" style={{ background: 'rgba(255,255,255,0.15)' }} title="An AI participant, powered by Claude — can't be crowned the winner">
-                                  🤖 Powered by Claude
-                                </span>
-                              )}
                               {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
                               {player.user_id === potwUserId && <CrownIcon size={15} color="var(--pop-green)" />}
                               {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={15} /></span>}
@@ -1042,9 +1037,6 @@ export default function LeaderboardPage() {
                               />
                             )}
                             {player.display_name}
-                            {player.is_bot && (
-                              <span className="bg-white/10 px-1 rounded" style={{ fontSize: '9px' }} title="An AI participant, powered by Claude">🤖 Powered by Claude</span>
-                            )}
                             {index === 0 && !player.is_bot && <span className="text-[#D9A441]">👑</span>}
                             {streak && <span title={`${streak} weeks above average`}>🔥</span>}
                             <span className="text-[#F5ECD9]/30" style={{ fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>

@@ -9,10 +9,11 @@ export default function FutzyHelpPage() {
           <h2 className="font-bold mb-2 text-blue-900">What he is</h2>
           <p className="text-sm text-gray-700">
             Futzy is a real participant — visible on the leaderboard and results, with his own picks every
-            gameweek — powered by Claude rather than a person. He&apos;s clearly labelled everywhere he appears, and
-            can&apos;t be crowned the winner even if he tops the table. He makes a real team + two-player pick every
-            gameweek, picks his own tier draft teams at the start of a competition, and plays Banker, All or
-            Nothing and the Bonus Card (where enabled) using the same heuristics described below.
+            gameweek — driven by AI rather than a person. Deliberately low-key about it: the only disclosure is his
+            display name, &quot;Futzy (AI)&quot; — no separate badge, no explanation elsewhere. He can&apos;t be crowned the
+            winner even if he tops the table. He makes a real team + two-player pick every gameweek, picks his own
+            tier draft teams at the start of a competition, and plays Banker, All or Nothing and the Bonus Card
+            (where enabled) using the same heuristics described below.
           </p>
         </div>
 

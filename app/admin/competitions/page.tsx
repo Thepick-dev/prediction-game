@@ -449,9 +449,9 @@ export default async function CompetitionsPage({
           <div id="futzy" className="bg-white border rounded-lg p-6 mt-8">
             <h2 className="font-bold mb-1">🤖 Futzy</h2>
             <p className="text-xs text-gray-500 mb-4">
-              An AI participant (powered by Claude) that submits its own real picks every gameweek, using expected
-              goals/assists and fixture strength. Visible on the leaderboard, but never eligible to be crowned the
-              winner. See <a href="/admin/help/futzy" className="underline">the Futzy guide</a> for setup and how he thinks.
+              An automated participant that submits its own real picks every gameweek, using expected goals/assists
+              and fixture strength. Visible on the leaderboard as &quot;Futzy (AI)&quot;, but never eligible to be
+              crowned the winner. See <a href="/admin/help/futzy" className="underline">the Futzy guide</a> for setup and how he thinks.
             </p>
             {!bot ? (
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-3">

@@ -678,11 +678,6 @@ export default function ResultsPage() {
                               />
                             )}
                             <span className="truncate">{profiles[pick.user_id] ?? 'Unknown'}</span>
-                            {isBotByUser[pick.user_id] && (
-                              <span className="pop-badge px-1.5 py-0.5 text-[8px] shrink-0" style={{ background: 'rgba(255,255,255,0.15)' }} title="An AI participant, powered by Claude">
-                                🤖 Powered by Claude
-                              </span>
-                            )}
                             {isOwnPick && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px] shrink-0">You</span>}
                             {(pick.provisional || pick.is_autopick) && (
                               <span className="px-1 rounded shrink-0" style={{ fontSize: '9px', background: 'rgba(255,255,255,0.15)' }} title="No pick was made in time, so the computer picked automatically">AP</span>
@@ -1029,9 +1024,6 @@ export default function ResultsPage() {
                               />
                             )}
                             <span className="truncate">{profiles[pick.user_id] ?? 'Unknown'}</span>
-                            {isBotByUser[pick.user_id] && (
-                              <span className="bg-white/20 px-1 rounded shrink-0" style={{ fontSize: '9px' }} title="An AI participant, powered by Claude">🤖 Powered by Claude</span>
-                            )}
                             {(pick.provisional || pick.is_autopick) && (
                               <span className="bg-white/20 px-1 rounded shrink-0" style={{ fontSize: '9px' }} title="No pick was made in time, so the computer picked automatically">AP</span>
                             )}
