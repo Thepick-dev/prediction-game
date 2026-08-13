@@ -639,7 +639,7 @@ export default function LeaderboardPage() {
                 <a href="/awards" className="pop-button px-3 py-1.5 text-xs" style={{ background: 'var(--pop-orange)' }}>
                   🏆 Awards
                 </a>
-                <a href="/leaderboard/full" className="pop-button pop-button--yellow px-3 py-1.5 text-xs">
+                <a href="/leaderboard/full" className="pop-button pop-button--blue px-3 py-1.5 text-xs">
                   Full Table →
                 </a>
               </div>
@@ -647,10 +647,10 @@ export default function LeaderboardPage() {
             <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name}</p>
 
             {potwUserId && (
-              <div className="pop-panel pop-panel--pink p-4 mb-6 flex items-center gap-3.5">
+              <div className="pop-panel pop-panel--green p-4 mb-6 flex items-center gap-3.5">
                 <CrownIcon size={36} color="var(--pop-green)" />
                 <div>
-                  <p className="pop-headline text-sm" style={{ color: 'var(--pop-pink)' }}>Current Leader</p>
+                  <p className="pop-headline text-sm" style={{ color: 'var(--pop-green)' }}>Current Leader</p>
                   <p className="font-black uppercase text-2xl leading-tight">{ranked.find(p => p.user_id === potwUserId)?.display_name}</p>
                 </div>
               </div>
@@ -684,13 +684,13 @@ export default function LeaderboardPage() {
                           <td className="py-3.5 pl-2 pr-1 font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>{index + 1}</td>
                           <td className="py-3.5 px-1 font-black uppercase" style={{ wordBreak: 'break-word' }}>
                             <div className="flex items-center gap-2 flex-wrap">
-                              {player.is_bot ? <BotAvatar size={26} /> : (
+                              {player.is_bot ? <BotAvatar size={34} /> : (
                                 <KitBadge
                                   pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
                                   colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                                   colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
                                   colour3={kitByUser[player.user_id]?.colour3}
-                                  size={26}
+                                  size={34}
                                 />
                               )}
                               <span>{player.display_name}</span>
@@ -706,7 +706,7 @@ export default function LeaderboardPage() {
                           <tr>
                             <td colSpan={3} className="px-1.5 sm:px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
                               <div className="flex items-center justify-between gap-3 mb-4 pb-3 flex-wrap" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-                                {player.is_bot ? <BotAvatar size={52} /> : (
+                                {player.is_bot ? <BotAvatar size={66} /> : (
                                   <KitBadge
                                     pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
                                     colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
@@ -714,9 +714,9 @@ export default function LeaderboardPage() {
                                     colour3={kitByUser[player.user_id]?.colour3}
                                     stars={kitByUser[player.user_id]?.stars ?? 0}
                                     earths={kitByUser[player.user_id]?.earths ?? 0}
-                                    size={52}
-                                    iconTextClass="text-lg sm:text-2xl"
-                                    starColor="var(--pop-pink)"
+                                    size={66}
+                                    iconTextClass="text-xl sm:text-3xl"
+                                    starColor="var(--pop-green)"
                                   />
                                 )}
                               </div>
@@ -725,12 +725,12 @@ export default function LeaderboardPage() {
                                   Card are big parts of the game and should read that way.
                                   Best Gameweek moved to the Full Table page only. */}
                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
-                                <div className="rounded-lg p-2.5 text-center" style={{ background: (bankersUsedByPlayer[player.user_id] ?? 0) > 0 ? 'rgba(125,55,165,0.18)' : 'rgba(255,255,255,0.04)', border: '1px solid rgba(125,55,165,0.4)' }}>
-                                  <p className="text-[9px] uppercase tracking-widest font-black mb-0.5" style={{ color: 'var(--pop-yellow)' }}>★ Banker</p>
+                                <div className="rounded-lg p-2.5 text-center" style={{ background: (bankersUsedByPlayer[player.user_id] ?? 0) > 0 ? 'rgba(250,97,0,0.18)' : 'rgba(255,255,255,0.04)', border: '1px solid rgba(250,97,0,0.4)' }}>
+                                  <p className="text-[9px] uppercase tracking-widest font-black mb-0.5" style={{ color: 'var(--pop-orange)' }}>★ Banker</p>
                                   <p className="text-sm font-black" style={{ color: 'var(--pop-white)' }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} / 2 left</p>
                                 </div>
-                                <div className="rounded-lg p-2.5 text-center" style={{ background: 'rgba(160,0,250,0.12)', border: '1px solid rgba(160,0,250,0.4)' }}>
-                                  <p className="text-[9px] uppercase tracking-widest font-black mb-0.5 inline-flex items-center justify-center gap-1" style={{ color: 'var(--pop-pink)' }}><BoltIcon size={10} color="var(--pop-pink)" /> All or Nothing</p>
+                                <div className="rounded-lg p-2.5 text-center" style={{ background: 'rgba(204,250,0,0.12)', border: '1px solid rgba(204,250,0,0.4)' }}>
+                                  <p className="text-[9px] uppercase tracking-widest font-black mb-0.5 inline-flex items-center justify-center gap-1" style={{ color: 'var(--pop-green)' }}><BoltIcon size={10} color="var(--pop-green)" /> All or Nothing</p>
                                   <p className="text-sm font-black" style={{ color: 'var(--pop-white)' }}>{aonUsedByPlayer.has(player.user_id) ? 'Used' : 'Available'}</p>
                                 </div>
                                 {showBonusCard && (
@@ -843,7 +843,7 @@ export default function LeaderboardPage() {
                                             <div className="flex items-center gap-1">
                                               <TeamCrest crestUrl={teamMap[d.team_id]?.crest_url ?? null} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
                                               {teamDisplayName(teamMap[d.team_id])}
-                                              {d.is_banker && <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-pink)', color: 'var(--pop-white)' }}>★</span>}
+                                              {d.is_banker && <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span>}
                                               {(d.provisional || d.is_autopick) && <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }} title="No pick was made in time, so the computer picked automatically">AP</span>}
                                             </div>
                                             {d.team_detail?.opponent_team_id != null && (
@@ -873,8 +873,8 @@ export default function LeaderboardPage() {
                                             {goalPlayers.has(d.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
                                             {assistPlayers.has(d.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
                                             {d.aon?.player_id === d.player1_id && (
-                                              <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '8px', ...(d.aon.outcome === 'success' ? { background: 'var(--pop-green)', color: 'var(--pop-black)' } : d.aon.outcome === 'failed' ? { background: 'var(--pop-red)', color: 'var(--pop-white)' } : { background: 'var(--pop-pink)', color: 'var(--pop-white)' }) }}>
-                                                {d.aon.outcome === 'success' ? <CheckIcon size={8} color="var(--pop-black)" /> : d.aon.outcome === 'failed' ? <CrossIcon size={8} color="var(--pop-white)" /> : <BoltIcon size={8} color="var(--pop-white)" />} AoN
+                                              <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '8px', ...(d.aon.outcome === 'success' ? { background: 'var(--pop-green)', color: 'var(--pop-black)' } : d.aon.outcome === 'failed' ? { background: 'var(--pop-red)', color: 'var(--pop-white)' } : { background: 'var(--pop-blue)', color: 'var(--pop-black)' }) }}>
+                                                {d.aon.outcome === 'success' ? <CheckIcon size={8} color="var(--pop-black)" /> : d.aon.outcome === 'failed' ? <CrossIcon size={8} color="var(--pop-white)" /> : <BoltIcon size={8} color="var(--pop-black)" />} AoN
                                               </span>
                                             )}
                                           </td>
@@ -884,8 +884,8 @@ export default function LeaderboardPage() {
                                             {goalPlayers.has(d.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
                                             {assistPlayers.has(d.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
                                             {d.aon?.player_id === d.player2_id && (
-                                              <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '8px', ...(d.aon.outcome === 'success' ? { background: 'var(--pop-green)', color: 'var(--pop-black)' } : d.aon.outcome === 'failed' ? { background: 'var(--pop-red)', color: 'var(--pop-white)' } : { background: 'var(--pop-pink)', color: 'var(--pop-white)' }) }}>
-                                                {d.aon.outcome === 'success' ? <CheckIcon size={8} color="var(--pop-black)" /> : d.aon.outcome === 'failed' ? <CrossIcon size={8} color="var(--pop-white)" /> : <BoltIcon size={8} color="var(--pop-white)" />} AoN
+                                              <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '8px', ...(d.aon.outcome === 'success' ? { background: 'var(--pop-green)', color: 'var(--pop-black)' } : d.aon.outcome === 'failed' ? { background: 'var(--pop-red)', color: 'var(--pop-white)' } : { background: 'var(--pop-blue)', color: 'var(--pop-black)' }) }}>
+                                                {d.aon.outcome === 'success' ? <CheckIcon size={8} color="var(--pop-black)" /> : d.aon.outcome === 'failed' ? <CrossIcon size={8} color="var(--pop-white)" /> : <BoltIcon size={8} color="var(--pop-black)" />} AoN
                                               </span>
                                             )}
                                           </td>
@@ -919,7 +919,7 @@ export default function LeaderboardPage() {
                                           <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={14} />
                                           <span className="uppercase truncate flex-1 min-w-0">{teamDisplayName(team)}</span>
                                           {team.isDouble && !used && team.remaining === 2 && (
-                                            <span className="font-black shrink-0" style={{ color: 'var(--pop-pink)' }}>×2</span>
+                                            <span className="font-black shrink-0" style={{ color: 'var(--pop-orange)' }}>×2</span>
                                           )}
                                         </div>
                                       )
@@ -948,8 +948,8 @@ export default function LeaderboardPage() {
                 <div className="flex items-center gap-2.5"><CrownIcon size={20} color="var(--pop-green)" /> Current leader</div>
                 <div className="flex items-center gap-2.5"><FlameIcon size={20} /> On a streak — 3+ weeks above average</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — deadline missed, computer picked</div>
-                <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-white)' }}>★</span> Banker declared that gameweek</div>
-                <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-pink)', color: 'var(--pop-white)' }}><BoltIcon size={11} color="var(--pop-white)" /> AoN</span> All or Nothing played, result pending</div>
+                <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span> Banker declared that gameweek</div>
+                <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-blue)', color: 'var(--pop-black)' }}><BoltIcon size={11} color="var(--pop-black)" /> AoN</span> All or Nothing played, result pending</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}><CheckIcon size={11} color="var(--pop-black)" /> AoN</span> All or Nothing succeeded</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-red)', color: 'var(--pop-white)' }}><CrossIcon size={11} color="var(--pop-white)" /> AoN</span> All or Nothing failed</div>
                 <div className="flex items-center gap-2.5" style={{ color: 'rgba(255,255,255,0.5)' }}>▼ Tap a row to see their week-by-week picks</div>

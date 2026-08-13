@@ -597,7 +597,7 @@ export default function FullLeaderboardPage() {
                                 earths={kitByUser[player.user_id]?.earths ?? 0}
                                 size={40}
                                 iconTextClass="text-base sm:text-xl"
-                                starColor="var(--pop-pink)"
+                                starColor="var(--pop-green)"
                               />
                             )}
                             <div className="flex items-start gap-4 flex-wrap justify-end">
@@ -607,16 +607,16 @@ export default function FullLeaderboardPage() {
                               </div>
                               <div className="text-right">
                                 <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>Bankers Left</p>
-                                <p className="text-sm font-black" style={{ color: 'var(--pop-pink)' }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} / 2</p>
+                                <p className="text-sm font-black" style={{ color: 'var(--pop-orange)' }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} / 2</p>
                               </div>
                               <div className="text-right">
                                 <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>All or Nothing</p>
-                                <p className="text-sm font-black" style={{ color: 'var(--pop-pink)' }}>{aonUsedByPlayer.has(player.user_id) ? 'Used' : 'Available'}</p>
+                                <p className="text-sm font-black" style={{ color: 'var(--pop-green)' }}>{aonUsedByPlayer.has(player.user_id) ? 'Used' : 'Available'}</p>
                               </div>
                               {showBonusCard && (
                                 <div className="text-right">
                                   <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>{bonusCardName}</p>
-                                  <p className="text-sm font-black" style={{ color: 'var(--pop-pink)' }}>
+                                  <p className="text-sm font-black" style={{ color: 'var(--pop-blue)' }}>
                                     {bonusCardPlayedByUser.has(player.user_id)
                                       ? `Used${bonusCardPlayByUser[player.user_id] ? ` — GW${allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}` : ''}`
                                       : 'Available'}
@@ -680,7 +680,7 @@ export default function FullLeaderboardPage() {
                                         <div className="flex items-center gap-1">
                                           <TeamCrest crestUrl={teamMap[d.team_id]?.crest_url ?? null} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
                                           {teamDisplayName(teamMap[d.team_id])}
-                                          {d.is_banker && <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-pink)', color: 'var(--pop-white)' }}>★</span>}
+                                          {d.is_banker && <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span>}
                                           {(d.provisional || d.is_autopick) && <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }} title="No pick was made in time, so the computer picked automatically">AP</span>}
                                         </div>
                                         {d.team_detail?.opponent_team_id != null && (
@@ -710,8 +710,8 @@ export default function FullLeaderboardPage() {
                                         {goalPlayers.has(d.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
                                         {assistPlayers.has(d.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
                                         {d.aon?.player_id === d.player1_id && (
-                                          <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '8px', ...(d.aon.outcome === 'success' ? { background: 'var(--pop-green)', color: 'var(--pop-black)' } : d.aon.outcome === 'failed' ? { background: 'var(--pop-red)', color: 'var(--pop-white)' } : { background: 'var(--pop-pink)', color: 'var(--pop-white)' }) }}>
-                                            {d.aon.outcome === 'success' ? <CheckIcon size={8} color="var(--pop-black)" /> : d.aon.outcome === 'failed' ? <CrossIcon size={8} color="var(--pop-white)" /> : <BoltIcon size={8} color="var(--pop-white)" />} AoN
+                                          <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '8px', ...(d.aon.outcome === 'success' ? { background: 'var(--pop-green)', color: 'var(--pop-black)' } : d.aon.outcome === 'failed' ? { background: 'var(--pop-red)', color: 'var(--pop-white)' } : { background: 'var(--pop-blue)', color: 'var(--pop-black)' }) }}>
+                                            {d.aon.outcome === 'success' ? <CheckIcon size={8} color="var(--pop-black)" /> : d.aon.outcome === 'failed' ? <CrossIcon size={8} color="var(--pop-white)" /> : <BoltIcon size={8} color="var(--pop-black)" />} AoN
                                           </span>
                                         )}
                                       </td>
@@ -721,8 +721,8 @@ export default function FullLeaderboardPage() {
                                         {goalPlayers.has(d.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
                                         {assistPlayers.has(d.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
                                         {d.aon?.player_id === d.player2_id && (
-                                          <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '8px', ...(d.aon.outcome === 'success' ? { background: 'var(--pop-green)', color: 'var(--pop-black)' } : d.aon.outcome === 'failed' ? { background: 'var(--pop-red)', color: 'var(--pop-white)' } : { background: 'var(--pop-pink)', color: 'var(--pop-white)' }) }}>
-                                            {d.aon.outcome === 'success' ? <CheckIcon size={8} color="var(--pop-black)" /> : d.aon.outcome === 'failed' ? <CrossIcon size={8} color="var(--pop-white)" /> : <BoltIcon size={8} color="var(--pop-white)" />} AoN
+                                          <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '8px', ...(d.aon.outcome === 'success' ? { background: 'var(--pop-green)', color: 'var(--pop-black)' } : d.aon.outcome === 'failed' ? { background: 'var(--pop-red)', color: 'var(--pop-white)' } : { background: 'var(--pop-blue)', color: 'var(--pop-black)' }) }}>
+                                            {d.aon.outcome === 'success' ? <CheckIcon size={8} color="var(--pop-black)" /> : d.aon.outcome === 'failed' ? <CrossIcon size={8} color="var(--pop-white)" /> : <BoltIcon size={8} color="var(--pop-black)" />} AoN
                                           </span>
                                         )}
                                       </td>
@@ -756,7 +756,7 @@ export default function FullLeaderboardPage() {
                                       <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={14} />
                                       <span className="uppercase truncate flex-1 min-w-0">{teamDisplayName(team)}</span>
                                       {team.isDouble && !used && team.remaining === 2 && (
-                                        <span className="font-black shrink-0" style={{ color: 'var(--pop-pink)' }}>×2</span>
+                                        <span className="font-black shrink-0" style={{ color: 'var(--pop-orange)' }}>×2</span>
                                       )}
                                     </div>
                                   )
@@ -787,9 +787,9 @@ export default function FullLeaderboardPage() {
           <span className="mx-2">·</span>
           <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — computer picked it (deadline passed, no pick made)
           <span className="mx-2">·</span>
-          <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-white)' }}>★</span> Banker declared — doubles that gameweek's score
+          <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span> Banker declared — doubles that gameweek's score
           <span className="mx-2">·</span>
-          <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-pink)', color: 'var(--pop-white)' }}><BoltIcon size={9} color="var(--pop-white)" /> AoN</span> All or Nothing played, result pending
+          <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-blue)', color: 'var(--pop-black)' }}><BoltIcon size={9} color="var(--pop-black)" /> AoN</span> All or Nothing played, result pending
           <span className="mx-2">·</span>
           <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}><CheckIcon size={9} color="var(--pop-black)" /> AoN</span> succeeded
           <span className="mx-2">·</span>

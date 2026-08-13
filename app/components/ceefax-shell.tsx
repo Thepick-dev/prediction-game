@@ -242,7 +242,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                         pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} colour3={kit.colour3}
                         stars={kit.stars} earths={kit.earths}
                         size={isPopArt ? 40 : 36} iconTextClass="text-[10px] sm:text-sm"
-                        starColor={isPopArt ? 'var(--pop-pink)' : undefined}
+                        starColor={isPopArt ? 'var(--pop-green)' : undefined}
                         topScore={topScore}
                       />
                     </button>

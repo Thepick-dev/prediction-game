@@ -37,8 +37,14 @@ const SWATCH_GROUPS: { label: string; colours: string[] }[] = [
   { label: 'Purples', colours: ['#DDD6FE', '#A78BFA', '#8B5CF6', '#7C3AED', '#5B21B6', '#2E1065'] },
   { label: 'Magentas', colours: ['#FBCFE8', '#F472B6', '#EC4899', '#DB2777', '#9D174D', '#500724'] },
 ]
-const SWATCHES = SWATCH_GROUPS.flatMap(g => g.colours)
-const SWATCH_GRID_COLUMNS = 10
+// Transposed rather than flattened group-by-group: each ROW is one shade
+// level (lightest first) read ACROSS every hue in wheel order, so moving
+// either direction — along a row or down a column — is always one small,
+// smooth step. Flattening group-by-group instead (all 6 reds, then all 6
+// oranges, ...) reset to "lightest again" at every hue boundary, which is
+// what read as jumbled rather than a real spectrum.
+const SWATCHES = SWATCH_GROUPS[0].colours.map((_, shadeIndex) => SWATCH_GROUPS.map(g => g.colours[shadeIndex])).flat()
+const SWATCH_GRID_COLUMNS = SWATCH_GROUPS.length
 
 type Kit = { pattern: string; colour1: string; colour2: string; colour3: string | null }
 
@@ -182,6 +188,9 @@ export default function KitEditor({
       : <p className="text-sm text-[#F5ECD9]/50 text-center py-4">Loading...</p>
   }
 
+  // Only for the standalone "No Trim" button below (a single button in a
+  // flex row, not the swatch grid) — fixed size is fine there since it's
+  // never one of many columns that need to divide up a container's width.
   const swatchSize = compact ? 'w-5 h-5' : 'w-6 h-6'
   const btnClass = "w-full rounded px-4 py-2 text-sm font-bold disabled:opacity-50"
   const btnStyle = { backgroundColor: '#D9A441', color: '#241a12' }
@@ -190,32 +199,45 @@ export default function KitEditor({
     : 'text-xs font-bold uppercase tracking-wider text-[#F5ECD9]/50 mb-2'
   const labelStyle = isPopArt ? { color: 'rgba(255,255,255,0.5)' } : undefined
 
+  // Sized as a fraction of the grid cell (width: 100%, capped with
+  // maxWidth), never a fixed pixel size — a fixed size is exactly what
+  // overflowed the panel on narrower screens before, since 10 fixed-width
+  // columns plus gaps don't shrink to fit whatever width they're actually
+  // given. This can't overflow: the grid's own columns are already
+  // constrained to the container (see SwatchPicker below), and the
+  // button's max-width only ever shrinks it further, never grows it past
+  // its cell.
   function swatchProps(selected: boolean, colour: string) {
+    const maxSize = compact ? 22 : 28
     return isPopArt
       ? {
-          className: `${swatchSize} rounded-full shrink-0 ${selected ? 'pop-pop-in' : ''}`,
+          className: `aspect-square rounded-full ${selected ? 'pop-pop-in' : ''}`,
           style: {
+            width: '100%',
+            maxWidth: maxSize,
             backgroundColor: colour,
             border: selected ? '3px solid var(--pop-green)' : '3px solid rgba(255,255,255,0.2)',
             boxShadow: selected ? '0 0 12px rgba(204,250,0,0.6)' : 'none',
           },
         }
       : {
-          className: `${swatchSize} rounded-full border-2 ${selected ? 'border-[#D9A441]' : 'border-transparent'}`,
-          style: { backgroundColor: colour },
+          className: `aspect-square rounded-full border-2 ${selected ? 'border-[#D9A441]' : 'border-transparent'}`,
+          style: { width: '100%', maxWidth: maxSize, backgroundColor: colour },
         }
   }
 
-  // A fixed-column grid, not flex-wrap — flex-wrap's column count depends
-  // on whatever width the container happens to have at runtime, which is
-  // exactly what left a ragged, jumbled-looking last row before. A fixed
-  // column count (dividing the 60-swatch total evenly) is always a clean
-  // rectangle no matter how wide this renders, in either compact or full
-  // mode. SWATCHES is already ordered as a spectrum, so reading left to
-  // right, top to bottom moves smoothly through it.
+  // A fixed COLUMN COUNT (one per hue), but FLUID column widths (1fr, not
+  // a fixed pixel size) — the grid's total width is always exactly the
+  // container's width, on any screen, so it can never overflow the panel.
+  // Compare to the flex-wrap version this replaced, whose column count
+  // depended on runtime width and left a ragged last row, and the
+  // fixed-max-content-column version after that, which fixed the
+  // raggedness but could still be wider than a narrow panel. SWATCHES is
+  // ordered so reading left to right, top to bottom moves smoothly
+  // through the spectrum in both directions.
   function SwatchPicker({ selected, onSelect }: { selected: string; onSelect: (c: string) => void }) {
     return (
-      <div className="grid gap-1.5 justify-between" style={{ gridTemplateColumns: `repeat(${SWATCH_GRID_COLUMNS}, max-content)` }}>
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${SWATCH_GRID_COLUMNS}, 1fr)`, justifyItems: 'center' }}>
         {SWATCHES.map(colour => (
           <button key={colour} onClick={() => onSelect(colour)} {...swatchProps(selected === colour, colour)} />
         ))}
@@ -232,7 +254,7 @@ export default function KitEditor({
         style={isPopArt ? { background: 'radial-gradient(circle at 50% 30%, rgba(160,0,250,0.14), rgba(255,255,255,0.03) 70%)', border: '1px solid rgba(255,255,255,0.08)' } : undefined}
       >
         {isPopArt && <p className="pop-headline text-[10px] mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>Your Kit</p>}
-        <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={compact ? 130 : 190} topScore={topScore} starColor={isPopArt ? 'var(--pop-pink)' : undefined} />
+        <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={compact ? 130 : 190} topScore={topScore} starColor={isPopArt ? 'var(--pop-green)' : undefined} />
       </div>
 
       <div className="flex justify-center mb-4">
