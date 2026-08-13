@@ -178,7 +178,7 @@ export default function WallPage() {
           <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>THE WALL</h1>
         )}
         <p className={popArt ? 'font-bold text-sm mb-6' : 'text-sm mb-6'} style={popArt ? { color: 'rgba(255,255,255,0.5)' } : { color: '#D9A44199' }}>
-          {competition.name} — comments are admin-approved before they go up; weekly answers reveal automatically once the deadline&apos;s passed.
+          {competition.name} — weekly answers and comments reveal automatically once each gameweek&apos;s deadline has passed.
         </p>
 
         {posts.length === 0 ? (

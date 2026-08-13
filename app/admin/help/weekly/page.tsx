@@ -81,6 +81,11 @@ export default function WeeklyHelpPage() {
         <div className="bg-white border rounded-lg p-6">
           <h2 className="font-bold mb-2">Fixing a mistake</h2>
           <p className="text-sm text-gray-700 mb-2">
+            Worth taking a <a href="/admin/snapshots" className="underline">Snapshot</a> first, before making any of
+            the corrections below — a one-click backup of everything about the competition, so you&apos;ve got an
+            exact copy of how things looked right before, in case the fix itself needs reverse-engineering later.
+          </p>
+          <p className="text-sm text-gray-700 mb-2">
             If a goal or assist was wrong, go back to <a href="/admin/events" className="underline">Match Events</a> and click
             <strong> Sync from FPL</strong> again for that gameweek — it replaces that gameweek&apos;s events with a fresh pull rather
             than adding on top, so it&apos;s safe to re-run. You can also add or delete individual events by hand on that

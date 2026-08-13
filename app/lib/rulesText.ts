@@ -40,7 +40,7 @@ export const RULES_TEXT = {
   ],
   futzy: [
     "Some competitions include Futzy — an AI participant, powered by Claude, that submits real picks every gameweek using expected goals/assists, fixture strength and injury data rather than a person choosing. He's clearly labelled wherever he appears.",
-    "Futzy plays by the same rules as everyone else — the same deadlines, the same team/player usage caps — but he can never be crowned the winner, even if he tops the table.",
+    "Futzy plays by the same rules as everyone else — the same deadlines, the same team/player usage caps, and (where enabled) Banker, All or Nothing and the Bonus Card too — but he can never be crowned the winner, even if he tops the table.",
   ],
   quartiles: [
     'The 20 Premier League clubs are divided into four quartiles of five — Q1 (strongest) to Q4 (weakest). Quartiles are used to calculate team points based on the difficulty of the result.',
