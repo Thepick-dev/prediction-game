@@ -26,14 +26,17 @@ export async function POST(request: Request) {
   const admin = createAdminSupabaseClient()
 
   // No session to check here (see the comment above — there may genuinely
-  // be none yet), so this route is only as safe as this guard: it must
-  // never be usable to rewrite an EXISTING profile — display_name, and
-  // especially approved/pending_since — since the request carries nothing
-  // proving the caller owns userId. A legitimate call only ever targets a
-  // brand new id with no row yet (it's sent straight after signUp()), so
-  // refusing whenever one already exists costs the real flow nothing.
-  const { data: existing } = await admin.from('profiles').select('id').eq('id', userId).maybeSingle()
-  if (existing) {
+  // be none yet), so this route can't tell "the same person retrying" from
+  // "someone else entirely" except by looking at the row itself. Only
+  // refuse when it's already APPROVED — a real player an admin has
+  // actually let in, where a rename-and-reset-to-pending would be a real
+  // disruption. A still-pending row is safe to freely re-complete: nothing
+  // external depends on it yet, and a harmless retry (password typo fixed,
+  // browser hiccup, wanting to change the username before anyone's looked
+  // at it) is common and must not silently fail to save — confirmed this
+  // is exactly what broke a real signup on 2026-08-14.
+  const { data: existing } = await admin.from('profiles').select('id, approved').eq('id', userId).maybeSingle()
+  if (existing?.approved) {
     return NextResponse.json({ error: 'Account already set up' }, { status: 409 })
   }
 

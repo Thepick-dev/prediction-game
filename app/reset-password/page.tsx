@@ -90,13 +90,15 @@ export default function ResetPasswordPage() {
           {mode === 'request' ? (
             requestSent ? (
               <p className="text-sm" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                If that account exists, the admin&apos;s been notified. They&apos;ll send you a one-time code —
-                once you have it, come back and use the &quot;I have a code&quot; tab above.
+                If that account exists, it&apos;s been logged for the admin to check — there&apos;s no automatic
+                email. They&apos;ll be in touch directly with a one-time code — once you have it, come back
+                and use the &quot;I have a code&quot; tab above.
               </p>
             ) : (
               <>
                 <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                  Enter your username or email and the admin will be notified to send you a reset code.
+                  Enter your username or email. There&apos;s no automatic email — the admin checks these
+                  requests manually and will contact you directly with a reset code.
                 </p>
                 <input
                   type="text" placeholder="Username or email" value={identifier}
