@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
 import Shell from '../../components/ceefax-shell'
-import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon } from '../../../components/icons'
+import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon } from '../../../components/icons'
 import HeroPage from '../../../components/HeroPage'
 import TeamCrest from '../../../components/TeamCrest'
 import KitBadge from '../../../components/KitBadge'
@@ -17,6 +17,9 @@ type RankedPlayer = {
   user_id: string
   display_name: string
   is_bot: boolean
+  is_reigning_champ: boolean
+  is_vibes_champion: boolean
+  in_cash_pool: boolean
   joined_at: string
   home_wins: number
   away_wins: number
@@ -146,6 +149,19 @@ export default function FullLeaderboardPage() {
     const { data: botFlags } = await supabase.from('profiles').select('id, is_bot')
     const isBotMap: Record<string, boolean> = {}
     botFlags?.forEach(b => { isBotMap[b.id] = b.is_bot ?? false })
+
+    // Its own request, same reason — these are newer, optional,
+    // admin-assigned leaderboard badges, and a problem reading them should
+    // never take display names or points down with it.
+    const { data: badgeFlags } = await supabase.from('profiles').select('id, is_reigning_champ, is_vibes_champion, in_cash_pool')
+    const badgeMap: Record<string, { is_reigning_champ: boolean; is_vibes_champion: boolean; in_cash_pool: boolean }> = {}
+    badgeFlags?.forEach(b => {
+      badgeMap[b.id] = {
+        is_reigning_champ: b.is_reigning_champ ?? false,
+        is_vibes_champion: b.is_vibes_champion ?? false,
+        in_cash_pool: b.in_cash_pool ?? false,
+      }
+    })
 
     setMatchEvents(events ?? [])
     setAllTeams(teams ?? [])
@@ -310,6 +326,9 @@ export default function FullLeaderboardPage() {
         user_id: entry.user_id,
         display_name: profileMap[entry.user_id] ?? 'Unknown',
         is_bot: isBotMap[entry.user_id] ?? false,
+        is_reigning_champ: badgeMap[entry.user_id]?.is_reigning_champ ?? false,
+        is_vibes_champion: badgeMap[entry.user_id]?.is_vibes_champion ?? false,
+        in_cash_pool: badgeMap[entry.user_id]?.in_cash_pool ?? false,
         joined_at: entry.joined_at,
         home_wins: 0,
         away_wins: 0,
@@ -509,9 +528,6 @@ export default function FullLeaderboardPage() {
   }
 
   const showBonusCard = competition?.bonus_card_player_id != null
-  // Futzy can appear at whatever position he's genuinely earned, but the
-  // crown belongs to the top-ranked human — he can't be crowned anything.
-  const topHumanId = ranked.find(p => !p.is_bot)?.user_id
 
   return (
     <Shell active="LEADERBOARD" user={user} displayName={displayName} theme="pop-art">
@@ -567,7 +583,9 @@ export default function FullLeaderboardPage() {
                           )}
                           <span>{player.display_name}</span>
                           {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
-                          {player.user_id === topHumanId && <CrownIcon size={13} color="var(--pop-green)" />}
+                          {player.is_reigning_champ && <CrownIcon size={13} color="var(--pop-green)" />}
+                          {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={13} /></span>}
+                          {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={13} /></span>}
                           {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={13} /></span>}
                           <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '8px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                         </div>
@@ -781,7 +799,11 @@ export default function FullLeaderboardPage() {
 
         <div className="mt-3 uppercase tracking-wider flex items-center flex-wrap" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
           <span className="font-black mr-2">Key:</span>
-          <span className="inline-flex items-center gap-1"><CrownIcon size={11} color="var(--pop-green)" /> Leader</span>
+          <span className="inline-flex items-center gap-1"><CrownIcon size={11} color="var(--pop-green)" /> Reigning champ</span>
+          <span className="mx-2">·</span>
+          <span className="inline-flex items-center gap-1"><ShadesIcon size={11} /> Vibes champion</span>
+          <span className="mx-2">·</span>
+          <span className="inline-flex items-center gap-1"><PoundCoinIcon size={11} /> In the cash pool</span>
           <span className="mx-2">·</span>
           <span className="inline-flex items-center gap-1"><FlameIcon size={11} /> Streak (3+ wks above avg)</span>
           <span className="mx-2">·</span>

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
-import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon } from '../../components/icons'
+import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon } from '../../components/icons'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
@@ -17,6 +17,9 @@ type RankedPlayer = {
   user_id: string
   display_name: string
   is_bot: boolean
+  is_reigning_champ: boolean
+  is_vibes_champion: boolean
+  in_cash_pool: boolean
   joined_at: string
   home_wins: number
   away_wins: number
@@ -74,7 +77,6 @@ export default function LeaderboardPage() {
   const [pickDetails, setPickDetails] = useState<Record<string, PickDetail[]>>({})
   const [allGameweeks, setAllGameweeks] = useState<{ id: string; number: number; deadline: string }[]>([])
   const [matchEvents, setMatchEvents] = useState<any[]>([])
-  const [potwUserId, setPotwUserId] = useState<string | null>(null)
   const [allTeams, setAllTeams] = useState<Team[]>([])
   const [teamMap, setTeamMap] = useState<Record<number, Team>>({})
   const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }>>({})
@@ -179,6 +181,19 @@ export default function LeaderboardPage() {
     const { data: botFlags } = await supabase.from('profiles').select('id, is_bot')
     const isBotMap: Record<string, boolean> = {}
     botFlags?.forEach(b => { isBotMap[b.id] = b.is_bot ?? false })
+
+    // Its own request, same reason — these are newer, optional,
+    // admin-assigned leaderboard badges, and a problem reading them should
+    // never take display names or points down with it.
+    const { data: badgeFlags } = await supabase.from('profiles').select('id, is_reigning_champ, is_vibes_champion, in_cash_pool')
+    const badgeMap: Record<string, { is_reigning_champ: boolean; is_vibes_champion: boolean; in_cash_pool: boolean }> = {}
+    badgeFlags?.forEach(b => {
+      badgeMap[b.id] = {
+        is_reigning_champ: b.is_reigning_champ ?? false,
+        is_vibes_champion: b.is_vibes_champion ?? false,
+        in_cash_pool: b.in_cash_pool ?? false,
+      }
+    })
 
     setMatchEvents(events ?? [])
     setAllTeams(teams ?? [])
@@ -362,6 +377,9 @@ export default function LeaderboardPage() {
         user_id: entry.user_id,
         display_name: profileMap[entry.user_id] ?? 'Unknown',
         is_bot: isBotMap[entry.user_id] ?? false,
+        is_reigning_champ: badgeMap[entry.user_id]?.is_reigning_champ ?? false,
+        is_vibes_champion: badgeMap[entry.user_id]?.is_vibes_champion ?? false,
+        in_cash_pool: badgeMap[entry.user_id]?.in_cash_pool ?? false,
         joined_at: entry.joined_at,
         home_wins: 0,
         away_wins: 0,
@@ -441,12 +459,6 @@ export default function LeaderboardPage() {
     })
 
     setRanked(rankedList)
-    // Futzy can appear in the table at whatever position he's genuinely
-    // earned (full transparency), but the "Current Leader" callout is
-    // reserved for the top-ranked human — he can't actually be crowned
-    // anything, interim or final.
-    const topHuman = rankedList.find(p => !p.is_bot)
-    if (topHuman) setPotwUserId(topHuman.user_id)
 
     const aonMap: Record<string, { player_id: number; outcome: string }> = {}
     aonPicks?.forEach(a => { aonMap[`${a.user_id}_${a.gameweek_id}`] = { player_id: a.player_id, outcome: a.outcome } })
@@ -648,16 +660,6 @@ export default function LeaderboardPage() {
             </div>
             <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name}</p>
 
-            {potwUserId && (
-              <div className="pop-panel pop-panel--green p-4 mb-6 flex items-center gap-3.5">
-                <CrownIcon size={36} color="var(--pop-green)" />
-                <div>
-                  <p className="pop-headline text-sm" style={{ color: 'var(--pop-green)' }}>Current Leader</p>
-                  <p className="font-black uppercase text-2xl leading-tight">{ranked.find(p => p.user_id === potwUserId)?.display_name}</p>
-                </div>
-              </div>
-            )}
-
             <div className="pop-panel" style={{ overflow: 'hidden' }}>
               {/* Deliberately just rank, player and total — everything else
                   (team/player/banker split, best gameweek, etc.) lives on
@@ -697,7 +699,9 @@ export default function LeaderboardPage() {
                               )}
                               <span>{player.display_name}</span>
                               {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
-                              {player.user_id === potwUserId && <CrownIcon size={18} color="var(--pop-green)" />}
+                              {player.is_reigning_champ && <CrownIcon size={18} color="var(--pop-green)" />}
+                              {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={18} /></span>}
+                              {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={18} /></span>}
                               {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={18} /></span>}
                               <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                             </div>
@@ -982,7 +986,9 @@ export default function LeaderboardPage() {
             <div className="pop-panel p-4 mt-3">
               <p className="font-black uppercase tracking-wider text-xs mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>Key</p>
               <div className="flex flex-col gap-2.5" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)' }}>
-                <div className="flex items-center gap-2.5"><CrownIcon size={20} color="var(--pop-green)" /> Current leader</div>
+                <div className="flex items-center gap-2.5"><CrownIcon size={20} color="var(--pop-green)" /> Reigning champ</div>
+                <div className="flex items-center gap-2.5"><ShadesIcon size={20} /> Vibes champion</div>
+                <div className="flex items-center gap-2.5"><PoundCoinIcon size={20} /> In the cash pool</div>
                 <div className="flex items-center gap-2.5"><FlameIcon size={20} /> On a streak — 3+ weeks above average</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — deadline missed, computer picked</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span> Banker declared that gameweek</div>
@@ -1026,16 +1032,6 @@ export default function LeaderboardPage() {
           </div>
           <p className="text-[#D9A441]/70 mb-6 text-sm">{competition.name}</p>
 
-          {potwUserId && (
-            <div className="bg-[#D9A441]/15 border border-[#D9A441]/40 rounded-lg px-4 py-3 mb-5 flex items-center gap-3">
-              <span className="text-xl">👑</span>
-              <div>
-                <p className="text-xs text-[#D9A441] font-bold uppercase tracking-wide">Current Leader</p>
-                <p className="font-bold uppercase">{ranked.find(p => p.user_id === potwUserId)?.display_name}</p>
-              </div>
-            </div>
-          )}
-
           <div className="bg-white/5 border border-white/10 rounded-lg overflow-hidden">
             <table className="w-full" style={{ fontSize: '12px' }}>
               <thead>
@@ -1074,7 +1070,9 @@ export default function LeaderboardPage() {
                               />
                             )}
                             {player.display_name}
-                            {index === 0 && !player.is_bot && <span className="text-[#D9A441]">👑</span>}
+                            {player.is_reigning_champ && <span className="text-[#D9A441]">👑</span>}
+                            {player.is_vibes_champion && <span title="Vibes Champion">😎</span>}
+                            {player.in_cash_pool && <span title="In the cash pool">💷</span>}
                             {streak && <span title={`${streak} weeks above average`}>🔥</span>}
                             <span className="text-[#F5ECD9]/30" style={{ fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                           </div>
@@ -1281,7 +1279,11 @@ export default function LeaderboardPage() {
 
           <div className="mt-3 uppercase tracking-wider text-[#F5ECD9]/40" style={{ fontSize: '10px' }}>
             <span className="font-bold mr-2">Key:</span>
-            👑 Leader
+            👑 Reigning champ
+            <span className="mx-2">·</span>
+            😎 Vibes champion
+            <span className="mx-2">·</span>
+            💷 In the cash pool
             <span className="mx-2">·</span>
             🔥 Streak (3+ wks above avg)
             <span className="mx-2">·</span>

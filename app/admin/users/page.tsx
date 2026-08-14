@@ -61,6 +61,20 @@ export default async function UsersPage({
     }
   })
 
+  // Its own isolated request, same reasoning as everywhere else on this
+  // page — these are newer, optional leaderboard-badge columns, and a
+  // problem reading them should only affect these three toggles, never
+  // take down the whole Users page with it.
+  const { data: badgeExtras } = await supabase.from('profiles').select('id, is_reigning_champ, is_vibes_champion, in_cash_pool')
+  const badgeMap: Record<string, { is_reigning_champ: boolean; is_vibes_champion: boolean; in_cash_pool: boolean }> = {}
+  badgeExtras?.forEach(b => {
+    badgeMap[b.id] = {
+      is_reigning_champ: b.is_reigning_champ ?? false,
+      is_vibes_champion: b.is_vibes_champion ?? false,
+      in_cash_pool: b.in_cash_pool ?? false,
+    }
+  })
+
   // Kept as its own request, deliberately separate from the profiles query
   // above: if these columns ever have a problem, it should only affect kit
   // badges, never take down the whole Users page with it.
@@ -110,7 +124,7 @@ export default async function UsersPage({
     'use server'
     const supabase = await createServerSupabaseClient()
     const id = formData.get('id') as string
-    const field = formData.get('field') as 'can_post_news' | 'is_super_admin' | 'is_sporting_panel'
+    const field = formData.get('field') as 'can_post_news' | 'is_super_admin' | 'is_sporting_panel' | 'is_reigning_champ' | 'is_vibes_champion' | 'in_cash_pool'
     const current = formData.get('current') === 'true'
     await supabase.from('profiles').update({ [field]: !current }).eq('id', id)
     redirect('/admin/users')
@@ -306,6 +320,9 @@ export default async function UsersPage({
               <th className="pb-2">News Author</th>
               <th className="pb-2">Super Admin</th>
               <th className="pb-2">Sporting Panel</th>
+              <th className="pb-2">Reigning Champ</th>
+              <th className="pb-2">Vibes Champion</th>
+              <th className="pb-2">Cash Pool</th>
               <th className="pb-2">Edit Name</th>
               <th className="pb-2">Kit Badges</th>
               <th className="pb-2">Reset Password</th>
@@ -315,6 +332,7 @@ export default async function UsersPage({
           <tbody>
             {profiles?.map(profile => {
               const roles = roleMap[profile.id] ?? { can_post_news: false, is_super_admin: false, is_sporting_panel: false }
+              const badges = badgeMap[profile.id] ?? { is_reigning_champ: false, is_vibes_champion: false, in_cash_pool: false }
               return (
               <tr key={profile.id} className="border-b last:border-0">
                 <td className="py-2 text-xs text-gray-500">{emailMap[profile.id] ?? '—'}</td>
@@ -364,6 +382,36 @@ export default async function UsersPage({
                     <input type="hidden" name="current" value={String(roles.is_sporting_panel)} />
                     <button type="submit" className={`text-xs px-2 py-1 rounded border ${roles.is_sporting_panel ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
                       {roles.is_sporting_panel ? '✓ Panel' : '— No'}
+                    </button>
+                  </form>
+                </td>
+                <td className="py-2">
+                  <form action={toggleFlag}>
+                    <input type="hidden" name="id" value={profile.id} />
+                    <input type="hidden" name="field" value="is_reigning_champ" />
+                    <input type="hidden" name="current" value={String(badges.is_reigning_champ)} />
+                    <button type="submit" className={`text-xs px-2 py-1 rounded border ${badges.is_reigning_champ ? 'bg-lime-50 text-lime-700 border-lime-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                      {badges.is_reigning_champ ? '👑 Champ' : '— No'}
+                    </button>
+                  </form>
+                </td>
+                <td className="py-2">
+                  <form action={toggleFlag}>
+                    <input type="hidden" name="id" value={profile.id} />
+                    <input type="hidden" name="field" value="is_vibes_champion" />
+                    <input type="hidden" name="current" value={String(badges.is_vibes_champion)} />
+                    <button type="submit" className={`text-xs px-2 py-1 rounded border ${badges.is_vibes_champion ? 'bg-cyan-50 text-cyan-700 border-cyan-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                      {badges.is_vibes_champion ? '😎 Vibes' : '— No'}
+                    </button>
+                  </form>
+                </td>
+                <td className="py-2">
+                  <form action={toggleFlag}>
+                    <input type="hidden" name="id" value={profile.id} />
+                    <input type="hidden" name="field" value="in_cash_pool" />
+                    <input type="hidden" name="current" value={String(badges.in_cash_pool)} />
+                    <button type="submit" className={`text-xs px-2 py-1 rounded border ${badges.in_cash_pool ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                      {badges.in_cash_pool ? '💷 In' : '— No'}
                     </button>
                   </form>
                 </td>

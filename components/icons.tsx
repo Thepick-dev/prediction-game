@@ -60,3 +60,24 @@ export function TrophyIcon({ size = 16, color = 'var(--pop-pink)', className }: 
     </svg>
   )
 }
+
+// Vibes Champion — admin-assigned, see profiles.is_vibes_champion.
+export function ShadesIcon({ size = 16, color = 'var(--pop-blue)', className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M3 10h6a3 3 0 0 1-3 5 3 3 0 0 1-3-5Z" />
+      <path d="M15 10h6a3 3 0 0 1-3 5 3 3 0 0 1-3-5Z" />
+      <path d="M9 10h6" />
+    </svg>
+  )
+}
+
+// Cash pool — admin-assigned, see profiles.in_cash_pool.
+export function PoundCoinIcon({ size = 16, color = 'var(--pop-orange)', className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M9.3 15.5h6M8 11.6h4.2M9.3 15.5V8.7a2.6 2.6 0 0 1 4.5-1.7" />
+    </svg>
+  )
+}
