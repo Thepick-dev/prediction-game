@@ -734,7 +734,7 @@ export default function ResultsPage() {
 
                         {bonusCardPlay && (
                           <div className="mt-1.5">
-                            <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[9px] inline-flex items-center gap-1">
+                            <span className="pop-badge pop-badge--blue px-1.5 py-0.5 text-[9px] inline-flex items-center gap-1">
                               {bonusCardName}: {players[bonusCardPlay.player_id] ?? 'Unknown'}
                               {showScoring && bonusCardPlay.points != null && <span className="font-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>+{bonusCardPlay.points} pts</span>}
                             </span>

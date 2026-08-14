@@ -87,7 +87,7 @@ export default function LeaderboardPage() {
   // so this is safe to show for everyone regardless of any deadline.
   const [aonUsedByPlayer, setAonUsedByPlayer] = useState<Set<string>>(new Set())
   const [bonusCardPlayedByUser, setBonusCardPlayedByUser] = useState<Set<string>>(new Set())
-  const [bonusCardPlayByUser, setBonusCardPlayByUser] = useState<Record<string, { gameweek_id: string; player_id: number; fixture_id: number | null; points: number | null }>>({})
+  const [bonusCardPlayByUser, setBonusCardPlayByUser] = useState<Record<string, { gameweek_id: string; player_id: number; playerName: string; fixture_id: number | null; points: number | null }>>({})
   const [bonusCardName, setBonusCardName] = useState<string | null>(null)
   const [avgByGw, setAvgByGw] = useState<Record<number, number>>({})
   const [submittedKeys, setSubmittedKeys] = useState<Set<string>>(new Set())
@@ -317,8 +317,8 @@ export default function LeaderboardPage() {
     setAonUsedByPlayer(new Set((aonStatus ?? []).map(a => a.user_id)))
 
     setBonusCardPlayedByUser(new Set((bonusCardPlays ?? []).map(p => p.user_id)))
-    const bonusCardPlayMap: Record<string, { gameweek_id: string; player_id: number; fixture_id: number | null; points: number | null }> = {}
-    bonusCardPlays?.forEach(p => { bonusCardPlayMap[p.user_id] = p })
+    const bonusCardPlayMap: Record<string, { gameweek_id: string; player_id: number; playerName: string; fixture_id: number | null; points: number | null }> = {}
+    bonusCardPlays?.forEach(p => { bonusCardPlayMap[p.user_id] = { ...p, playerName: playerMap[p.player_id] ?? 'Unknown' } })
     setBonusCardPlayByUser(bonusCardPlayMap)
     setBonusCardName(bonusCardDisplayName(comp.bonus_card_name, comp.bonus_card_player_id != null ? playerMap[comp.bonus_card_player_id] : null))
 
@@ -615,11 +615,13 @@ export default function LeaderboardPage() {
     )
   }
 
+  // Only take up a column/chip for this when the competition has actually
+  // configured a player at some point — most competitions won't use this
+  // feature, and an always-present empty column would be pure clutter.
+  // Shared by both theme branches below.
+  const showBonusCard = competition?.bonus_card_player_id != null
+
   if (popArt) {
-    // Only take up a column/chip for this when the competition has actually
-    // configured a player at some point — most competitions won't use this
-    // feature, and an always-present empty column would be pure clutter.
-    const showBonusCard = competition?.bonus_card_player_id != null
     return (
       <>
         <Shell active="LEADERBOARD" user={user} displayName={displayName} theme="pop-art">
@@ -904,6 +906,35 @@ export default function LeaderboardPage() {
                                 </table>
                               )}
 
+                              {/* Its own list entry right after the GW table, not folded into
+                                  a row there — it isn't a per-gameweek thing, it's a once-ever-
+                                  across-the-whole-competition thing. Points here are read-only
+                                  display: already counted exactly once in the Points column
+                                  above, via totals in the data-loading effect — never re-summed
+                                  here. */}
+                              {showBonusCard && (
+                                <div className="flex items-center gap-2 mb-4 p-2 rounded-lg" style={{ background: 'rgba(0,242,250,0.08)', border: '1px solid rgba(0,242,250,0.3)' }}>
+                                  <img
+                                    src="/bonus-card-player.png"
+                                    alt=""
+                                    style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
+                                    onError={e => { e.currentTarget.style.display = 'none' }}
+                                  />
+                                  <div style={{ fontSize: '10px' }}>
+                                    <p className="font-black uppercase" style={{ color: 'var(--pop-blue)' }}>{bonusCardName}</p>
+                                    {bonusCardPlayByUser[player.user_id] ? (
+                                      <p style={{ color: 'rgba(255,255,255,0.7)' }}>
+                                        Played {bonusCardPlayByUser[player.user_id].playerName}
+                                        {' — GW'}{allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}
+                                        {bonusCardPlayByUser[player.user_id].points != null && ` — ${bonusCardPlayByUser[player.user_id].points} pts`}
+                                      </p>
+                                    ) : (
+                                      <p style={{ color: 'rgba(255,255,255,0.5)' }}>Remaining — not yet played</p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
                               <div style={{ fontSize: '9px' }}>
                                 <p className="uppercase tracking-wider font-black mb-1.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
                                   Teams ({teamsWithAvailability.filter(t => t.remaining > 0).length} available)
@@ -1180,6 +1211,29 @@ export default function LeaderboardPage() {
                                   })}
                                 </tbody>
                               </table>
+                            )}
+
+                            {showBonusCard && (
+                              <div className="flex items-center gap-2 mb-4 p-2 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                                <img
+                                  src="/bonus-card-player.png"
+                                  alt=""
+                                  style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
+                                  onError={e => { e.currentTarget.style.display = 'none' }}
+                                />
+                                <div style={{ fontSize: '10px' }}>
+                                  <p className="font-bold uppercase text-blue-300">{bonusCardName}</p>
+                                  {bonusCardPlayByUser[player.user_id] ? (
+                                    <p className="text-[#F5ECD9]/70">
+                                      Played {bonusCardPlayByUser[player.user_id].playerName}
+                                      {' — GW'}{allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}
+                                      {bonusCardPlayByUser[player.user_id].points != null && ` — ${bonusCardPlayByUser[player.user_id].points} pts`}
+                                    </p>
+                                  ) : (
+                                    <p className="text-[#F5ECD9]/50">Remaining — not yet played</p>
+                                  )}
+                                </div>
+                              </div>
                             )}
 
                             <div style={{ fontSize: '9px' }}>
