@@ -67,7 +67,7 @@ export default async function WallModerationPage() {
     const admin = await requireAdminAction()
     const pickId = formData.get('pick_id') as string
     const userId = formData.get('user_id') as string
-    const rating = Math.max(0, Math.min(5, parseInt(formData.get('rating') as string) || 0))
+    const rating = Math.max(1, Math.min(7, parseInt(formData.get('rating') as string) || 1))
 
     await admin.from('picks').update({ wall_status: 'approved', wall_rating: rating }).eq('id', pickId)
 
@@ -127,8 +127,8 @@ export default async function WallModerationPage() {
                     <input type="hidden" name="pick_id" value={p.id} />
                     <input type="hidden" name="user_id" value={p.user_id} />
                     <label className="text-xs text-gray-500">Rating:</label>
-                    <select name="rating" defaultValue="3" className="border rounded px-2 py-1 text-sm">
-                      {[0, 1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} {'⭐'.repeat(n) || '—'}</option>)}
+                    <select name="rating" defaultValue="4" className="border rounded px-2 py-1 text-sm">
+                      {[1, 2, 3, 4, 5, 6, 7].map(n => <option key={n} value={n}>{n} {'⭐'.repeat(n)}</option>)}
                     </select>
                     <button type="submit" className="bg-green-600 text-white text-xs rounded px-3 py-1.5">✓ Approve</button>
                   </form>

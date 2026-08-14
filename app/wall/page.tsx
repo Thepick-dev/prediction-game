@@ -6,6 +6,7 @@ import Shell from '../components/ceefax-shell'
 import PopArtLoading from '../../components/PopArtLoading'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import KitBadge from '../../components/KitBadge'
+import StarRating from '../../components/StarRating'
 
 type Post = {
   pick_id: string
@@ -16,6 +17,7 @@ type Post = {
   question_answer: string | null
 }
 type Reply = { id: string; pick_id: string; user_id: string; content: string; created_at: string }
+type TargetRating = { average: number; count: number; yours: number | null }
 type Question = {
   gameweek_id: string
   question: string
@@ -42,6 +44,7 @@ export default function WallPage() {
   const [nameByUser, setNameByUser] = useState<Record<string, string>>({})
   const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null }>>({})
   const [ratingByUser, setRatingByUser] = useState<Record<string, { total: number; count: number }>>({})
+  const [ratingsByTarget, setRatingsByTarget] = useState<Record<string, TargetRating>>({})
   const [gwNumberById, setGwNumberById] = useState<Record<string, number>>({})
   const [questionByGw, setQuestionByGw] = useState<Record<string, Question>>({})
   const [replyDraft, setReplyDraft] = useState<Record<string, string>>({})
@@ -106,6 +109,27 @@ export default function WallPage() {
       replies?.forEach(r => { (byPick[r.pick_id] ??= []).push(r) })
       setRepliesByPick(byPick)
 
+      // Player-given ratings (separate from the admin's own curation
+      // rating above) — one row per rater per target, targets being either
+      // a comment/question-answer (both keyed off picks.id) or a reply.
+      const replyIds = (replies ?? []).map(r => r.id)
+      const { data: allRatings } = await supabase
+        .from('wall_ratings')
+        .select('target_type, target_id, rater_user_id, rating')
+        .in('target_id', [...pickIds, ...replyIds])
+
+      const ratingsMap: Record<string, TargetRating> = {}
+      allRatings?.forEach(r => {
+        const key = `${r.target_type}:${r.target_id}`
+        const existing = ratingsMap[key] ?? { average: 0, count: 0, yours: null }
+        const newTotal = existing.average * existing.count + r.rating
+        existing.count += 1
+        existing.average = newTotal / existing.count
+        if (r.rater_user_id === authUser.id) existing.yours = r.rating
+        ratingsMap[key] = existing
+      })
+      setRatingsByTarget(ratingsMap)
+
       const userIds = new Set<string>(list.map(p => p.user_id))
       replies?.forEach(r => userIds.add(r.user_id))
 
@@ -142,6 +166,30 @@ export default function WallPage() {
     await supabase.from('wall_replies').insert({ pick_id: pickId, user_id: user.id, content })
     setReplyDraft(prev => ({ ...prev, [pickId]: '' }))
     setSentReply(prev => ({ ...prev, [pickId]: true }))
+  }
+
+  async function submitRating(targetType: 'comment' | 'question_answer' | 'reply', targetId: string, rating: number) {
+    const key = `${targetType}:${targetId}`
+    const previous = ratingsByTarget[key] ?? { average: 0, count: 0, yours: null }
+
+    // Optimistic — reconstructs the sum, removes your own prior vote (if
+    // any) rather than just adding to it, then adds the new one back in,
+    // matching the upsert this is about to perform server-side.
+    const baseTotal = previous.average * previous.count - (previous.yours ?? 0)
+    const baseCount = previous.count - (previous.yours != null ? 1 : 0)
+    const nextCount = baseCount + 1
+    const nextAverage = (baseTotal + rating) / nextCount
+    setRatingsByTarget(prev => ({ ...prev, [key]: { average: nextAverage, count: nextCount, yours: rating } }))
+
+    const res = await fetch('/api/wall/rate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetType, targetId, rating }),
+    })
+    if (!res.ok) {
+      // Roll back on failure (e.g. rating your own content some other way)
+      setRatingsByTarget(prev => ({ ...prev, [key]: previous }))
+    }
   }
 
   if (loading) {
@@ -223,6 +271,16 @@ export default function WallPage() {
                         <div className="rounded-lg px-2.5 py-1.5 mb-2 text-xs" style={{ background: 'rgba(0,0,0,0.2)' }}>
                           <span style={{ color: popArt ? 'var(--pop-yellow)' : '#D9A441' }} className="font-bold">{q.question}</span>
                           <span className="block mt-0.5">{answer}</span>
+                          <div className="mt-1.5">
+                            <StarRating
+                              average={ratingsByTarget[`question_answer:${post.pick_id}`]?.average ?? null}
+                              count={ratingsByTarget[`question_answer:${post.pick_id}`]?.count ?? 0}
+                              yourRating={ratingsByTarget[`question_answer:${post.pick_id}`]?.yours ?? null}
+                              onRate={n => submitRating('question_answer', post.pick_id, n)}
+                              interactive={!isOwn}
+                              popArt={popArt}
+                            />
+                          </div>
                         </div>
                       )}
                       {post.comments && (
@@ -233,14 +291,38 @@ export default function WallPage() {
                           {'⭐'.repeat(post.wall_rating) || 'Rated 0'}
                         </p>
                       )}
+                      {post.comments && (
+                        <div className="mt-1.5">
+                          <StarRating
+                            average={ratingsByTarget[`comment:${post.pick_id}`]?.average ?? null}
+                            count={ratingsByTarget[`comment:${post.pick_id}`]?.count ?? 0}
+                            yourRating={ratingsByTarget[`comment:${post.pick_id}`]?.yours ?? null}
+                            onRate={n => submitRating('comment', post.pick_id, n)}
+                            interactive={!isOwn}
+                            popArt={popArt}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {(repliesByPick[post.pick_id] ?? []).length > 0 && (
                       <div className="mt-2 ml-4 space-y-1.5">
                         {repliesByPick[post.pick_id].map(r => (
-                          <div key={r.id} className="rounded-xl rounded-tl px-3 py-1.5 inline-block" style={{ background: popArt ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.03)' }}>
-                            <span className="font-black text-xs">{nameByUser[r.user_id] ?? 'Unknown'}</span>
-                            <span className="text-xs ml-1.5" style={{ color: popArt ? 'rgba(255,255,255,0.7)' : '#F5ECD9CC' }}>{r.content}</span>
+                          <div key={r.id}>
+                            <div className="rounded-xl rounded-tl px-3 py-1.5 inline-block" style={{ background: popArt ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.03)' }}>
+                              <span className="font-black text-xs">{nameByUser[r.user_id] ?? 'Unknown'}</span>
+                              <span className="text-xs ml-1.5" style={{ color: popArt ? 'rgba(255,255,255,0.7)' : '#F5ECD9CC' }}>{r.content}</span>
+                            </div>
+                            <div className="mt-1">
+                              <StarRating
+                                average={ratingsByTarget[`reply:${r.id}`]?.average ?? null}
+                                count={ratingsByTarget[`reply:${r.id}`]?.count ?? 0}
+                                yourRating={ratingsByTarget[`reply:${r.id}`]?.yours ?? null}
+                                onRate={n => submitRating('reply', r.id, n)}
+                                interactive={r.user_id !== user?.id}
+                                popArt={popArt}
+                              />
+                            </div>
                           </div>
                         ))}
                       </div>
