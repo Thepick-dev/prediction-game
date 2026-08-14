@@ -1,5 +1,17 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { createAdminSupabaseClient } from '../../lib/supabase-admin'
+import { requireAdmin } from '../../lib/require-admin'
 import { redirect } from 'next/navigation'
+
+// Every write below goes through this — Server Actions are reachable as
+// their own endpoint, not just "the button on a page only admins can see",
+// so the page layout's own admin check isn't a guarantee for these.
+async function requireAdminAction() {
+  const supabase = await createServerSupabaseClient()
+  const admin = await requireAdmin(supabase)
+  if (!admin) redirect('/')
+  return createAdminSupabaseClient()
+}
 
 export default async function AdminArchivePage() {
   const supabase = await createServerSupabaseClient()
@@ -16,7 +28,7 @@ export default async function AdminArchivePage() {
 
   async function toggleHidden(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const id = formData.get('id') as string
     const hidden = formData.get('hidden') === 'true'
     await supabase.from('competitions').update({ hidden: !hidden }).eq('id', id)
@@ -25,7 +37,7 @@ export default async function AdminArchivePage() {
 
   async function setManualWinner(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const id = formData.get('id') as string
     const manual_winner = formData.get('manual_winner') as string
     const manual_winner_note = formData.get('manual_winner_note') as string
@@ -35,7 +47,7 @@ export default async function AdminArchivePage() {
 
   async function addHonour(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     await supabase.from('honours').insert({
       season: formData.get('season') as string,
       competition_name: formData.get('competition_name') as string,
@@ -48,14 +60,14 @@ export default async function AdminArchivePage() {
 
   async function deleteHonour(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     await supabase.from('honours').delete().eq('id', formData.get('id') as string)
     redirect('/admin/archive')
   }
 
   async function editHonour(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     await supabase.from('honours').update({
       season: formData.get('season') as string,
       competition_name: formData.get('competition_name') as string,

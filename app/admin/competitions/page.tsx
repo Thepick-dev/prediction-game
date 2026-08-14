@@ -1,9 +1,20 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { createAdminSupabaseClient } from '../../lib/supabase-admin'
+import { requireAdmin } from '../../lib/require-admin'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
 import BonusCardPlayerPicker from '../components/bonus-card-player-picker'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../../lib/players'
+
+// Every write below goes through this — Server Actions are reachable as
+// their own endpoint, not just "the button on a page only admins can see",
+// so the page layout's own admin check isn't a guarantee for these.
+async function requireAdminAction() {
+  const supabase = await createServerSupabaseClient()
+  const admin = await requireAdmin(supabase)
+  if (!admin) redirect('/')
+  return createAdminSupabaseClient()
+}
 
 export default async function CompetitionsPage({
   searchParams,
@@ -55,7 +66,7 @@ export default async function CompetitionsPage({
 
   async function toggleEntryRemoved(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const entryId = formData.get('entry_id') as string
     const nextRemoved = formData.get('next_removed') === 'true'
     const compId = formData.get('comp_id') as string
@@ -70,7 +81,7 @@ export default async function CompetitionsPage({
 
   async function createCompetition(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
 
     const { data: comp, error } = await supabase
       .from('competitions')
@@ -94,7 +105,7 @@ export default async function CompetitionsPage({
 
   async function archiveCompetition(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const id = formData.get('id') as string
     await supabase
       .from('competitions')
@@ -105,7 +116,7 @@ export default async function CompetitionsPage({
 
   async function activateCompetition(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const id = formData.get('id') as string
 
     await supabase
@@ -123,7 +134,7 @@ export default async function CompetitionsPage({
 
   async function deleteCompetition(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const id = formData.get('id') as string
     await supabase
       .from('competitions')
@@ -134,7 +145,7 @@ export default async function CompetitionsPage({
 
   async function toggleBonusCard(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const id = formData.get('id') as string
     const current = formData.get('current') === 'true'
     await supabase
@@ -146,7 +157,7 @@ export default async function CompetitionsPage({
 
   async function toggleBotEnabled(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const id = formData.get('id') as string
     const current = formData.get('current') === 'true'
     const nextEnabled = !current
@@ -166,17 +177,16 @@ export default async function CompetitionsPage({
     // since this is a trusted admin action creating bot infrastructure,
     // not a user self-service one.
     if (nextEnabled) {
-      const admin = createAdminSupabaseClient()
-      const { data: bot } = await admin.from('profiles').select('id').eq('is_bot', true).single()
+      const { data: bot } = await supabase.from('profiles').select('id').eq('is_bot', true).single()
       if (bot) {
-        const { data: existingEntry } = await admin
+        const { data: existingEntry } = await supabase
           .from('competition_entries')
           .select('user_id')
           .eq('competition_id', id)
           .eq('user_id', bot.id)
           .maybeSingle()
         if (!existingEntry) {
-          await admin.from('competition_entries').insert({ user_id: bot.id, competition_id: id })
+          await supabase.from('competition_entries').insert({ user_id: bot.id, competition_id: id })
         }
       }
     }
@@ -186,7 +196,7 @@ export default async function CompetitionsPage({
 
   async function setBonusCardPlayer(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const competitionId = formData.get('competition_id') as string
     const playerId = Number(formData.get('player_id'))
     await supabase
@@ -200,7 +210,7 @@ export default async function CompetitionsPage({
   // affects scoring or history, so this saves directly with no confirm step.
   async function setBonusCardName(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const competitionId = formData.get('competition_id') as string
     const name = (formData.get('name') as string)?.trim() || null
     await supabase

@@ -23,7 +23,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: USERNAME_RULES_MESSAGE }, { status: 400 })
   }
 
-  const { error } = await createAdminSupabaseClient()
+  const admin = createAdminSupabaseClient()
+
+  // No session to check here (see the comment above — there may genuinely
+  // be none yet), so this route is only as safe as this guard: it must
+  // never be usable to rewrite an EXISTING profile — display_name, and
+  // especially approved/pending_since — since the request carries nothing
+  // proving the caller owns userId. A legitimate call only ever targets a
+  // brand new id with no row yet (it's sent straight after signUp()), so
+  // refusing whenever one already exists costs the real flow nothing.
+  const { data: existing } = await admin.from('profiles').select('id').eq('id', userId).maybeSingle()
+  if (existing) {
+    return NextResponse.json({ error: 'Account already set up' }, { status: 409 })
+  }
+
+  const { error } = await admin
     .from('profiles')
     .upsert(
       { id: userId, display_name: username.trim(), approved: false, pending_since: new Date().toISOString() },

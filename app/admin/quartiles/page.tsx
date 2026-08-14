@@ -1,5 +1,17 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { createAdminSupabaseClient } from '../../lib/supabase-admin'
+import { requireAdmin } from '../../lib/require-admin'
 import { redirect } from 'next/navigation'
+
+// Every write below goes through this — Server Actions are reachable as
+// their own endpoint, not just "the button on a page only admins can see",
+// so the page layout's own admin check isn't a guarantee for these.
+async function requireAdminAction() {
+  const supabase = await createServerSupabaseClient()
+  const admin = await requireAdmin(supabase)
+  if (!admin) redirect('/')
+  return createAdminSupabaseClient()
+}
 
 export default async function QuartilesPage() {
   const supabase = await createServerSupabaseClient()
@@ -35,7 +47,7 @@ export default async function QuartilesPage() {
 
   async function assignTier(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     await supabase
       .from('tier_assignments')
       .upsert({
@@ -48,7 +60,7 @@ export default async function QuartilesPage() {
 
   async function removeAssignment(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     await supabase
       .from('tier_assignments')
       .delete()
@@ -59,7 +71,7 @@ export default async function QuartilesPage() {
 
   async function resetToLeagueTable(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const competitionId = formData.get('competition_id') as string
 
     // Clear existing assignments first, so relegated teams from a previous

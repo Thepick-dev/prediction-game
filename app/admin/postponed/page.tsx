@@ -1,6 +1,18 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { createAdminSupabaseClient } from '../../lib/supabase-admin'
+import { requireAdmin } from '../../lib/require-admin'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
+
+// Every write below goes through this — Server Actions are reachable as
+// their own endpoint, not just "the button on a page only admins can see",
+// so the page layout's own admin check isn't a guarantee for these.
+async function requireAdminAction() {
+  const supabase = await createServerSupabaseClient()
+  const admin = await requireAdmin(supabase)
+  if (!admin) redirect('/')
+  return createAdminSupabaseClient()
+}
 
 export default async function PostponedPage({
   searchParams,
@@ -23,7 +35,7 @@ export default async function PostponedPage({
 
   async function handlePostponement(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const fixture_id = parseInt(formData.get('fixture_id') as string)
     const handling = formData.get('handling') as string
     const custom_points = formData.get('custom_points') as string
@@ -47,7 +59,7 @@ export default async function PostponedPage({
   // points" fixtures — those picks are meant to keep counting as used.
   async function freeUpAffectedPicks(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const fixture_id = parseInt(formData.get('fixture_id') as string)
     const gameweek_id = formData.get('gameweek_id') as string
     const home_team_id = parseInt(formData.get('home_team_id') as string)
@@ -64,7 +76,7 @@ export default async function PostponedPage({
 
   async function clearPostponement(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const fixture_id = parseInt(formData.get('fixture_id') as string)
 
     await supabase

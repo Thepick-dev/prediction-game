@@ -1,8 +1,23 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { createAdminSupabaseClient } from '../../lib/supabase-admin'
+import { requireAdmin } from '../../lib/require-admin'
 import { generateResetCode as makeResetCode, hashResetCode, RESET_CODE_TTL_HOURS } from '../../lib/auth-identifier'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
+
+// Every privileged write below goes through this — Next.js server actions
+// are reachable as their own endpoint, not just "the button on a page only
+// admins can see", so the page layout's own admin check isn't actually a
+// guarantee for these. Verifies the CALLER's own session (safe — RLS
+// already scopes that read to their own row) before ever handing back the
+// service-role client these writes need to bypass the column locks in the
+// security-fixes SQL.
+async function requireAdminAction() {
+  const supabase = await createServerSupabaseClient()
+  const admin = await requireAdmin(supabase)
+  if (!admin) redirect('/')
+  return createAdminSupabaseClient()
+}
 
 export default async function UsersPage({
   searchParams,
@@ -93,50 +108,61 @@ export default async function UsersPage({
   const displayNameMap: Record<string, string> = {}
   profiles?.forEach(p => { displayNameMap[p.id] = p.display_name ?? '' })
 
+  // These five actions all write privileged fields (is_admin, approved,
+  // role flags, leaderboard badges, kit stars) or another user's row —
+  // never the regular session client, for two reasons at once: RLS
+  // scoped to "your own row" would silently do nothing when an admin
+  // edits someone ELSE's row (the same class of bug that hit Futzy's
+  // competition_entries and Wall moderation earlier), and — the more
+  // important one — these columns are locked down at the database level
+  // (see the security-fixes SQL) so a normal signed-in user can't grant
+  // themselves is_admin by calling the API directly. Only the service
+  // role can write them at all now; there's no "trust the UI hid the
+  // button" step in between.
   async function updateDisplayName(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const admin = await requireAdminAction()
     const id = formData.get('id') as string
     const display_name = formData.get('display_name') as string
-    await supabase.from('profiles').update({ display_name }).eq('id', id)
+    await admin.from('profiles').update({ display_name }).eq('id', id)
     redirect('/admin/users')
   }
 
   async function toggleApproved(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const admin = await requireAdminAction()
     const id = formData.get('id') as string
     const approved = formData.get('approved') === 'true'
-    await supabase.from('profiles').update({ approved: !approved }).eq('id', id)
+    await admin.from('profiles').update({ approved: !approved }).eq('id', id)
     redirect('/admin/users')
   }
 
   async function toggleAdmin(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const admin = await requireAdminAction()
     const id = formData.get('id') as string
     const is_admin = formData.get('is_admin') === 'true'
-    await supabase.from('profiles').update({ is_admin: !is_admin }).eq('id', id)
+    await admin.from('profiles').update({ is_admin: !is_admin }).eq('id', id)
     redirect('/admin/users')
   }
 
   async function toggleFlag(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const admin = await requireAdminAction()
     const id = formData.get('id') as string
     const field = formData.get('field') as 'can_post_news' | 'is_super_admin' | 'is_sporting_panel' | 'is_reigning_champ' | 'is_vibes_champion' | 'in_cash_pool'
     const current = formData.get('current') === 'true'
-    await supabase.from('profiles').update({ [field]: !current }).eq('id', id)
+    await admin.from('profiles').update({ [field]: !current }).eq('id', id)
     redirect('/admin/users')
   }
 
   async function updateKitBadges(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const admin = await requireAdminAction()
     const id = formData.get('id') as string
     const kit_stars = Math.max(0, Math.min(5, parseInt(formData.get('kit_stars') as string) || 0))
     const kit_earths = Math.max(0, Math.min(5, parseInt(formData.get('kit_earths') as string) || 0))
-    const { error } = await supabase.from('profiles').update({ kit_stars, kit_earths }).eq('id', id)
+    const { error } = await admin.from('profiles').update({ kit_stars, kit_earths }).eq('id', id)
     if (error) {
       redirect(`/admin/users?kitError=${encodeURIComponent(error.message)}`)
     }
@@ -146,9 +172,12 @@ export default async function UsersPage({
   async function deleteUser(formData: FormData) {
     'use server'
     // Same reason as listUsers above — this needs the service role client,
-    // not the regular per-request one, or it fails.
+    // not the regular per-request one, or it fails. requireAdminAction is
+    // what actually gates it — deleting an account is destructive, this
+    // can't rely on "the button is hidden" alone.
+    const admin = await requireAdminAction()
     const id = formData.get('id') as string
-    const { error } = await createAdminSupabaseClient().auth.admin.deleteUser(id)
+    const { error } = await admin.auth.admin.deleteUser(id)
     if (error) {
       redirect(`/admin/users?error=${encodeURIComponent(error.message)}`)
     }
@@ -157,11 +186,12 @@ export default async function UsersPage({
 
   async function generateResetCode(formData: FormData) {
     'use server'
+    // Same reason — a reset code hands over account access, this must
+    // never be reachable by anyone but a verified admin.
+    const admin = await requireAdminAction()
     const id = formData.get('id') as string
     const requestId = formData.get('requestId') as string | null
     const displayName = formData.get('displayName') as string
-
-    const admin = createAdminSupabaseClient()
 
     // Only one live code per user at a time — invalidate anything still
     // outstanding from an earlier generation so there's never ambiguity

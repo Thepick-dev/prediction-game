@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { createAdminSupabaseClient } from '../../lib/supabase-admin'
+import { requireAdmin } from '../../lib/require-admin'
 import { redirect } from 'next/navigation'
 
 // Uses the admin/service-role client for every write here (not the regular
@@ -10,6 +11,18 @@ import { redirect } from 'next/navigation'
 // silently broke Futzy's competition_entries insert earlier. Reads still
 // use the regular client (admin's own session already sees everything it
 // needs to for a page gated by app/admin/layout.tsx).
+//
+// Every write below goes through this — Server Actions are reachable as
+// their own endpoint, not just "the button on a page only admins can see",
+// so the page layout's own admin check isn't a guarantee for these, and the
+// service-role client above bypasses RLS entirely so it needs its own gate.
+async function requireAdminAction() {
+  const supabase = await createServerSupabaseClient()
+  const admin = await requireAdmin(supabase)
+  if (!admin) redirect('/')
+  return createAdminSupabaseClient()
+}
+
 export default async function WallModerationPage() {
   const supabase = await createServerSupabaseClient()
 
@@ -51,7 +64,7 @@ export default async function WallModerationPage() {
 
   async function approveComment(formData: FormData) {
     'use server'
-    const admin = createAdminSupabaseClient()
+    const admin = await requireAdminAction()
     const pickId = formData.get('pick_id') as string
     const userId = formData.get('user_id') as string
     const rating = Math.max(0, Math.min(5, parseInt(formData.get('rating') as string) || 0))
@@ -69,7 +82,7 @@ export default async function WallModerationPage() {
 
   async function discardComment(formData: FormData) {
     'use server'
-    const admin = createAdminSupabaseClient()
+    const admin = await requireAdminAction()
     const pickId = formData.get('pick_id') as string
     await admin.from('picks').update({ wall_status: 'discarded' }).eq('id', pickId)
     redirect('/admin/wall')
@@ -77,7 +90,7 @@ export default async function WallModerationPage() {
 
   async function approveReply(formData: FormData) {
     'use server'
-    const admin = createAdminSupabaseClient()
+    const admin = await requireAdminAction()
     const replyId = formData.get('reply_id') as string
     await admin.from('wall_replies').update({ status: 'approved' }).eq('id', replyId)
     redirect('/admin/wall')
@@ -85,7 +98,7 @@ export default async function WallModerationPage() {
 
   async function discardReply(formData: FormData) {
     'use server'
-    const admin = createAdminSupabaseClient()
+    const admin = await requireAdminAction()
     const replyId = formData.get('reply_id') as string
     await admin.from('wall_replies').update({ status: 'discarded' }).eq('id', replyId)
     redirect('/admin/wall')

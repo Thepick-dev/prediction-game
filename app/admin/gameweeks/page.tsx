@@ -1,4 +1,6 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { createAdminSupabaseClient } from '../../lib/supabase-admin'
+import { requireAdmin } from '../../lib/require-admin'
 import { calculateScoring } from '../../lib/scoring'
 import { londonInputToUtcISOString, utcToLondonInputValue } from '../../lib/londonTime'
 import { redirect } from 'next/navigation'
@@ -6,6 +8,16 @@ import ConfirmDeleteButton from '../components/confirm-delete-button'
 import ConfirmActionButton from '../components/confirm-action-button'
 import CompetitionFilter from '../components/competition-filter'
 import GameweekQuestionForm from '../components/gameweek-question-form'
+
+// Every write below goes through this — Server Actions are reachable as
+// their own endpoint, not just "the button on a page only admins can see",
+// so the page layout's own admin check isn't a guarantee for these.
+async function requireAdminAction() {
+  const supabase = await createServerSupabaseClient()
+  const admin = await requireAdmin(supabase)
+  if (!admin) redirect('/')
+  return createAdminSupabaseClient()
+}
 
 export default async function GameweeksPage({ searchParams }: { searchParams: Promise<{ competition_id?: string; questionError?: string; recalcResult?: string }> }) {
   const { competition_id: selectedCompetitionId, questionError, recalcResult } = await searchParams
@@ -37,7 +49,7 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
 
   async function createGameweek(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     await supabase.from('gameweeks').insert({
       competition_id: formData.get('competition_id') as string,
       number: parseInt(formData.get('number') as string),
@@ -49,7 +61,7 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
 
   async function updateStatus(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const id = formData.get('id') as string
     const status = formData.get('status') as string
 
@@ -111,10 +123,16 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
   // it's a genuine audit trail, not a single overwritten value).
   async function prepareSnapshot(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    // Needs both the caller's own session (to check admin AND record who
+    // took the snapshot) and the service-role client for the actual writes
+    // — requireAdminAction() only hands back the latter, so this one stays
+    // inline rather than using the shared helper.
+    const session = await createServerSupabaseClient()
+    const user = await requireAdmin(session)
+    if (!user) redirect('/')
+    const supabase = createAdminSupabaseClient()
     const id = formData.get('id') as string
 
-    const { data: { user } } = await supabase.auth.getUser()
     const { data: gw } = await supabase.from('gameweeks').select('competition_id').eq('id', id).single()
     if (!gw) redirect('/admin/gameweeks')
 
@@ -126,7 +144,7 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
 
     await supabase.from('gameweek_snapshots').insert({
       gameweek_id: id,
-      taken_by: user?.id ?? null,
+      taken_by: user.id,
       standings: standings ?? [],
       quartiles: quartiles ?? [],
       fixtures: fixtures ?? [],
@@ -146,14 +164,14 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
 
   async function confirmOpen(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     await supabase.from('gameweeks').update({ status: 'open' }).eq('id', formData.get('id') as string)
     redirect('/admin/gameweeks')
   }
 
   async function reopenGameweek(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     await supabase.from('gameweeks').update({ status: 'open' }).eq('id', formData.get('id') as string)
     redirect('/admin/gameweeks')
   }
@@ -164,7 +182,7 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
   // without needing to fake a status change to trigger it.
   async function recalculatePoints(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const id = formData.get('id') as string
     const result = await calculateScoring(supabase, id)
     const message = 'error' in result ? `error: ${result.error}` : 'success' in result ? `recalculated ${result.points_calculated} picks` : 'no picks found'
@@ -173,7 +191,7 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
 
   async function updateDeadline(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     await supabase
       .from('gameweeks')
       .update({ deadline: londonInputToUtcISOString(formData.get('deadline') as string) })
@@ -183,7 +201,7 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
 
   async function deleteGameweek(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const id = formData.get('id') as string
 
     // Delete everything that references this gameweek first, since the
@@ -206,7 +224,7 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
 
   async function saveQuestion(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const gameweek_id = formData.get('gameweek_id') as string
     const question = formData.get('question') as string
     const question_type = (formData.get('question_type') as string) === 'freetext' ? 'freetext' : 'multiple_choice'
@@ -236,7 +254,7 @@ export default async function GameweeksPage({ searchParams }: { searchParams: Pr
 
   async function deleteQuestion(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     await supabase.from('gameweek_questions').delete().eq('id', formData.get('id') as string)
     redirect('/admin/gameweeks')
   }

@@ -1,5 +1,17 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { createAdminSupabaseClient } from '../../lib/supabase-admin'
+import { requireAdmin } from '../../lib/require-admin'
 import { redirect } from 'next/navigation'
+
+// Every write below goes through this — Server Actions are reachable as
+// their own endpoint, not just "the button on a page only admins can see",
+// so the page layout's own admin check isn't a guarantee for these.
+async function requireAdminAction() {
+  const supabase = await createServerSupabaseClient()
+  const admin = await requireAdmin(supabase)
+  if (!admin) redirect('/')
+  return createAdminSupabaseClient()
+}
 
 export default async function AdminTeamsPage() {
   const supabase = await createServerSupabaseClient()
@@ -12,7 +24,7 @@ export default async function AdminTeamsPage() {
 
   async function updateShortName(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const id = parseInt(formData.get('id') as string)
     const short_name = formData.get('short_name') as string
     await supabase.from('teams').update({ short_name: short_name || null }).eq('id', id)
@@ -21,7 +33,7 @@ export default async function AdminTeamsPage() {
 
   async function toggleActive(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const id = parseInt(formData.get('id') as string)
     const current = formData.get('current') === 'true'
     await supabase.from('teams').update({ active: !current }).eq('id', id)

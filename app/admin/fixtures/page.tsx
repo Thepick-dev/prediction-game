@@ -1,6 +1,18 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { createAdminSupabaseClient } from '../../lib/supabase-admin'
+import { requireAdmin } from '../../lib/require-admin'
 import { redirect } from 'next/navigation'
 import FixtureManager from './FixtureManager'
+
+// Every write below goes through this — Server Actions are reachable as
+// their own endpoint, not just "the button on a page only admins can see",
+// so the page layout's own admin check isn't a guarantee for these.
+async function requireAdminAction() {
+  const supabase = await createServerSupabaseClient()
+  const admin = await requireAdmin(supabase)
+  if (!admin) redirect('/')
+  return createAdminSupabaseClient()
+}
 
 export default async function FixturesPage() {
   const supabase = await createServerSupabaseClient()
@@ -23,7 +35,7 @@ export default async function FixturesPage() {
 
   async function createFixture(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     await supabase.from('fixtures').insert({
       gameweek_id: formData.get('gameweek_id') as string,
       home_team_id: parseInt(formData.get('home_team_id') as string),
@@ -36,7 +48,7 @@ export default async function FixturesPage() {
 
   async function assignFixture(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     await supabase
       .from('fixtures')
       .update({ gameweek_id: formData.get('gameweek_id') as string })

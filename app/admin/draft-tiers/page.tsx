@@ -1,5 +1,17 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { createAdminSupabaseClient } from '../../lib/supabase-admin'
+import { requireAdmin } from '../../lib/require-admin'
 import { redirect } from 'next/navigation'
+
+// Every write below goes through this — Server Actions are reachable as
+// their own endpoint, not just "the button on a page only admins can see",
+// so the page layout's own admin check isn't a guarantee for these.
+async function requireAdminAction() {
+  const supabase = await createServerSupabaseClient()
+  const admin = await requireAdmin(supabase)
+  if (!admin) redirect('/')
+  return createAdminSupabaseClient()
+}
 
 export default async function DraftTiersPage() {
   const supabase = await createServerSupabaseClient()
@@ -29,7 +41,7 @@ export default async function DraftTiersPage() {
 
   async function createTier(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const competition_id = formData.get('competition_id') as string
     const tier_number = parseInt(formData.get('tier_number') as string)
     const tier_name = formData.get('tier_name') as string
@@ -43,7 +55,7 @@ export default async function DraftTiersPage() {
 
   async function deleteTier(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const competition_id = formData.get('competition_id') as string
     const tier_number = parseInt(formData.get('tier_number') as string)
 
@@ -64,7 +76,7 @@ export default async function DraftTiersPage() {
 
   async function assignTeam(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const competition_id = formData.get('competition_id') as string
     const team_id = parseInt(formData.get('team_id') as string)
     const tier_number = parseInt(formData.get('tier_number') as string)
@@ -78,7 +90,7 @@ export default async function DraftTiersPage() {
 
   async function removeTeamFromTier(formData: FormData) {
     'use server'
-    const supabase = await createServerSupabaseClient()
+    const supabase = await requireAdminAction()
     const competition_id = formData.get('competition_id') as string
     const team_id = parseInt(formData.get('team_id') as string)
 
