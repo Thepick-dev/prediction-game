@@ -9,14 +9,17 @@ type Props = {
   awards: Award[]
   onClose: () => void
   popArt?: boolean
+  isProvisional?: boolean
 }
 
-export default function AwardsShareCard({ competitionName, awards, onClose, popArt = false }: Props) {
+export default function AwardsShareCard({ competitionName, awards, onClose, popArt = false, isProvisional = false }: Props) {
   return (
     <TicketModal
       eyebrow={competitionName}
       title="Awards"
-      subtitle={new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+      subtitle={isProvisional
+        ? `Provisional as of ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`
+        : new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
       filenameBase="awards"
       onClose={onClose}
       popArt={popArt}

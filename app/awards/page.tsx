@@ -63,13 +63,6 @@ function AwardsInner() {
     if (!comp) { setCompetition(null); setLoading(false); return }
     setCompetition(comp)
 
-    // Awards are for the END of a competition, not a running mid-season
-    // guess — showing "winners" from three gameweeks of data reads as
-    // premature and a bit silly. Only ever computed once a competition
-    // is no longer active; the page still exists for the active one so
-    // the link isn't dead, it just explains it's not time yet.
-    if (comp.status === 'active') { setAwards([]); setLoading(false); return }
-
     const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: picks }, { data: teams }, { data: players }, { data: gameweeks }, { data: fixtures }, { data: events }] = await Promise.all([
       supabase.from('competition_entries').select('user_id').eq('competition_id', comp.id).eq('removed', false),
       supabase.from('profiles').select('id, display_name'),
@@ -226,6 +219,11 @@ function AwardsInner() {
     )
   }
 
+  // Finalised the same moment the admin ends the competition (the existing
+  // status change on the Competitions page) — no separate "finalise
+  // awards" step to remember. Provisional the whole time it's active.
+  const isProvisional = competition.status === 'active'
+
   return (
     <Shell active="LEADERBOARD" user={user} displayName={displayName} theme={popArt ? 'pop-art' : 'classic'}>
       <div className={popArt ? 'pop-art-theme' : ''}>
@@ -241,23 +239,31 @@ function AwardsInner() {
             </button>
           )}
         </div>
-        <p className={popArt ? 'font-bold text-sm mb-6' : 'text-sm mb-6'} style={popArt ? { color: 'rgba(255,255,255,0.5)' } : { color: '#D9A44199' }}>
-          {competition.name}{competition.status !== 'active' ? ' — final' : ''}
+        <p className={popArt ? 'font-bold text-sm mb-4' : 'text-sm mb-4'} style={popArt ? { color: 'rgba(255,255,255,0.5)' } : { color: '#D9A44199' }}>
+          {competition.name}{!isProvisional ? ' — final' : ''}
         </p>
 
-        {competition.status === 'active' ? (
+        {isProvisional && awards.length > 0 && (
+          <div className={popArt ? 'pop-panel p-3 mb-5 flex items-center gap-2.5' : 'bg-yellow-900/20 border border-yellow-500/40 rounded-lg p-3 mb-5 flex items-center gap-2.5'} style={popArt ? { borderColor: 'var(--pop-orange)' } : undefined}>
+            <span className="text-xl shrink-0">⏳</span>
+            <p className={popArt ? 'text-xs font-bold' : 'text-xs text-yellow-200'} style={popArt ? { color: 'var(--pop-orange)' } : undefined}>
+              Provisional — recalculated from where things stand right now. Nothing&apos;s official until the competition ends and the admin finalises it.
+            </p>
+          </div>
+        )}
+
+        {awards.length === 0 ? (
           <p className={popArt ? 'text-sm' : 'text-sm text-gray-500'} style={popArt ? { color: 'rgba(255,255,255,0.5)' } : undefined}>
-            Awards get handed out once this competition finishes — check back then.
-          </p>
-        ) : awards.length === 0 ? (
-          <p className={popArt ? 'text-sm' : 'text-sm text-gray-500'} style={popArt ? { color: 'rgba(255,255,255,0.5)' } : undefined}>
-            Not enough scored gameweeks to hand anything out.
+            Not enough scored gameweeks to hand anything out yet.
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {awards.map(a => (
               popArt ? (
-                <div key={a.title} className="pop-panel p-4 flex items-center gap-3">
+                <div key={a.title} className="pop-panel p-4 flex items-center gap-3" style={{ position: 'relative' }}>
+                  {isProvisional && (
+                    <span className="pop-badge px-1.5 py-0.5" style={{ position: 'absolute', top: 8, right: 8, fontSize: '8px', background: 'var(--pop-orange)' }}>PROVISIONAL</span>
+                  )}
                   <span className="text-3xl">{a.emoji}</span>
                   <div>
                     <p className="pop-headline text-xs mb-0.5" style={{ color: 'var(--pop-pink)' }}>{a.title}</p>
@@ -266,7 +272,10 @@ function AwardsInner() {
                   </div>
                 </div>
               ) : (
-                <div key={a.title} className="bg-white/5 border border-white/10 rounded-lg p-4 flex items-center gap-3">
+                <div key={a.title} className="bg-white/5 border border-white/10 rounded-lg p-4 flex items-center gap-3" style={{ position: 'relative' }}>
+                  {isProvisional && (
+                    <span className="uppercase font-bold" style={{ position: 'absolute', top: 8, right: 8, fontSize: '8px', color: '#D9A441' }}>Provisional</span>
+                  )}
                   <span className="text-3xl">{a.emoji}</span>
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wide text-[#D9A441]">{a.title}</p>
@@ -279,7 +288,7 @@ function AwardsInner() {
           </div>
         )}
 
-        {competition.status !== 'active' && (
+        {!isProvisional && (
           <Link href="/archive" className={popArt ? 'inline-block mt-6 text-sm font-bold' : 'inline-block mt-6 text-sm text-gray-500'} style={popArt ? { color: 'var(--pop-blue)' } : undefined}>
             ← Back to archive
           </Link>
@@ -290,6 +299,7 @@ function AwardsInner() {
         <AwardsShareCard
           competitionName={competition.name}
           awards={awards}
+          isProvisional={isProvisional}
           onClose={() => setShowShare(false)}
           popArt={popArt}
         />
