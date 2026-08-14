@@ -27,7 +27,15 @@ export default async function UsersPage({
   const { error: deleteError, kitError, resetCode, resetFor } = await searchParams
   const supabase = await createServerSupabaseClient()
 
-  const { data: resetRequests } = await supabase
+  // Service-role, not the regular session client — password_reset_requests
+  // rows belong to whoever's locked out (often no real session at all,
+  // since resolveIdentifier can leave user_id null), so there's no RLS
+  // policy that would let an admin's own session see someone else's
+  // request. Same trap as the wall moderation reads/writes: reading
+  // another user's row needs the service-role client, this page just
+  // hadn't needed one until this specific query.
+  const admin = createAdminSupabaseClient()
+  const { data: resetRequests } = await admin
     .from('password_reset_requests')
     .select('id, identifier, user_id, created_at')
     .eq('status', 'pending')
