@@ -56,6 +56,58 @@ function KitSetupPopup({ userId, theme, onDone }: { userId: string; theme: 'clas
   )
 }
 
+// Shown once, the first time a brand new player lands on this page, before
+// they've made any picks — reassures them this isn't a one-shot, permanent
+// choice, and points at the full Rules page (opened in a new tab so their
+// in-progress selection here isn't lost) rather than embedding RulesModal,
+// which is deliberately pop-art-only and would look wrong on the classic
+// theme this page also supports.
+function TierDraftIntroPopup({ theme, onClose }: { theme: 'classic' | 'pop-art'; onClose: () => void }) {
+  const isPopArt = theme === 'pop-art'
+  if (typeof document === 'undefined') return null
+  return createPortal(
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 9999, background: 'rgba(0,0,0,0.7)' }}>
+      <div
+        className={isPopArt ? 'pop-art-theme rounded-2xl p-5 w-full' : 'rounded-2xl p-5 w-full'}
+        style={{
+          maxWidth: 360, maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto',
+          ...(isPopArt
+            ? { background: 'var(--pop-surface)', border: '3px solid var(--pop-blue)', boxShadow: '0 8px 30px rgba(0,0,0,0.6)' }
+            : { background: '#1e1914', border: '2px solid rgba(217,164,65,0.4)' }),
+        }}
+      >
+        <p className={isPopArt ? 'pop-headline text-lg mb-2 text-center' : 'text-lg font-bold mb-2 text-center'} style={isPopArt ? undefined : { color: '#D9A441', fontFamily: 'var(--font-heading), serif' }}>
+          Before You Pick
+        </p>
+        <p className="text-xs mb-3 text-center leading-relaxed" style={{ color: isPopArt ? 'rgba(255,255,255,0.7)' : '#F5ECD9CC' }}>
+          Pick one team from each tier — these become your two &quot;double-use&quot; teams for the season.
+        </p>
+        <p className="text-xs mb-4 text-center leading-relaxed" style={{ color: isPopArt ? 'rgba(255,255,255,0.7)' : '#F5ECD9CC' }}>
+          You can change these picks as many times as you like, right up until the Gameweek 1 deadline.
+          After that, they lock in for the rest of the competition.
+        </p>
+        <a
+          href="/rules"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={isPopArt ? 'pop-button pop-button--blue w-full py-2 text-xs block text-center mb-2' : 'w-full rounded-lg py-2 text-xs font-bold uppercase tracking-wider block text-center mb-2'}
+          style={isPopArt ? undefined : { backgroundColor: '#D9A441', color: '#241a12' }}
+        >
+          Read the full rules
+        </a>
+        <button
+          onClick={onClose}
+          className={isPopArt ? 'pop-button w-full py-2 text-xs' : 'w-full rounded-lg py-2 text-xs font-bold uppercase tracking-wider'}
+          style={isPopArt ? undefined : { backgroundColor: 'rgba(245,236,217,0.1)', color: '#F5ECD9' }}
+        >
+          Got it, let&apos;s pick
+        </button>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 export default function JoinPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
@@ -76,6 +128,7 @@ export default function JoinPage() {
   // Settings. Only that first save should trigger the kit popup.
   const [isFirstTimeSetup, setIsFirstTimeSetup] = useState(false)
   const [showKitPopup, setShowKitPopup] = useState(false)
+  const [showIntroPopup, setShowIntroPopup] = useState(false)
 
   const supabase = createClient()
   const { popArt } = usePopArtTheme(user?.id)
@@ -134,6 +187,8 @@ export default function JoinPage() {
       setTier2Team(existing.tier2_team_id)
       setTier3Team(existing.tier3_team_id)
       if (existing.locked) setLocked(true)
+    } else {
+      setShowIntroPopup(true)
     }
 
     setLoading(false)
@@ -307,6 +362,7 @@ export default function JoinPage() {
           )}
 
         </div>
+        {showIntroPopup && !locked && <TierDraftIntroPopup theme="pop-art" onClose={() => setShowIntroPopup(false)} />}
       </Shell>
     )
   }
@@ -383,6 +439,7 @@ export default function JoinPage() {
 
         </div>
       </HeroPage>
+      {showIntroPopup && !locked && <TierDraftIntroPopup theme="classic" onClose={() => setShowIntroPopup(false)} />}
     </Shell>
   )
 }
