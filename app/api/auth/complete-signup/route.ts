@@ -1,4 +1,5 @@
 import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
+import { isValidUsername, USERNAME_RULES_MESSAGE } from '../../../lib/username'
 import { NextResponse } from 'next/server'
 
 // Setting the new player's username/approval fields has to happen here,
@@ -18,8 +19,8 @@ export async function POST(request: Request) {
   if (!userId || !username || !username.trim()) {
     return NextResponse.json({ error: 'Missing signup details' }, { status: 400 })
   }
-  if (username.trim().length > 12) {
-    return NextResponse.json({ error: 'Username must be 12 characters or fewer' }, { status: 400 })
+  if (!isValidUsername(username)) {
+    return NextResponse.json({ error: USERNAME_RULES_MESSAGE }, { status: 400 })
   }
 
   const { error } = await createAdminSupabaseClient()

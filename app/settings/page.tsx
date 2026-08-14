@@ -8,6 +8,7 @@ import KitEditor from '../../components/KitEditor'
 import PasswordInput from '../../components/PasswordInput'
 import PopArtLoading from '../../components/PopArtLoading'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
+import { isValidUsername, USERNAME_MAX_LENGTH, USERNAME_RULES_MESSAGE } from '../lib/username'
 
 export default function SettingsPage() {
   const [user, setUser] = useState<any>(null)
@@ -79,7 +80,7 @@ export default function SettingsPage() {
 
   async function saveDisplayName() {
     if (!displayName.trim()) { setNameMessage('Please enter a username'); return }
-    if (displayName.trim().length > 12) { setNameMessage('Max 12 characters'); return }
+    if (!isValidUsername(displayName)) { setNameMessage(USERNAME_RULES_MESSAGE); return }
     setSavingName(true)
     setNameMessage('')
 
@@ -159,7 +160,7 @@ export default function SettingsPage() {
                 type="text"
                 value={displayName}
                 onChange={e => setDisplayName(e.target.value)}
-                maxLength={12}
+                maxLength={USERNAME_MAX_LENGTH}
                 className="pop-input w-full p-2 mb-3 font-bold text-sm"
               />
               {nameMessage && (
@@ -267,7 +268,7 @@ export default function SettingsPage() {
                 type="text"
                 value={displayName}
                 onChange={e => setDisplayName(e.target.value)}
-                maxLength={12}
+                maxLength={USERNAME_MAX_LENGTH}
                 className={inputClass}
               />
               {nameMessage && (

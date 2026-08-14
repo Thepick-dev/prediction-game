@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '../lib/supabase'
 import RulesModal from '../../components/RulesModal'
 import PasswordInput from '../../components/PasswordInput'
+import { isValidUsername, USERNAME_MAX_LENGTH, USERNAME_RULES_MESSAGE } from '../lib/username'
 
 type Mode = 'login' | 'join'
 
@@ -71,7 +72,7 @@ export default function LoginPage() {
     setError('')
 
     if (!username.trim()) { setError('Please choose a username'); setLoading(false); return }
-    if (username.trim().length > 12) { setError('Username must be 12 characters or fewer'); setLoading(false); return }
+    if (!isValidUsername(username)) { setError(USERNAME_RULES_MESSAGE); setLoading(false); return }
     if (!email.trim()) { setError('Please enter your email'); setLoading(false); return }
     if (!password) { setError('Please set a password'); setLoading(false); return }
     if (password.length < 4) { setError('Password must be at least 4 characters'); setLoading(false); return }
@@ -160,7 +161,7 @@ export default function LoginPage() {
             </>
           ) : (
             <>
-              <input type="text" placeholder="Choose a username" value={username} onChange={e => setUsername(e.target.value)} maxLength={12} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
+              <input type="text" placeholder="Choose a username" value={username} onChange={e => setUsername(e.target.value)} maxLength={USERNAME_MAX_LENGTH} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
               <input type="email" placeholder="Your email" value={email} onChange={e => setEmail(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
               <PasswordInput placeholder="Set a password" value={password} onChange={e => setPassword(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" popArt />
               <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>

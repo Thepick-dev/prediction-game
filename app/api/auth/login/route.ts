@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { resolveIdentifier } from '../../../lib/auth-identifier'
+import { checkRateLimit, getClientIp } from '../../../lib/rateLimit'
 import { NextResponse } from 'next/server'
 
 // Replaces the old username-only /api/auth/username-login — Supabase Auth
@@ -20,7 +21,19 @@ export async function POST(request: Request) {
   // usernames/emails are registered.
   const genericError = NextResponse.json({ error: 'Incorrect username/email or password' }, { status: 400 })
 
-  const resolved = await resolveIdentifier(createAdminSupabaseClient(), identifier)
+  const admin = createAdminSupabaseClient()
+
+  // 10 attempts per 5 minutes per IP — generous for a real person who's
+  // fat-fingered their password a few times, a real obstacle for a script
+  // trying to brute-force one. Bucketed by IP, not by the identifier
+  // being attempted, so this can't itself be used to lock a real user out
+  // by deliberately failing their login from elsewhere.
+  const allowed = await checkRateLimit(admin, `login:${getClientIp(request)}`, { max: 10, windowSeconds: 300 })
+  if (!allowed) {
+    return NextResponse.json({ error: 'Too many attempts — please wait a few minutes and try again' }, { status: 429 })
+  }
+
+  const resolved = await resolveIdentifier(admin, identifier)
   if (!resolved) return genericError
 
   const supabasePublic = createClient(
