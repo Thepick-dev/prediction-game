@@ -578,7 +578,11 @@ export default function FullLeaderboardPage() {
                               colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                               colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
                               colour3={kitByUser[player.user_id]?.colour3}
+                              stars={kitByUser[player.user_id]?.stars ?? 0}
+                              earths={kitByUser[player.user_id]?.earths ?? 0}
                               size={14}
+                              iconTextClass="text-[6px] sm:text-[8px]"
+                              starColor="var(--pop-green)"
                             />
                           )}
                           <span>{player.display_name}</span>
@@ -797,27 +801,29 @@ export default function FullLeaderboardPage() {
           </table>
         </div>
 
-        <div className="mt-3 uppercase tracking-wider flex items-center flex-wrap" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
-          <span className="font-black mr-2">Key:</span>
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 uppercase tracking-wider" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+          <span className="font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>Key</span>
           <span className="inline-flex items-center gap-1"><CrownIcon size={11} color="var(--pop-green)" /> Reigning champ</span>
-          <span className="mx-2">·</span>
           <span className="inline-flex items-center gap-1"><ShadesIcon size={11} /> Vibes champion</span>
-          <span className="mx-2">·</span>
           <span className="inline-flex items-center gap-1"><PoundCoinIcon size={11} /> In the cash pool</span>
-          <span className="mx-2">·</span>
           <span className="inline-flex items-center gap-1"><FlameIcon size={11} /> Streak (3+ wks above avg)</span>
-          <span className="mx-2">·</span>
-          <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — computer picked it (deadline passed, no pick made)
-          <span className="mx-2">·</span>
-          <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span> Banker declared — doubles that gameweek's score
-          <span className="mx-2">·</span>
-          <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-blue)', color: 'var(--pop-black)' }}><BoltIcon size={9} color="var(--pop-black)" /> AoN</span> All or Nothing played, result pending
-          <span className="mx-2">·</span>
-          <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}><CheckIcon size={9} color="var(--pop-black)" /> AoN</span> succeeded
-          <span className="mx-2">·</span>
-          <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-red)', color: 'var(--pop-white)' }}><CrossIcon size={9} color="var(--pop-white)" /> AoN</span> failed
-          <span className="mx-2">·</span>
-          Click a row to expand
+          <span className="inline-flex items-center gap-1"><span style={{ color: 'var(--pop-green)' }}>★</span>🌍 Kit stars / earths</span>
+          <span className="inline-flex items-center gap-1">
+            <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — no pick made
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span> Banker — doubles that gameweek
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-blue)', color: 'var(--pop-black)' }}><BoltIcon size={9} color="var(--pop-black)" /> AoN</span> pending
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}><CheckIcon size={9} color="var(--pop-black)" /> AoN</span> succeeded
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-red)', color: 'var(--pop-white)' }}><CrossIcon size={9} color="var(--pop-white)" /> AoN</span> failed
+          </span>
+          <span>Click a row to expand</span>
         </div>
 
       </div>

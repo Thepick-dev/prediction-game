@@ -694,7 +694,11 @@ export default function LeaderboardPage() {
                                   colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                                   colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
                                   colour3={kitByUser[player.user_id]?.colour3}
+                                  stars={kitByUser[player.user_id]?.stars ?? 0}
+                                  earths={kitByUser[player.user_id]?.earths ?? 0}
                                   size={34}
+                                  iconTextClass="text-[9px] sm:text-[11px]"
+                                  starColor="var(--pop-green)"
                                 />
                               )}
                               <span>{player.display_name}</span>
@@ -1066,7 +1070,10 @@ export default function LeaderboardPage() {
                                 colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                                 colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
                                 colour3={kitByUser[player.user_id]?.colour3}
+                                stars={kitByUser[player.user_id]?.stars ?? 0}
+                                earths={kitByUser[player.user_id]?.earths ?? 0}
                                 size={16}
+                                iconTextClass="text-[7px] sm:text-[9px]"
                               />
                             )}
                             {player.display_name}
