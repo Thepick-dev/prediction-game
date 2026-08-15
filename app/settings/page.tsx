@@ -13,6 +13,7 @@ import { isValidUsername, USERNAME_MAX_LENGTH, USERNAME_RULES_MESSAGE } from '..
 export default function SettingsPage() {
   const [user, setUser] = useState<any>(null)
   const [currentName, setCurrentName] = useState('')
+  const [pendingRequest, setPendingRequest] = useState<{ requested_name: string } | null>(null)
 
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
@@ -52,6 +53,14 @@ export default function SettingsPage() {
       setCurrentName(profile.display_name ?? '')
     }
 
+    const { data: pending } = await supabase
+      .from('username_change_requests')
+      .select('requested_name')
+      .eq('user_id', user.id)
+      .eq('status', 'pending')
+      .maybeSingle()
+    if (pending) setPendingRequest(pending)
+
     const { data: comp } = await supabase
       .from('competitions')
       .select('id')
@@ -78,22 +87,33 @@ export default function SettingsPage() {
     setLoading(false)
   }
 
+  // Username changes no longer take effect immediately — they go into a
+  // queue an admin reviews and approves (see /admin/users), same shape as
+  // the password-reset-requests queue. The live display_name column stays
+  // untouched here; currentName only updates once an admin actually
+  // approves the request.
   async function saveDisplayName() {
     if (!displayName.trim()) { setNameMessage('Please enter a username'); return }
     if (!isValidUsername(displayName)) { setNameMessage(USERNAME_RULES_MESSAGE); return }
+    if (displayName.trim() === currentName) { setNameMessage("That's already your username"); return }
     setSavingName(true)
     setNameMessage('')
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ display_name: displayName.trim() })
-      .eq('id', user.id)
+    // Replace any request still waiting on the admin rather than stacking
+    // — only the latest ask should be live.
+    await supabase.from('username_change_requests').delete().eq('user_id', user.id).eq('status', 'pending')
+
+    const { error } = await supabase.from('username_change_requests').insert({
+      user_id: user.id,
+      current_name: currentName,
+      requested_name: displayName.trim(),
+    })
 
     if (error) {
-      setNameMessage(error.message.includes('unique') ? 'That username is already taken' : error.message)
+      setNameMessage(error.message)
     } else {
-      setNameMessage('Saved')
-      setCurrentName(displayName.trim())
+      setNameMessage('Submitted — waiting on admin approval')
+      setPendingRequest({ requested_name: displayName.trim() })
     }
     setSavingName(false)
   }
@@ -156,6 +176,11 @@ export default function SettingsPage() {
               <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 {currentName ? `Currently shown as "${currentName}"` : 'Not set yet'}
               </p>
+              {pendingRequest && (
+                <p className="pop-badge pop-badge--orange px-2.5 py-1 text-xs mb-3 inline-block">
+                  Waiting on admin approval: &quot;{pendingRequest.requested_name}&quot;
+                </p>
+              )}
               <input
                 type="text"
                 value={displayName}
@@ -164,10 +189,10 @@ export default function SettingsPage() {
                 className="pop-input w-full p-2 mb-3 font-bold text-sm"
               />
               {nameMessage && (
-                <p className={`pop-badge ${nameMessage.startsWith('Saved') ? 'pop-badge--green' : 'pop-badge--red'} px-2.5 py-1 text-xs mb-3 inline-block`}>{nameMessage}</p>
+                <p className={`pop-badge ${nameMessage.startsWith('Submitted') ? 'pop-badge--green' : 'pop-badge--red'} px-2.5 py-1 text-xs mb-3 inline-block`}>{nameMessage}</p>
               )}
               <button onClick={saveDisplayName} disabled={savingName} className="pop-button w-full py-2.5 text-sm">
-                {savingName ? 'Saving...' : 'Save Username'}
+                {savingName ? 'Submitting...' : 'Request Username Change'}
               </button>
             </div>
 
@@ -264,6 +289,11 @@ export default function SettingsPage() {
               <p className={subClass}>
                 {currentName ? `Currently shown as "${currentName}"` : 'Not set yet'}
               </p>
+              {pendingRequest && (
+                <p className="text-sm mb-3 text-yellow-400">
+                  Waiting on admin approval: &quot;{pendingRequest.requested_name}&quot;
+                </p>
+              )}
               <input
                 type="text"
                 value={displayName}
@@ -272,10 +302,10 @@ export default function SettingsPage() {
                 className={inputClass}
               />
               {nameMessage && (
-                <p className={`text-sm mb-3 ${nameMessage.startsWith('Saved') ? 'text-green-400' : 'text-red-400'}`}>{nameMessage}</p>
+                <p className={`text-sm mb-3 ${nameMessage.startsWith('Submitted') ? 'text-green-400' : 'text-red-400'}`}>{nameMessage}</p>
               )}
               <button onClick={saveDisplayName} disabled={savingName} className={btnClass} style={btnStyle}>
-                {savingName ? 'Saving...' : 'Save Username'}
+                {savingName ? 'Submitting...' : 'Request Username Change'}
               </button>
             </div>
 

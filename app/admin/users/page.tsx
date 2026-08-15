@@ -22,9 +22,9 @@ async function requireAdminAction() {
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; kitError?: string; resetCode?: string; resetFor?: string }>
+  searchParams: Promise<{ error?: string; kitError?: string; resetCode?: string; resetFor?: string; usernameError?: string }>
 }) {
-  const { error: deleteError, kitError, resetCode, resetFor } = await searchParams
+  const { error: deleteError, kitError, resetCode, resetFor, usernameError } = await searchParams
   const supabase = await createServerSupabaseClient()
 
   // Service-role, not the regular session client — password_reset_requests
@@ -38,6 +38,15 @@ export default async function UsersPage({
   const { data: resetRequests } = await admin
     .from('password_reset_requests')
     .select('id, identifier, user_id, created_at')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+
+  // Same reasoning as resetRequests above — a player's own pending row
+  // isn't visible to the admin's regular session, so this uses the
+  // service-role client from the start rather than repeating that bug.
+  const { data: usernameRequests } = await admin
+    .from('username_change_requests')
+    .select('id, user_id, current_name, requested_name, created_at')
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
 
@@ -217,6 +226,30 @@ export default async function UsersPage({
     redirect(`/admin/users?resetCode=${encodeURIComponent(code)}&resetFor=${encodeURIComponent(displayName || 'this player')}`)
   }
 
+  async function approveUsernameChange(formData: FormData) {
+    'use server'
+    const admin = await requireAdminAction()
+    const id = formData.get('id') as string
+    const userId = formData.get('user_id') as string
+    const requestedName = formData.get('requested_name') as string
+
+    const { error } = await admin.from('profiles').update({ display_name: requestedName }).eq('id', userId)
+    if (error) {
+      redirect(`/admin/users?usernameError=${encodeURIComponent(error.message.includes('unique') ? 'That username is already taken' : error.message)}`)
+    }
+
+    await admin.from('username_change_requests').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', id)
+    redirect('/admin/users')
+  }
+
+  async function rejectUsernameChange(formData: FormData) {
+    'use server'
+    const admin = await requireAdminAction()
+    const id = formData.get('id') as string
+    await admin.from('username_change_requests').update({ status: 'rejected', resolved_at: new Date().toISOString() }).eq('id', id)
+    redirect('/admin/users')
+  }
+
   const pending = profiles?.filter(p => !p.approved) ?? []
   const approved = profiles?.filter(p => p.approved) ?? []
 
@@ -241,6 +274,12 @@ export default async function UsersPage({
           Couldn&apos;t save kit badges: {kitError}. If this mentions a missing column, the{' '}
           <code className="bg-red-100 px-1 rounded">kit_stars</code>/<code className="bg-red-100 px-1 rounded">kit_earths</code> columns
           haven&apos;t been added to the database yet — run the SQL Claude gave you for this feature first.
+        </div>
+      )}
+
+      {usernameError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-sm text-red-700">
+          Couldn&apos;t approve that username change: {usernameError}
         </div>
       )}
 
@@ -293,6 +332,53 @@ export default async function UsersPage({
                     ) : (
                       <span className="text-xs text-gray-400">—</span>
                     )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {usernameRequests && usernameRequests.length > 0 && (
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-6 mb-8">
+          <h2 className="font-bold mb-4 text-purple-800">✏️ Username Change Requests ({usernameRequests.length})</h2>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-500 border-b">
+                <th className="pb-2">Current</th>
+                <th className="pb-2">Requested</th>
+                <th className="pb-2">Asked</th>
+                <th className="pb-2">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usernameRequests.map(r => (
+                <tr key={r.id} className="border-b last:border-0">
+                  <td className="py-2 text-sm">{r.current_name}</td>
+                  <td className="py-2 text-sm font-bold">{r.requested_name}</td>
+                  <td className="py-2 text-xs text-gray-500">
+                    {new Date(r.created_at).toLocaleString('en-GB', {
+                      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London'
+                    })}
+                  </td>
+                  <td className="py-2">
+                    <div className="flex gap-2">
+                      <form action={approveUsernameChange}>
+                        <input type="hidden" name="id" value={r.id} />
+                        <input type="hidden" name="user_id" value={r.user_id} />
+                        <input type="hidden" name="requested_name" value={r.requested_name} />
+                        <button type="submit" className="bg-green-600 text-white text-xs rounded px-3 py-1">
+                          ✓ Approve
+                        </button>
+                      </form>
+                      <form action={rejectUsernameChange}>
+                        <input type="hidden" name="id" value={r.id} />
+                        <button type="submit" className="bg-gray-500 text-white text-xs rounded px-3 py-1">
+                          ✗ Reject
+                        </button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               ))}
