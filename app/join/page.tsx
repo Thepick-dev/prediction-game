@@ -10,7 +10,7 @@ import PopArtLoading from '../../components/PopArtLoading'
 import KitEditor from '../../components/KitEditor'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 
-type Team = { id: number; name: string; short_name: string | null; crest_url: string | null }
+type Team = { id: number; name: string; short_name: string | null }
 
 function teamDisplayName(team: Team | undefined) {
   if (!team) return 'Unknown'
@@ -155,7 +155,7 @@ export default function JoinPage() {
     const [{ data: tierNamesData }, { data: assignments }, { data: teamsData }] = await Promise.all([
       supabase.from('competition_draft_tiers').select('tier_number, tier_name').eq('competition_id', comp.id),
       supabase.from('draft_tier_assignments').select('team_id, tier_number').eq('competition_id', comp.id),
-      supabase.from('teams').select('id, name, short_name, crest_url')
+      supabase.from('teams').select('id, name, short_name')
     ])
 
     const nameMap: Record<number, string> = {}
@@ -338,7 +338,7 @@ export default function JoinPage() {
                         boxShadow: selected ? '0 0 14px rgba(204,250,0,0.4)' : 'none',
                       }}
                     >
-                      <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={26} />
+                      <TeamCrest teamId={team.id} teamName={team.name} size={26} />
                       <span className="text-xs font-black uppercase truncate">{teamDisplayName(team)}</span>
                     </button>
                   )
@@ -413,7 +413,7 @@ export default function JoinPage() {
                           : 'bg-white/5 border-white/10 hover:border-[#D9A441]/50'
                       } ${locked ? 'cursor-not-allowed opacity-60' : ''}`}
                     >
-                      <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={26} />
+                      <TeamCrest teamId={team.id} teamName={team.name} size={26} />
                       <span className="text-xs font-bold uppercase truncate">{teamDisplayName(team)}</span>
                     </button>
                   )

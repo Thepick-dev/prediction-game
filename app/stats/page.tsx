@@ -15,7 +15,7 @@ import { usePopArtTheme } from '../lib/usePopArtTheme'
 
 type Tab = 'teams' | 'players' | 'me' | 'trends'
 
-type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null; active: boolean }
+type Team = { id: number; name: string; short_name: string | null; short_code: string | null; active: boolean }
 type PlayerRow = { id: number; name: string; web_name: string | null; team_id: number; position: string | null }
 
 type TeamStat = {
@@ -128,7 +128,7 @@ export default function StatsHubPage() {
         { data: entries }, { data: picks }, { data: points }, { data: events },
         { data: fixtures }
       ] = await Promise.all([
-        supabase.from('teams').select('id, name, short_name, short_code, crest_url, active'),
+        supabase.from('teams').select('id, name, short_name, short_code, active'),
         supabase.from('players').select('id, name, web_name, team_id, position'),
         supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id),
         supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id).eq('removed', false),
@@ -438,7 +438,7 @@ export default function StatsHubPage() {
                       <tr key={t.team.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                         <td className="py-2 px-2 font-black uppercase">
                           <div className="flex items-center gap-1.5">
-                            <TeamCrest crestUrl={t.team.crest_url} teamName={t.team.name} size={16} />
+                            <TeamCrest teamId={t.team.id} teamName={t.team.name} size={16} />
                             {teamDisplayName(t.team)}
                           </div>
                         </td>
@@ -703,7 +703,7 @@ export default function StatsHubPage() {
                       <tr key={t.team.id} className="border-b border-white/5 last:border-0">
                         <td className="py-2 px-2 font-bold uppercase">
                           <div className="flex items-center gap-1.5">
-                            <TeamCrest crestUrl={t.team.crest_url} teamName={t.team.name} size={16} />
+                            <TeamCrest teamId={t.team.id} teamName={t.team.name} size={16} />
                             {teamDisplayName(t.team)}
                           </div>
                         </td>

@@ -34,7 +34,7 @@ type RankedPlayer = {
   best_gameweek_score: number
 }
 
-type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
+type Team = { id: number; name: string; short_name: string | null; short_code: string | null }
 
 type PickDetail = {
   gw: number
@@ -130,7 +130,7 @@ export default function LeaderboardPage() {
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
       supabase.from('picks').select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('competition_id', comp.id),
-      supabase.from('teams').select('id, name, short_name, short_code, crest_url').eq('active', true),
+      supabase.from('teams').select('id, name, short_name, short_code').eq('active', true),
       supabase.from('players').select('id, name, web_name, team_id'),
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id),
       supabase.from('match_events').select('player_id, event_type, fixture_id'),
@@ -861,7 +861,7 @@ export default function LeaderboardPage() {
                                           <td className="py-1 pr-1 font-black">{d.gw}</td>
                                           <td className="py-1 pr-1 uppercase">
                                             <div className="flex items-center gap-1">
-                                              <TeamCrest crestUrl={teamMap[d.team_id]?.crest_url ?? null} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
+                                              <TeamCrest teamId={d.team_id} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
                                               {teamDisplayName(teamMap[d.team_id])}
                                               {d.is_banker && <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span>}
                                               {(d.provisional || d.is_autopick) && <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }} title="No pick was made in time, so the computer picked automatically">AP</span>}
@@ -965,7 +965,7 @@ export default function LeaderboardPage() {
                                             ? { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', opacity: 0.4 }
                                             : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}
                                         >
-                                          <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={14} />
+                                          <TeamCrest teamId={team.id} teamName={team.name} size={14} />
                                           <span className="uppercase truncate flex-1 min-w-0">{teamDisplayName(team)}</span>
                                           {team.isDouble && !used && team.remaining === 2 && (
                                             <span className="font-black shrink-0" style={{ color: 'var(--pop-orange)' }}>×2</span>
@@ -1183,7 +1183,7 @@ export default function LeaderboardPage() {
                                         <td className="py-1 pr-1 font-bold">{d.gw}</td>
                                         <td className="py-1 pr-1 uppercase">
                                           <div className="flex items-center gap-1">
-                                            <TeamCrest crestUrl={teamMap[d.team_id]?.crest_url ?? null} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
+                                            <TeamCrest teamId={d.team_id} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
                                             {teamDisplayName(teamMap[d.team_id])}
                                             {d.is_banker && <span className="bg-[#D9A441] text-[#241a12] px-0.5 rounded font-bold">★</span>}
                                             {(d.provisional || d.is_autopick) && <span className="bg-white/20 px-0.5 rounded" title="No pick was made in time, so the computer picked automatically">AP</span>}
@@ -1267,7 +1267,7 @@ export default function LeaderboardPage() {
                                           used ? 'bg-white/[0.02] border-white/5 opacity-40' : 'bg-white/5 border-white/10'
                                         }`}
                                       >
-                                        <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={14} />
+                                        <TeamCrest teamId={team.id} teamName={team.name} size={14} />
                                         <span className="uppercase truncate">{teamDisplayName(team)}</span>
                                         {team.isDouble && !used && team.remaining === 2 && (
                                           <span className="text-[#D9A441] font-bold shrink-0">×2</span>

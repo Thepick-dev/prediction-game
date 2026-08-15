@@ -15,7 +15,7 @@ import PenaltyShootout from '../../components/PenaltyShootout'
 import { BoltIcon } from '../../components/icons'
 import { QUARTILE_RING_COLORS } from '../lib/quartileColors'
 
-type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
+type Team = { id: number; name: string; short_name: string | null; short_code: string | null }
 type Player = { id: number; name: string; web_name: string | null; team_id: number; value: number | null; active: boolean | null; xg: number | null; xa: number | null; form: number | null }
 type Gameweek = { id: string; number: number; deadline: string; status: string }
 type Fixture = { id: number; home_team_id: number; away_team_id: number; kickoff_time: string; home_score: number | null; away_score: number | null; status: string }
@@ -390,7 +390,7 @@ export default function PicksPage() {
     if (gw) setDeadlinePassed(new Date() > new Date(gw.deadline))
 
     const [{ data: teamsData }, { data: playersData }] = await Promise.all([
-      supabase.from('teams').select('id, name, short_name, short_code, crest_url').eq('active', true).order('name'),
+      supabase.from('teams').select('id, name, short_name, short_code').eq('active', true).order('name'),
       supabase.from('players').select('id, name, web_name, team_id, value, xg, xa, form').order('name')
     ])
     setTeams(teamsData ?? [])
@@ -1033,7 +1033,7 @@ export default function PicksPage() {
                               color: homeSelected ? 'var(--pop-black)' : homeStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
                             }}
                           >
-                            <TeamCrest crestUrl={homeTeam?.crest_url ?? null} teamName={teamDisplayName(homeTeam)} size={52} />
+                            <TeamCrest teamId={homeTeam?.id ?? null} teamName={teamDisplayName(homeTeam)} size={52} />
                             <div className="flex items-center gap-1.5 flex-wrap justify-center min-h-[18px]">
                               {homeQ && <span className={`pop-badge ${popQuartileBadgeClass[homeQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{homeQ}</span>}
                               <span className="font-mono text-[9px]" style={{ color: homeSelected ? 'rgba(0,0,0,0.6)' : homeStatus.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.55)' }}>{homeStatus.isUsed ? 'used' : `${homeStatus.remaining}/${homeStatus.maxUses} left`}</span>
@@ -1051,7 +1051,7 @@ export default function PicksPage() {
                               color: awaySelected ? 'var(--pop-black)' : awayStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
                             }}
                           >
-                            <TeamCrest crestUrl={awayTeam?.crest_url ?? null} teamName={teamDisplayName(awayTeam)} size={52} />
+                            <TeamCrest teamId={awayTeam?.id ?? null} teamName={teamDisplayName(awayTeam)} size={52} />
                             <div className="flex items-center gap-1.5 flex-wrap justify-center min-h-[18px]">
                               {awayQ && <span className={`pop-badge ${popQuartileBadgeClass[awayQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{awayQ}</span>}
                               <span className="font-mono text-[9px]" style={{ color: awaySelected ? 'rgba(0,0,0,0.6)' : awayStatus.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.55)' }}>{awayStatus.isUsed ? 'used' : `${awayStatus.remaining}/${awayStatus.maxUses} left`}</span>
@@ -1456,7 +1456,7 @@ export default function PicksPage() {
                           <div className="flex items-center justify-between rounded-lg p-2.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
                             <span className="font-mono text-xs uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>Team</span>
                             <span className="font-black text-sm flex items-center gap-2">
-                              <TeamCrest crestUrl={getTeam(selectedTeam)?.crest_url ?? null} teamName={getTeam(selectedTeam)?.name ?? ''} size={20} />
+                              <TeamCrest teamId={getTeam(selectedTeam)?.id ?? null} teamName={getTeam(selectedTeam)?.name ?? ''} size={20} />
                               {teamDisplayName(getTeam(selectedTeam))}
                             </span>
                           </div>
@@ -1634,7 +1634,7 @@ export default function PicksPage() {
                                   : 'bg-white/5 border-white/10 hover:border-[#D9A441]/50'
                               }`}
                             >
-                              <TeamCrest crestUrl={homeTeam?.crest_url ?? null} teamName={homeTeam?.name ?? ''} size={30} />
+                              <TeamCrest teamId={homeTeam?.id ?? null} teamName={homeTeam?.name ?? ''} size={30} />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1 flex-wrap">
                                   <span className="text-xs font-bold uppercase truncate">{teamDisplayName(homeTeam)}</span>
@@ -1664,7 +1664,7 @@ export default function PicksPage() {
                                   : 'bg-white/5 border-white/10 hover:border-[#D9A441]/50'
                               }`}
                             >
-                              <TeamCrest crestUrl={awayTeam?.crest_url ?? null} teamName={awayTeam?.name ?? ''} size={30} />
+                              <TeamCrest teamId={awayTeam?.id ?? null} teamName={awayTeam?.name ?? ''} size={30} />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1 flex-wrap">
                                   <span className="text-xs font-bold uppercase truncate">{teamDisplayName(awayTeam)}</span>
@@ -1706,7 +1706,7 @@ export default function PicksPage() {
                                 : 'bg-white/5 border-white/10 hover:border-[#D9A441]/50'
                             }`}
                           >
-                            <TeamCrest crestUrl={team.crest_url} teamName={team.name} size={24} />
+                            <TeamCrest teamId={team.id} teamName={team.name} size={24} />
                             <div className="min-w-0 flex-1">
                               <div className="text-xs font-bold uppercase truncate">{teamDisplayName(team)}</div>
                               <div className="flex items-center gap-1 mt-0.5">
@@ -2032,7 +2032,7 @@ export default function PicksPage() {
                         <td className="py-2 px-1.5 sm:px-3 font-bold">{pick.gameweeks?.number}</td>
                         <td className="py-2 px-1.5 sm:px-3 uppercase">
                           <div className="flex items-center gap-1.5">
-                            <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={16} />
+                            <TeamCrest teamId={t?.id ?? null} teamName={t?.name ?? ''} size={16} />
                             {teamDisplayName(t)}
                             {pick.is_banker && <span className="ml-1 text-[10px] bg-[#D9A441] text-[#241a12] px-1 py-0.5 rounded font-bold">B</span>}
                             {(pick.provisional || pick.is_autopick) && <span className="ml-1 text-[10px] bg-white/20 px-1 py-0.5 rounded" title="No pick was made in time, so the computer picked automatically">AP</span>}
@@ -2063,7 +2063,7 @@ export default function PicksPage() {
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase tracking-widest" style={{ color: '#241a1799' }}>Team</span>
               <div className="flex items-center gap-2">
-                <TeamCrest crestUrl={getTeam(selectedTeam)?.crest_url ?? null} teamName={getTeam(selectedTeam)?.name ?? ''} size={22} />
+                <TeamCrest teamId={getTeam(selectedTeam)?.id ?? null} teamName={getTeam(selectedTeam)?.name ?? ''} size={22} />
                 <span className="font-bold uppercase text-sm">{teamDisplayName(getTeam(selectedTeam))}</span>
               </div>
             </div>

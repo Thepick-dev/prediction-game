@@ -69,7 +69,7 @@ type FixtureRow = {
   away_score: number | null
 }
 
-type Team = { id: number; name: string; short_name: string | null; short_code: string | null; crest_url: string | null }
+type Team = { id: number; name: string; short_name: string | null; short_code: string | null }
 
 function teamDisplayName(team: Team | undefined) {
   if (!team) return 'Unknown'
@@ -138,7 +138,7 @@ export default function ResultsPage() {
       // picks data from ever being fetched for one that isn't due yet.
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).order('number', { ascending: true }),
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
-      supabase.from('teams').select('id, name, short_name, short_code, crest_url'),
+      supabase.from('teams').select('id, name, short_name, short_code'),
       supabase.from('players').select('id, name, web_name, team_id')
     ])
 
@@ -530,7 +530,7 @@ export default function ResultsPage() {
                             className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-white/[0.04] transition-colors"
                           >
                             <div className="flex items-center gap-1.5 text-xs uppercase flex-wrap min-w-0">
-                              <TeamCrest crestUrl={teams[f.home_team_id]?.crest_url ?? null} teamName={teams[f.home_team_id]?.name ?? ''} size={16} />
+                              <TeamCrest teamId={f.home_team_id} teamName={teams[f.home_team_id]?.name ?? ''} size={16} />
                               <span className="font-black">{teamDisplayName(teams[f.home_team_id])}</span>
                               {played ? (
                                 <span
@@ -543,7 +543,7 @@ export default function ResultsPage() {
                                 <span className="font-black shrink-0" style={{ color: 'rgba(255,255,255,0.4)' }}>vs</span>
                               )}
                               <span className="font-black">{teamDisplayName(teams[f.away_team_id])}</span>
-                              <TeamCrest crestUrl={teams[f.away_team_id]?.crest_url ?? null} teamName={teams[f.away_team_id]?.name ?? ''} size={16} />
+                              <TeamCrest teamId={f.away_team_id} teamName={teams[f.away_team_id]?.name ?? ''} size={16} />
                               {!played && <span className="normal-case shrink-0" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}>Not played yet</span>}
                             </div>
                             <span className="text-xs shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }}>{isExpanded ? '▲' : '▼'}</span>
@@ -689,7 +689,7 @@ export default function ResultsPage() {
                         </div>
 
                         <div className="flex items-center gap-1 uppercase flex-wrap">
-                          <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={15} />
+                          <TeamCrest teamId={t?.id ?? null} teamName={t?.name ?? ''} size={15} />
                           <span>{teamDisplayName(t)}</span>
                           {pick.is_banker && <span className="font-black px-1 rounded" style={{ fontSize: '9px', background: 'var(--pop-yellow)', color: 'var(--pop-white)' }}>★ BANKER</span>}
                           {showScoring && <span className="ml-auto font-mono" style={{ color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>{pts?.team_points ?? '—'} pts</span>}
@@ -892,13 +892,13 @@ export default function ResultsPage() {
                             className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-white/5 transition-colors"
                           >
                             <div className="flex items-center gap-1.5 text-xs uppercase flex-wrap min-w-0">
-                              <TeamCrest crestUrl={teams[f.home_team_id]?.crest_url ?? null} teamName={teams[f.home_team_id]?.name ?? ''} size={16} />
+                              <TeamCrest teamId={f.home_team_id} teamName={teams[f.home_team_id]?.name ?? ''} size={16} />
                               <span className="font-bold">{teamDisplayName(teams[f.home_team_id])}</span>
                               <span className="text-[#F5ECD9]/40 font-bold shrink-0">
                                 {played ? `${f.home_score} - ${f.away_score}` : 'vs'}
                               </span>
                               <span className="font-bold">{teamDisplayName(teams[f.away_team_id])}</span>
-                              <TeamCrest crestUrl={teams[f.away_team_id]?.crest_url ?? null} teamName={teams[f.away_team_id]?.name ?? ''} size={16} />
+                              <TeamCrest teamId={f.away_team_id} teamName={teams[f.away_team_id]?.name ?? ''} size={16} />
                               {!played && <span className="text-[#F5ECD9]/30 normal-case shrink-0" style={{ fontSize: '9px' }}>Not played yet</span>}
                             </div>
                             <span className="text-[#F5ECD9]/30 text-xs shrink-0">{isExpanded ? '▲' : '▼'}</span>
@@ -1035,7 +1035,7 @@ export default function ResultsPage() {
 
                         {/* Team */}
                         <div className="flex items-center gap-1 uppercase flex-wrap">
-                          <TeamCrest crestUrl={t?.crest_url ?? null} teamName={t?.name ?? ''} size={15} />
+                          <TeamCrest teamId={t?.id ?? null} teamName={t?.name ?? ''} size={15} />
                           <span>{teamDisplayName(t)}</span>
                           {pick.is_banker && <span className="bg-[#D9A441] text-[#241a12] font-bold px-1 rounded" style={{ fontSize: '9px' }}>★ BANKER</span>}
                           {showScoring && <span className="text-[#F5ECD9]/50 ml-auto">{pts?.team_points ?? '—'} pts</span>}
