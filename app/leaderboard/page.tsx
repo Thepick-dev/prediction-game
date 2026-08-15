@@ -694,14 +694,17 @@ export default function LeaderboardPage() {
                                   colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                                   colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
                                   colour3={kitByUser[player.user_id]?.colour3}
-                                  stars={kitByUser[player.user_id]?.stars ?? 0}
-                                  earths={kitByUser[player.user_id]?.earths ?? 0}
                                   size={34}
-                                  iconTextClass="text-[9px] sm:text-[11px]"
-                                  starColor="var(--pop-green)"
                                 />
                               )}
-                              <span>{player.display_name}</span>
+                              <span className="inline-flex flex-col leading-tight">
+                                <span>{player.display_name}</span>
+                                {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
+                                  <span className="normal-case font-normal" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', letterSpacing: '1px' }}>
+                                    {'★'.repeat(kitByUser[player.user_id]?.stars ?? 0)}{'🌍'.repeat(kitByUser[player.user_id]?.earths ?? 0)}
+                                  </span>
+                                )}
+                              </span>
                               {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
                               {player.is_reigning_champ && <CrownIcon size={18} color="var(--pop-green)" />}
                               {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={18} /></span>}
@@ -1070,13 +1073,17 @@ export default function LeaderboardPage() {
                                 colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                                 colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
                                 colour3={kitByUser[player.user_id]?.colour3}
-                                stars={kitByUser[player.user_id]?.stars ?? 0}
-                                earths={kitByUser[player.user_id]?.earths ?? 0}
                                 size={16}
-                                iconTextClass="text-[7px] sm:text-[9px]"
                               />
                             )}
-                            {player.display_name}
+                            <span className="inline-flex flex-col leading-tight">
+                              <span>{player.display_name}</span>
+                              {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
+                                <span className="normal-case font-normal" style={{ fontSize: '8px', color: 'rgba(245,236,217,0.4)', letterSpacing: '1px' }}>
+                                  {'★'.repeat(kitByUser[player.user_id]?.stars ?? 0)}{'🌍'.repeat(kitByUser[player.user_id]?.earths ?? 0)}
+                                </span>
+                              )}
+                            </span>
                             {player.is_reigning_champ && <span className="text-[#D9A441]">👑</span>}
                             {player.is_vibes_champion && <span title="Vibes Champion">😎</span>}
                             {player.in_cash_pool && <span title="In the cash pool">💷</span>}
