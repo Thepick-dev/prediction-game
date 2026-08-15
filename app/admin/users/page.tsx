@@ -194,6 +194,31 @@ export default async function UsersPage({
     // can't rely on "the button is hidden" alone.
     const admin = await requireAdminAction()
     const id = formData.get('id') as string
+
+    // Deletes everything that references this user first — the database
+    // blocks removing a user who still has picks, entries, or other data
+    // attached, and auth.admin.deleteUser() would otherwise just fail with
+    // an unhelpful error further down. Same shape as deleteCompetition's
+    // cascade on the Competitions page.
+    const { data: userPicks } = await admin.from('picks').select('id').eq('user_id', id)
+    const pickIds = (userPicks ?? []).map(p => p.id)
+
+    if (pickIds.length > 0) {
+      await admin.from('wall_replies').delete().in('pick_id', pickIds)
+      await admin.from('points').delete().in('pick_id', pickIds)
+      await admin.from('all_or_nothing_picks').delete().in('pick_id', pickIds)
+      await admin.from('bonus_card_plays').delete().in('pick_id', pickIds)
+    }
+    await admin.from('wall_replies').delete().eq('user_id', id)
+    await admin.from('picks').delete().eq('user_id', id)
+    await admin.from('competition_entries').delete().eq('user_id', id)
+    await admin.from('tier_draft_picks').delete().eq('user_id', id)
+    await admin.from('username_change_requests').delete().eq('user_id', id)
+    await admin.from('password_reset_requests').delete().eq('user_id', id)
+    await admin.from('password_reset_codes').delete().eq('user_id', id)
+    await admin.from('wall_ratings').delete().eq('rater_user_id', id)
+    await admin.from('profiles').delete().eq('id', id)
+
     const { error } = await admin.auth.admin.deleteUser(id)
     if (error) {
       redirect(`/admin/users?error=${encodeURIComponent(error.message)}`)

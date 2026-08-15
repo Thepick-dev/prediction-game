@@ -19,9 +19,9 @@ async function requireAdminAction() {
 export default async function CompetitionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ comp?: string }>
+  searchParams: Promise<{ comp?: string; deleteError?: string }>
 }) {
-  const { comp: compParam } = await searchParams
+  const { comp: compParam, deleteError } = await searchParams
   const supabase = await createServerSupabaseClient()
   const { data: competitions } = await supabase
     .from('competitions')
@@ -136,10 +136,47 @@ export default async function CompetitionsPage({
     'use server'
     const supabase = await requireAdminAction()
     const id = formData.get('id') as string
-    await supabase
-      .from('competitions')
-      .delete()
-      .eq('id', id)
+
+    // Deletes everything that references this competition first — the
+    // database blocks deleting a competition that still has gameweeks,
+    // picks, entries, or tier data pointing at it. Same reasoning and
+    // shape as deleteGameweek on the Gameweeks page, just one level up.
+    const [{ data: gameweeks }, { data: compPicks }] = await Promise.all([
+      supabase.from('gameweeks').select('id').eq('competition_id', id),
+      supabase.from('picks').select('id').eq('competition_id', id),
+    ])
+    const gameweekIds = (gameweeks ?? []).map(g => g.id)
+    const pickIds = (compPicks ?? []).map(p => p.id)
+
+    if (pickIds.length > 0) {
+      await supabase.from('wall_replies').delete().in('pick_id', pickIds)
+    }
+    if (gameweekIds.length > 0) {
+      await supabase.from('gameweek_quartiles').delete().in('gameweek_id', gameweekIds)
+      await supabase.from('gameweek_questions').delete().in('gameweek_id', gameweekIds)
+      await supabase.from('gameweek_snapshots').delete().in('gameweek_id', gameweekIds)
+      await supabase.from('fixtures').delete().in('gameweek_id', gameweekIds)
+    }
+
+    await supabase.from('points').delete().eq('competition_id', id)
+    await supabase.from('all_or_nothing_picks').delete().eq('competition_id', id)
+    await supabase.from('bonus_card_plays').delete().eq('competition_id', id)
+    await supabase.from('picks').delete().eq('competition_id', id)
+    await supabase.from('competition_entries').delete().eq('competition_id', id)
+    await supabase.from('tier_draft_picks').delete().eq('competition_id', id)
+    await supabase.from('draft_tier_assignments').delete().eq('competition_id', id)
+    await supabase.from('tier_assignments').delete().eq('competition_id', id)
+    await supabase.from('competition_draft_tiers').delete().eq('competition_id', id)
+    await supabase.from('competition_scoring_rules').delete().eq('competition_id', id)
+    await supabase.from('player_scoring_rules').delete().eq('competition_id', id)
+    await supabase.from('competition_snapshots').delete().eq('competition_id', id)
+    await supabase.from('bot_pick_log').delete().eq('competition_id', id)
+    await supabase.from('gameweeks').delete().eq('competition_id', id)
+
+    const { error } = await supabase.from('competitions').delete().eq('id', id)
+    if (error) {
+      redirect(`/admin/competitions?deleteError=${encodeURIComponent(error.message)}`)
+    }
     redirect('/admin/competitions')
   }
 
@@ -225,6 +262,12 @@ export default async function CompetitionsPage({
   return (
     <div>
       <h1 className="text-2xl font-bold mb-8">Competitions</h1>
+
+      {deleteError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-sm text-red-700">
+          Couldn&apos;t delete that competition: {deleteError}
+        </div>
+      )}
 
       <div className="bg-white border rounded-lg p-6 mb-8">
         <h2 className="font-bold mb-4">Create New Competition</h2>
