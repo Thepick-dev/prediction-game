@@ -700,8 +700,9 @@ export default function LeaderboardPage() {
                               <span className="inline-flex flex-col leading-tight">
                                 <span>{player.display_name}</span>
                                 {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
-                                  <span className="normal-case font-normal" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', letterSpacing: '1px' }}>
-                                    {'★'.repeat(kitByUser[player.user_id]?.stars ?? 0)}{'🌍'.repeat(kitByUser[player.user_id]?.earths ?? 0)}
+                                  <span className="normal-case font-normal" style={{ fontSize: '9px', letterSpacing: '1px' }}>
+                                    <span style={{ color: 'var(--pop-green)' }}>{'★'.repeat(kitByUser[player.user_id]?.stars ?? 0)}</span>
+                                    {'🌍'.repeat(kitByUser[player.user_id]?.earths ?? 0)}
                                   </span>
                                 )}
                               </span>
@@ -1079,8 +1080,9 @@ export default function LeaderboardPage() {
                             <span className="inline-flex flex-col leading-tight">
                               <span>{player.display_name}</span>
                               {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
-                                <span className="normal-case font-normal" style={{ fontSize: '8px', color: 'rgba(245,236,217,0.4)', letterSpacing: '1px' }}>
-                                  {'★'.repeat(kitByUser[player.user_id]?.stars ?? 0)}{'🌍'.repeat(kitByUser[player.user_id]?.earths ?? 0)}
+                                <span className="normal-case font-normal" style={{ fontSize: '8px', letterSpacing: '1px' }}>
+                                  <span style={{ color: '#D9A441' }}>{'★'.repeat(kitByUser[player.user_id]?.stars ?? 0)}</span>
+                                  {'🌍'.repeat(kitByUser[player.user_id]?.earths ?? 0)}
                                 </span>
                               )}
                             </span>

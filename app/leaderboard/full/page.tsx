@@ -584,8 +584,9 @@ export default function FullLeaderboardPage() {
                           <span className="inline-flex flex-col leading-tight">
                             <span>{player.display_name}</span>
                             {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
-                              <span className="normal-case font-normal" style={{ fontSize: '7px', color: 'rgba(255,255,255,0.35)', letterSpacing: '1px' }}>
-                                {'★'.repeat(kitByUser[player.user_id]?.stars ?? 0)}{'🌍'.repeat(kitByUser[player.user_id]?.earths ?? 0)}
+                              <span className="normal-case font-normal" style={{ fontSize: '7px', letterSpacing: '1px' }}>
+                                <span style={{ color: 'var(--pop-green)' }}>{'★'.repeat(kitByUser[player.user_id]?.stars ?? 0)}</span>
+                                {'🌍'.repeat(kitByUser[player.user_id]?.earths ?? 0)}
                               </span>
                             )}
                           </span>
