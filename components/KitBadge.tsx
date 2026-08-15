@@ -101,7 +101,7 @@ export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0
         return (
           <g clipPath={`url(#${clipId})`}>
             <rect x="0" y="0" width="28" height="28" fill={colour1} />
-            <polygon points="4,-2 9,-2 24,26 19,30" fill={colour2} />
+            <polygon points="4.5,-2 8.5,-2 23.5,26 19.5,30" fill={colour2} />
           </g>
         )
 

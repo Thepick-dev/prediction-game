@@ -50,6 +50,7 @@ export default function WallPage() {
   const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null }>>({})
   const [starsEarthsByUser, setStarsEarthsByUser] = useState<Record<string, { stars: number; earths: number }>>({})
   const [botByUser, setBotByUser] = useState<Record<string, boolean>>({})
+  const [auraByUser, setAuraByUser] = useState<Record<string, number>>({})
   const [ratingByUser, setRatingByUser] = useState<Record<string, { total: number; count: number }>>({})
   const [ratingsByTarget, setRatingsByTarget] = useState<Record<string, TargetRating>>({})
   const [gwNumberById, setGwNumberById] = useState<Record<string, number>>({})
@@ -61,6 +62,10 @@ export default function WallPage() {
   const [commentReplyDraft, setCommentReplyDraft] = useState<Record<string, string>>({})
   const [sentCommentReply, setSentCommentReply] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
+  const [commentError, setCommentError] = useState('')
+  const [replyError, setReplyError] = useState<Record<string, string>>({})
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
 
   const supabase = createClient()
   const { popArt } = usePopArtTheme(user?.id)
@@ -72,8 +77,9 @@ export default function WallPage() {
     if (!authUser) { window.location.href = '/login'; return }
     setUser(authUser)
 
-    const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', authUser.id).single()
+    const { data: profile } = await supabase.from('profiles').select('display_name, is_admin, is_super_admin').eq('id', authUser.id).single()
     setDisplayName(profile?.display_name ?? '')
+    setIsAdmin(!!(profile?.is_admin || profile?.is_super_admin))
 
     const { data: comp } = await supabase.from('competitions').select('id, name').eq('status', 'active').single()
     setCompetition(comp)
@@ -150,10 +156,13 @@ export default function WallPage() {
     setRepliesByPick(byPick)
 
     // Player-given ratings (separate from the admin's own curation
-    // rating above) — one row per rater per target, targets being either
-    // a comment/question-answer (both keyed off picks.id) or a reply.
+    // rating above) — one row per rater per target, targets being a
+    // comment/question-answer (picks.id), a reply (wall_replies.id), a
+    // standalone comment (wall_comments.id), or a reply to one
+    // (wall_comment_replies.id).
     const replyIds = replies.map(r => r.id)
-    const ratingTargetIds = [...pickIds, ...replyIds]
+    const commentReplyIds = commentReplies.map(r => r.id)
+    const ratingTargetIds = [...pickIds, ...replyIds, ...commentIds, ...commentReplyIds]
     const { data: allRatings } = ratingTargetIds.length > 0
       ? await supabase.from('wall_ratings').select('target_type, target_id, rater_user_id, rating').in('target_id', ratingTargetIds)
       : { data: [] as any[] }
@@ -212,6 +221,15 @@ export default function WallPage() {
       botFlags?.forEach(b => { botMap[b.id] = b.is_bot ?? false })
       setBotByUser(botMap)
 
+      // Cumulative sum of every peer rating this user has ever received
+      // across all their Wall content — maintained by a database trigger
+      // on wall_ratings, never computed live here. Its own isolated
+      // request, same reasoning as the others on this page.
+      const { data: auraRows } = await supabase.from('profiles').select('id, aura_score').in('id', [...userIds])
+      const auraMap: Record<string, number> = {}
+      auraRows?.forEach(a => { auraMap[a.id] = a.aura_score ?? 0 })
+      setAuraByUser(auraMap)
+
       setNameByUser(nameMap)
       setKitByUser(kitMap)
       setRatingByUser(ratingMap)
@@ -224,7 +242,13 @@ export default function WallPage() {
     const content = newCommentDraft.trim()
     if (!content || !user) return
     setPostingComment(true)
-    await supabase.from('wall_comments').insert({ user_id: user.id, content })
+    setCommentError('')
+    const { error } = await supabase.from('wall_comments').insert({ user_id: user.id, content })
+    if (error) {
+      setCommentError(`Couldn't post that: ${error.message}`)
+      setPostingComment(false)
+      return
+    }
     setNewCommentDraft('')
     await loadData()
     setPostingComment(false)
@@ -233,7 +257,12 @@ export default function WallPage() {
   async function postCommentReply(commentId: string) {
     const content = (commentReplyDraft[commentId] ?? '').trim()
     if (!content || !user) return
-    await supabase.from('wall_comment_replies').insert({ comment_id: commentId, user_id: user.id, content })
+    setReplyError(prev => ({ ...prev, [commentId]: '' }))
+    const { error } = await supabase.from('wall_comment_replies').insert({ comment_id: commentId, user_id: user.id, content })
+    if (error) {
+      setReplyError(prev => ({ ...prev, [commentId]: `Couldn't send: ${error.message}` }))
+      return
+    }
     setCommentReplyDraft(prev => ({ ...prev, [commentId]: '' }))
     setSentCommentReply(prev => ({ ...prev, [commentId]: true }))
   }
@@ -241,12 +270,36 @@ export default function WallPage() {
   async function postReply(pickId: string) {
     const content = (replyDraft[pickId] ?? '').trim()
     if (!content || !user) return
-    await supabase.from('wall_replies').insert({ pick_id: pickId, user_id: user.id, content })
+    setReplyError(prev => ({ ...prev, [pickId]: '' }))
+    const { error } = await supabase.from('wall_replies').insert({ pick_id: pickId, user_id: user.id, content })
+    if (error) {
+      setReplyError(prev => ({ ...prev, [pickId]: `Couldn't send: ${error.message}` }))
+      return
+    }
     setReplyDraft(prev => ({ ...prev, [pickId]: '' }))
     setSentReply(prev => ({ ...prev, [pickId]: true }))
   }
 
-  async function submitRating(targetType: 'comment' | 'question_answer' | 'reply', targetId: string, rating: number) {
+  // Admin-only — removes something already live on the Wall, not just
+  // rejects it before publication (that's what the moderation queue on
+  // /admin/wall is for). Goes through a server route rather than a direct
+  // client delete, since RLS only ever lets someone touch their own row —
+  // an admin removing someone ELSE's comment needs the service-role
+  // client, gated by a real admin check, same reasoning as every other
+  // admin write this session.
+  async function deleteContent(targetType: 'standalone_comment' | 'standalone_reply' | 'reply' | 'pick_comment', targetId: string) {
+    if (!window.confirm('Delete this from the Wall? This can\'t be undone.')) return
+    const res = await fetch('/api/wall/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetType, targetId }),
+    })
+    if (res.ok) {
+      setDeletedIds(prev => new Set(prev).add(targetId))
+    }
+  }
+
+  async function submitRating(targetType: 'comment' | 'question_answer' | 'reply' | 'standalone_comment' | 'standalone_reply', targetId: string, rating: number) {
     const key = `${targetType}:${targetId}`
     const previous = ratingsByTarget[key] ?? { average: 0, count: 0, yours: null }
 
@@ -296,6 +349,20 @@ export default function WallPage() {
   const ownBubbleBg = popArt ? 'rgba(160,0,250,0.16)' : 'rgba(217,164,65,0.16)'
   const nothingAtAll = posts.length === 0 && standaloneComments.length === 0
 
+  function AuraBadge({ userId }: { userId: string }) {
+    const aura = auraByUser[userId] ?? 0
+    if (aura <= 0) return null
+    return (
+      <span
+        className={popArt ? 'pop-badge pop-badge--blue px-1.5 py-0.5 text-[8px]' : 'px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide'}
+        style={popArt ? undefined : { background: 'rgba(217,164,65,0.2)', color: '#D9A441' }}
+        title="Aura — cumulative peer ratings received"
+      >
+        ✨ {aura}
+      </span>
+    )
+  }
+
   function authorAvatar(userId: string, size: number) {
     if (botByUser[userId]) return <BotAvatar size={size} />
     return (
@@ -343,11 +410,14 @@ export default function WallPage() {
               {postingComment ? 'Posting...' : 'Post'}
             </button>
           </div>
+          {commentError && (
+            <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>{commentError}</p>
+          )}
         </div>
 
-        {standaloneComments.length > 0 && (
+        {standaloneComments.filter(c => !deletedIds.has(c.id)).length > 0 && (
           <div className="space-y-4 mb-8">
-            {standaloneComments.map(c => {
+            {standaloneComments.filter(c => !deletedIds.has(c.id)).map(c => {
               const isOwn = c.user_id === user?.id
               const isPending = c.status === 'pending'
               return (
@@ -356,10 +426,16 @@ export default function WallPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="font-black text-xs">{nameByUser[c.user_id] ?? 'Unknown'}</span>
+                      <AuraBadge userId={c.user_id} />
                       {isPending && (
                         <span className="text-[10px] uppercase tracking-wide font-bold" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}>
                           Awaiting approval
                         </span>
+                      )}
+                      {isAdmin && (
+                        <button onClick={() => deleteContent('standalone_comment', c.id)} className="text-[10px] uppercase tracking-wide font-bold" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>
+                          Delete
+                        </button>
                       )}
                     </div>
                     <div
@@ -368,15 +444,46 @@ export default function WallPage() {
                     >
                       <p className="text-sm break-words">{c.content}</p>
                     </div>
+                    {!isPending && (
+                      <div className="mt-1.5">
+                        <StarRating
+                          average={ratingsByTarget[`standalone_comment:${c.id}`]?.average ?? null}
+                          count={ratingsByTarget[`standalone_comment:${c.id}`]?.count ?? 0}
+                          yourRating={ratingsByTarget[`standalone_comment:${c.id}`]?.yours ?? null}
+                          onRate={n => submitRating('standalone_comment', c.id, n)}
+                          interactive={!isOwn}
+                          popArt={popArt}
+                        />
+                      </div>
+                    )}
 
-                    {(commentRepliesByComment[c.id] ?? []).length > 0 && (
+                    {(commentRepliesByComment[c.id] ?? []).filter(r => !deletedIds.has(r.id)).length > 0 && (
                       <div className="mt-2 ml-4 space-y-1.5">
-                        {commentRepliesByComment[c.id].map(r => (
-                          <div key={r.id} className="rounded-xl rounded-tl px-3 py-1.5 inline-block" style={{ background: popArt ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.03)', opacity: r.status === 'pending' ? 0.6 : 1 }}>
+                        {commentRepliesByComment[c.id].filter(r => !deletedIds.has(r.id)).map(r => (
+                          <div key={r.id}>
+                            <div className="rounded-xl rounded-tl px-3 py-1.5 inline-block" style={{ background: popArt ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.03)', opacity: r.status === 'pending' ? 0.6 : 1 }}>
                             <span className="font-black text-xs">{nameByUser[r.user_id] ?? 'Unknown'}</span>
                             <span className="text-xs ml-1.5" style={{ color: popArt ? 'rgba(255,255,255,0.7)' : '#F5ECD9CC' }}>{r.content}</span>
                             {r.status === 'pending' && (
                               <span className="text-[9px] uppercase tracking-wide font-bold ml-1.5" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}>pending</span>
+                            )}
+                            {isAdmin && (
+                              <button onClick={() => deleteContent('standalone_reply', r.id)} className="text-[9px] uppercase tracking-wide font-bold ml-1.5" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>
+                                Delete
+                              </button>
+                            )}
+                            </div>
+                            {r.status !== 'pending' && (
+                              <div className="mt-1">
+                                <StarRating
+                                  average={ratingsByTarget[`standalone_reply:${r.id}`]?.average ?? null}
+                                  count={ratingsByTarget[`standalone_reply:${r.id}`]?.count ?? 0}
+                                  yourRating={ratingsByTarget[`standalone_reply:${r.id}`]?.yours ?? null}
+                                  onRate={n => submitRating('standalone_reply', r.id, n)}
+                                  interactive={r.user_id !== user?.id}
+                                  popArt={popArt}
+                                />
+                              </div>
                             )}
                           </div>
                         ))}
@@ -404,6 +511,9 @@ export default function WallPage() {
                         </button>
                       </div>
                     )}
+                    {replyError[c.id] && (
+                      <p className="text-xs mt-1" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>{replyError[c.id]}</p>
+                    )}
                   </div>
                 </div>
               )
@@ -429,6 +539,7 @@ export default function WallPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="font-black text-xs">{nameByUser[post.user_id] ?? 'Unknown'}</span>
+                      <AuraBadge userId={post.user_id} />
                       <span className="text-[10px] uppercase tracking-wide" style={{ color: popArt ? 'rgba(255,255,255,0.4)' : '#F5ECD940' }}>
                         GW{gwNumberById[post.gameweek_id] ?? '?'}{avg ? ` · ⭐ ${avg} avg (${rating!.count})` : ''}
                       </span>
@@ -457,16 +568,16 @@ export default function WallPage() {
                           </div>
                         </div>
                       )}
-                      {post.comments && (
+                      {post.comments && !deletedIds.has(post.pick_id) && (
                         <p className="text-sm break-words">{post.comments}</p>
                       )}
-                      {post.wall_rating != null && (
+                      {post.wall_rating != null && !deletedIds.has(post.pick_id) && (
                         <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-yellow)' : '#D9A441' }}>
                           {'⭐'.repeat(post.wall_rating) || 'Rated 0'}
                         </p>
                       )}
-                      {post.comments && (
-                        <div className="mt-1.5">
+                      {post.comments && !deletedIds.has(post.pick_id) && (
+                        <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                           <StarRating
                             average={ratingsByTarget[`comment:${post.pick_id}`]?.average ?? null}
                             count={ratingsByTarget[`comment:${post.pick_id}`]?.count ?? 0}
@@ -475,17 +586,27 @@ export default function WallPage() {
                             interactive={!isOwn}
                             popArt={popArt}
                           />
+                          {isAdmin && (
+                            <button onClick={() => deleteContent('pick_comment', post.pick_id)} className="text-[10px] uppercase tracking-wide font-bold" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>
+                              Delete
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
 
-                    {(repliesByPick[post.pick_id] ?? []).length > 0 && (
+                    {(repliesByPick[post.pick_id] ?? []).filter(r => !deletedIds.has(r.id)).length > 0 && (
                       <div className="mt-2 ml-4 space-y-1.5">
-                        {repliesByPick[post.pick_id].map(r => (
+                        {repliesByPick[post.pick_id].filter(r => !deletedIds.has(r.id)).map(r => (
                           <div key={r.id}>
                             <div className="rounded-xl rounded-tl px-3 py-1.5 inline-block" style={{ background: popArt ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.03)' }}>
                               <span className="font-black text-xs">{nameByUser[r.user_id] ?? 'Unknown'}</span>
                               <span className="text-xs ml-1.5" style={{ color: popArt ? 'rgba(255,255,255,0.7)' : '#F5ECD9CC' }}>{r.content}</span>
+                              {isAdmin && (
+                                <button onClick={() => deleteContent('reply', r.id)} className="text-[9px] uppercase tracking-wide font-bold ml-1.5" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>
+                                  Delete
+                                </button>
+                              )}
                             </div>
                             <div className="mt-1">
                               <StarRating
@@ -522,6 +643,9 @@ export default function WallPage() {
                           Reply
                         </button>
                       </div>
+                    )}
+                    {replyError[post.pick_id] && (
+                      <p className="text-xs mt-1" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>{replyError[post.pick_id]}</p>
                     )}
                   </div>
                 </div>

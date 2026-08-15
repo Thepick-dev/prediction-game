@@ -5,6 +5,8 @@ const TARGET_TABLES: Record<string, string> = {
   comment: 'picks',
   question_answer: 'picks',
   reply: 'wall_replies',
+  standalone_comment: 'wall_comments',
+  standalone_reply: 'wall_comment_replies',
 }
 
 // Any logged-in player can rate another player's approved Wall comment,
