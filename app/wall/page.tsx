@@ -18,6 +18,8 @@ type Post = {
   question_answer: string | null
 }
 type Reply = { id: string; pick_id: string; user_id: string; content: string; created_at: string }
+type StandaloneComment = { id: string; user_id: string; content: string; status: string; created_at: string }
+type CommentReply = { id: string; comment_id: string; user_id: string; content: string; status: string; created_at: string }
 type TargetRating = { average: number; count: number; yours: number | null }
 type Question = {
   gameweek_id: string
@@ -41,6 +43,8 @@ export default function WallPage() {
   const [displayName, setDisplayName] = useState('')
   const [competition, setCompetition] = useState<any>(null)
   const [posts, setPosts] = useState<Post[]>([])
+  const [standaloneComments, setStandaloneComments] = useState<StandaloneComment[]>([])
+  const [commentRepliesByComment, setCommentRepliesByComment] = useState<Record<string, CommentReply[]>>({})
   const [repliesByPick, setRepliesByPick] = useState<Record<string, Reply[]>>({})
   const [nameByUser, setNameByUser] = useState<Record<string, string>>({})
   const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null }>>({})
@@ -52,6 +56,10 @@ export default function WallPage() {
   const [questionByGw, setQuestionByGw] = useState<Record<string, Question>>({})
   const [replyDraft, setReplyDraft] = useState<Record<string, string>>({})
   const [sentReply, setSentReply] = useState<Record<string, boolean>>({})
+  const [newCommentDraft, setNewCommentDraft] = useState('')
+  const [postingComment, setPostingComment] = useState(false)
+  const [commentReplyDraft, setCommentReplyDraft] = useState<Record<string, string>>({})
+  const [sentCommentReply, setSentCommentReply] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
@@ -99,43 +107,76 @@ export default function WallPage() {
       setQuestionByGw(qMap)
     }
 
-    if (list.length > 0) {
-      const pickIds = list.map(p => p.pick_id)
-      const { data: replies } = await supabase
+    // Standalone comments — not tied to any gameweek pick, so people can
+    // use the Wall to chat even before a competition's first gameweek has
+    // opened. RLS returns every approved comment plus the caller's own
+    // regardless of status, so a freshly-submitted comment shows up for
+    // its author immediately (tagged "Awaiting approval") rather than
+    // vanishing into the queue with no feedback.
+    const { data: comments } = await supabase
+      .from('wall_comments')
+      .select('id, user_id, content, status, created_at')
+      .order('created_at', { ascending: false })
+    const commentList = comments ?? []
+    setStandaloneComments(commentList)
+
+    const commentIds = commentList.map(c => c.id)
+    let commentReplies: CommentReply[] = []
+    if (commentIds.length > 0) {
+      const { data: cReplies } = await supabase
+        .from('wall_comment_replies')
+        .select('id, comment_id, user_id, content, status, created_at')
+        .in('comment_id', commentIds)
+        .order('created_at', { ascending: true })
+      commentReplies = cReplies ?? []
+    }
+    const byComment: Record<string, CommentReply[]> = {}
+    commentReplies.forEach(r => { (byComment[r.comment_id] ??= []).push(r) })
+    setCommentRepliesByComment(byComment)
+
+    const pickIds = list.map(p => p.pick_id)
+    let replies: Reply[] = []
+    if (pickIds.length > 0) {
+      const { data: r } = await supabase
         .from('wall_replies')
         .select('id, pick_id, user_id, content, created_at')
         .in('pick_id', pickIds)
         .eq('status', 'approved')
         .order('created_at', { ascending: true })
+      replies = r ?? []
+    }
+    const byPick: Record<string, Reply[]> = {}
+    replies.forEach(r => { (byPick[r.pick_id] ??= []).push(r) })
+    setRepliesByPick(byPick)
 
-      const byPick: Record<string, Reply[]> = {}
-      replies?.forEach(r => { (byPick[r.pick_id] ??= []).push(r) })
-      setRepliesByPick(byPick)
+    // Player-given ratings (separate from the admin's own curation
+    // rating above) — one row per rater per target, targets being either
+    // a comment/question-answer (both keyed off picks.id) or a reply.
+    const replyIds = replies.map(r => r.id)
+    const ratingTargetIds = [...pickIds, ...replyIds]
+    const { data: allRatings } = ratingTargetIds.length > 0
+      ? await supabase.from('wall_ratings').select('target_type, target_id, rater_user_id, rating').in('target_id', ratingTargetIds)
+      : { data: [] as any[] }
 
-      // Player-given ratings (separate from the admin's own curation
-      // rating above) — one row per rater per target, targets being either
-      // a comment/question-answer (both keyed off picks.id) or a reply.
-      const replyIds = (replies ?? []).map(r => r.id)
-      const { data: allRatings } = await supabase
-        .from('wall_ratings')
-        .select('target_type, target_id, rater_user_id, rating')
-        .in('target_id', [...pickIds, ...replyIds])
+    const ratingsMap: Record<string, TargetRating> = {}
+    allRatings?.forEach(r => {
+      const key = `${r.target_type}:${r.target_id}`
+      const existing = ratingsMap[key] ?? { average: 0, count: 0, yours: null }
+      const newTotal = existing.average * existing.count + r.rating
+      existing.count += 1
+      existing.average = newTotal / existing.count
+      if (r.rater_user_id === authUser.id) existing.yours = r.rating
+      ratingsMap[key] = existing
+    })
+    setRatingsByTarget(ratingsMap)
 
-      const ratingsMap: Record<string, TargetRating> = {}
-      allRatings?.forEach(r => {
-        const key = `${r.target_type}:${r.target_id}`
-        const existing = ratingsMap[key] ?? { average: 0, count: 0, yours: null }
-        const newTotal = existing.average * existing.count + r.rating
-        existing.count += 1
-        existing.average = newTotal / existing.count
-        if (r.rater_user_id === authUser.id) existing.yours = r.rating
-        ratingsMap[key] = existing
-      })
-      setRatingsByTarget(ratingsMap)
+    const userIds = new Set<string>()
+    list.forEach(p => userIds.add(p.user_id))
+    replies.forEach(r => userIds.add(r.user_id))
+    commentList.forEach(c => userIds.add(c.user_id))
+    commentReplies.forEach(r => userIds.add(r.user_id))
 
-      const userIds = new Set<string>(list.map(p => p.user_id))
-      replies?.forEach(r => userIds.add(r.user_id))
-
+    if (userIds.size > 0) {
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2, wall_rating_total, wall_rating_count')
@@ -177,6 +218,24 @@ export default function WallPage() {
     }
 
     setLoading(false)
+  }
+
+  async function postComment() {
+    const content = newCommentDraft.trim()
+    if (!content || !user) return
+    setPostingComment(true)
+    await supabase.from('wall_comments').insert({ user_id: user.id, content })
+    setNewCommentDraft('')
+    await loadData()
+    setPostingComment(false)
+  }
+
+  async function postCommentReply(commentId: string) {
+    const content = (commentReplyDraft[commentId] ?? '').trim()
+    if (!content || !user) return
+    await supabase.from('wall_comment_replies').insert({ comment_id: commentId, user_id: user.id, content })
+    setCommentReplyDraft(prev => ({ ...prev, [commentId]: '' }))
+    setSentCommentReply(prev => ({ ...prev, [commentId]: true }))
   }
 
   async function postReply(pickId: string) {
@@ -235,6 +294,24 @@ export default function WallPage() {
 
   const bubbleBg = popArt ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.05)'
   const ownBubbleBg = popArt ? 'rgba(160,0,250,0.16)' : 'rgba(217,164,65,0.16)'
+  const nothingAtAll = posts.length === 0 && standaloneComments.length === 0
+
+  function authorAvatar(userId: string, size: number) {
+    if (botByUser[userId]) return <BotAvatar size={size} />
+    return (
+      <KitBadge
+        pattern={kitByUser[userId]?.pattern ?? 'solid'}
+        colour1={kitByUser[userId]?.colour1 ?? '#1E4D6B'}
+        colour2={kitByUser[userId]?.colour2 ?? '#F5ECD9'}
+        colour3={kitByUser[userId]?.colour3}
+        stars={starsEarthsByUser[userId]?.stars ?? 0}
+        earths={starsEarthsByUser[userId]?.earths ?? 0}
+        size={size}
+        iconTextClass="text-xs sm:text-sm"
+        starColor={popArt ? 'var(--pop-green)' : '#D9A441'}
+      />
+    )
+  }
 
   return (
     <Shell active="THE WALL" user={user} displayName={displayName} theme={popArt ? 'pop-art' : 'classic'}>
@@ -245,12 +322,98 @@ export default function WallPage() {
           <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>THE WALL</h1>
         )}
         <p className={popArt ? 'font-bold text-sm mb-6' : 'text-sm mb-6'} style={popArt ? { color: 'rgba(255,255,255,0.5)' } : { color: '#D9A44199' }}>
-          {competition.name} — weekly answers and comments reveal automatically once each gameweek&apos;s deadline has passed.
+          {competition.name} — weekly answers and comments reveal automatically once each gameweek&apos;s deadline has passed. Comments need admin approval before they show up.
         </p>
 
-        {posts.length === 0 ? (
+        <div className="mb-8">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newCommentDraft}
+              onChange={e => setNewCommentDraft(e.target.value)}
+              placeholder="Write a comment..."
+              maxLength={280}
+              className={popArt ? 'pop-input flex-1 p-2.5 text-sm' : 'flex-1 bg-white/5 border border-white/10 rounded px-3 py-2 text-sm'}
+            />
+            <button
+              onClick={postComment}
+              disabled={postingComment || !newCommentDraft.trim()}
+              className={popArt ? 'pop-button px-4 py-2.5 text-xs' : 'text-xs font-bold uppercase px-4 py-2.5 rounded border border-[#D9A441]/50 text-[#D9A441] disabled:opacity-40'}
+            >
+              {postingComment ? 'Posting...' : 'Post'}
+            </button>
+          </div>
+        </div>
+
+        {standaloneComments.length > 0 && (
+          <div className="space-y-4 mb-8">
+            {standaloneComments.map(c => {
+              const isOwn = c.user_id === user?.id
+              const isPending = c.status === 'pending'
+              return (
+                <div key={c.id} className="flex items-start gap-2.5">
+                  <div className="shrink-0 mt-1">{authorAvatar(c.user_id, 48)}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-black text-xs">{nameByUser[c.user_id] ?? 'Unknown'}</span>
+                      {isPending && (
+                        <span className="text-[10px] uppercase tracking-wide font-bold" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}>
+                          Awaiting approval
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className="relative rounded-2xl px-3.5 py-2.5 inline-block max-w-full"
+                      style={{ background: isOwn ? ownBubbleBg : bubbleBg, borderTopLeftRadius: 4, opacity: isPending ? 0.6 : 1 }}
+                    >
+                      <p className="text-sm break-words">{c.content}</p>
+                    </div>
+
+                    {(commentRepliesByComment[c.id] ?? []).length > 0 && (
+                      <div className="mt-2 ml-4 space-y-1.5">
+                        {commentRepliesByComment[c.id].map(r => (
+                          <div key={r.id} className="rounded-xl rounded-tl px-3 py-1.5 inline-block" style={{ background: popArt ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.03)', opacity: r.status === 'pending' ? 0.6 : 1 }}>
+                            <span className="font-black text-xs">{nameByUser[r.user_id] ?? 'Unknown'}</span>
+                            <span className="text-xs ml-1.5" style={{ color: popArt ? 'rgba(255,255,255,0.7)' : '#F5ECD9CC' }}>{r.content}</span>
+                            {r.status === 'pending' && (
+                              <span className="text-[9px] uppercase tracking-wide font-bold ml-1.5" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}>pending</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {sentCommentReply[c.id] ? (
+                      <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-green)' : '#4ADE80' }}>Sent.</p>
+                    ) : (
+                      <div className="flex items-center gap-2 mt-1.5 max-w-sm">
+                        <input
+                          type="text"
+                          value={commentReplyDraft[c.id] ?? ''}
+                          onChange={e => setCommentReplyDraft(prev => ({ ...prev, [c.id]: e.target.value }))}
+                          placeholder="Reply..."
+                          maxLength={200}
+                          className={popArt ? 'pop-input flex-1 p-1.5 text-xs' : 'flex-1 bg-white/5 border border-white/10 rounded px-2 py-1 text-xs'}
+                        />
+                        <button
+                          onClick={() => postCommentReply(c.id)}
+                          disabled={!(commentReplyDraft[c.id] ?? '').trim()}
+                          className={popArt ? 'pop-button px-3 py-1.5 text-xs' : 'text-xs font-bold uppercase px-3 py-1.5 rounded border border-[#D9A441]/50 text-[#D9A441] disabled:opacity-40'}
+                        >
+                          Reply
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {nothingAtAll ? (
           <p className={popArt ? 'text-sm' : 'text-sm text-gray-500'} style={popArt ? { color: 'rgba(255,255,255,0.5)' } : undefined}>
-            Nothing on the wall yet — add something from the Picks page.
+            Nothing on the wall yet — be the first to write a comment above.
           </p>
         ) : (
           <div className="space-y-4">
@@ -262,23 +425,7 @@ export default function WallPage() {
               const answer = answerLabel(q, post.question_answer)
               return (
                 <div key={post.pick_id} className="flex items-start gap-2.5">
-                  <div className="shrink-0 mt-1">
-                    {botByUser[post.user_id] ? (
-                      <BotAvatar size={48} />
-                    ) : (
-                      <KitBadge
-                        pattern={kitByUser[post.user_id]?.pattern ?? 'solid'}
-                        colour1={kitByUser[post.user_id]?.colour1 ?? '#1E4D6B'}
-                        colour2={kitByUser[post.user_id]?.colour2 ?? '#F5ECD9'}
-                        colour3={kitByUser[post.user_id]?.colour3}
-                        stars={starsEarthsByUser[post.user_id]?.stars ?? 0}
-                        earths={starsEarthsByUser[post.user_id]?.earths ?? 0}
-                        size={48}
-                        iconTextClass="text-xs sm:text-sm"
-                        starColor={popArt ? 'var(--pop-green)' : '#D9A441'}
-                      />
-                    )}
-                  </div>
+                  <div className="shrink-0 mt-1">{authorAvatar(post.user_id, 48)}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="font-black text-xs">{nameByUser[post.user_id] ?? 'Unknown'}</span>

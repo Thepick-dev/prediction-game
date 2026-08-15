@@ -277,6 +277,14 @@ export async function POST(request: Request) {
     .eq('gameweek_id', gameweek_id)
     .single()
 
+  // An admin's own comment skips the moderation queue entirely — see the
+  // same policy applied to wall_replies/wall_comments via a database
+  // trigger. This route already has a trusted, server-side authenticated
+  // checkpoint, so the check just lives here directly rather than needing
+  // its own trigger on picks.
+  const { data: authorProfile } = await supabase.from('profiles').select('is_admin, is_super_admin').eq('id', user.id).single()
+  const authorIsAdmin = !!(authorProfile?.is_admin || authorProfile?.is_super_admin)
+
   let error
   let pickId: string | null = existingPick?.id ?? null
   if (existingPick) {
@@ -301,7 +309,7 @@ export async function POST(request: Request) {
         submitted_at: new Date().toISOString(),
         question_answer: question_answer ?? null,
         comments: nextComments,
-        ...(commentChanged ? { wall_status: 'pending', wall_rating: null } : {}),
+        ...(commentChanged ? { wall_status: authorIsAdmin ? 'approved' : 'pending', wall_rating: null } : {}),
       })
       .eq('id', existingPick.id)
     error = updateError
@@ -320,7 +328,8 @@ export async function POST(request: Request) {
         is_banker,
         is_autopick: false,
         question_answer: question_answer ?? null,
-        comments: comments ?? null
+        comments: comments ?? null,
+        ...(comments && authorIsAdmin ? { wall_status: 'approved' } : {}),
       })
       .select('id')
       .single()
