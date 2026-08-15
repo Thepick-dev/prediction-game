@@ -41,9 +41,17 @@ export default function StarRating({ average, count, yourRating, onRate, max = 7
           ))}
         </div>
       )}
-      {count > 0 && (
+      {count > 0 ? (
         <span className="text-[10px]" style={{ color: popArt ? 'rgba(255,255,255,0.4)' : '#F5ECD966' }}>
           👥 {average!.toFixed(1)} avg ({count})
+        </span>
+      ) : !interactive && (
+        // Own content with nobody's voted yet — without this the whole
+        // component renders nothing (no picker since you can't rate
+        // yourself, no average since there isn't one), which reads as
+        // "the feature's missing" rather than "nobody's rated this yet".
+        <span className="text-[10px]" style={{ color: popArt ? 'rgba(255,255,255,0.3)' : '#F5ECD94D' }}>
+          Not yet rated
         </span>
       )}
     </div>

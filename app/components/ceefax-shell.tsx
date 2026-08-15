@@ -58,6 +58,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
   const kit = kitBase ? { ...kitBase, colour3: kitColour3, stars: kitStars, earths: kitEarths } : null
   const [nextDeadline, setNextDeadline] = useState<{ number: number; deadline: string } | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
   const countdown = useCountdown(nextDeadline?.deadline ?? null)
 
   const [kitPopupOpen, setKitPopupOpen] = useState(false)
@@ -124,6 +125,16 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
       .single()
       .then(({ data }) => setIsAdmin(!!(data?.is_admin || data?.is_super_admin)))
   }, [user?.id])
+
+  // Only fetched once we know the user's actually an admin — a normal
+  // player never hits this endpoint at all.
+  useEffect(() => {
+    if (!isAdmin) return
+    fetch('/api/admin/pending-count')
+      .then(res => res.json())
+      .then(data => setPendingCount(data.count ?? 0))
+      .catch(() => {})
+  }, [isAdmin])
 
   // Deliberately its own query, independent of the kit fetch below — if the
   // competition/gameweek lookup ever fails, it should only mean no deadline
@@ -288,10 +299,15 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                 {isAdmin && (
                   <a
                     href="/admin"
-                    className="pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase"
+                    className="pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase inline-flex items-center gap-1"
                     style={{ color: 'var(--pop-blue)', borderBottomColor: active === 'ADMIN' ? 'var(--pop-blue)' : 'transparent' }}
                   >
                     Admin
+                    {pendingCount > 0 && (
+                      <span className="inline-flex items-center justify-center rounded-full bg-red-600 text-white" style={{ width: 16, height: 16, fontSize: 9, fontWeight: 900 }}>
+                        {pendingCount > 9 ? '9+' : pendingCount}
+                      </span>
+                    )}
                   </a>
                 )}
                 {user && (
@@ -324,11 +340,16 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
               <a
                 href="/admin"
                 style={{ color: active === 'ADMIN' ? '#D9A441' : '#F5ECD9' }}
-                className={`px-2.5 lg:px-3 py-2.5 text-xs font-bold tracking-widest whitespace-nowrap border-b-2 transition-colors uppercase ${
+                className={`px-2.5 lg:px-3 py-2.5 text-xs font-bold tracking-widest whitespace-nowrap border-b-2 transition-colors uppercase inline-flex items-center gap-1 ${
                   active === 'ADMIN' ? 'border-[#D9A441]' : 'border-transparent opacity-70 hover:opacity-100'
                 }`}
               >
                 Admin
+                {pendingCount > 0 && (
+                  <span className="inline-flex items-center justify-center rounded-full bg-red-600 text-white" style={{ width: 16, height: 16, fontSize: 9, fontWeight: 900 }}>
+                    {pendingCount > 9 ? '9+' : pendingCount}
+                  </span>
+                )}
               </a>
             )}
             {!isPopArt && user && (
@@ -398,10 +419,15 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                       backgroundColor: active === 'ADMIN' ? '#D9A441' : 'transparent'
                     }}
                 className={isPopArt
-                  ? 'block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-white/10'
-                  : 'block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-[#3d2f22]'}
+                  ? 'flex items-center gap-2 px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-white/10'
+                  : 'flex items-center gap-2 px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-[#3d2f22]'}
               >
                 Admin
+                {pendingCount > 0 && (
+                  <span className="inline-flex items-center justify-center rounded-full bg-red-600 text-white" style={{ width: 18, height: 18, fontSize: 10, fontWeight: 900 }}>
+                    {pendingCount > 9 ? '9+' : pendingCount}
+                  </span>
+                )}
               </a>
             )}
             {user && (
