@@ -1,15 +1,44 @@
 import { createServerSupabaseClient } from '../lib/supabase-server'
+import { createAdminSupabaseClient } from '../lib/supabase-admin'
 import Link from 'next/link'
 import ThemeToggleControl from './components/theme-toggle-control'
+
+// Same reasoning as the nav badge this feeds alongside — several of these
+// tables only let a regular session see its own pending row via RLS, not
+// everyone's, so this needs the service-role client to count accurately.
+// A read-only page load like this one is already gated by app/admin's own
+// layout (it's not a separately-invokable Server Action), so no extra
+// admin check is needed here beyond that.
+async function loadPendingSummary() {
+  const admin = createAdminSupabaseClient()
+  const [profiles, resets, usernames, comments, replies, standaloneComments, standaloneReplies] = await Promise.all([
+    admin.from('profiles').select('id', { count: 'exact', head: true }).eq('approved', false),
+    admin.from('password_reset_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    admin.from('username_change_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    admin.from('picks').select('id', { count: 'exact', head: true }).eq('wall_status', 'pending').not('comments', 'is', null).neq('comments', ''),
+    admin.from('wall_replies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    admin.from('wall_comments').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    admin.from('wall_comment_replies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+  ])
+
+  return [
+    { label: 'Pending user approvals', count: profiles.count ?? 0, href: '/admin/users' },
+    { label: 'Password reset requests', count: resets.count ?? 0, href: '/admin/users' },
+    { label: 'Username change requests', count: usernames.count ?? 0, href: '/admin/users' },
+    { label: 'Wall comments to moderate', count: (comments.count ?? 0) + (standaloneComments.count ?? 0), href: '/admin/wall' },
+    { label: 'Wall replies to moderate', count: (replies.count ?? 0) + (standaloneReplies.count ?? 0), href: '/admin/wall' },
+  ].filter(item => item.count > 0)
+}
 
 export default async function AdminPage() {
   const supabase = await createServerSupabaseClient()
 
-  const [{ data: { user } }, { data: competition }, { data: gameweeks }, { data: entries }] = await Promise.all([
+  const [{ data: { user } }, { data: competition }, { data: gameweeks }, { data: entries }, pending] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from('competitions').select('id, name, status').eq('status', 'active').single(),
     supabase.from('gameweeks').select('id, number, status, deadline').order('number', { ascending: false }).limit(5),
-    supabase.from('competition_entries').select('id')
+    supabase.from('competition_entries').select('id'),
+    loadPendingSummary(),
   ])
 
   return (
@@ -19,6 +48,26 @@ export default async function AdminPage() {
       {user && (
         <div className="mb-6">
           <ThemeToggleControl userId={user.id} />
+        </div>
+      )}
+
+      {pending.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
+          <h2 className="font-bold mb-4 text-red-800">⚠ Needs Your Attention</h2>
+          <div className="flex flex-wrap gap-2">
+            {pending.map(item => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="bg-white border border-red-200 rounded px-3 py-2 text-sm hover:bg-red-100 flex items-center gap-2"
+              >
+                <span className="bg-red-600 text-white rounded-full w-5 h-5 inline-flex items-center justify-center text-xs font-bold">
+                  {item.count}
+                </span>
+                {item.label}
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 
