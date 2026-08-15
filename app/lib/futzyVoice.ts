@@ -45,7 +45,9 @@ function buildPrompt(input: FutzyVoiceInput): string {
     VOICE_INSTRUCTIONS,
     '',
     `This gameweek you picked: ${input.teamName} (team), ${input.player1Name} and ${input.player2Name} (players).`,
-    'Write one short in-character Wall comment about your picks or the gameweek generally.',
+    `Write one short in-character Wall comment. It must name-check at least one of your two picked players`,
+    `— ${input.player1Name} or ${input.player2Name} — by name, not just the team. A generic comment about`,
+    `the gameweek with no player mentioned is not acceptable.`,
   ]
 
   if (input.question) {
