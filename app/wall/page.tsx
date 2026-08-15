@@ -6,6 +6,7 @@ import Shell from '../components/ceefax-shell'
 import PopArtLoading from '../../components/PopArtLoading'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import KitBadge from '../../components/KitBadge'
+import BotAvatar from '../../components/BotAvatar'
 import StarRating from '../../components/StarRating'
 
 type Post = {
@@ -43,6 +44,8 @@ export default function WallPage() {
   const [repliesByPick, setRepliesByPick] = useState<Record<string, Reply[]>>({})
   const [nameByUser, setNameByUser] = useState<Record<string, string>>({})
   const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null }>>({})
+  const [starsEarthsByUser, setStarsEarthsByUser] = useState<Record<string, { stars: number; earths: number }>>({})
+  const [botByUser, setBotByUser] = useState<Record<string, boolean>>({})
   const [ratingByUser, setRatingByUser] = useState<Record<string, { total: number; count: number }>>({})
   const [ratingsByTarget, setRatingsByTarget] = useState<Record<string, TargetRating>>({})
   const [gwNumberById, setGwNumberById] = useState<Record<string, number>>({})
@@ -152,6 +155,22 @@ export default function WallPage() {
       const { data: kitTrims } = await supabase.from('profiles').select('id, kit_colour_3').in('id', [...userIds])
       kitTrims?.forEach(k => { if (kitMap[k.id]) kitMap[k.id].colour3 = k.kit_colour_3 ?? null })
 
+      // Its own isolated requests, same reasoning — kit_stars/kit_earths and
+      // is_bot are newer, optional columns, and a problem reading either
+      // should never take the rest of the Wall down with it. Kit and its
+      // stars/earths get shown prominently here (unlike the Leaderboard's
+      // subtle by-the-name treatment) — this is the one place the site
+      // explicitly wants them to stand out.
+      const { data: starsEarths } = await supabase.from('profiles').select('id, kit_stars, kit_earths').in('id', [...userIds])
+      const starsEarthsMap: Record<string, { stars: number; earths: number }> = {}
+      starsEarths?.forEach(s => { starsEarthsMap[s.id] = { stars: s.kit_stars ?? 0, earths: s.kit_earths ?? 0 } })
+      setStarsEarthsByUser(starsEarthsMap)
+
+      const { data: botFlags } = await supabase.from('profiles').select('id, is_bot').in('id', [...userIds])
+      const botMap: Record<string, boolean> = {}
+      botFlags?.forEach(b => { botMap[b.id] = b.is_bot ?? false })
+      setBotByUser(botMap)
+
       setNameByUser(nameMap)
       setKitByUser(kitMap)
       setRatingByUser(ratingMap)
@@ -244,13 +263,21 @@ export default function WallPage() {
               return (
                 <div key={post.pick_id} className="flex items-start gap-2.5">
                   <div className="shrink-0 mt-1">
-                    <KitBadge
-                      pattern={kitByUser[post.user_id]?.pattern ?? 'solid'}
-                      colour1={kitByUser[post.user_id]?.colour1 ?? '#1E4D6B'}
-                      colour2={kitByUser[post.user_id]?.colour2 ?? '#F5ECD9'}
-                      colour3={kitByUser[post.user_id]?.colour3}
-                      size={30}
-                    />
+                    {botByUser[post.user_id] ? (
+                      <BotAvatar size={48} />
+                    ) : (
+                      <KitBadge
+                        pattern={kitByUser[post.user_id]?.pattern ?? 'solid'}
+                        colour1={kitByUser[post.user_id]?.colour1 ?? '#1E4D6B'}
+                        colour2={kitByUser[post.user_id]?.colour2 ?? '#F5ECD9'}
+                        colour3={kitByUser[post.user_id]?.colour3}
+                        stars={starsEarthsByUser[post.user_id]?.stars ?? 0}
+                        earths={starsEarthsByUser[post.user_id]?.earths ?? 0}
+                        size={48}
+                        iconTextClass="text-xs sm:text-sm"
+                        starColor={popArt ? 'var(--pop-green)' : '#D9A441'}
+                      />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
