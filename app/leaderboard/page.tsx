@@ -3,12 +3,13 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
-import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon } from '../../components/icons'
+import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon, TopDogIcon } from '../../components/icons'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
 import BotAvatar from '../../components/BotAvatar'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
+import { computeTopDog } from '../lib/topDog'
 import LeaderboardShareCard from '../../components/LeaderboardShareCard'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import PopArtLoading from '../../components/PopArtLoading'
@@ -100,6 +101,10 @@ export default function LeaderboardPage() {
   const [rivalByUser, setRivalByUser] = useState<Record<string, string>>({})
   const [rivalPickerFor, setRivalPickerFor] = useState<string | null>(null)
   const [savingRival, setSavingRival] = useState(false)
+  // Top Dog — the current leaderboard leader and how many completed
+  // gameweeks running they've held it, recomputed fresh on every load.
+  const [topDogUserId, setTopDogUserId] = useState<string | null>(null)
+  const [topDogReignWeeks, setTopDogReignWeeks] = useState(0)
 
   const supabase = createClient()
   const { popArt } = usePopArtTheme(user?.id)
@@ -460,6 +465,14 @@ export default function LeaderboardPage() {
 
     setRanked(rankedList)
 
+    // Top Dog — see app/lib/topDog.ts for the reign-tracking rules.
+    const scoredGwNumbers = Object.keys(avgMap).map(Number).sort((a, b) => a - b)
+    const weeklyPointsByUser: Record<string, number[]> = {}
+    Object.values(totals).forEach(t => { weeklyPointsByUser[t.user_id] = t.weekly_points })
+    const topDog = computeTopDog(scoredGwNumbers, weeklyPointsByUser, isBotMap, bonusCardPlays, gwMap)
+    setTopDogUserId(topDog.leaderUserId)
+    setTopDogReignWeeks(topDog.reignWeeks)
+
     const aonMap: Record<string, { player_id: number; outcome: string }> = {}
     aonPicks?.forEach(a => { aonMap[`${a.user_id}_${a.gameweek_id}`] = { player_id: a.player_id, outcome: a.outcome } })
 
@@ -711,6 +724,12 @@ export default function LeaderboardPage() {
                               {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={18} /></span>}
                               {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={18} /></span>}
                               {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={18} /></span>}
+                              {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
+                                <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">
+                                  <TopDogIcon size={18} />
+                                  <span className="font-mono" style={{ fontSize: '10px', color: 'var(--pop-orange)' }}>{topDogReignWeeks}</span>
+                                </span>
+                              )}
                               <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                             </div>
                           </td>
@@ -998,6 +1017,7 @@ export default function LeaderboardPage() {
                 <div className="flex items-center gap-2.5"><ShadesIcon size={20} /> Vibes champion</div>
                 <div className="flex items-center gap-2.5"><PoundCoinIcon size={20} /> In the cash pool</div>
                 <div className="flex items-center gap-2.5"><FlameIcon size={20} /> On a streak — 3+ weeks above average</div>
+                <div className="flex items-center gap-2.5"><TopDogIcon size={20} /> Top Dog — current leader, number = weeks leading</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — deadline missed, computer picked</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span> Banker declared that gameweek</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-blue)', color: 'var(--pop-black)' }}><BoltIcon size={11} color="var(--pop-black)" /> AoN</span> All or Nothing played, result pending</div>
@@ -1090,6 +1110,11 @@ export default function LeaderboardPage() {
                             {player.is_vibes_champion && <span title="Vibes Champion">😎</span>}
                             {player.in_cash_pool && <span title="In the cash pool">💷</span>}
                             {streak && <span title={`${streak} weeks above average`}>🔥</span>}
+                            {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
+                              <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">
+                                🐕<span style={{ fontSize: '9px' }}>{topDogReignWeeks}</span>
+                              </span>
+                            )}
                             <span className="text-[#F5ECD9]/30" style={{ fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                           </div>
                         </td>
@@ -1302,6 +1327,8 @@ export default function LeaderboardPage() {
             💷 In the cash pool
             <span className="mx-2">·</span>
             🔥 Streak (3+ wks above avg)
+            <span className="mx-2">·</span>
+            🐕 Top Dog (number = weeks leading)
             <span className="mx-2">·</span>
             <span className="bg-white/20 px-0.5 rounded">AP</span> Autopick — computer picked it (deadline passed, no pick made)
             <span className="mx-2">·</span>

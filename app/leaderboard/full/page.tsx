@@ -3,12 +3,13 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
 import Shell from '../../components/ceefax-shell'
-import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon } from '../../../components/icons'
+import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon, TopDogIcon } from '../../../components/icons'
 import HeroPage from '../../../components/HeroPage'
 import TeamCrest from '../../../components/TeamCrest'
 import KitBadge from '../../../components/KitBadge'
 import BotAvatar from '../../../components/BotAvatar'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../../lib/players'
+import { computeTopDog } from '../../lib/topDog'
 import { usePopArtTheme } from '../../lib/usePopArtTheme'
 import PopArtLoading from '../../../components/PopArtLoading'
 import Link from 'next/link'
@@ -94,6 +95,10 @@ export default function FullLeaderboardPage() {
   const [avgByGw, setAvgByGw] = useState<Record<number, number>>({})
   const [submittedKeys, setSubmittedKeys] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
+  // Top Dog — the current leaderboard leader and how many completed
+  // gameweeks running they've held it, recomputed fresh on every load.
+  const [topDogUserId, setTopDogUserId] = useState<string | null>(null)
+  const [topDogReignWeeks, setTopDogReignWeeks] = useState(0)
 
   const supabase = createClient()
   const { popArt } = usePopArtTheme(user?.id)
@@ -401,6 +406,14 @@ export default function FullLeaderboardPage() {
     setRanked(rankedList)
     if (rankedList.length > 0) setPotwUserId(rankedList[0].user_id)
 
+    // Top Dog — see app/lib/topDog.ts for the reign-tracking rules.
+    const scoredGwNumbers = Object.keys(avgMap).map(Number).sort((a, b) => a - b)
+    const weeklyPointsByUser: Record<string, number[]> = {}
+    Object.values(totals).forEach(t => { weeklyPointsByUser[t.user_id] = t.weekly_points })
+    const topDog = computeTopDog(scoredGwNumbers, weeklyPointsByUser, isBotMap, bonusCardPlays, gwMap)
+    setTopDogUserId(topDog.leaderUserId)
+    setTopDogReignWeeks(topDog.reignWeeks)
+
     const aonMap: Record<string, { player_id: number; outcome: string }> = {}
     aonPicks?.forEach(a => { aonMap[`${a.user_id}_${a.gameweek_id}`] = { player_id: a.player_id, outcome: a.outcome } })
 
@@ -595,6 +608,12 @@ export default function FullLeaderboardPage() {
                           {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={13} /></span>}
                           {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={13} /></span>}
                           {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={13} /></span>}
+                          {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
+                            <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">
+                              <TopDogIcon size={13} />
+                              <span className="font-mono" style={{ fontSize: '9px', color: 'var(--pop-orange)' }}>{topDogReignWeeks}</span>
+                            </span>
+                          )}
                           <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '8px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                         </div>
                       </td>
@@ -811,6 +830,7 @@ export default function FullLeaderboardPage() {
           <span className="inline-flex items-center gap-1"><ShadesIcon size={11} /> Vibes champion</span>
           <span className="inline-flex items-center gap-1"><PoundCoinIcon size={11} /> In the cash pool</span>
           <span className="inline-flex items-center gap-1"><FlameIcon size={11} /> Streak (3+ wks above avg)</span>
+          <span className="inline-flex items-center gap-1"><TopDogIcon size={11} /> Top Dog — current leader, number = weeks leading</span>
           <span className="inline-flex items-center gap-1"><span style={{ color: 'var(--pop-green)' }}>★</span>🌍 Kit stars / earths</span>
           <span className="inline-flex items-center gap-1">
             <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — no pick made
