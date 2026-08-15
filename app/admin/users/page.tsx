@@ -251,6 +251,17 @@ export default async function UsersPage({
     redirect(`/admin/users?resetCode=${encodeURIComponent(code)}&resetFor=${encodeURIComponent(displayName || 'this player')}`)
   }
 
+  // Clears a request out of the queue without generating a code — for
+  // ones already handled some other way, or that turn out not to need
+  // action at all (a stale test account, a duplicate of another request).
+  async function dismissResetRequest(formData: FormData) {
+    'use server'
+    const admin = await requireAdminAction()
+    const requestId = formData.get('requestId') as string
+    await admin.from('password_reset_requests').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', requestId)
+    redirect('/admin/users')
+  }
+
   async function approveUsernameChange(formData: FormData) {
     'use server'
     const admin = await requireAdminAction()
@@ -345,18 +356,26 @@ export default async function UsersPage({
                     })}
                   </td>
                   <td className="py-2">
-                    {r.user_id ? (
-                      <form action={generateResetCode}>
-                        <input type="hidden" name="id" value={r.user_id} />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {r.user_id ? (
+                        <form action={generateResetCode}>
+                          <input type="hidden" name="id" value={r.user_id} />
+                          <input type="hidden" name="requestId" value={r.id} />
+                          <input type="hidden" name="displayName" value={displayNameMap[r.user_id] || emailMap[r.user_id] || ''} />
+                          <button type="submit" className="bg-blue-600 text-white text-xs rounded px-3 py-1">
+                            Generate code
+                          </button>
+                        </form>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                      <form action={dismissResetRequest}>
                         <input type="hidden" name="requestId" value={r.id} />
-                        <input type="hidden" name="displayName" value={displayNameMap[r.user_id] || emailMap[r.user_id] || ''} />
-                        <button type="submit" className="bg-blue-600 text-white text-xs rounded px-3 py-1">
-                          Generate code
+                        <button type="submit" className="text-xs text-gray-500 hover:text-gray-700 border rounded px-3 py-1">
+                          Dismiss
                         </button>
                       </form>
-                    ) : (
-                      <span className="text-xs text-gray-400">—</span>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}
