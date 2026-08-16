@@ -99,6 +99,9 @@ export default function FullLeaderboardPage() {
   // gameweeks running they've held it, recomputed fresh on every load.
   const [topDogUserId, setTopDogUserId] = useState<string | null>(null)
   const [topDogReignWeeks, setTopDogReignWeeks] = useState(0)
+  // Penalty shootout minigame personal best, keyed by user_id — shown as
+  // a shirt number on the kit badge in the expanded row.
+  const [topScoreByUser, setTopScoreByUser] = useState<Record<string, number>>({})
 
   const supabase = createClient()
   const { popArt } = usePopArtTheme(user?.id)
@@ -154,6 +157,14 @@ export default function FullLeaderboardPage() {
     const { data: botFlags } = await supabase.from('profiles').select('id, is_bot')
     const isBotMap: Record<string, boolean> = {}
     botFlags?.forEach(b => { isBotMap[b.id] = b.is_bot ?? false })
+
+    // Its own request, same reason — the minigame shirt-number is a
+    // separate, entirely optional feature, so a problem reading it should
+    // never take display names or points down with it.
+    const { data: topScores } = await supabase.from('minigame_penalty_scores').select('user_id, best_score')
+    const topScoreMap: Record<string, number> = {}
+    topScores?.forEach(s => { topScoreMap[s.user_id] = s.best_score ?? 0 })
+    setTopScoreByUser(topScoreMap)
 
     // Its own request, same reason — these are newer, optional,
     // admin-assigned leaderboard badges, and a problem reading them should
@@ -643,6 +654,7 @@ export default function FullLeaderboardPage() {
                                 size={40}
                                 iconTextClass="text-base sm:text-xl"
                                 starColor="var(--pop-green)"
+                                topScore={topScoreByUser[player.user_id] ?? 0}
                               />
                             )}
                             <div className="flex items-start gap-4 flex-wrap justify-end">

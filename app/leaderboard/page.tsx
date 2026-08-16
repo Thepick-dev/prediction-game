@@ -118,6 +118,10 @@ export default function LeaderboardPage() {
   // Rank as of the previous scored gameweek, keyed by user_id — used to
   // show a small ▲/▼ movement indicator next to the current rank.
   const [previousRankByUser, setPreviousRankByUser] = useState<Record<string, number>>({})
+  // Penalty shootout minigame personal best, keyed by user_id — shown as
+  // a shirt number on the kit badge in the expanded row, same treatment
+  // KitEditor already gives your own kit in Settings.
+  const [topScoreByUser, setTopScoreByUser] = useState<Record<string, number>>({})
 
   const supabase = createClient()
   const { popArt } = usePopArtTheme(user?.id)
@@ -214,6 +218,14 @@ export default function LeaderboardPage() {
     const { data: botFlags } = await supabase.from('profiles').select('id, is_bot')
     const isBotMap: Record<string, boolean> = {}
     botFlags?.forEach(b => { isBotMap[b.id] = b.is_bot ?? false })
+
+    // Its own request, same reason — the minigame shirt-number is a
+    // separate, entirely optional feature, so a problem reading it should
+    // never take display names or points down with it.
+    const { data: topScores } = await supabase.from('minigame_penalty_scores').select('user_id, best_score')
+    const topScoreMap: Record<string, number> = {}
+    topScores?.forEach(s => { topScoreMap[s.user_id] = s.best_score ?? 0 })
+    setTopScoreByUser(topScoreMap)
 
     // Its own request, same reason — these are newer, optional,
     // admin-assigned leaderboard badges, and a problem reading them should
@@ -837,6 +849,7 @@ export default function LeaderboardPage() {
                                     size={66}
                                     iconTextClass="text-xl sm:text-3xl"
                                     starColor="var(--pop-green)"
+                                    topScore={topScoreByUser[player.user_id] ?? 0}
                                   />
                                 )}
                               </div>
@@ -1265,6 +1278,7 @@ export default function LeaderboardPage() {
                                 earths={kitByUser[player.user_id]?.earths ?? 0}
                                 size={40}
                                 iconTextClass="text-base sm:text-xl"
+                                topScore={topScoreByUser[player.user_id] ?? 0}
                               />
                               <div className="flex items-start gap-4 flex-wrap justify-end">
                                 <div className="text-right">
