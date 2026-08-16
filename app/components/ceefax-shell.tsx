@@ -485,7 +485,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
           }}
         >
           <h3
-            className={isPopArt ? 'pop-headline text-lg mb-3' : 'text-xs font-bold uppercase tracking-wider mb-3'}
+            className={isPopArt ? 'pop-headline text-lg mb-2' : 'text-xs font-bold uppercase tracking-wider mb-2'}
             style={isPopArt ? undefined : { color: '#D9A441', fontFamily: 'var(--font-heading), serif' }}
           >
             Change Your Kit

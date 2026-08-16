@@ -266,19 +266,19 @@ export default function KitEditor({
     )
   }
 
-  const sectionClass = isPopArt ? 'pop-panel p-3 mb-3' : 'mb-4'
+  const sectionClass = isPopArt ? `pop-panel ${compact ? 'p-2 mb-2' : 'p-3 mb-3'}` : (compact ? 'mb-2' : 'mb-4')
 
   return (
     <div>
       <div
-        className={isPopArt ? 'rounded-xl p-5 mb-3 flex flex-col items-center' : 'flex justify-center mb-3'}
+        className={isPopArt ? `rounded-xl ${compact ? 'p-2 mb-2' : 'p-5 mb-3'} flex flex-col items-center` : `flex justify-center ${compact ? 'mb-2' : 'mb-3'}`}
         style={isPopArt ? { background: 'radial-gradient(circle at 50% 30%, rgba(160,0,250,0.14), rgba(255,255,255,0.03) 70%)', border: '1px solid rgba(255,255,255,0.08)' } : undefined}
       >
-        {isPopArt && <p className="pop-headline text-[10px] mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>Your Kit</p>}
-        <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={compact ? 130 : 190} topScore={topScore} starColor={isPopArt ? 'var(--pop-green)' : undefined} />
+        {isPopArt && !compact && <p className="pop-headline text-[10px] mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>Your Kit</p>}
+        <KitPreview pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} stars={kitStars} earths={kitEarths} size={compact ? 95 : 190} topScore={topScore} starColor={isPopArt ? 'var(--pop-green)' : undefined} />
       </div>
 
-      <div className="flex justify-center mb-4">
+      <div className={`flex justify-center ${compact ? 'mb-2' : 'mb-4'}`}>
         <button
           onClick={shuffleKit}
           type="button"
@@ -290,7 +290,7 @@ export default function KitEditor({
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-1.5 mb-3">
+      <div className={`grid grid-cols-4 gap-1.5 ${compact ? 'mb-2' : 'mb-3'}`}>
         {TABS.map(t => {
           const active = activeTab === t.key
           const previewColour = t.key === 'colour1' ? kitColour1 : t.key === 'colour2' ? kitColour2 : t.key === 'trim' ? kitColour3 : null
@@ -300,8 +300,8 @@ export default function KitEditor({
               type="button"
               onClick={() => setActiveTab(t.key)}
               className={isPopArt
-                ? 'flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-wide'
-                : `flex flex-col items-center gap-1 py-2 rounded border text-[10px] font-bold uppercase tracking-wide ${active ? 'border-[#D9A441] bg-[#D9A441]/10 text-[#D9A441]' : 'border-white/10 text-[#F5ECD9]/50'}`}
+                ? `flex flex-col items-center gap-1 ${compact ? 'py-1' : 'py-2'} rounded-lg text-[10px] font-black uppercase tracking-wide`
+                : `flex flex-col items-center gap-1 ${compact ? 'py-1' : 'py-2'} rounded border text-[10px] font-bold uppercase tracking-wide ${active ? 'border-[#D9A441] bg-[#D9A441]/10 text-[#D9A441]' : 'border-white/10 text-[#F5ECD9]/50'}`}
               style={isPopArt ? {
                 border: active ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
                 boxShadow: active ? '0 0 14px rgba(204,250,0,0.4)' : 'none',
@@ -324,7 +324,7 @@ export default function KitEditor({
 
       {activeTab === 'pattern' && (
         <div className={sectionClass}>
-          <div className="grid grid-cols-3 gap-2">
+          <div className={compact ? 'grid grid-cols-5 gap-1' : 'grid grid-cols-3 gap-2'}>
             {PATTERNS.map(p => {
               const selected = kitPattern === p.value
               return (
@@ -332,8 +332,8 @@ export default function KitEditor({
                   key={p.value}
                   onClick={() => setKitPattern(p.value)}
                   className={isPopArt
-                    ? `flex flex-col items-center gap-1 p-2 rounded-lg text-xs ${selected ? 'pop-pop-in' : ''}`
-                    : `flex flex-col items-center gap-1 p-2 rounded border text-xs ${selected ? 'border-[#D9A441] bg-[#D9A441]/10 font-bold' : 'border-white/10'}`}
+                    ? `flex flex-col items-center gap-1 ${compact ? 'p-1' : 'p-2'} rounded-lg text-xs ${selected ? 'pop-pop-in' : ''}`
+                    : `flex flex-col items-center gap-1 ${compact ? 'p-1' : 'p-2'} rounded border text-xs ${selected ? 'border-[#D9A441] bg-[#D9A441]/10 font-bold' : 'border-white/10'}`}
                   style={isPopArt ? {
                     border: selected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
                     boxShadow: selected ? '0 0 14px rgba(204,250,0,0.4)' : 'none',
@@ -341,7 +341,7 @@ export default function KitEditor({
                     color: 'var(--pop-white)',
                   } : undefined}
                 >
-                  <KitBadge pattern={p.value} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} size={28} />
+                  <KitBadge pattern={p.value} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} size={compact ? 22 : 28} />
                   {!compact && <span className="text-center">{p.label}</span>}
                 </button>
               )
