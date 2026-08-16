@@ -1036,18 +1036,24 @@ export default function LeaderboardPage() {
                                         </tr>
                                       )
                                     })}
-                                    {/* Bonus Card points land in the same Tot column as every GW
-                                        row above, on its own line — so anyone adding that column
-                                        by eye lands on the real season total instead of coming up
-                                        short by whatever the card scored. */}
-                                    {showBonusCard && bonusCardPlayByUser[player.user_id] && (
+                                    {/* Always visible, not just once played — Bonus Card points
+                                        land in the same Tot column as every GW row above, so
+                                        anyone adding that column by eye should see this row is
+                                        part of the total, whether it's scored yet or still to
+                                        come. */}
+                                    {showBonusCard && (
                                       <tr style={{ color: 'rgba(255,255,255,0.5)' }}>
                                         <td className="py-1 pr-1 uppercase" colSpan={7}>
-                                          {bonusCardName} — {bonusCardPlayByUser[player.user_id].playerName}
-                                          {' — GW'}{allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}
+                                          {bonusCardName}
+                                          {bonusCardPlayByUser[player.user_id] ? (
+                                            <>
+                                              {' — '}{bonusCardPlayByUser[player.user_id].playerName}
+                                              {' — GW'}{allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}
+                                            </>
+                                          ) : ' — Not yet played'}
                                         </td>
                                         <td className="py-1 text-right font-black" style={{ color: 'var(--pop-blue)' }}>
-                                          {bonusCardPlayByUser[player.user_id].points != null ? `+${bonusCardPlayByUser[player.user_id].points}` : '—'}
+                                          {bonusCardPlayByUser[player.user_id]?.points != null ? `+${bonusCardPlayByUser[player.user_id].points}` : '—'}
                                         </td>
                                       </tr>
                                     )}
