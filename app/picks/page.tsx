@@ -1096,6 +1096,10 @@ export default function PicksPage() {
                     {wizardStep === 'player1' && (
                       <div>
                         <p className="pop-headline text-xl mb-3 text-center">Pick Player 1</p>
+                        <p className="text-center mb-3" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>
+                          Check whether your players are <em>likely</em> to play this week{' '}
+                          <a href="https://www.fantasyfootballscout.co.uk/team-news" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--pop-blue)' }}>here</a>.
+                        </p>
                         {player1 ? (
                           <>
                             <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5 mb-3" style={{ border: '2px solid var(--pop-green)', boxShadow: '0 0 16px rgba(204,250,0,0.4)' }}>
@@ -1208,6 +1212,10 @@ export default function PicksPage() {
                     {wizardStep === 'player2' && (
                       <div>
                         <p className="pop-headline text-xl mb-3 text-center">Pick Player 2</p>
+                        <p className="text-center mb-3" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>
+                          Check whether your players are <em>likely</em> to play this week{' '}
+                          <a href="https://www.fantasyfootballscout.co.uk/team-news" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--pop-blue)' }}>here</a>.
+                        </p>
                         {player2 ? (
                           <>
                             <div className="pop-pop-in flex items-center justify-between rounded-lg p-2.5 mb-3" style={{ border: '2px solid var(--pop-green)', boxShadow: '0 0 16px rgba(204,250,0,0.4)' }}>
@@ -1722,6 +1730,11 @@ export default function PicksPage() {
                       })}
                     </div>
                   )}
+
+                  <p className="text-xs text-[#F5ECD9]/50 mb-2">
+                    Check whether your players are <em>likely</em> to play this week{' '}
+                    <a href="https://www.fantasyfootballscout.co.uk/team-news" target="_blank" rel="noopener noreferrer" className="underline text-[#D9A441]">here</a>.
+                  </p>
 
                   <div className="grid md:grid-cols-2 gap-4 mb-5">
                     <div>
