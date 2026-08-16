@@ -45,6 +45,12 @@ export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0
   const shirtPath = "M8 2 L11 2 L12 4 L16 4 L17 2 L20 2 L26 7 L23 11 L20 9 L20 24 L8 24 L8 9 L5 11 L2 7 Z"
 
   const clipId = `kit-clip-${pattern}-${colour1.replace('#', '')}-${colour2.replace('#', '')}`
+  // Its own id, same colour-qualified reasoning as clipId — a page can
+  // render many badges at once (Leaderboard, Wall), and SVG id references
+  // resolve to the first matching id anywhere in the document, so an
+  // unqualified id would make every fade badge after the first show the
+  // first badge's colours instead of its own.
+  const gradientId = `kit-fade-${colour1.replace('#', '')}-${colour2.replace('#', '')}`
 
   function renderFill() {
     switch (pattern) {
@@ -186,6 +192,39 @@ export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0
           <g clipPath={`url(#${clipId})`}>
             <rect x="0" y="0" width="28" height="28" fill={colour1} />
             <polygon points="3,2 7,2 14,17 21,2 25,2 14,23" fill={colour2} />
+          </g>
+        )
+
+      case 'fade':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={colour1} />
+                <stop offset="100%" stopColor={colour2} />
+              </linearGradient>
+            </defs>
+            <rect x="0" y="0" width="28" height="28" fill={`url(#${gradientId})`} />
+          </g>
+        )
+
+      case 'centre-stripe':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <rect x="11" y="0" width="6" height="28" fill={colour2} />
+          </g>
+        )
+
+      case 'polka':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            {Array.from({ length: 5 }).map((_, row) =>
+              Array.from({ length: 4 }).map((_, col) => (
+                <circle key={`${row}-${col}`} cx={col * 7 + (row % 2 === 0 ? 3.5 : 7)} cy={row * 6 + 2} r="1.8" fill={colour2} />
+              ))
+            )}
           </g>
         )
 

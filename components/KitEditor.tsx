@@ -21,6 +21,9 @@ const PATTERNS = [
   { value: 'lightning', label: 'Lightning Bolt' },
   { value: 'zigzag', label: 'Zigzag Pinstripes' },
   { value: 'v-stripe', label: 'Big V' },
+  { value: 'fade', label: 'Gradient Fade' },
+  { value: 'centre-stripe', label: 'Centre Stripe' },
+  { value: 'polka', label: 'Polka Dot' },
 ]
 
 // Ordered as a genuine spectrum, both across and within groups: group order
@@ -53,6 +56,13 @@ const SWATCHES = SWATCH_GROUPS[0].colours.map((_, shadeIndex) => SWATCH_GROUPS.m
 const SWATCH_GRID_COLUMNS = SWATCH_GROUPS.length
 
 type Kit = { pattern: string; colour1: string; colour2: string; colour3: string | null }
+type TabKey = 'pattern' | 'colour1' | 'colour2' | 'trim'
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'pattern', label: 'Pattern' },
+  { key: 'colour1', label: 'Colour 1' },
+  { key: 'colour2', label: 'Colour 2' },
+  { key: 'trim', label: 'Trim' },
+]
 
 // Shared by the Settings page's "Your Kit" card and the header's click-the-
 // shirt popup — one editor, one save/shuffle implementation, so the two
@@ -84,6 +94,11 @@ export default function KitEditor({
   const [message, setMessage] = useState('')
   const [shuffleSpin, setShuffleSpin] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
+  // Which of the 4 customisation sections is showing — with 15 patterns
+  // and three 60-swatch colour pickers, showing all four stacked at once
+  // made this a very long scroll. One section visible at a time instead,
+  // switched via the tab row below.
+  const [activeTab, setActiveTab] = useState<TabKey>('pattern')
 
   const supabase = createClient()
 
@@ -275,65 +290,102 @@ export default function KitEditor({
         </button>
       </div>
 
-      <div className={sectionClass}>
-        <p className={labelClass} style={labelStyle}>Pattern</p>
-        <div className="grid grid-cols-3 gap-2">
-          {PATTERNS.map(p => {
-            const selected = kitPattern === p.value
-            return (
-              <button
-                key={p.value}
-                onClick={() => setKitPattern(p.value)}
-                className={isPopArt
-                  ? `flex flex-col items-center gap-1 p-2 rounded-lg text-xs ${selected ? 'pop-pop-in' : ''}`
-                  : `flex flex-col items-center gap-1 p-2 rounded border text-xs ${selected ? 'border-[#D9A441] bg-[#D9A441]/10 font-bold' : 'border-white/10'}`}
-                style={isPopArt ? {
-                  border: selected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
-                  boxShadow: selected ? '0 0 14px rgba(204,250,0,0.4)' : 'none',
-                  background: selected ? 'rgba(204,250,0,0.12)' : 'transparent',
-                  color: 'var(--pop-white)',
-                } : undefined}
-              >
-                <KitBadge pattern={p.value} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} size={28} />
-                {!compact && <span className="text-center">{p.label}</span>}
-              </button>
-            )
-          })}
+      <div className="grid grid-cols-4 gap-1.5 mb-3">
+        {TABS.map(t => {
+          const active = activeTab === t.key
+          const previewColour = t.key === 'colour1' ? kitColour1 : t.key === 'colour2' ? kitColour2 : t.key === 'trim' ? kitColour3 : null
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setActiveTab(t.key)}
+              className={isPopArt
+                ? 'flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-wide'
+                : `flex flex-col items-center gap-1 py-2 rounded border text-[10px] font-bold uppercase tracking-wide ${active ? 'border-[#D9A441] bg-[#D9A441]/10 text-[#D9A441]' : 'border-white/10 text-[#F5ECD9]/50'}`}
+              style={isPopArt ? {
+                border: active ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
+                boxShadow: active ? '0 0 14px rgba(204,250,0,0.4)' : 'none',
+                background: active ? 'rgba(204,250,0,0.12)' : 'transparent',
+                color: active ? 'var(--pop-green)' : 'rgba(255,255,255,0.55)',
+              } : undefined}
+            >
+              {t.key === 'pattern' ? (
+                <KitBadge pattern={kitPattern} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} size={18} />
+              ) : previewColour ? (
+                <span className="rounded-full shrink-0" style={{ width: 16, height: 16, background: previewColour, border: '1.5px solid rgba(255,255,255,0.3)' }} />
+              ) : (
+                <span className="rounded-full shrink-0 flex items-center justify-center" style={{ width: 16, height: 16, border: '1.5px dashed currentColor', fontSize: 8 }}>✕</span>
+              )}
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {activeTab === 'pattern' && (
+        <div className={sectionClass}>
+          <div className="grid grid-cols-3 gap-2">
+            {PATTERNS.map(p => {
+              const selected = kitPattern === p.value
+              return (
+                <button
+                  key={p.value}
+                  onClick={() => setKitPattern(p.value)}
+                  className={isPopArt
+                    ? `flex flex-col items-center gap-1 p-2 rounded-lg text-xs ${selected ? 'pop-pop-in' : ''}`
+                    : `flex flex-col items-center gap-1 p-2 rounded border text-xs ${selected ? 'border-[#D9A441] bg-[#D9A441]/10 font-bold' : 'border-white/10'}`}
+                  style={isPopArt ? {
+                    border: selected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
+                    boxShadow: selected ? '0 0 14px rgba(204,250,0,0.4)' : 'none',
+                    background: selected ? 'rgba(204,250,0,0.12)' : 'transparent',
+                    color: 'var(--pop-white)',
+                  } : undefined}
+                >
+                  <KitBadge pattern={p.value} colour1={kitColour1} colour2={kitColour2} colour3={kitColour3} size={28} />
+                  {!compact && <span className="text-center">{p.label}</span>}
+                </button>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className={sectionClass}>
-        <p className={labelClass} style={labelStyle}>Colour 1</p>
-        <SwatchPicker selected={kitColour1} onSelect={setKitColour1} />
-      </div>
-
-      <div className={sectionClass}>
-        <p className={labelClass} style={labelStyle}>Colour 2</p>
-        <SwatchPicker selected={kitColour2} onSelect={setKitColour2} />
-      </div>
-
-      <div className={sectionClass}>
-        <p className={labelClass} style={labelStyle}>Trim (collar &amp; cuffs, optional)</p>
-        <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-          <button
-            onClick={() => setKitColour3(null)}
-            className={isPopArt
-              ? `${swatchSize} rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${kitColour3 === null ? 'pop-pop-in' : ''}`
-              : `${swatchSize} rounded-full border-2 flex items-center justify-center text-[#F5ECD9]/60 ${kitColour3 === null ? 'border-[#D9A441]' : 'border-white/10'}`}
-            style={isPopArt ? {
-              background: 'transparent',
-              color: 'var(--pop-white)',
-              border: kitColour3 === null ? '3px solid var(--pop-green)' : '3px solid rgba(255,255,255,0.2)',
-              boxShadow: kitColour3 === null ? '0 0 12px rgba(204,250,0,0.6)' : 'none',
-            } : { backgroundColor: 'transparent' }}
-            title="No trim"
-          >
-            ✕
-          </button>
-          {isPopArt && <span className="text-[9px] uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>No trim</span>}
+      {activeTab === 'colour1' && (
+        <div className={sectionClass}>
+          <SwatchPicker selected={kitColour1} onSelect={setKitColour1} />
         </div>
-        <SwatchPicker selected={kitColour3 ?? ''} onSelect={setKitColour3} />
-      </div>
+      )}
+
+      {activeTab === 'colour2' && (
+        <div className={sectionClass}>
+          <SwatchPicker selected={kitColour2} onSelect={setKitColour2} />
+        </div>
+      )}
+
+      {activeTab === 'trim' && (
+        <div className={sectionClass}>
+          <p className={labelClass} style={labelStyle}>Trim (collar &amp; cuffs, optional)</p>
+          <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+            <button
+              onClick={() => setKitColour3(null)}
+              className={isPopArt
+                ? `${swatchSize} rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${kitColour3 === null ? 'pop-pop-in' : ''}`
+                : `${swatchSize} rounded-full border-2 flex items-center justify-center text-[#F5ECD9]/60 ${kitColour3 === null ? 'border-[#D9A441]' : 'border-white/10'}`}
+              style={isPopArt ? {
+                background: 'transparent',
+                color: 'var(--pop-white)',
+                border: kitColour3 === null ? '3px solid var(--pop-green)' : '3px solid rgba(255,255,255,0.2)',
+                boxShadow: kitColour3 === null ? '0 0 12px rgba(204,250,0,0.6)' : 'none',
+              } : { backgroundColor: 'transparent' }}
+              title="No trim"
+            >
+              ✕
+            </button>
+            {isPopArt && <span className="text-[9px] uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>No trim</span>}
+          </div>
+          <SwatchPicker selected={kitColour3 ?? ''} onSelect={setKitColour3} />
+        </div>
+      )}
 
       {message && (
         isPopArt ? (

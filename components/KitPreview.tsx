@@ -37,6 +37,8 @@ export default function KitPreview({ pattern, colour1, colour2, colour3, stars =
   const rightSockPath = "M15 34 L19 34 L19 46 L15 46 Z"
 
   const shirtClipId = `preview-shirt-${pattern}-${colour1.replace('#', '')}-${colour2.replace('#', '')}`
+  // Same colour-qualified reasoning as shirtClipId — see KitBadge.
+  const gradientId = `preview-fade-${colour1.replace('#', '')}-${colour2.replace('#', '')}`
 
   function renderShirtFill() {
     switch (pattern) {
@@ -165,6 +167,36 @@ export default function KitPreview({ pattern, colour1, colour2, colour3, stars =
           <g clipPath={`url(#${shirtClipId})`}>
             <rect x="0" y="0" width="28" height="28" fill={colour1} />
             <polygon points="3,2 7,2 14,17 21,2 25,2 14,23" fill={colour2} />
+          </g>
+        )
+      case 'fade':
+        return (
+          <g clipPath={`url(#${shirtClipId})`}>
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={colour1} />
+                <stop offset="100%" stopColor={colour2} />
+              </linearGradient>
+            </defs>
+            <rect x="0" y="0" width="28" height="28" fill={`url(#${gradientId})`} />
+          </g>
+        )
+      case 'centre-stripe':
+        return (
+          <g clipPath={`url(#${shirtClipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <rect x="11" y="0" width="6" height="28" fill={colour2} />
+          </g>
+        )
+      case 'polka':
+        return (
+          <g clipPath={`url(#${shirtClipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            {Array.from({ length: 5 }).map((_, row) =>
+              Array.from({ length: 4 }).map((_, col) => (
+                <circle key={`${row}-${col}`} cx={col * 7 + (row % 2 === 0 ? 3.5 : 7)} cy={row * 6 + 2} r="1.8" fill={colour2} />
+              ))
+            )}
           </g>
         )
       case 'solid':
