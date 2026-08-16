@@ -1030,43 +1030,70 @@ export default function PicksPage() {
                       const homeRing = getQuartileRingColor(fixture.home_team_id)
                       const awayRing = getQuartileRingColor(fixture.away_team_id)
                       return (
-                        <div key={fixture.id} className="pop-panel p-2.5 sm:p-3 grid grid-cols-2 gap-2.5 sm:gap-3">
-                          <button
-                            onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
-                            disabled={homeStatus.isUsed && !homeSelected}
-                            className={`pop-select-btn rounded-lg p-2.5 sm:p-3 flex flex-col items-center justify-between text-center gap-1.5 h-28 sm:h-36 ${homeSelected ? 'pop-pop-in' : ''}`}
+                        <div key={fixture.id} className="pop-panel p-1.5 sm:p-2 relative">
+                          <div className="flex flex-col gap-1">
+                            <button
+                              onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
+                              disabled={homeStatus.isUsed && !homeSelected}
+                              className={`pop-select-btn rounded-lg p-2 flex items-center gap-2.5 text-left ${homeSelected ? 'pop-pop-in' : ''}`}
+                              style={{
+                                border: homeSelected ? '2px solid var(--pop-green)' : homeStatus.isUsed ? '2px solid rgba(255,255,255,0.15)' : `2px solid ${homeRing ?? 'rgba(255,255,255,0.15)'}`,
+                                boxShadow: homeSelected ? '0 0 20px rgba(204,250,0,0.5)' : 'none',
+                                background: homeSelected ? 'var(--pop-green)' : homeStatus.isUsed ? '#111111' : homeRing ? `color-mix(in srgb, ${homeRing} 10%, transparent)` : 'transparent',
+                                color: homeSelected ? 'var(--pop-black)' : homeStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
+                              }}
+                            >
+                              <TeamCrest teamId={homeTeam?.id ?? null} teamName={teamDisplayName(homeTeam)} size={34} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-black text-xs uppercase truncate">{teamDisplayName(homeTeam)}</span>
+                                  {homeQ && <span className={`pop-badge ${popQuartileBadgeClass[homeQ] ?? ''} px-1.5 py-0.5 text-[8px]`}>{homeQ}</span>}
+                                </div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-mono text-[8px]" style={{ color: homeSelected ? 'rgba(0,0,0,0.6)' : homeStatus.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.55)' }}>{homeStatus.isUsed ? 'used' : `${homeStatus.remaining}/${homeStatus.maxUses} left`}</span>
+                                  <span className="font-mono text-[9px] font-bold">WIN +{homeWD.win} · DRAW +{homeWD.draw}</span>
+                                </div>
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => !awayStatus.isUsed && selectTeamInFixture(fixture.away_team_id, fixture.id)}
+                              disabled={awayStatus.isUsed && !awaySelected}
+                              className={`pop-select-btn rounded-lg p-2 flex items-center gap-2.5 text-left ${awaySelected ? 'pop-pop-in' : ''}`}
+                              style={{
+                                border: awaySelected ? '2px solid var(--pop-green)' : awayStatus.isUsed ? '2px solid rgba(255,255,255,0.15)' : `2px solid ${awayRing ?? 'rgba(255,255,255,0.15)'}`,
+                                boxShadow: awaySelected ? '0 0 20px rgba(204,250,0,0.5)' : 'none',
+                                background: awaySelected ? 'var(--pop-green)' : awayStatus.isUsed ? '#111111' : awayRing ? `color-mix(in srgb, ${awayRing} 10%, transparent)` : 'transparent',
+                                color: awaySelected ? 'var(--pop-black)' : awayStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
+                              }}
+                            >
+                              <TeamCrest teamId={awayTeam?.id ?? null} teamName={teamDisplayName(awayTeam)} size={34} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-black text-xs uppercase truncate">{teamDisplayName(awayTeam)}</span>
+                                  {awayQ && <span className={`pop-badge ${popQuartileBadgeClass[awayQ] ?? ''} px-1.5 py-0.5 text-[8px]`}>{awayQ}</span>}
+                                </div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-mono text-[8px]" style={{ color: awaySelected ? 'rgba(0,0,0,0.6)' : awayStatus.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.55)' }}>{awayStatus.isUsed ? 'used' : `${awayStatus.remaining}/${awayStatus.maxUses} left`}</span>
+                                  <span className="font-mono text-[9px] font-bold">WIN +{awayWD.win} · DRAW +{awayWD.draw}</span>
+                                </div>
+                              </div>
+                            </button>
+                          </div>
+                          <span
+                            className="absolute left-1/2 top-1/2 flex items-center justify-center font-black uppercase pointer-events-none"
                             style={{
-                              border: homeSelected ? '2px solid var(--pop-green)' : homeStatus.isUsed ? '2px solid rgba(255,255,255,0.15)' : `2px solid ${homeRing ?? 'rgba(255,255,255,0.15)'}`,
-                              boxShadow: homeSelected ? '0 0 20px rgba(204,250,0,0.5)' : 'none',
-                              background: homeSelected ? 'var(--pop-green)' : homeStatus.isUsed ? '#111111' : homeRing ? `color-mix(in srgb, ${homeRing} 10%, transparent)` : 'transparent',
-                              color: homeSelected ? 'var(--pop-black)' : homeStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
+                              width: 24, height: 24, fontSize: '8px',
+                              transform: 'translate(-50%, -50%)',
+                              borderRadius: '999px',
+                              background: 'var(--pop-orange)',
+                              color: 'var(--pop-black)',
+                              border: '2px solid var(--pop-black)',
+                              boxShadow: '0 0 0 2px rgba(255,255,255,0.2)',
+                              zIndex: 1,
                             }}
                           >
-                            <TeamCrest teamId={homeTeam?.id ?? null} teamName={teamDisplayName(homeTeam)} size={52} />
-                            <div className="flex items-center gap-1.5 flex-wrap justify-center min-h-[18px]">
-                              {homeQ && <span className={`pop-badge ${popQuartileBadgeClass[homeQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{homeQ}</span>}
-                              <span className="font-mono text-[9px]" style={{ color: homeSelected ? 'rgba(0,0,0,0.6)' : homeStatus.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.55)' }}>{homeStatus.isUsed ? 'used' : `${homeStatus.remaining}/${homeStatus.maxUses} left`}</span>
-                            </div>
-                            <p className="font-mono text-[10px] font-bold">WIN +{homeWD.win} · DRAW +{homeWD.draw}</p>
-                          </button>
-                          <button
-                            onClick={() => !awayStatus.isUsed && selectTeamInFixture(fixture.away_team_id, fixture.id)}
-                            disabled={awayStatus.isUsed && !awaySelected}
-                            className={`pop-select-btn rounded-lg p-2.5 sm:p-3 flex flex-col items-center justify-between text-center gap-1.5 h-28 sm:h-36 ${awaySelected ? 'pop-pop-in' : ''}`}
-                            style={{
-                              border: awaySelected ? '2px solid var(--pop-green)' : awayStatus.isUsed ? '2px solid rgba(255,255,255,0.15)' : `2px solid ${awayRing ?? 'rgba(255,255,255,0.15)'}`,
-                              boxShadow: awaySelected ? '0 0 20px rgba(204,250,0,0.5)' : 'none',
-                              background: awaySelected ? 'var(--pop-green)' : awayStatus.isUsed ? '#111111' : awayRing ? `color-mix(in srgb, ${awayRing} 10%, transparent)` : 'transparent',
-                              color: awaySelected ? 'var(--pop-black)' : awayStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
-                            }}
-                          >
-                            <TeamCrest teamId={awayTeam?.id ?? null} teamName={teamDisplayName(awayTeam)} size={52} />
-                            <div className="flex items-center gap-1.5 flex-wrap justify-center min-h-[18px]">
-                              {awayQ && <span className={`pop-badge ${popQuartileBadgeClass[awayQ] ?? ''} px-1.5 py-0.5 text-[9px]`}>{awayQ}</span>}
-                              <span className="font-mono text-[9px]" style={{ color: awaySelected ? 'rgba(0,0,0,0.6)' : awayStatus.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.55)' }}>{awayStatus.isUsed ? 'used' : `${awayStatus.remaining}/${awayStatus.maxUses} left`}</span>
-                            </div>
-                            <p className="font-mono text-[10px] font-bold">WIN +{awayWD.win} · DRAW +{awayWD.draw}</p>
-                          </button>
+                            vs
+                          </span>
                         </div>
                       )
                     })}
