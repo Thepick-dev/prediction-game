@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '../lib/supabase-server'
 import { createAdminSupabaseClient } from '../lib/supabase-admin'
+import { pastDeadlineGameweekIds } from '../lib/pastDeadlineGameweeks'
 import Link from 'next/link'
 import ThemeToggleControl from './components/theme-toggle-control'
 
@@ -11,11 +12,14 @@ import ThemeToggleControl from './components/theme-toggle-control'
 // admin check is needed here beyond that.
 async function loadPendingSummary() {
   const admin = createAdminSupabaseClient()
+  const pastGwIds = await pastDeadlineGameweekIds(admin)
   const [profiles, resets, usernames, comments, replies, standaloneComments, standaloneReplies] = await Promise.all([
     admin.from('profiles').select('id', { count: 'exact', head: true }).eq('approved', false),
     admin.from('password_reset_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     admin.from('username_change_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-    admin.from('picks').select('id', { count: 'exact', head: true }).eq('wall_status', 'pending').not('comments', 'is', null).neq('comments', ''),
+    pastGwIds.length > 0
+      ? admin.from('picks').select('id', { count: 'exact', head: true }).eq('wall_status', 'pending').not('comments', 'is', null).neq('comments', '').in('gameweek_id', pastGwIds)
+      : Promise.resolve({ count: 0 } as { count: number }),
     admin.from('wall_replies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     admin.from('wall_comments').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     admin.from('wall_comment_replies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),

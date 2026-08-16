@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '../../../lib/supabase-server'
 import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { requireAdmin } from '../../../lib/require-admin'
+import { pastDeadlineGameweekIds } from '../../../lib/pastDeadlineGameweeks'
 import { NextResponse } from 'next/server'
 
 // Powers the little red counter on the Admin nav link, so the admin can
@@ -19,12 +20,15 @@ export async function GET() {
   if (!admin) return NextResponse.json({ count: 0 })
 
   const service = createAdminSupabaseClient()
+  const pastGwIds = await pastDeadlineGameweekIds(service)
 
   const counts = await Promise.all([
     service.from('profiles').select('id', { count: 'exact', head: true }).eq('approved', false),
     service.from('password_reset_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     service.from('username_change_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-    service.from('picks').select('id', { count: 'exact', head: true }).eq('wall_status', 'pending').not('comments', 'is', null).neq('comments', ''),
+    pastGwIds.length > 0
+      ? service.from('picks').select('id', { count: 'exact', head: true }).eq('wall_status', 'pending').not('comments', 'is', null).neq('comments', '').in('gameweek_id', pastGwIds)
+      : Promise.resolve({ count: 0 } as { count: number }),
     service.from('wall_replies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     service.from('wall_comments').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     service.from('wall_comment_replies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),

@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { createAdminSupabaseClient } from '../../lib/supabase-admin'
 import { requireAdmin } from '../../lib/require-admin'
+import { pastDeadlineGameweekIds } from '../../lib/pastDeadlineGameweeks'
 import { redirect } from 'next/navigation'
 
 // Uses the admin/service-role client for every write here (not the regular
@@ -26,12 +27,20 @@ async function requireAdminAction() {
 export default async function WallModerationPage() {
   const supabase = await createServerSupabaseClient()
 
-  const { data: pendingPicks } = await supabase
+  // A pick comment only becomes visible for moderation once its gameweek's
+  // deadline has passed — showing it earlier would let admin indirectly
+  // see that someone has picked (and often what they said about it)
+  // before anyone else can, breaking the same rule that hides picks from
+  // every other player. Comments for the still-open gameweek simply wait
+  // here as 'pending' until the deadline passes, then appear as normal.
+  const pastGwIds = await pastDeadlineGameweekIds(supabase)
+  const { data: pendingPicks } = pastGwIds.length > 0 ? await supabase
     .from('picks')
     .select('id, user_id, comments, gameweek_id, competition_id')
     .eq('wall_status', 'pending')
     .not('comments', 'is', null)
     .neq('comments', '')
+    .in('gameweek_id', pastGwIds) : { data: [] }
 
   const { data: pendingReplies } = await supabase
     .from('wall_replies')
