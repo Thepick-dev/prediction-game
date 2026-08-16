@@ -9,6 +9,7 @@ import PopArtLoading from '../../components/PopArtLoading'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import { RULES_TEXT } from '../lib/rulesText'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
+import RulesTLDRShareCard from '../../components/RulesTLDRShareCard'
 
 const DIFFS = [-3, -2, -1, 0, 1, 2, 3]
 const DIFF_LABELS = ['3↓', '2↓', '1↓', '=', '1↑', '2↑', '3↑']
@@ -27,9 +28,11 @@ export default function RulesPage() {
   const [assistPts, setAssistPts] = useState(6)
   const [aonExclusions, setAonExclusions] = useState<{ name: string; reason: string }[]>([])
   const [bonusCardEnabled, setBonusCardEnabled] = useState(false)
+  const [bonusCardConfigured, setBonusCardConfigured] = useState(false)
   const [bonusCardName, setBonusCardName] = useState<string | null>(null)
   const [botEnabled, setBotEnabled] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [showTLDR, setShowTLDR] = useState(false)
 
   const supabase = createClient()
   const { popArt } = usePopArtTheme(user?.id)
@@ -71,6 +74,7 @@ export default function RulesPage() {
       setAssistPts(playerRules?.find(r => r.event_type === 'assist')?.points ?? 6)
 
       setBonusCardEnabled(!!competition.bonus_card_enabled)
+      setBonusCardConfigured(competition.bonus_card_player_id != null)
       if (competition.bonus_card_player_id != null) {
         const { data: player } = await supabase.from('players').select('id, name, web_name, team_id').eq('id', competition.bonus_card_player_id).single()
         if (player) {
@@ -108,10 +112,16 @@ export default function RulesPage() {
 
   if (popArt) {
     return (
+      <>
       <Shell active="RULES" user={user} displayName={displayName} theme="pop-art">
         <div className="pop-art-theme">
 
-          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-6 mt-2">Rules</h1>
+          <div className="flex items-start justify-between gap-3 flex-wrap mb-6 mt-2">
+            <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">Rules</h1>
+            <button onClick={() => setShowTLDR(true)} className="pop-button pop-button--blue px-3 py-1.5 text-xs">
+              📱 TL;DR
+            </button>
+          </div>
 
           <div className="space-y-5">
 
@@ -276,17 +286,35 @@ export default function RulesPage() {
 
         </div>
       </Shell>
+      {showTLDR && (
+        <RulesTLDRShareCard
+          bonusCardName={bonusCardName}
+          showBonusCard={bonusCardConfigured}
+          onClose={() => setShowTLDR(false)}
+          popArt
+        />
+      )}
+      </>
     )
   }
 
   const cardClass = "bg-white/5 border border-white/10 rounded-lg p-6"
 
   return (
+    <>
     <Shell active="RULES" user={user} displayName={displayName}>
       <HeroPage wide>
         <div className="w-full text-[#F5ECD9]">
 
-          <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Rules</h1>
+          <div className="flex items-start justify-between gap-3 flex-wrap mb-8">
+            <h1 className="text-3xl font-bold" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Rules</h1>
+            <button
+              onClick={() => setShowTLDR(true)}
+              className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded border border-[#D9A441]/50 text-[#D9A441] hover:bg-[#D9A441]/10 transition-colors"
+            >
+              📱 TL;DR
+            </button>
+          </div>
 
           <div className="space-y-6">
 
@@ -452,5 +480,13 @@ export default function RulesPage() {
         </div>
       </HeroPage>
     </Shell>
+    {showTLDR && (
+      <RulesTLDRShareCard
+        bonusCardName={bonusCardName}
+        showBonusCard={bonusCardConfigured}
+        onClose={() => setShowTLDR(false)}
+      />
+    )}
+    </>
   )
 }
