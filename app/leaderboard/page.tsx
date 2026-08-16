@@ -77,6 +77,7 @@ export default function LeaderboardPage() {
   const [competition, setCompetition] = useState<any>(null)
   const [ranked, setRanked] = useState<RankedPlayer[]>([])
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
+  const [teamsExpandedUsers, setTeamsExpandedUsers] = useState<Set<string>>(new Set())
   const [pickDetails, setPickDetails] = useState<Record<string, PickDetail[]>>({})
   const [allGameweeks, setAllGameweeks] = useState<{ id: string; number: number; deadline: string }[]>([])
   const [matchEvents, setMatchEvents] = useState<any[]>([])
@@ -857,7 +858,8 @@ export default function LeaderboardPage() {
                               {/* Bold status cards, not small stat text — Banker/AoN/Bonus
                                   Card are big parts of the game and should read that way.
                                   Best Gameweek moved to the Full Table page only. */}
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                              <p className="sec-label">This Season</p>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
                                 <div className="rounded-lg p-2.5 text-center" style={{ background: (bankersUsedByPlayer[player.user_id] ?? 0) > 0 ? 'rgba(250,97,0,0.18)' : 'rgba(255,255,255,0.04)', border: '1px solid rgba(250,97,0,0.4)' }}>
                                   <p className="text-[9px] uppercase tracking-widest font-black mb-0.5" style={{ color: 'var(--pop-orange)' }}>★ Banker</p>
                                   <p className="text-sm font-black" style={{ color: 'var(--pop-white)' }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} / 2 left</p>
@@ -878,15 +880,26 @@ export default function LeaderboardPage() {
                                 )}
                               </div>
 
-                              <button onClick={() => setShowSeasonShareFor(player.user_id)} className="pop-button pop-button--blue px-3 py-1.5 text-xs mb-4">
-                                📱 Share {isOwnRow ? 'My' : `${player.display_name}'s`} Season
-                              </button>
+                              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                                <button onClick={() => setShowSeasonShareFor(player.user_id)} className="pop-button pop-button--blue px-3 py-1.5 text-xs">
+                                  📱 Share {isOwnRow ? 'My' : `${player.display_name}'s`} Season
+                                </button>
+                                {isOwnRow && !rivalByUser[player.user_id] && (
+                                  <button
+                                    onClick={() => setRivalPickerFor(rivalPickerFor === player.user_id ? null : player.user_id)}
+                                    className="pop-button px-3 py-1.5 text-xs"
+                                    style={{ background: 'var(--pop-red)' }}
+                                  >
+                                    Pick a Rival
+                                  </button>
+                                )}
+                              </div>
 
                               {/* Rivalry — a quiet, fully public line. You can set/change/
                                   remove yours from your own row; anyone's shows on theirs. */}
-                              <div className="mb-4" style={{ fontSize: '11px' }}>
-                                {isOwnRow ? (
-                                  rivalByUser[player.user_id] ? (
+                              {(rivalByUser[player.user_id] || rivalPickerFor === player.user_id) && (
+                                <div className="mb-4" style={{ fontSize: '11px' }}>
+                                  {rivalByUser[player.user_id] && (
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <span style={{ color: 'rgba(255,255,255,0.6)' }}>
                                         Rivalry — vs <strong style={{ color: 'var(--pop-white)' }}>{ranked.find(p => p.user_id === rivalByUser[player.user_id])?.display_name ?? 'Unknown'}</strong>:{' '}
@@ -896,45 +909,31 @@ export default function LeaderboardPage() {
                                           return <strong style={{ color: diff >= 0 ? 'var(--pop-green)' : 'var(--pop-red)' }}>{diff >= 0 ? `+${diff}` : diff}</strong>
                                         })()}
                                       </span>
-                                      <button onClick={removeRival} disabled={savingRival} className="font-mono text-[10px] underline" style={{ color: 'rgba(255,255,255,0.4)' }}>Remove</button>
-                                      <button onClick={() => setRivalPickerFor(rivalPickerFor === player.user_id ? null : player.user_id)} className="font-mono text-[10px] underline" style={{ color: 'rgba(255,255,255,0.4)' }}>Change</button>
+                                      {isOwnRow && (
+                                        <>
+                                          <button onClick={removeRival} disabled={savingRival} className="font-mono text-[10px] underline" style={{ color: 'rgba(255,255,255,0.4)' }}>Remove</button>
+                                          <button onClick={() => setRivalPickerFor(rivalPickerFor === player.user_id ? null : player.user_id)} className="font-mono text-[10px] underline" style={{ color: 'rgba(255,255,255,0.4)' }}>Change</button>
+                                        </>
+                                      )}
                                     </div>
-                                  ) : (
-                                    <button
-                                      onClick={() => setRivalPickerFor(rivalPickerFor === player.user_id ? null : player.user_id)}
-                                      className="pop-button px-3 py-1.5 text-xs"
-                                      style={{ background: 'var(--pop-red)' }}
-                                    >
-                                      Pick a Rival
-                                    </button>
-                                  )
-                                ) : (
-                                  rivalByUser[player.user_id] && (
-                                    <span style={{ color: 'rgba(255,255,255,0.5)' }}>
-                                      Rivalry — vs {ranked.find(p => p.user_id === rivalByUser[player.user_id])?.display_name ?? 'Unknown'}:{' '}
-                                      {(() => {
-                                        const rivalPoints = ranked.find(p => p.user_id === rivalByUser[player.user_id])?.total_points ?? 0
-                                        const diff = player.total_points - rivalPoints
-                                        return <strong style={{ color: diff >= 0 ? 'var(--pop-green)' : 'var(--pop-red)' }}>{diff >= 0 ? `+${diff}` : diff}</strong>
-                                      })()}
-                                    </span>
-                                  )
-                                )}
-                                {rivalPickerFor === player.user_id && (
-                                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                    {ranked.filter(p => p.user_id !== player.user_id).map(p => (
-                                      <button key={p.user_id} onClick={() => setRival(p.user_id)} disabled={savingRival} className="pop-badge px-2 py-1 text-[10px]" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                                        {p.display_name}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
+                                  )}
+                                  {rivalPickerFor === player.user_id && (
+                                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                      {ranked.filter(p => p.user_id !== player.user_id).map(p => (
+                                        <button key={p.user_id} onClick={() => setRival(p.user_id)} disabled={savingRival} className="pop-badge px-2 py-1 text-[10px]" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                                          {p.display_name}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
 
+                              <p className="sec-label">Pick History</p>
                               {allGameweeks.length === 0 ? (
                                 <p className="mb-3" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)' }}>No picks yet.</p>
                               ) : (
-                                <table className="w-full mb-4" style={{ fontSize: '9px' }}>
+                                <table className="w-full mb-1" style={{ fontSize: '9px' }}>
                                   <thead>
                                     <tr className="text-left uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.6)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
                                       <th className="py-1 pr-1">GW</th>
@@ -1041,64 +1040,68 @@ export default function LeaderboardPage() {
                                 </table>
                               )}
 
-                              {/* Its own list entry right after the GW table, not folded into
-                                  a row there — it isn't a per-gameweek thing, it's a once-ever-
-                                  across-the-whole-competition thing. Points here are read-only
-                                  display: already counted exactly once in the Points column
-                                  above, via totals in the data-loading effect — never re-summed
-                                  here. */}
-                              {showBonusCard && (
-                                <div className="flex items-center gap-2 mb-4 p-2 rounded-lg" style={{ background: 'rgba(0,242,250,0.08)', border: '1px solid rgba(0,242,250,0.3)' }}>
-                                  <img
-                                    src="/bonus-card-player.png"
-                                    alt=""
-                                    style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
-                                    onError={e => { e.currentTarget.style.display = 'none' }}
-                                  />
-                                  <div style={{ fontSize: '10px' }}>
-                                    <p className="font-black uppercase" style={{ color: 'var(--pop-blue)' }}>{bonusCardName}</p>
-                                    {bonusCardPlayByUser[player.user_id] ? (
-                                      <p style={{ color: 'rgba(255,255,255,0.7)' }}>
-                                        Played {bonusCardPlayByUser[player.user_id].playerName}
-                                        {' — GW'}{allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}
-                                        {bonusCardPlayByUser[player.user_id].points != null && ` — ${bonusCardPlayByUser[player.user_id].points} pts`}
-                                      </p>
-                                    ) : (
-                                      <p style={{ color: 'rgba(255,255,255,0.5)' }}>Remaining — not yet played</p>
-                                    )}
-                                  </div>
-                                </div>
+                              {/* A single quiet line, not a duplicate box — the top status
+                                  card already says Available/Used, so this only needs to add
+                                  the one thing that card doesn't show: the points. Points here
+                                  are read-only display: already counted exactly once in the
+                                  Points column above, via totals in the data-loading effect —
+                                  never re-summed here. */}
+                              {showBonusCard && bonusCardPlayByUser[player.user_id] && (
+                                <p className="mb-4" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>
+                                  <span style={{ color: 'var(--pop-blue)', fontWeight: 800 }}>{bonusCardName}</span>
+                                  {' — '}{bonusCardPlayByUser[player.user_id].playerName}
+                                  {' — GW'}{allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}
+                                  {bonusCardPlayByUser[player.user_id].points != null && ` — ${bonusCardPlayByUser[player.user_id].points} pts`}
+                                </p>
                               )}
 
-                              <div style={{ fontSize: '9px' }}>
-                                <p className="uppercase tracking-wider font-black mb-1.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                                  Teams ({teamsWithAvailability.filter(t => t.remaining > 0).length} available)
-                                </p>
-                                {teamsWithAvailability.length === 0 ? (
-                                  <p style={{ color: 'rgba(255,255,255,0.6)' }}>No teams.</p>
-                                ) : (
-                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
-                                    {teamsWithAvailability.map(team => {
-                                      const used = team.remaining <= 0
-                                      return (
-                                        <div
-                                          key={team.id}
-                                          className="flex items-center gap-1 rounded px-1.5 py-1 min-w-0"
-                                          style={used
-                                            ? { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', opacity: 0.4 }
-                                            : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}
-                                        >
-                                          <TeamCrest teamId={team.id} teamName={team.name} size={14} />
-                                          <span className="uppercase truncate flex-1 min-w-0">{teamDisplayName(team)}</span>
-                                          {team.isDouble && !used && team.remaining === 2 && (
-                                            <span className="font-black shrink-0" style={{ color: 'var(--pop-orange)' }}>×2</span>
-                                          )}
-                                        </div>
-                                      )
-                                    })}
-                                  </div>
-                                )}
-                              </div>
+                              <p className="sec-label">Teams Used</p>
+                              <button
+                                type="button"
+                                onClick={() => setTeamsExpandedUsers(prev => {
+                                  const next = new Set(prev)
+                                  if (next.has(player.user_id)) next.delete(player.user_id)
+                                  else next.add(player.user_id)
+                                  return next
+                                })}
+                                className="w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2"
+                                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.12)' }}
+                              >
+                                <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--pop-white)' }}>
+                                  {teamsExpandedUsers.has(player.user_id) ? '▾' : '▸'} {teamsWithAvailability.length} teams · {teamsWithAvailability.filter(t => t.remaining <= 0).length} used
+                                </span>
+                                <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>
+                                  {teamsExpandedUsers.has(player.user_id) ? 'Hide' : 'Tap to view'}
+                                </span>
+                              </button>
+                              {teamsExpandedUsers.has(player.user_id) && (
+                                <div className="mt-2" style={{ fontSize: '9px' }}>
+                                  {teamsWithAvailability.length === 0 ? (
+                                    <p style={{ color: 'rgba(255,255,255,0.6)' }}>No teams.</p>
+                                  ) : (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+                                      {teamsWithAvailability.map(team => {
+                                        const used = team.remaining <= 0
+                                        return (
+                                          <div
+                                            key={team.id}
+                                            className="flex items-center gap-1 rounded px-1.5 py-1 min-w-0"
+                                            style={used
+                                              ? { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', opacity: 0.4 }
+                                              : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}
+                                          >
+                                            <TeamCrest teamId={team.id} teamName={team.name} size={14} />
+                                            <span className="uppercase truncate flex-1 min-w-0">{teamDisplayName(team)}</span>
+                                            {team.isDouble && !used && team.remaining === 2 && (
+                                              <span className="font-black shrink-0" style={{ color: 'var(--pop-orange)' }}>×2</span>
+                                            )}
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </td>
                           </tr>
                         )}
