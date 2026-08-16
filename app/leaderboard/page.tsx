@@ -859,21 +859,21 @@ export default function LeaderboardPage() {
                                   Card are big parts of the game and should read that way.
                                   Best Gameweek moved to the Full Table page only. */}
                               <p className="sec-label">This Season</p>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
-                                <div className="rounded-lg p-2.5 text-center" style={{ background: (bankersUsedByPlayer[player.user_id] ?? 0) > 0 ? 'rgba(250,97,0,0.18)' : 'rgba(255,255,255,0.04)', border: '1px solid rgba(250,97,0,0.4)' }}>
-                                  <p className="text-[9px] uppercase tracking-widest font-black mb-0.5" style={{ color: 'var(--pop-orange)' }}>★ Banker</p>
-                                  <p className="text-sm font-black" style={{ color: 'var(--pop-white)' }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} / 2 left</p>
+                              <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mb-3">
+                                <div className="rounded-lg p-1.5 sm:p-2.5 text-center" style={{ background: (bankersUsedByPlayer[player.user_id] ?? 0) > 0 ? 'rgba(250,97,0,0.18)' : 'rgba(255,255,255,0.04)', border: '1px solid rgba(250,97,0,0.4)' }}>
+                                  <p className="text-[8px] sm:text-[9px] uppercase tracking-widest font-black mb-0.5" style={{ color: 'var(--pop-orange)' }}>★ Banker</p>
+                                  <p className="text-[11px] sm:text-sm font-black" style={{ color: 'var(--pop-white)' }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} / 2 left</p>
                                 </div>
-                                <div className="rounded-lg p-2.5 text-center" style={{ background: 'rgba(204,250,0,0.12)', border: '1px solid rgba(204,250,0,0.4)' }}>
-                                  <p className="text-[9px] uppercase tracking-widest font-black mb-0.5 inline-flex items-center justify-center gap-1" style={{ color: 'var(--pop-green)' }}><BoltIcon size={10} color="var(--pop-green)" /> All or Nothing</p>
-                                  <p className="text-sm font-black" style={{ color: 'var(--pop-white)' }}>{aonUsedByPlayer.has(player.user_id) ? 'Used' : 'Available'}</p>
+                                <div className="rounded-lg p-1.5 sm:p-2.5 text-center" style={{ background: 'rgba(204,250,0,0.12)', border: '1px solid rgba(204,250,0,0.4)' }}>
+                                  <p className="text-[8px] sm:text-[9px] uppercase tracking-widest font-black mb-0.5 inline-flex items-center justify-center gap-1" style={{ color: 'var(--pop-green)' }}><BoltIcon size={10} color="var(--pop-green)" /> All or Nothing</p>
+                                  <p className="text-[11px] sm:text-sm font-black" style={{ color: 'var(--pop-white)' }}>{aonUsedByPlayer.has(player.user_id) ? 'Used' : 'Available'}</p>
                                 </div>
                                 {showBonusCard && (
-                                  <div className="rounded-lg p-2.5 text-center" style={{ background: 'rgba(0,242,250,0.1)', border: '1px solid rgba(0,242,250,0.4)' }}>
-                                    <p className="text-[9px] uppercase tracking-widest font-black mb-0.5" style={{ color: 'var(--pop-blue)' }}>{bonusCardName}</p>
-                                    <p className="text-sm font-black" style={{ color: 'var(--pop-white)' }}>
+                                  <div className="rounded-lg p-1.5 sm:p-2.5 text-center" style={{ background: 'rgba(0,242,250,0.1)', border: '1px solid rgba(0,242,250,0.4)' }}>
+                                    <p className="text-[8px] sm:text-[9px] uppercase tracking-widest font-black mb-0.5" style={{ color: 'var(--pop-blue)' }}>{bonusCardName}</p>
+                                    <p className="text-[11px] sm:text-sm font-black" style={{ color: 'var(--pop-white)' }}>
                                       {bonusCardPlayedByUser.has(player.user_id)
-                                        ? `Used${bonusCardPlayByUser[player.user_id] ? ` — GW${allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}` : ''}`
+                                        ? `Used${bonusCardPlayByUser[player.user_id] ? ` — GW${allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}` : ''}${bonusCardPlayByUser[player.user_id]?.points != null ? ` — ${bonusCardPlayByUser[player.user_id].points}pts` : ''}`
                                         : 'Available'}
                                     </p>
                                   </div>
@@ -933,7 +933,7 @@ export default function LeaderboardPage() {
                               {allGameweeks.length === 0 ? (
                                 <p className="mb-3" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)' }}>No picks yet.</p>
                               ) : (
-                                <table className="w-full mb-1" style={{ fontSize: '9px' }}>
+                                <table className="w-full mb-4" style={{ fontSize: '9px' }}>
                                   <thead>
                                     <tr className="text-left uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.6)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
                                       <th className="py-1 pr-1">GW</th>
@@ -1038,21 +1038,6 @@ export default function LeaderboardPage() {
                                     })}
                                   </tbody>
                                 </table>
-                              )}
-
-                              {/* A single quiet line, not a duplicate box — the top status
-                                  card already says Available/Used, so this only needs to add
-                                  the one thing that card doesn't show: the points. Points here
-                                  are read-only display: already counted exactly once in the
-                                  Points column above, via totals in the data-loading effect —
-                                  never re-summed here. */}
-                              {showBonusCard && bonusCardPlayByUser[player.user_id] && (
-                                <p className="mb-4" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>
-                                  <span style={{ color: 'var(--pop-blue)', fontWeight: 800 }}>{bonusCardName}</span>
-                                  {' — '}{bonusCardPlayByUser[player.user_id].playerName}
-                                  {' — GW'}{allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}
-                                  {bonusCardPlayByUser[player.user_id].points != null && ` — ${bonusCardPlayByUser[player.user_id].points} pts`}
-                                </p>
                               )}
 
                               <p className="sec-label">Teams Used</p>
