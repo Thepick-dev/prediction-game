@@ -18,6 +18,9 @@ const PATTERNS = [
   { value: 'checkered', label: 'Checkered' },
   { value: 'diagonal', label: 'Diagonal Halves' },
   { value: 'chest-bands', label: 'Chest Bands' },
+  { value: 'lightning', label: 'Lightning Bolt' },
+  { value: 'zigzag', label: 'Zigzag Pinstripes' },
+  { value: 'v-stripe', label: 'Big V' },
 ]
 
 // Ordered as a genuine spectrum, both across and within groups: group order

@@ -135,6 +135,38 @@ export default function KitPreview({ pattern, colour1, colour2, colour3, stars =
             <rect x="0" y="6.5" width="28" height="1.6" fill={colour2} />
           </g>
         )
+      case 'lightning':
+        return (
+          <g clipPath={`url(#${shirtClipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <polygon points="15,3 9,14 13,14 12,21 19,10 15,10" fill={colour2} />
+          </g>
+        )
+      case 'zigzag':
+        return (
+          <g clipPath={`url(#${shirtClipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            {Array.from({ length: 8 }).map((_, i) => {
+              const x = i * 3.5 + 1
+              return (
+                <polyline
+                  key={i}
+                  points={`${x},0 ${x + 1},3.5 ${x},7 ${x + 1},10.5 ${x},14 ${x + 1},17.5 ${x},21 ${x + 1},24.5 ${x},28`}
+                  fill="none"
+                  stroke={colour2}
+                  strokeWidth="1"
+                />
+              )
+            })}
+          </g>
+        )
+      case 'v-stripe':
+        return (
+          <g clipPath={`url(#${shirtClipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <polygon points="3,2 7,2 14,17 21,2 25,2 14,23" fill={colour2} />
+          </g>
+        )
       case 'solid':
       default:
         return (
