@@ -24,6 +24,18 @@ const PATTERNS = [
   { value: 'fade', label: 'Gradient Fade' },
   { value: 'centre-stripe', label: 'Centre Stripe' },
   { value: 'polka', label: 'Polka Dot' },
+  { value: 'argyle', label: 'Argyle' },
+  { value: 'rings', label: 'Concentric Rings' },
+  { value: 'side-panels', label: 'Side Panels' },
+  { value: 'hem-band', label: 'Hem Band' },
+  { value: 'racing-stripes', label: 'Racing Stripes' },
+  { value: 'shoulder-yoke', label: 'Shoulder Yoke' },
+  { value: 'camo', label: 'Camo' },
+  { value: 'marl', label: 'Marl Speckle' },
+  { value: 'double-diagonal', label: 'Double Diagonal' },
+  { value: 'wavy-halves', label: 'Wavy Halves' },
+  { value: 'sleeve-stripe', label: 'Sleeve Stripe' },
+  { value: 'pixel-noise', label: 'Pixel Noise' },
 ]
 
 // Ordered as a genuine spectrum, both across and within groups: group order
@@ -324,7 +336,7 @@ export default function KitEditor({
 
       {activeTab === 'pattern' && (
         <div className={sectionClass}>
-          <div className={compact ? 'grid grid-cols-5 gap-1' : 'grid grid-cols-3 gap-2'}>
+          <div className={compact ? 'grid grid-cols-6 gap-1' : 'grid grid-cols-3 gap-2'}>
             {PATTERNS.map(p => {
               const selected = kitPattern === p.value
               return (

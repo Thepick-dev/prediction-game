@@ -228,6 +228,122 @@ export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0
           </g>
         )
 
+      case 'argyle':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            {Array.from({ length: 5 }).map((_, row) =>
+              Array.from({ length: 4 }).map((_, col) => {
+                const cx = col * 7 + (row % 2 === 0 ? 3.5 : 7)
+                const cy = row * 6 + 2
+                return <polygon key={`${row}-${col}`} points={`${cx},${cy - 3} ${cx + 3},${cy} ${cx},${cy + 3} ${cx - 3},${cy}`} fill={colour2} />
+              })
+            )}
+          </g>
+        )
+
+      case 'rings':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <circle cx="14" cy="13" r="10" fill={colour2} />
+            <circle cx="14" cy="13" r="7" fill={colour1} />
+            <circle cx="14" cy="13" r="4" fill={colour2} />
+          </g>
+        )
+
+      case 'side-panels':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <rect x="0" y="0" width="4" height="28" fill={colour2} />
+            <rect x="24" y="0" width="4" height="28" fill={colour2} />
+          </g>
+        )
+
+      case 'hem-band':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <rect x="0" y="19" width="28" height="3" fill={colour2} />
+          </g>
+        )
+
+      case 'racing-stripes':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <rect x="8" y="0" width="2.5" height="28" fill={colour2} />
+            <rect x="12" y="0" width="2.5" height="28" fill={colour2} />
+          </g>
+        )
+
+      case 'shoulder-yoke':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <rect x="0" y="2" width="28" height="5" fill={colour2} />
+          </g>
+        )
+
+      case 'camo':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <ellipse cx="8" cy="7" rx="5" ry="3.5" fill={colour2} transform="rotate(-20 8 7)" />
+            <ellipse cx="19" cy="9" rx="4.5" ry="3" fill={colour2} transform="rotate(15 19 9)" />
+            <ellipse cx="10" cy="17" rx="4" ry="3" fill={colour2} transform="rotate(30 10 17)" />
+            <ellipse cx="20" cy="19" rx="5" ry="3.5" fill={colour2} transform="rotate(-10 20 19)" />
+            <ellipse cx="14" cy="13" rx="3.5" ry="2.5" fill={colour2} transform="rotate(45 14 13)" />
+          </g>
+        )
+
+      case 'marl':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            {[[6, 4], [11, 3], [17, 5], [22, 4], [4, 9], [9, 8], [15, 10], [20, 9], [25, 11], [7, 14], [13, 15], [18, 13], [23, 16], [5, 19], [10, 20], [16, 21], [21, 19], [8, 24], [14, 23], [19, 24]].map(([x, y], i) => (
+              <circle key={i} cx={x} cy={y} r="0.9" fill={colour2} />
+            ))}
+          </g>
+        )
+
+      case 'double-diagonal':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <polygon points="2,-2 5,-2 20,26 17,30" fill={colour2} />
+            <polygon points="9,-2 12,-2 27,26 24,30" fill={colour2} />
+          </g>
+        )
+
+      case 'wavy-halves':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <path d="M14,0 Q18,4 14,8 Q10,12 14,16 Q18,20 14,24 Q10,26 14,28 L28,28 L28,0 Z" fill={colour2} />
+          </g>
+        )
+
+      case 'sleeve-stripe':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <polygon points="2.5,6.2 6.5,10.8 8,10 4,5.4" fill={colour2} />
+            <polygon points="25.5,6.2 21.5,10.8 20,10 24,5.4" fill={colour2} />
+          </g>
+        )
+
+      case 'pixel-noise':
+        return (
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            {[[0, 0], [2, 1], [5, 0], [1, 3], [4, 3], [6, 2], [3, 5], [0, 6], [5, 5], [2, 7], [6, 7], [1, 1], [3, 2], [5, 4], [0, 4], [6, 5], [2, 3], [4, 6], [1, 6], [3, 0]].map(([col, row], i) => (
+              <rect key={i} x={col * 4} y={row * 4} width="4" height="4" fill={colour2} />
+            ))}
+          </g>
+        )
+
       case 'solid':
       default:
         return (
