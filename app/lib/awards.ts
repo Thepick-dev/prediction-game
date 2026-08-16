@@ -295,3 +295,15 @@ export function resolveWinners(
     tiedEntries: tied.map(c => ({ name: c.name, detail: formatDetail(c) })),
   }
 }
+
+// Recovers the actual set of winner names from a ResolvedAward, whichever
+// of the three shapes resolveWinners produced (a single name, an "A & B"
+// string, or a collapsed "Multiple players (N)" with tiedEntries) — so a
+// caller can just ask "did this person win this award" without caring
+// which shape it came back as.
+export function awardWinnerNames(award: ResolvedAward): string[] {
+  if (award.tiedEntries) return award.tiedEntries.map(e => e.name)
+  if (award.winnerDisplay === 'Not decided yet') return []
+  if (award.winnerDisplay.includes(' & ')) return award.winnerDisplay.split(' & ')
+  return [award.winnerDisplay]
+}

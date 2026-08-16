@@ -10,6 +10,8 @@ import KitBadge from '../../components/KitBadge'
 import BotAvatar from '../../components/BotAvatar'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import { computeTopDog } from '../lib/topDog'
+import { computeCompetitionAwards, resolveWinners, awardWinnerNames, type CompetitionAward } from '../lib/awards'
+import PersonalSeasonShareCard from '../../components/PersonalSeasonShareCard'
 import LeaderboardShareCard from '../../components/LeaderboardShareCard'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import PopArtLoading from '../../components/PopArtLoading'
@@ -105,6 +107,10 @@ export default function LeaderboardPage() {
   // gameweeks running they've held it, recomputed fresh on every load.
   const [topDogUserId, setTopDogUserId] = useState<string | null>(null)
   const [topDogReignWeeks, setTopDogReignWeeks] = useState(0)
+  // Same award set the Awards page shows, computed here too so each
+  // player's own "Share My Season" ticket can say which they won.
+  const [awards, setAwards] = useState<CompetitionAward[]>([])
+  const [showSeasonShare, setShowSeasonShare] = useState(false)
 
   const supabase = createClient()
   const { popArt } = usePopArtTheme(user?.id)
@@ -121,11 +127,26 @@ export default function LeaderboardPage() {
       setDisplayName(profile?.display_name ?? '')
     }
 
-    const { data: comp } = await supabase
+    let { data: comp } = await supabase
       .from('competitions')
-      .select('id, name, bonus_card_enabled, bonus_card_player_id, bonus_card_name')
+      .select('id, name, status, bonus_card_enabled, bonus_card_player_id, bonus_card_name')
       .eq('status', 'active')
       .single()
+
+    // No active competition right now doesn't necessarily mean "nothing to
+    // show" — right after admin finalizes one and before the next is
+    // activated, the leaderboard should keep showing the just-finished
+    // competition's final standings rather than going blank.
+    if (!comp) {
+      const { data: justFinished } = await supabase
+        .from('competitions')
+        .select('id, name, status, bonus_card_enabled, bonus_card_player_id, bonus_card_name')
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      comp = justFinished
+    }
 
     if (!comp) { setLoading(false); return }
     setCompetition(comp)
@@ -254,6 +275,14 @@ export default function LeaderboardPage() {
     const picks = (rawPicks ?? []).filter(p =>
       p.user_id === user?.id || new Date(gwDeadlineById[p.gameweek_id]) < now
     )
+
+    // Same award set and tie-handling as the Awards page itself (shared via
+    // computeCompetitionAwards), computed here too so each player's own
+    // "Share My Season" ticket can say which of these they actually won.
+    const { awards: seasonAwards } = computeCompetitionAwards({
+      entries, profiles, pointsData, picks, gameweeks, fixtures, events, isBotMap, playerDisplayNames: playerMap,
+    })
+    setAwards(seasonAwards)
 
     // Fetch provisional autopicks for any gameweek past deadline but not yet scored.
     const previewGameweeks = (gameweeks ?? []).filter(g =>
@@ -585,6 +614,32 @@ export default function LeaderboardPage() {
       .sort((a, b) => teamDisplayName(a).localeCompare(teamDisplayName(b)))
   }
 
+  // For the "Share My Season" ticket — a player's own best-value player
+  // and team across the whole competition, aggregated from their existing
+  // week-by-week pick detail. Reuses resolveWinners so a genuine tie shows
+  // "A & B" or "Multiple players (N)", exactly like the Awards page.
+  function getBestPlayerAndTeam(userId: string) {
+    const details = pickDetails[userId] ?? []
+    const playerPoints: Record<string, number> = {}
+    const teamPoints: Record<string, number> = {}
+    details.forEach(d => {
+      if (d.player1 && d.player1 !== 'Unknown') playerPoints[d.player1] = (playerPoints[d.player1] ?? 0) + (d.player1_points ?? 0)
+      if (d.player2 && d.player2 !== 'Unknown') playerPoints[d.player2] = (playerPoints[d.player2] ?? 0) + (d.player2_points ?? 0)
+      const teamName = teamDisplayName(teamMap[d.team_id])
+      teamPoints[teamName] = (teamPoints[teamName] ?? 0) + (d.team_points ?? 0)
+    })
+    const bestPlayer = resolveWinners(
+      Object.entries(playerPoints).map(([name, value]) => ({ name, value })),
+      c => `${c.value} pts`,
+      { minQualifying: 1 }
+    )
+    const bestTeam = resolveWinners(
+      Object.entries(teamPoints).map(([name, value]) => ({ name, value })),
+      c => `${c.value} pts`
+    )
+    return { bestPlayer, bestTeam }
+  }
+
   async function setRival(rivalUserId: string) {
     if (!competition || !user) return
     setSavingRival(true)
@@ -777,6 +832,12 @@ export default function LeaderboardPage() {
                                   </div>
                                 )}
                               </div>
+
+                              {isOwnRow && (
+                                <button onClick={() => setShowSeasonShare(true)} className="pop-button pop-button--blue px-3 py-1.5 text-xs mb-4">
+                                  📱 Share My Season
+                                </button>
+                              )}
 
                               {/* Rivalry — a quiet, fully public line. You can set/change/
                                   remove yours from your own row; anyone's shows on theirs. */}
@@ -1038,6 +1099,30 @@ export default function LeaderboardPage() {
             popArt
           />
         )}
+
+        {showSeasonShare && user && (() => {
+          const myIndex = ranked.findIndex(p => p.user_id === user.id)
+          if (myIndex === -1) return null
+          const me = ranked[myIndex]
+          const { bestPlayer, bestTeam } = getBestPlayerAndTeam(me.user_id)
+          const wonAwards = awards
+            .filter(a => awardWinnerNames(a).includes(me.display_name))
+            .map(a => ({ emoji: a.emoji, title: a.title }))
+          return (
+            <PersonalSeasonShareCard
+              competitionName={competition.name}
+              displayName={me.display_name}
+              position={myIndex + 1}
+              totalEntrants={ranked.length}
+              points={me.total_points}
+              isProvisional={competition.status === 'active'}
+              wonAwards={wonAwards}
+              bestPlayer={bestPlayer}
+              bestTeam={bestTeam}
+              onClose={() => setShowSeasonShare(false)}
+            />
+          )
+        })()}
       </>
     )
   }

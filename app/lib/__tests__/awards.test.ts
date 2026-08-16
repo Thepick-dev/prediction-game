@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveWinners, computeCompetitionAwards } from '../awards'
+import { resolveWinners, computeCompetitionAwards, awardWinnerNames } from '../awards'
 
 describe('resolveWinners', () => {
   const fmt = (c: { value: number }) => `${c.value} pts`
@@ -131,5 +131,28 @@ describe('computeCompetitionAwards', () => {
     const result = computeCompetitionAwards({ ...input, entries: [{ user_id: 'futzy' }] })
     expect(result.hasEntrants).toBe(false)
     expect(result.awards).toEqual([])
+  })
+})
+
+describe('awardWinnerNames', () => {
+  it('returns the single winner', () => {
+    expect(awardWinnerNames({ winnerDisplay: 'Alice', detail: '10 pts', tiedEntries: null })).toEqual(['Alice'])
+  })
+
+  it('splits a two-way "A & B" tie', () => {
+    expect(awardWinnerNames({ winnerDisplay: 'Alice & Bob', detail: '10 pts', tiedEntries: null })).toEqual(['Alice', 'Bob'])
+  })
+
+  it('reads names from tiedEntries for a three-or-more-way tie', () => {
+    const award = {
+      winnerDisplay: 'Multiple players (3)',
+      detail: '10 pts',
+      tiedEntries: [{ name: 'Alice', detail: '10 pts' }, { name: 'Bob', detail: '10 pts' }, { name: 'Cara', detail: '10 pts' }],
+    }
+    expect(awardWinnerNames(award)).toEqual(['Alice', 'Bob', 'Cara'])
+  })
+
+  it('returns an empty list when nobody has won it yet', () => {
+    expect(awardWinnerNames({ winnerDisplay: 'Not decided yet', detail: '', tiedEntries: null })).toEqual([])
   })
 })
