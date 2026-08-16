@@ -1044,12 +1044,12 @@ export default function PicksPage() {
                               }}
                             >
                               <TeamCrest teamId={homeTeam?.id ?? null} teamName={teamDisplayName(homeTeam)} size={26} />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1 flex-wrap">
+                              <div className="flex-1 min-w-0 text-center">
+                                <div className="flex items-center justify-center gap-1 flex-wrap">
                                   <span className="font-black text-[10px] sm:text-xs uppercase truncate">{teamDisplayName(homeTeam)}</span>
                                   {homeQ && <span className={`pop-badge ${popQuartileBadgeClass[homeQ] ?? ''} px-1 py-0.5 text-[7px]`}>{homeQ}</span>}
                                 </div>
-                                <div className="flex items-center gap-1 flex-wrap">
+                                <div className="flex items-center justify-center gap-1 flex-wrap">
                                   <span className="font-mono text-[7px]" style={{ color: homeSelected ? 'rgba(0,0,0,0.6)' : homeStatus.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.55)' }}>{homeStatus.isUsed ? 'used' : `${homeStatus.remaining}/${homeStatus.maxUses}`}</span>
                                   <span className="font-mono text-[8px] font-bold">W+{homeWD.win} D+{homeWD.draw}</span>
                                 </div>
@@ -1079,12 +1079,12 @@ export default function PicksPage() {
                                 color: awaySelected ? 'var(--pop-black)' : awayStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
                               }}
                             >
-                              <div className="flex-1 min-w-0 text-right">
-                                <div className="flex items-center justify-end gap-1 flex-wrap">
+                              <div className="flex-1 min-w-0 text-center">
+                                <div className="flex items-center justify-center gap-1 flex-wrap">
                                   {awayQ && <span className={`pop-badge ${popQuartileBadgeClass[awayQ] ?? ''} px-1 py-0.5 text-[7px]`}>{awayQ}</span>}
                                   <span className="font-black text-[10px] sm:text-xs uppercase truncate">{teamDisplayName(awayTeam)}</span>
                                 </div>
-                                <div className="flex items-center justify-end gap-1 flex-wrap">
+                                <div className="flex items-center justify-center gap-1 flex-wrap">
                                   <span className="font-mono text-[8px] font-bold">W+{awayWD.win} D+{awayWD.draw}</span>
                                   <span className="font-mono text-[7px]" style={{ color: awaySelected ? 'rgba(0,0,0,0.6)' : awayStatus.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.55)' }}>{awayStatus.isUsed ? 'used' : `${awayStatus.remaining}/${awayStatus.maxUses}`}</span>
                                 </div>
