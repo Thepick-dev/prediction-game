@@ -1009,7 +1009,7 @@ export default function PicksPage() {
               <>
                 <p className="pop-headline text-2xl sm:text-3xl mb-2 sm:mb-3">Pick Your Team</p>
                 {hasFixtures ? (
-                  <div className="grid gap-3 sm:gap-4 mb-4 sm:mb-6">
+                  <div className="grid gap-2 sm:gap-2.5 mb-4 sm:mb-6">
                     {fixtures.map((fixture) => {
                       const homeStatus = getTeamStatus(fixture.home_team_id)
                       const awayStatus = getTeamStatus(fixture.away_team_id)
@@ -1030,12 +1030,12 @@ export default function PicksPage() {
                       const homeRing = getQuartileRingColor(fixture.home_team_id)
                       const awayRing = getQuartileRingColor(fixture.away_team_id)
                       return (
-                        <div key={fixture.id} className="pop-panel p-1.5 sm:p-2 relative">
-                          <div className="flex flex-col gap-1">
+                        <div key={fixture.id} className="pop-panel p-1 sm:p-1.5 relative">
+                          <div className="flex flex-col gap-0.5">
                             <button
                               onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
                               disabled={homeStatus.isUsed && !homeSelected}
-                              className={`pop-select-btn rounded-lg p-2 flex items-center gap-2.5 text-left ${homeSelected ? 'pop-pop-in' : ''}`}
+                              className={`pop-select-btn rounded-lg p-1.5 flex items-center gap-2 text-left ${homeSelected ? 'pop-pop-in' : ''}`}
                               style={{
                                 border: homeSelected ? '2px solid var(--pop-green)' : homeStatus.isUsed ? '2px solid rgba(255,255,255,0.15)' : `2px solid ${homeRing ?? 'rgba(255,255,255,0.15)'}`,
                                 boxShadow: homeSelected ? '0 0 20px rgba(204,250,0,0.5)' : 'none',
@@ -1043,7 +1043,7 @@ export default function PicksPage() {
                                 color: homeSelected ? 'var(--pop-black)' : homeStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
                               }}
                             >
-                              <TeamCrest teamId={homeTeam?.id ?? null} teamName={teamDisplayName(homeTeam)} size={34} />
+                              <TeamCrest teamId={homeTeam?.id ?? null} teamName={teamDisplayName(homeTeam)} size={28} />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="font-black text-xs uppercase truncate">{teamDisplayName(homeTeam)}</span>
@@ -1058,7 +1058,7 @@ export default function PicksPage() {
                             <button
                               onClick={() => !awayStatus.isUsed && selectTeamInFixture(fixture.away_team_id, fixture.id)}
                               disabled={awayStatus.isUsed && !awaySelected}
-                              className={`pop-select-btn rounded-lg p-2 flex items-center gap-2.5 text-left ${awaySelected ? 'pop-pop-in' : ''}`}
+                              className={`pop-select-btn rounded-lg p-1.5 flex items-center gap-2 text-left ${awaySelected ? 'pop-pop-in' : ''}`}
                               style={{
                                 border: awaySelected ? '2px solid var(--pop-green)' : awayStatus.isUsed ? '2px solid rgba(255,255,255,0.15)' : `2px solid ${awayRing ?? 'rgba(255,255,255,0.15)'}`,
                                 boxShadow: awaySelected ? '0 0 20px rgba(204,250,0,0.5)' : 'none',
@@ -1066,7 +1066,7 @@ export default function PicksPage() {
                                 color: awaySelected ? 'var(--pop-black)' : awayStatus.isUsed ? '#4D4D4D' : 'var(--pop-white)',
                               }}
                             >
-                              <TeamCrest teamId={awayTeam?.id ?? null} teamName={teamDisplayName(awayTeam)} size={34} />
+                              <TeamCrest teamId={awayTeam?.id ?? null} teamName={teamDisplayName(awayTeam)} size={28} />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="font-black text-xs uppercase truncate">{teamDisplayName(awayTeam)}</span>
@@ -1082,10 +1082,10 @@ export default function PicksPage() {
                           <span
                             className="absolute left-1/2 top-1/2 flex items-center justify-center font-black uppercase pointer-events-none"
                             style={{
-                              width: 24, height: 24, fontSize: '8px',
+                              width: 22, height: 22, fontSize: '8px',
                               transform: 'translate(-50%, -50%)',
                               borderRadius: '999px',
-                              background: 'var(--pop-orange)',
+                              background: 'var(--pop-white)',
                               color: 'var(--pop-black)',
                               border: '2px solid var(--pop-black)',
                               boxShadow: '0 0 0 2px rgba(255,255,255,0.2)',
