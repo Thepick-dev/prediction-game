@@ -22,6 +22,13 @@ export default async function AdminTeamsPage() {
     .order('active', { ascending: false })
     .order('name', { ascending: true })
 
+  // Its own isolated query, same reasoning as elsewhere in this codebase —
+  // a newer, optional table (admin-managed pick-screen easter eggs), so a
+  // problem reading it should never take the rest of this page down.
+  const { data: reactionsData } = await supabase.from('team_reactions').select('team_id, type, content')
+  const reactionMap: Record<number, { type: 'emoji' | 'text'; content: string }> = {}
+  reactionsData?.forEach(r => { reactionMap[r.team_id] = { type: r.type, content: r.content } })
+
   async function updateShortName(formData: FormData) {
     'use server'
     const supabase = await requireAdminAction()
@@ -40,6 +47,25 @@ export default async function AdminTeamsPage() {
     redirect('/admin/teams')
   }
 
+  async function saveTeamReaction(formData: FormData) {
+    'use server'
+    const supabase = await requireAdminAction()
+    const team_id = parseInt(formData.get('team_id') as string)
+    const type = formData.get('type') as string
+    const content = (formData.get('content') as string)?.trim()
+    if (!content) { redirect('/admin/teams') }
+    await supabase.from('team_reactions').upsert({ team_id, type, content, updated_at: new Date().toISOString() })
+    redirect('/admin/teams')
+  }
+
+  async function deleteTeamReaction(formData: FormData) {
+    'use server'
+    const supabase = await requireAdminAction()
+    const team_id = parseInt(formData.get('team_id') as string)
+    await supabase.from('team_reactions').delete().eq('team_id', team_id)
+    redirect('/admin/teams')
+  }
+
   const activeCount = teams?.filter(t => t.active).length ?? 0
 
   return (
@@ -48,6 +74,7 @@ export default async function AdminTeamsPage() {
       <p className="text-gray-500 text-sm mb-2">
         Set short names and control which teams are active. Only active teams appear as pickable options.
         At the end of each season, mark relegated teams inactive and promoted teams active — never delete them, so historical scoring stays intact.
+        Pick Reaction is a big emoji or text banner that pops up briefly when someone picks that team on the Picks page.
       </p>
       <p className="text-sm mb-8">
         <span className={activeCount === 20 ? 'text-green-600 font-bold' : 'text-orange-600 font-bold'}>
@@ -64,10 +91,13 @@ export default async function AdminTeamsPage() {
               <th className="py-3 px-4">Full Name</th>
               <th className="py-3 px-4">Short Name</th>
               <th className="py-3 px-4">Set Short Name</th>
+              <th className="py-3 px-4">Pick Reaction</th>
             </tr>
           </thead>
           <tbody>
-            {teams?.map(team => (
+            {teams?.map(team => {
+              const reaction = reactionMap[team.id]
+              return (
               <tr key={team.id} className={`border-b last:border-0 ${!team.active ? 'bg-gray-50 opacity-60' : ''}`}>
                 <td className="py-2 px-4">
                   <form action={toggleActive}>
@@ -106,8 +136,37 @@ export default async function AdminTeamsPage() {
                     </button>
                   </form>
                 </td>
+                <td className="py-2 px-4">
+                  <form action={saveTeamReaction} className="flex gap-1.5 items-center flex-wrap">
+                    <input type="hidden" name="team_id" value={team.id} />
+                    <select name="type" defaultValue={reaction?.type ?? 'emoji'} className="border rounded px-1.5 py-1 text-xs">
+                      <option value="emoji">Emoji</option>
+                      <option value="text">Text</option>
+                    </select>
+                    <input
+                      type="text"
+                      name="content"
+                      defaultValue={reaction?.content ?? ''}
+                      placeholder="e.g. 😎"
+                      className="border rounded px-2 py-1 text-xs w-20"
+                      maxLength={80}
+                    />
+                    <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">
+                      Save
+                    </button>
+                  </form>
+                  {reaction && (
+                    <form action={deleteTeamReaction} className="mt-1">
+                      <input type="hidden" name="team_id" value={team.id} />
+                      <button type="submit" className="text-xs text-red-500 hover:text-red-700">
+                        Remove
+                      </button>
+                    </form>
+                  )}
+                </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

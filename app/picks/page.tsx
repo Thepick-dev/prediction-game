@@ -203,6 +203,7 @@ export default function PicksPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [players, setPlayers] = useState<Player[]>([])
   const [playerReactions, setPlayerReactions] = useState<Record<number, { type: 'emoji' | 'text'; content: string }>>({})
+  const [teamReactions, setTeamReactions] = useState<Record<number, { type: 'emoji' | 'text'; content: string }>>({})
   const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [quartileMap, setQuartileMap] = useState<Record<number, number>>({})
   const [scoringMap, setScoringMap] = useState<Record<string, number>>({})
@@ -414,6 +415,14 @@ export default function PicksPage() {
     reactionsData?.forEach(r => { reactionMap[r.player_id] = { type: r.type, content: r.content } })
     setPlayerReactions(reactionMap)
 
+    // Same isolated-query reasoning — admin-managed, entirely optional
+    // (see /admin/teams), and generalises what used to be a hardcoded
+    // Arsenal/Tottenham-only easter egg to any team.
+    const { data: teamReactionsData } = await supabase.from('team_reactions').select('team_id, type, content')
+    const teamReactionMap: Record<number, { type: 'emoji' | 'text'; content: string }> = {}
+    teamReactionsData?.forEach(r => { teamReactionMap[r.team_id] = { type: r.type, content: r.content } })
+    setTeamReactions(teamReactionMap)
+
     // Same isolated-query reasoning — admin-managed, entirely optional.
     const { data: exclusionsData } = await supabase.from('all_or_nothing_exclusions').select('player_id, reason')
     const exclusionMap: Record<number, string> = {}
@@ -567,16 +576,16 @@ export default function PicksPage() {
   function selectTeamInFixture(teamId: number, fixtureId: number) {
     setSelectedTeam(teamId)
     setSelectedFixture(fixtureId)
-    const name = getTeam(teamId)?.name?.toLowerCase() ?? ''
-    const emoji = name.includes('arsenal') ? '🙄' : name.includes('tottenham') ? '😎' : null
-    if (emoji) fireReaction('emoji', emoji)
+    const found = teamReactions[teamId]
+    if (found) fireReaction(found.type, found.content)
   }
 
-  // Player-select easter eggs — same idea as the team ones above, but now
-  // admin-managed (see /admin/players) and looked up by player ID rather
-  // than name-matching, which used to silently fail whenever a stored
-  // name didn't exactly match what was hardcoded here (middle names,
-  // accents, misremembered spellings — a whole class of bug this removes).
+  // Player-select easter eggs — same idea as the team ones above (both are
+  // now admin-managed, see /admin/players and /admin/teams), looked up by
+  // ID rather than name-matching, which used to silently fail whenever a
+  // stored name didn't exactly match what was hardcoded here (middle
+  // names, accents, misremembered spellings — a whole class of bug this
+  // removes).
   function triggerPlayerReaction(playerId: number) {
     const found = playerReactions[playerId]
     if (found) fireReaction(found.type, found.content)
