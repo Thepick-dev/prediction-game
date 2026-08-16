@@ -700,40 +700,40 @@ export default function LeaderboardPage() {
                         >
                           <td className="py-1.5 pl-2 pr-1 font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>{index + 1}</td>
                           <td className="py-1.5 px-1 font-black uppercase" style={{ wordBreak: 'break-word' }}>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {player.is_bot ? <BotAvatar size={24} /> : (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {player.is_bot ? <BotAvatar size={34} /> : (
                                 <KitBadge
                                   pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
                                   colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                                   colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
                                   colour3={kitByUser[player.user_id]?.colour3}
-                                  size={24}
+                                  size={34}
                                 />
                               )}
                               <span className="inline-flex flex-col leading-tight">
                                 <span>{player.display_name}</span>
                                 {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
-                                  <span className="normal-case font-normal" style={{ fontSize: '8px', letterSpacing: '1px' }}>
+                                  <span className="normal-case font-normal" style={{ fontSize: '9px', letterSpacing: '1px' }}>
                                     <span style={{ color: 'var(--pop-green)' }}>{'★'.repeat(kitByUser[player.user_id]?.stars ?? 0)}</span>
                                     {'🌍'.repeat(kitByUser[player.user_id]?.earths ?? 0)}
                                   </span>
                                 )}
                               </span>
                               {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
-                              {player.is_reigning_champ && <CrownIcon size={14} color="var(--pop-green)" />}
-                              {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={14} /></span>}
-                              {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={14} /></span>}
-                              {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={14} /></span>}
+                              {player.is_reigning_champ && <CrownIcon size={18} color="var(--pop-green)" />}
+                              {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={18} /></span>}
+                              {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={18} /></span>}
+                              {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={18} /></span>}
                               {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
                                 <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">
-                                  <TopDogIcon size={14} />
-                                  <span className="font-mono" style={{ fontSize: '9px', color: 'var(--pop-orange)' }}>{topDogReignWeeks}</span>
+                                  <TopDogIcon size={18} />
+                                  <span className="font-mono" style={{ fontSize: '10px', color: 'var(--pop-orange)' }}>{topDogReignWeeks}</span>
                                 </span>
                               )}
-                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
+                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                             </div>
                           </td>
-                          <td className="py-1.5 pl-1 pr-2 text-right font-black font-mono" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', fontSize: '18px' }}>{player.total_points}</td>
+                          <td className="py-1.5 pl-1 pr-2 text-right font-black font-mono" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', fontSize: '23px' }}>{player.total_points}</td>
                         </tr>
                         {expandedUser === player.user_id && (
                           <tr>
