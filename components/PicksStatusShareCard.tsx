@@ -25,7 +25,7 @@ export default function PicksStatusShareCard({ competitionName, gwNumber, deadli
         <div className="flex items-center gap-2 mb-4">
           <img src="/logo.png" alt="Futzy" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
           <p className="text-[11px] uppercase tracking-wider font-bold" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            Futzy&apos;s taking the register...
+            🍷 Where are you? Where are you? Let&apos;s be having you! Come on! 🍷
           </p>
         </div>
 
