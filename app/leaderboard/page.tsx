@@ -107,10 +107,14 @@ export default function LeaderboardPage() {
   // gameweeks running they've held it, recomputed fresh on every load.
   const [topDogUserId, setTopDogUserId] = useState<string | null>(null)
   const [topDogReignWeeks, setTopDogReignWeeks] = useState(0)
-  // Same award set the Awards page shows, computed here too so each
-  // player's own "Share My Season" ticket can say which they won.
+  // Same award set the Awards page shows, computed here too so a "Share
+  // Season" ticket can say which awards a player actually won. Everyone's
+  // final position/points/awards/best player are already public via the
+  // Leaderboard and Awards pages, so any player can share anyone's —
+  // holds a user_id, not a plain boolean, since it's no longer "own row"
+  // only.
   const [awards, setAwards] = useState<CompetitionAward[]>([])
-  const [showSeasonShare, setShowSeasonShare] = useState(false)
+  const [showSeasonShareFor, setShowSeasonShareFor] = useState<string | null>(null)
   // Rank as of the previous scored gameweek, keyed by user_id — used to
   // show a small ▲/▼ movement indicator next to the current rank.
   const [previousRankByUser, setPreviousRankByUser] = useState<Record<string, number>>({})
@@ -861,11 +865,9 @@ export default function LeaderboardPage() {
                                 )}
                               </div>
 
-                              {isOwnRow && (
-                                <button onClick={() => setShowSeasonShare(true)} className="pop-button pop-button--blue px-3 py-1.5 text-xs mb-4">
-                                  📱 Share My Season
-                                </button>
-                              )}
+                              <button onClick={() => setShowSeasonShareFor(player.user_id)} className="pop-button pop-button--blue px-3 py-1.5 text-xs mb-4">
+                                📱 Share {isOwnRow ? 'My' : `${player.display_name}'s`} Season
+                              </button>
 
                               {/* Rivalry — a quiet, fully public line. You can set/change/
                                   remove yours from your own row; anyone's shows on theirs. */}
@@ -1139,26 +1141,26 @@ export default function LeaderboardPage() {
           />
         )}
 
-        {showSeasonShare && user && (() => {
-          const myIndex = ranked.findIndex(p => p.user_id === user.id)
-          if (myIndex === -1) return null
-          const me = ranked[myIndex]
-          const { bestPlayer, bestTeam } = getBestPlayerAndTeam(me.user_id)
+        {showSeasonShareFor && (() => {
+          const targetIndex = ranked.findIndex(p => p.user_id === showSeasonShareFor)
+          if (targetIndex === -1) return null
+          const target = ranked[targetIndex]
+          const { bestPlayer, bestTeam } = getBestPlayerAndTeam(target.user_id)
           const wonAwards = awards
-            .filter(a => awardWinnerNames(a).includes(me.display_name))
+            .filter(a => awardWinnerNames(a).includes(target.display_name))
             .map(a => ({ emoji: a.emoji, title: a.title }))
           return (
             <PersonalSeasonShareCard
               competitionName={competition.name}
-              displayName={me.display_name}
-              position={myIndex + 1}
+              displayName={target.display_name}
+              position={targetIndex + 1}
               totalEntrants={ranked.length}
-              points={me.total_points}
+              points={target.total_points}
               isProvisional={competition.status === 'active'}
               wonAwards={wonAwards}
               bestPlayer={bestPlayer}
               bestTeam={bestTeam}
-              onClose={() => setShowSeasonShare(false)}
+              onClose={() => setShowSeasonShareFor(null)}
             />
           )
         })()}

@@ -115,6 +115,29 @@ export default function WeeklyHelpPage() {
             To fix an individual player&apos;s pick directly, use <a href="/admin/edit-pick" className="underline">Edit Pick</a>.
           </p>
         </div>
+
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+          <h2 className="font-bold mb-2 text-green-800">When the competition ends</h2>
+          <p className="text-sm text-gray-700 mb-2">
+            Once every gameweek has been marked completed and you&apos;re happy the final standings are right, go
+            to <a href="/admin/competitions" className="underline">Competitions</a> and click <strong>Finalize</strong> on
+            the active competition.
+          </p>
+          <p className="text-sm text-gray-700 mb-2">
+            This is the one deliberate step that switches everything from &ldquo;still in progress&rdquo; to
+            &ldquo;final&rdquo; — the <a href="/awards" className="underline">Awards</a> page drops its
+            &ldquo;Provisional&rdquo; banner, and every player&apos;s shareable Season Summary ticket (from their own row
+            on the <a href="/leaderboard" className="underline">Leaderboard</a>) switches from &ldquo;Provisional&rdquo;
+            to &ldquo;Final&rdquo; too. Both are viewable and shareable by anyone at any time before that, they just
+            carry the Provisional label until you press this.
+          </p>
+          <p className="text-sm text-gray-700">
+            Finalizing doesn&apos;t archive or delete anything, and it&apos;s independent of starting the next
+            competition — create and activate the new one whenever you&apos;re ready, following
+            the <a href="/admin/help/pre-season" className="underline">New Season Setup</a> guide if it&apos;s a new season, or
+            just <strong>Create Competition</strong> on the Competitions page for the next half of the same season.
+          </p>
+        </div>
       </div>
     </div>
   )
