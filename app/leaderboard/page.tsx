@@ -111,6 +111,9 @@ export default function LeaderboardPage() {
   // player's own "Share My Season" ticket can say which they won.
   const [awards, setAwards] = useState<CompetitionAward[]>([])
   const [showSeasonShare, setShowSeasonShare] = useState(false)
+  // Rank as of the previous scored gameweek, keyed by user_id — used to
+  // show a small ▲/▼ movement indicator next to the current rank.
+  const [previousRankByUser, setPreviousRankByUser] = useState<Record<string, number>>({})
 
   const supabase = createClient()
   const { popArt } = usePopArtTheme(user?.id)
@@ -502,6 +505,20 @@ export default function LeaderboardPage() {
     setTopDogUserId(topDog.leaderUserId)
     setTopDogReignWeeks(topDog.reignWeeks)
 
+    // Rank movement — position as of the previous scored gameweek vs now,
+    // for the small ▲/▼ next to each rank. A lightweight indicator, not an
+    // official ranking, so it deliberately uses weekly_points only (skips
+    // the rarer Bonus Card timing nuance Top Dog accounts for).
+    const previousRanks: Record<string, number> = {}
+    if (scoredGwNumbers.length >= 2) {
+      const previousGws = scoredGwNumbers.slice(0, -1)
+      const previousTotals = Object.values(totals)
+        .map(t => ({ user_id: t.user_id, value: previousGws.reduce((sum, gw) => sum + (t.weekly_points[gw] ?? 0), 0) }))
+        .sort((a, b) => b.value - a.value)
+      previousTotals.forEach((t, i) => { previousRanks[t.user_id] = i + 1 })
+    }
+    setPreviousRankByUser(previousRanks)
+
     const aonMap: Record<string, { player_id: number; outcome: string }> = {}
     aonPicks?.forEach(a => { aonMap[`${a.user_id}_${a.gameweek_id}`] = { player_id: a.player_id, outcome: a.outcome } })
 
@@ -746,6 +763,8 @@ export default function LeaderboardPage() {
                     const streak = getStreak(player)
                     const teamsWithAvailability = getTeamsWithAvailability(player.user_id)
                     const isOwnRow = player.user_id === user?.id
+                    const prevRank = previousRankByUser[player.user_id]
+                    const rankDelta = prevRank != null ? prevRank - (index + 1) : null
                     return (
                       <React.Fragment key={player.user_id}>
                         <tr
@@ -753,7 +772,16 @@ export default function LeaderboardPage() {
                           className="cursor-pointer hover:bg-white/[0.04] transition-colors"
                           style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: isOwnRow ? 'rgba(160,0,250,0.06)' : undefined }}
                         >
-                          <td className="py-1.5 pl-2 pr-1 font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>{index + 1}</td>
+                          <td className="py-1.5 pl-2 pr-1 font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                            <div className="flex flex-col leading-none">
+                              <span>{index + 1}</span>
+                              {rankDelta != null && rankDelta !== 0 && (
+                                <span className="font-mono" style={{ fontSize: '8px', color: rankDelta > 0 ? 'var(--pop-green)' : 'var(--pop-red)' }} title={`${rankDelta > 0 ? 'Up' : 'Down'} ${Math.abs(rankDelta)} since last gameweek`}>
+                                  {rankDelta > 0 ? '▲' : '▼'}{Math.abs(rankDelta)}
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="py-1.5 px-1 font-black uppercase" style={{ wordBreak: 'break-word' }}>
                             <div className="flex items-center gap-2 flex-wrap">
                               {player.is_bot ? <BotAvatar size={34} /> : (
@@ -1079,6 +1107,7 @@ export default function LeaderboardPage() {
                 <div className="flex items-center gap-2.5"><PoundCoinIcon size={20} /> In the cash pool</div>
                 <div className="flex items-center gap-2.5"><FlameIcon size={20} /> On a streak — 3+ weeks above average</div>
                 <div className="flex items-center gap-2.5"><TopDogIcon size={20} /> Top Dog — current leader, number = weeks leading</div>
+                <div className="flex items-center gap-2.5"><span className="font-mono font-black" style={{ color: 'var(--pop-green)' }}>▲2</span> Moved up 2 places since last gameweek (▼ = down)</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — deadline missed, computer picked</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span> Banker declared that gameweek</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-blue)', color: 'var(--pop-black)' }}><BoltIcon size={11} color="var(--pop-black)" /> AoN</span> All or Nothing played, result pending</div>
@@ -1094,7 +1123,17 @@ export default function LeaderboardPage() {
         {showShare && (
           <LeaderboardShareCard
             competitionName={competition.name}
-            standings={ranked.map(p => ({ name: p.display_name, points: p.total_points }))}
+            standings={ranked.map(p => ({
+              name: p.display_name,
+              points: p.total_points,
+              is_bot: p.is_bot,
+              kit: kitByUser[p.user_id] ? {
+                pattern: kitByUser[p.user_id].pattern,
+                colour1: kitByUser[p.user_id].colour1,
+                colour2: kitByUser[p.user_id].colour2,
+                colour3: kitByUser[p.user_id].colour3,
+              } : null,
+            }))}
             onClose={() => setShowShare(false)}
             popArt
           />
