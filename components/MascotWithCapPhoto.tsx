@@ -57,7 +57,7 @@ export default function MascotWithCapPhoto({ className, style }: { className?: s
           position: 'absolute',
           left: '40%',
           top: '12.5%',
-          width: '8%',
+          width: '8.6%',
           aspectRatio: '220 / 278',
           objectFit: 'cover',
           borderRadius: '50%',
