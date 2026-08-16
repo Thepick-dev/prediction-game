@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from '../../lib/supabase-admin'
 import { requireAdmin } from '../../lib/require-admin'
 import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
+import ConfirmActionButton from '../components/confirm-action-button'
 import BonusCardPlayerPicker from '../components/bonus-card-player-picker'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../../lib/players'
 
@@ -110,6 +111,22 @@ export default async function CompetitionsPage({
     await supabase
       .from('competitions')
       .update({ status: 'archived' })
+      .eq('id', id)
+    redirect('/admin/competitions')
+  }
+
+  // The intended "season's officially over" moment the Awards page and the
+  // public Archive listing already assume — Awards' isProvisional check
+  // (competition.status === 'active') and Archive's own query
+  // (.in('status', ['completed', 'archived'])) were both already written
+  // expecting this, but nothing ever actually set it until now.
+  async function finalizeCompetition(formData: FormData) {
+    'use server'
+    const supabase = await requireAdminAction()
+    const id = formData.get('id') as string
+    await supabase
+      .from('competitions')
+      .update({ status: 'completed' })
       .eq('id', id)
     redirect('/admin/competitions')
   }
@@ -368,6 +385,16 @@ export default async function CompetitionsPage({
                             {comp.status === 'archived' ? 'Reactivate' : 'Activate'}
                           </button>
                         </form>
+                      )}
+                      {comp.status === 'active' && (
+                        <ConfirmActionButton
+                          action={finalizeCompetition}
+                          hiddenFields={{ id: comp.id }}
+                          label="Finalize"
+                          confirmText="Mark this competition as finished? Awards and personal season summaries switch from provisional to final. Make sure every gameweek is scored first."
+                          confirmLabel="Yes, finalize it"
+                          className="text-xs bg-blue-600 text-white rounded px-2 py-1"
+                        />
                       )}
                       {comp.status !== 'archived' && (
                         <form action={archiveCompetition}>

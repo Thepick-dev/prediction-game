@@ -10,23 +10,10 @@ import { TrophyIcon } from '../../components/icons'
 import AwardsShareCard from '../../components/AwardsShareCard'
 import Modal from '../../components/Modal'
 import { buildPlayerDisplayNames } from '../lib/players'
-import { resolveWinners, type ResolvedAward } from '../lib/awards'
+import { computeCompetitionAwards, type CompetitionAward } from '../lib/awards'
 import Link from 'next/link'
 
-type Totals = {
-  user_id: string
-  display_name: string
-  is_bot: boolean
-  total_points: number
-  banker_points: number
-  home_wins: number
-  away_wins: number
-  goals: number
-  assists: number
-  weekly_points: number[]
-}
-
-type Award = ResolvedAward & { emoji: string; title: string; explainer: string }
+type Award = CompetitionAward
 type TieModal = { title: string; entries: { name: string; detail: string }[] }
 
 // Live-computed from whatever's currently in the database, same as the
@@ -89,84 +76,15 @@ function AwardsInner() {
     const isBotMap: Record<string, boolean> = {}
     botFlags?.forEach(b => { isBotMap[b.id] = b.is_bot ?? false })
 
-    const profileMap: Record<string, string> = {}
-    profiles?.forEach(p => { profileMap[p.id] = p.display_name ?? 'Unknown' })
-
-    const gwMap: Record<string, number> = {}
-    gameweeks?.forEach(g => { gwMap[g.id] = g.number })
-
-    const fixtureGwMap: Record<number, string> = {}
-    fixtures?.forEach(f => { fixtureGwMap[f.id] = f.gameweek_id })
-
-    const goalsByPlayerGw: Record<string, number> = {}
-    const assistsByPlayerGw: Record<string, number> = {}
-    events?.forEach(e => {
-      if (!e.player_id || !e.fixture_id) return
-      const gwId = fixtureGwMap[e.fixture_id]
-      if (!gwId) return
-      const key = `${e.player_id}_${gwId}`
-      if (e.event_type === 'goal') goalsByPlayerGw[key] = (goalsByPlayerGw[key] || 0) + 1
-      if (e.event_type === 'assist') assistsByPlayerGw[key] = (assistsByPlayerGw[key] || 0) + 1
-    })
-
-    const pickById: Record<string, { user_id: string; player1_id: number; player2_id: number }> = {}
-    picks?.forEach(p => { pickById[p.id] = p })
-
     const teamMap: Record<number, { short_code?: string | null; short_name?: string | null; name: string }> = {}
     teams?.forEach(t => { teamMap[t.id] = t })
     const playerDisplayNames = buildPlayerDisplayNames(players ?? [], teamMap)
 
-    const totals: Record<string, Totals> = {}
-    entries?.forEach(e => {
-      totals[e.user_id] = {
-        user_id: e.user_id,
-        display_name: profileMap[e.user_id] ?? 'Unknown',
-        is_bot: isBotMap[e.user_id] ?? false,
-        total_points: 0,
-        banker_points: 0,
-        home_wins: 0,
-        away_wins: 0,
-        goals: 0,
-        assists: 0,
-        weekly_points: [],
-      }
+    const { awards: computedAwards, talisman: computedTalisman, hasEntrants: computedHasEntrants } = computeCompetitionAwards({
+      entries, profiles, pointsData, picks, gameweeks, fixtures, events, isBotMap, playerDisplayNames,
     })
 
-    // Talisman looks at every pick made, bots included — it's a stat about
-    // the footballer, not a trophy competed for by entrants, so leaving
-    // Futzy's picks out would just make the total less accurate, not fairer.
-    const playerPointsMap: Record<number, number> = {}
-
-    pointsData?.forEach(p => {
-      const breakdown = p.breakdown as any
-      const isBanker = breakdown?.is_banker === true
-      const rawTotal = isBanker ? (p.total_points ?? 0) / 2 : (p.total_points ?? 0)
-      const pick = pickById[p.pick_id]
-
-      if (pick) {
-        if (pick.player1_id != null) playerPointsMap[pick.player1_id] = (playerPointsMap[pick.player1_id] ?? 0) + (p.player1_points ?? 0)
-        if (pick.player2_id != null) playerPointsMap[pick.player2_id] = (playerPointsMap[pick.player2_id] ?? 0) + (p.player2_points ?? 0)
-      }
-
-      const t = totals[p.user_id]
-      if (!t) return
-
-      t.total_points += p.total_points ?? 0
-      if (isBanker) t.banker_points += rawTotal
-      if (breakdown?.team?.includes('home_win')) t.home_wins += 1
-      if (breakdown?.team?.includes('away_win')) t.away_wins += 1
-
-      const gwNum = gwMap[p.gameweek_id]
-      if (gwNum) t.weekly_points[gwNum] = p.total_points ?? 0
-
-      if (pick) {
-        t.goals += (goalsByPlayerGw[`${pick.player1_id}_${p.gameweek_id}`] || 0) + (goalsByPlayerGw[`${pick.player2_id}_${p.gameweek_id}`] || 0)
-        t.assists += (assistsByPlayerGw[`${pick.player1_id}_${p.gameweek_id}`] || 0) + (assistsByPlayerGw[`${pick.player2_id}_${p.gameweek_id}`] || 0)
-      }
-    })
-
-    const humans = Object.values(totals).filter(t => !t.is_bot)
-    if (humans.length === 0) {
+    if (!computedHasEntrants) {
       setAwards([])
       setTalisman(null)
       setHasEntrants(false)
@@ -174,131 +92,8 @@ function AwardsInner() {
       return
     }
     setHasEntrants(true)
-
-    function longestStreak(t: Totals, avgByGw: Record<number, number>): number {
-      const weeks = Object.keys(avgByGw).map(Number).sort((a, b) => b - a)
-      let streak = 0
-      for (const gw of weeks) {
-        const pts = t.weekly_points[gw]
-        const avg = avgByGw[gw]
-        if (pts === undefined || avg === undefined) break
-        if (pts > avg) streak++
-        else break
-      }
-      return streak
-    }
-
-    const gwPointsMap: Record<number, number[]> = {}
-    pointsData?.forEach(p => {
-      const gwNum = gwMap[p.gameweek_id]
-      if (!gwNum) return
-      ;(gwPointsMap[gwNum] ??= []).push(p.total_points ?? 0)
-    })
-    const avgByGw: Record<number, number> = {}
-    Object.entries(gwPointsMap).forEach(([gw, vals]) => { avgByGw[Number(gw)] = vals.reduce((a, b) => a + b, 0) / vals.length })
-
-    const hasScoredData = (pointsData?.length ?? 0) > 0
-
-    const champion = resolveWinners(
-      hasScoredData ? humans.map(t => ({ name: t.display_name, value: t.total_points })) : [],
-      c => `${c.value} pts`
-    )
-
-    const goldenBoot = resolveWinners(
-      humans.map(t => ({ name: t.display_name, value: t.goals })),
-      c => `${c.value} goals`,
-      { minQualifying: 1 }
-    )
-
-    const goldenAssist = resolveWinners(
-      humans.map(t => ({ name: t.display_name, value: t.assists })),
-      c => `${c.value} assists`,
-      { minQualifying: 1 }
-    )
-
-    const ironNerve = resolveWinners(
-      humans.map(t => ({ name: t.display_name, value: t.banker_points })),
-      c => `${c.value} pts from bankers`,
-      { minQualifying: 1 }
-    )
-
-    const streakMaster = resolveWinners(
-      humans.map(t => ({ name: t.display_name, value: longestStreak(t, avgByGw) })),
-      c => `${c.value} weeks above average`,
-      { minQualifying: 3 }
-    )
-
-    const homeBird = resolveWinners(
-      humans.map(t => ({ name: t.display_name, value: t.home_wins })),
-      c => `${c.value} home wins picked`,
-      { minQualifying: 1 }
-    )
-
-    const awayDay = resolveWinners(
-      humans.map(t => ({ name: t.display_name, value: t.away_wins })),
-      c => `${c.value} away wins picked`,
-      { minQualifying: 1 }
-    )
-
-    const woodenSpoon = resolveWinners(
-      (hasScoredData && humans.length > 1) ? humans.map(t => ({ name: t.display_name, value: t.total_points })) : [],
-      c => `${c.value} pts`,
-      { direction: 'min' }
-    )
-
-    const weeklyCandidates: { name: string; value: number; extra: string }[] = []
-    humans.forEach(t => {
-      t.weekly_points.forEach((pts, gw) => {
-        if (pts !== undefined && gw > 0) weeklyCandidates.push({ name: t.display_name, value: pts, extra: String(gw) })
-      })
-    })
-    const momentOfMagic = resolveWinners(
-      weeklyCandidates,
-      c => `${c.value} pts (GW${c.extra})`,
-      { minQualifying: 1 }
-    )
-
-    // Needs enough scored gameweeks to split into two meaningful halves —
-    // below that, showing a delta from a single week either side is just
-    // noise, not a real trend.
-    const scoredGwNumbers = Object.keys(avgByGw).map(Number).sort((a, b) => a - b)
-    let secondHalfSurge: ResolvedAward = { winnerDisplay: 'Not decided yet', detail: '', tiedEntries: null }
-    if (scoredGwNumbers.length >= 4) {
-      const mid = Math.floor(scoredGwNumbers.length / 2)
-      const firstHalf = scoredGwNumbers.slice(0, mid)
-      const secondHalf = scoredGwNumbers.slice(mid)
-      const avgOf = (t: Totals, gws: number[]) => gws.reduce((sum, gw) => sum + (t.weekly_points[gw] ?? 0), 0) / gws.length
-      secondHalfSurge = resolveWinners(
-        humans.map(t => ({ name: t.display_name, value: Math.round((avgOf(t, secondHalf) - avgOf(t, firstHalf)) * 10) / 10 })),
-        c => `+${c.value.toFixed(1)} pts/week`,
-        { minQualifying: 0.1 }
-      )
-    }
-
-    setAwards([
-      { emoji: '🏆', title: 'Champion', explainer: 'Most total points across the whole competition.', ...champion },
-      { emoji: '⚽', title: 'Golden Boot', explainer: 'Most goals scored by your picked players all season.', ...goldenBoot },
-      { emoji: '🎯', title: 'Golden Assist', explainer: 'Most assists from your picked players all season.', ...goldenAssist },
-      { emoji: '🛡️', title: 'Iron Nerve', explainer: 'Most points earned specifically from Banker doubles.', ...ironNerve },
-      { emoji: '🔥', title: 'Streak Master', explainer: 'Longest run of scoring above the weekly average — needs 3+ weeks to qualify.', ...streakMaster },
-      { emoji: '🏠', title: 'Home Bird', explainer: 'Most home wins picked all season.', ...homeBird },
-      { emoji: '✈️', title: 'Away Day Special', explainer: 'Most away wins picked all season.', ...awayDay },
-      { emoji: '🥄', title: 'Wooden Spoon', explainer: 'Lowest total points — nowhere to hide.', ...woodenSpoon },
-      { emoji: '✨', title: 'Moment of Magic', explainer: 'The single best gameweek score anyone posted all season.', ...momentOfMagic },
-      { emoji: '📈', title: 'Second Half Surge', explainer: 'Biggest rise in average points, second half of the season vs the first — needs at least 4 scored gameweeks.', ...secondHalfSurge },
-    ])
-
-    const talismanCandidates = Object.entries(playerPointsMap).map(([playerId, value]) => ({
-      name: playerDisplayNames[Number(playerId)] ?? 'Unknown',
-      value,
-    }))
-    setTalisman({
-      emoji: '🌟',
-      title: 'Talisman',
-      explainer: "The footballer who's brought in the most combined points for everyone who picked him, across the whole competition.",
-      ...resolveWinners(talismanCandidates, c => `${c.value} pts combined`, { minQualifying: 1 }),
-    })
-
+    setAwards(computedAwards)
+    setTalisman(computedTalisman)
     setLoading(false)
   }
 

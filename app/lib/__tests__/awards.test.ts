@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveWinners } from '../awards'
+import { resolveWinners, computeCompetitionAwards } from '../awards'
 
 describe('resolveWinners', () => {
   const fmt = (c: { value: number }) => `${c.value} pts`
@@ -77,5 +77,59 @@ describe('resolveWinners', () => {
       { name: 'Bob', detail: '38 pts (GW3)' },
       { name: 'Cara', detail: '38 pts (GW12)' },
     ])
+  })
+})
+
+describe('computeCompetitionAwards', () => {
+  // Futzy outscores everyone but must never win an award — same "can lead,
+  // can't be crowned" rule enforced elsewhere (Results' Season Leader,
+  // Top Dog).
+  const input = {
+    entries: [{ user_id: 'alice' }, { user_id: 'bob' }, { user_id: 'futzy' }],
+    profiles: [
+      { id: 'alice', display_name: 'Alice' },
+      { id: 'bob', display_name: 'Bob' },
+      { id: 'futzy', display_name: 'Futzy' },
+    ],
+    isBotMap: { futzy: true },
+    gameweeks: [{ id: 'gw1', number: 1 }],
+    fixtures: [{ id: 100, gameweek_id: 'gw1' }],
+    events: [{ player_id: 1, event_type: 'goal', fixture_id: 100 }],
+    picks: [
+      { id: 'p-alice', user_id: 'alice', player1_id: 1, player2_id: 2 },
+      { id: 'p-bob', user_id: 'bob', player1_id: 3, player2_id: 4 },
+      { id: 'p-futzy', user_id: 'futzy', player1_id: 5, player2_id: 6 },
+    ],
+    pointsData: [
+      { user_id: 'alice', pick_id: 'p-alice', total_points: 20, player1_points: 12, player2_points: 0, breakdown: { team: 'home_win', is_banker: false }, gameweek_id: 'gw1' },
+      { user_id: 'bob', pick_id: 'p-bob', total_points: 10, player1_points: 5, player2_points: 0, breakdown: { team: 'away_win', is_banker: false }, gameweek_id: 'gw1' },
+      { user_id: 'futzy', pick_id: 'p-futzy', total_points: 100, player1_points: 0, player2_points: 0, breakdown: { team: null, is_banker: false }, gameweek_id: 'gw1' },
+    ],
+    playerDisplayNames: { 1: 'Player One', 2: 'Player Two', 3: 'Player Three', 4: 'Player Four' },
+  }
+
+  it('excludes the bot from every award even when it outscores everyone', () => {
+    const { awards } = computeCompetitionAwards(input)
+    const champion = awards.find(a => a.key === 'champion')!
+    expect(champion.winnerDisplay).toBe('Alice')
+    expect(champion.detail).toBe('20 pts')
+  })
+
+  it('credits goals to whichever human picked that player', () => {
+    const { awards } = computeCompetitionAwards(input)
+    const goldenBoot = awards.find(a => a.key === 'goldenBoot')!
+    expect(goldenBoot.winnerDisplay).toBe('Alice')
+  })
+
+  it('aggregates the Talisman across whoever picked that player, bots included', () => {
+    const { talisman } = computeCompetitionAwards(input)
+    expect(talisman.winnerDisplay).toBe('Player One')
+    expect(talisman.detail).toBe('12 pts combined')
+  })
+
+  it('reports no entrants when everyone is a bot', () => {
+    const result = computeCompetitionAwards({ ...input, entries: [{ user_id: 'futzy' }] })
+    expect(result.hasEntrants).toBe(false)
+    expect(result.awards).toEqual([])
   })
 })
