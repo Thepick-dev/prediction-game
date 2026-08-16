@@ -15,6 +15,9 @@ const PATTERNS = [
   { value: 'sash', label: 'Sash' },
   { value: 'quarters', label: 'Quarters' },
   { value: 'pinstripes', label: 'Pinstripes' },
+  { value: 'checkered', label: 'Checkered' },
+  { value: 'diagonal', label: 'Diagonal Halves' },
+  { value: 'chest-bands', label: 'Chest Bands' },
 ]
 
 // Ordered as a genuine spectrum, both across and within groups: group order

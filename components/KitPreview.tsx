@@ -109,6 +109,32 @@ export default function KitPreview({ pattern, colour1, colour2, colour3, stars =
             ))}
           </g>
         )
+      case 'checkered':
+        return (
+          <g clipPath={`url(#${shirtClipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            {Array.from({ length: 7 }).map((_, row) =>
+              Array.from({ length: 7 }).map((_, col) =>
+                (row + col) % 2 === 1 ? <rect key={`${row}-${col}`} x={col * 4} y={row * 4} width="4" height="4" fill={colour2} /> : null
+              )
+            )}
+          </g>
+        )
+      case 'diagonal':
+        return (
+          <g clipPath={`url(#${shirtClipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <polygon points="0,28 28,28 28,0" fill={colour2} />
+          </g>
+        )
+      case 'chest-bands':
+        return (
+          <g clipPath={`url(#${shirtClipId})`}>
+            <rect x="0" y="0" width="28" height="28" fill={colour1} />
+            <rect x="0" y="3.5" width="28" height="1.6" fill={colour2} />
+            <rect x="0" y="6.5" width="28" height="1.6" fill={colour2} />
+          </g>
+        )
       case 'solid':
       default:
         return (
