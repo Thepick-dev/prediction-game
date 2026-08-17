@@ -2,7 +2,6 @@ import { createServerSupabaseClient } from '../lib/supabase-server'
 import { createAdminSupabaseClient } from '../lib/supabase-admin'
 import { pastDeadlineGameweekIds } from '../lib/pastDeadlineGameweeks'
 import Link from 'next/link'
-import ThemeToggleControl from './components/theme-toggle-control'
 
 // Same reasoning as the nav badge this feeds alongside — several of these
 // tables only let a regular session see its own pending row via RLS, not
@@ -37,8 +36,7 @@ async function loadPendingSummary() {
 export default async function AdminPage() {
   const supabase = await createServerSupabaseClient()
 
-  const [{ data: { user } }, { data: competition }, { data: gameweeks }, { data: entries }, pending] = await Promise.all([
-    supabase.auth.getUser(),
+  const [{ data: competition }, { data: gameweeks }, { data: entries }, pending] = await Promise.all([
     supabase.from('competitions').select('id, name, status').eq('status', 'active').single(),
     supabase.from('gameweeks').select('id, number, status, deadline').order('number', { ascending: false }).limit(5),
     supabase.from('competition_entries').select('id'),
@@ -48,12 +46,6 @@ export default async function AdminPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-8">Admin Dashboard</h1>
-
-      {user && (
-        <div className="mb-6">
-          <ThemeToggleControl userId={user.id} />
-        </div>
-      )}
 
       {pending.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-8">

@@ -78,6 +78,7 @@ export default function FullLeaderboardPage() {
   const [competition, setCompetition] = useState<any>(null)
   const [ranked, setRanked] = useState<RankedPlayer[]>([])
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
+  const [teamsExpandedUsers, setTeamsExpandedUsers] = useState<Set<string>>(new Set())
   const [pickDetails, setPickDetails] = useState<Record<string, PickDetail[]>>({})
   const [allGameweeks, setAllGameweeks] = useState<{ id: string; number: number; deadline: string }[]>([])
   const [matchEvents, setMatchEvents] = useState<any[]>([])
@@ -642,6 +643,7 @@ export default function FullLeaderboardPage() {
                     {expandedUser === player.user_id && (
                       <tr>
                         <td colSpan={showBonusCard ? 10 : 9} className="px-1.5 sm:px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
+                          <p className="sec-label">This Season</p>
                           <div className="flex items-center justify-between gap-3 mb-4 pb-3 flex-wrap" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
                             {player.is_bot ? <BotAvatar size={40} /> : (
                               <KitBadge
@@ -675,13 +677,14 @@ export default function FullLeaderboardPage() {
                                   <p className="text-[9px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>{bonusCardName}</p>
                                   <p className="text-sm font-black" style={{ color: 'var(--pop-blue)' }}>
                                     {bonusCardPlayedByUser.has(player.user_id)
-                                      ? `Used${bonusCardPlayByUser[player.user_id] ? ` — GW${allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}` : ''}`
+                                      ? `Used${bonusCardPlayByUser[player.user_id] ? ` — GW${allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}` : ''}${bonusCardPlayByUser[player.user_id]?.points != null ? ` — ${bonusCardPlayByUser[player.user_id].points}pts` : ''}`
                                       : 'Available'}
                                   </p>
                                 </div>
                               )}
                             </div>
                           </div>
+                          <p className="sec-label">Pick History</p>
                           {allGameweeks.length === 0 ? (
                             <p className="mb-3" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)' }}>No picks yet.</p>
                           ) : (
@@ -788,39 +791,77 @@ export default function FullLeaderboardPage() {
                                     </tr>
                                   )
                                 })}
+                                {/* Bonus Card points land in the same Tot column as every GW
+                                    row above, on its own line — so anyone adding that column
+                                    by eye lands on the real season total. Always shown, not
+                                    just once played, so its presence in the column is
+                                    consistent rather than something that only appears later. */}
+                                {showBonusCard && (
+                                  <tr style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                    <td className="py-1 pr-1 uppercase" colSpan={7}>
+                                      {bonusCardName}
+                                      {bonusCardPlayByUser[player.user_id] ? (
+                                        <>
+                                          {' — GW'}{allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}
+                                        </>
+                                      ) : ' — Not yet played'}
+                                    </td>
+                                    <td className="py-1 text-right font-black" style={{ color: 'var(--pop-blue)' }}>
+                                      {bonusCardPlayByUser[player.user_id]?.points != null ? `+${bonusCardPlayByUser[player.user_id].points}` : '—'}
+                                    </td>
+                                  </tr>
+                                )}
                               </tbody>
                             </table>
                           )}
 
-                          <div style={{ fontSize: '9px' }}>
-                            <p className="uppercase tracking-wider font-black mb-1.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                              Teams ({teamsWithAvailability.filter(t => t.remaining > 0).length} available)
-                            </p>
-                            {teamsWithAvailability.length === 0 ? (
-                              <p style={{ color: 'rgba(255,255,255,0.6)' }}>No teams.</p>
-                            ) : (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
-                                {teamsWithAvailability.map(team => {
-                                  const used = team.remaining <= 0
-                                  return (
-                                    <div
-                                      key={team.id}
-                                      className="flex items-center gap-1 rounded px-1.5 py-1 min-w-0"
-                                      style={used
-                                        ? { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', opacity: 0.4 }
-                                        : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}
-                                    >
-                                      <TeamCrest teamId={team.id} teamName={team.name} size={14} />
-                                      <span className="uppercase truncate flex-1 min-w-0">{teamDisplayName(team)}</span>
-                                      {team.isDouble && !used && team.remaining === 2 && (
-                                        <span className="font-black shrink-0" style={{ color: 'var(--pop-orange)' }}>×2</span>
-                                      )}
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            )}
-                          </div>
+                          <p className="sec-label">Teams Used</p>
+                          <button
+                            type="button"
+                            onClick={() => setTeamsExpandedUsers(prev => {
+                              const next = new Set(prev)
+                              if (next.has(player.user_id)) next.delete(player.user_id)
+                              else next.add(player.user_id)
+                              return next
+                            })}
+                            className="w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2"
+                            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.12)' }}
+                          >
+                            <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--pop-white)' }}>
+                              {teamsExpandedUsers.has(player.user_id) ? '▾' : '▸'} {teamsWithAvailability.length} teams · {teamsWithAvailability.filter(t => t.remaining <= 0).length} used
+                            </span>
+                            <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>
+                              {teamsExpandedUsers.has(player.user_id) ? 'Hide' : 'Tap to view'}
+                            </span>
+                          </button>
+                          {teamsExpandedUsers.has(player.user_id) && (
+                            <div className="mt-2" style={{ fontSize: '9px' }}>
+                              {teamsWithAvailability.length === 0 ? (
+                                <p style={{ color: 'rgba(255,255,255,0.6)' }}>No teams.</p>
+                              ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+                                  {teamsWithAvailability.map(team => {
+                                    const used = team.remaining <= 0
+                                    return (
+                                      <div
+                                        key={team.id}
+                                        className="flex items-center gap-1 rounded px-1.5 py-1 min-w-0"
+                                        style={used
+                                          ? { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', opacity: 0.4 }
+                                          : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}
+                                      >
+                                        <TeamCrest teamId={team.id} teamName={team.name} size={14} />
+                                        <span className="uppercase truncate flex-1 min-w-0">{teamDisplayName(team)}</span>
+                                        {team.isDouble && !used && team.remaining === 2 && (
+                                          <span className="font-black shrink-0" style={{ color: 'var(--pop-orange)' }}>×2</span>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}
