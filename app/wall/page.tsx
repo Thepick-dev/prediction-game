@@ -8,6 +8,9 @@ import { usePopArtTheme } from '../lib/usePopArtTheme'
 import KitBadge from '../../components/KitBadge'
 import BotAvatar from '../../components/BotAvatar'
 import StarRating from '../../components/StarRating'
+import { CrownIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, FlameIcon, TopDogIcon } from '../../components/icons'
+import { computeTopDog } from '../lib/topDog'
+import { computeAvgByGw, computeStreaks } from '../lib/leaderboardBadges'
 
 type Post = {
   pick_id: string
@@ -51,6 +54,10 @@ export default function WallPage() {
   const [starsEarthsByUser, setStarsEarthsByUser] = useState<Record<string, { stars: number; earths: number }>>({})
   const [botByUser, setBotByUser] = useState<Record<string, boolean>>({})
   const [auraByUser, setAuraByUser] = useState<Record<string, number>>({})
+  const [badgeFlagsByUser, setBadgeFlagsByUser] = useState<Record<string, { is_reigning_champ: boolean; is_vibes_champion: boolean; in_cash_pool: boolean; is_sporting_panel: boolean }>>({})
+  const [streakByUser, setStreakByUser] = useState<Record<string, number>>({})
+  const [topDogUserId, setTopDogUserId] = useState<string | null>(null)
+  const [topDogReignWeeks, setTopDogReignWeeks] = useState(0)
   const [ratingByUser, setRatingByUser] = useState<Record<string, { total: number; count: number }>>({})
   const [ratingsByTarget, setRatingsByTarget] = useState<Record<string, TargetRating>>({})
   const [gwNumberById, setGwNumberById] = useState<Record<string, number>>({})
@@ -104,6 +111,51 @@ export default function WallPage() {
 
     list.sort((a, b) => (gwMap[b.gameweek_id] ?? 0) - (gwMap[a.gameweek_id] ?? 0))
     setPosts(list)
+
+    // Same admin-assigned badges + Streak + Top Dog treatment as the
+    // Leaderboard, so a player's standing is visible wherever they post,
+    // not just there. Needs the whole competition's entries/points (not
+    // just who's posted on the Wall) since both are relative to everyone
+    // — the actual leader might not have posted at all. Its own isolated
+    // block, same reasoning as every other optional-column fetch on this
+    // page: a problem computing badges should never take the real content
+    // (comments/ratings) down with it.
+    const { data: allEntries } = await supabase.from('competition_entries').select('user_id').eq('competition_id', comp.id).eq('removed', false)
+    const { data: allPointsData } = await supabase.from('points').select('user_id, gameweek_id, total_points').eq('competition_id', comp.id)
+    const { data: bonusCardPlaysData } = await supabase.from('bonus_card_plays').select('user_id, gameweek_id, points').eq('competition_id', comp.id)
+    const { data: allBotFlags } = await supabase.from('profiles').select('id, is_bot')
+    const { data: badgeFlags } = await supabase.from('profiles').select('id, is_reigning_champ, is_vibes_champion, in_cash_pool, is_sporting_panel')
+
+    const badgeMap: Record<string, { is_reigning_champ: boolean; is_vibes_champion: boolean; in_cash_pool: boolean; is_sporting_panel: boolean }> = {}
+    badgeFlags?.forEach(b => {
+      badgeMap[b.id] = {
+        is_reigning_champ: b.is_reigning_champ ?? false,
+        is_vibes_champion: b.is_vibes_champion ?? false,
+        in_cash_pool: b.in_cash_pool ?? false,
+        is_sporting_panel: b.is_sporting_panel ?? false,
+      }
+    })
+    setBadgeFlagsByUser(badgeMap)
+
+    const isBotMap: Record<string, boolean> = {}
+    allBotFlags?.forEach(b => { isBotMap[b.id] = b.is_bot ?? false })
+
+    const weeklyPointsByUser: Record<string, number[]> = {}
+    allEntries?.forEach(e => { weeklyPointsByUser[e.user_id] = [] })
+    allPointsData?.forEach(p => {
+      const gwNum = gwMap[p.gameweek_id]
+      if (!gwNum) return
+      if (!weeklyPointsByUser[p.user_id]) weeklyPointsByUser[p.user_id] = []
+      weeklyPointsByUser[p.user_id][gwNum] = (weeklyPointsByUser[p.user_id][gwNum] ?? 0) + (p.total_points ?? 0)
+    })
+
+    const avgByGwMap = computeAvgByGw(allPointsData, gwMap)
+    setStreakByUser(computeStreaks(weeklyPointsByUser, avgByGwMap))
+
+    const scoredGwNumbers = Object.keys(avgByGwMap).map(Number).sort((a, b) => a - b)
+    const topDog = computeTopDog(scoredGwNumbers, weeklyPointsByUser, isBotMap, bonusCardPlaysData, gwMap)
+    setTopDogUserId(topDog.leaderUserId)
+    setTopDogReignWeeks(topDog.reignWeeks)
 
     const gwIds = [...new Set(list.map(p => p.gameweek_id))]
     if (gwIds.length > 0) {
@@ -380,6 +432,31 @@ export default function WallPage() {
     )
   }
 
+  // Same badge set as the Leaderboard (Reigning Champ/Vibes/Cash Pool/
+  // Sporting Panel/Streak/Top Dog) — a player's standing shown wherever
+  // they post, not just on the Leaderboard itself.
+  function authorBadges(userId: string) {
+    const flags = badgeFlagsByUser[userId]
+    const streak = streakByUser[userId]
+    const isTopDog = topDogUserId === userId && topDogReignWeeks > 0
+    if (!flags?.is_reigning_champ && !flags?.is_vibes_champion && !flags?.in_cash_pool && !flags?.is_sporting_panel && !streak && !isTopDog) return null
+    return (
+      <span className="inline-flex items-center gap-1">
+        {flags?.is_reigning_champ && <CrownIcon size={13} color="var(--pop-green)" />}
+        {flags?.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={13} /></span>}
+        {flags?.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={13} /></span>}
+        {flags?.is_sporting_panel && <span title="Sporting Panel member"><ScalesIcon size={13} /></span>}
+        {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={13} /></span>}
+        {isTopDog && (
+          <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">
+            <TopDogIcon size={13} />
+            <span className="font-mono" style={{ fontSize: '9px', color: 'var(--pop-orange)' }}>{topDogReignWeeks}</span>
+          </span>
+        )}
+      </span>
+    )
+  }
+
   return (
     <Shell active="THE WALL" user={user} displayName={displayName} theme={popArt ? 'pop-art' : 'classic'}>
       <div className={popArt ? 'pop-art-theme' : ''}>
@@ -426,6 +503,7 @@ export default function WallPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="font-black text-xs">{nameByUser[c.user_id] ?? 'Unknown'}</span>
+                      {authorBadges(c.user_id)}
                       <AuraBadge userId={c.user_id} />
                       {isPending && (
                         <span className="text-[10px] uppercase tracking-wide font-bold" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}>
@@ -463,6 +541,7 @@ export default function WallPage() {
                           <div key={r.id}>
                             <div className="rounded-xl rounded-tl px-3 py-1.5 inline-block" style={{ background: popArt ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.03)', opacity: r.status === 'pending' ? 0.6 : 1 }}>
                             <span className="font-black text-xs">{nameByUser[r.user_id] ?? 'Unknown'}</span>
+                            {authorBadges(r.user_id)}
                             <span className="text-xs ml-1.5" style={{ color: popArt ? 'rgba(255,255,255,0.7)' : '#F5ECD9CC' }}>{r.content}</span>
                             {r.status === 'pending' && (
                               <span className="text-[9px] uppercase tracking-wide font-bold ml-1.5" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}>pending</span>
@@ -539,6 +618,7 @@ export default function WallPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="font-black text-xs">{nameByUser[post.user_id] ?? 'Unknown'}</span>
+                      {authorBadges(post.user_id)}
                       <AuraBadge userId={post.user_id} />
                       <span className="text-[10px] uppercase tracking-wide" style={{ color: popArt ? 'rgba(255,255,255,0.4)' : '#F5ECD940' }}>
                         GW{gwNumberById[post.gameweek_id] ?? '?'}{avg ? ` · ⭐ ${avg} avg (${rating!.count})` : ''}
@@ -601,6 +681,7 @@ export default function WallPage() {
                           <div key={r.id}>
                             <div className="rounded-xl rounded-tl px-3 py-1.5 inline-block" style={{ background: popArt ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.03)' }}>
                               <span className="font-black text-xs">{nameByUser[r.user_id] ?? 'Unknown'}</span>
+                              {authorBadges(r.user_id)}
                               <span className="text-xs ml-1.5" style={{ color: popArt ? 'rgba(255,255,255,0.7)' : '#F5ECD9CC' }}>{r.content}</span>
                               {isAdmin && (
                                 <button onClick={() => deleteContent('reply', r.id)} className="text-[9px] uppercase tracking-wide font-bold ml-1.5" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>

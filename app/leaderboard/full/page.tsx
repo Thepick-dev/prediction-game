@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
 import Shell from '../../components/ceefax-shell'
-import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon, TopDogIcon } from '../../../components/icons'
+import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, TopDogIcon } from '../../../components/icons'
 import HeroPage from '../../../components/HeroPage'
 import TeamCrest from '../../../components/TeamCrest'
 import KitBadge from '../../../components/KitBadge'
 import BotAvatar from '../../../components/BotAvatar'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../../lib/players'
 import { computeTopDog } from '../../lib/topDog'
+import { computeAvgByGw, computeStreaks } from '../../lib/leaderboardBadges'
 import { usePopArtTheme } from '../../lib/usePopArtTheme'
 import PopArtLoading from '../../../components/PopArtLoading'
 import Link from 'next/link'
@@ -21,6 +22,7 @@ type RankedPlayer = {
   is_reigning_champ: boolean
   is_vibes_champion: boolean
   in_cash_pool: boolean
+  is_sporting_panel: boolean
   joined_at: string
   home_wins: number
   away_wins: number
@@ -94,6 +96,7 @@ export default function FullLeaderboardPage() {
   const [bonusCardPlayByUser, setBonusCardPlayByUser] = useState<Record<string, { gameweek_id: string; player_id: number; fixture_id: number | null; points: number | null }>>({})
   const [bonusCardName, setBonusCardName] = useState<string | null>(null)
   const [avgByGw, setAvgByGw] = useState<Record<number, number>>({})
+  const [streakByUser, setStreakByUser] = useState<Record<string, number>>({})
   const [submittedKeys, setSubmittedKeys] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   // Top Dog — the current leaderboard leader and how many completed
@@ -170,13 +173,14 @@ export default function FullLeaderboardPage() {
     // Its own request, same reason — these are newer, optional,
     // admin-assigned leaderboard badges, and a problem reading them should
     // never take display names or points down with it.
-    const { data: badgeFlags } = await supabase.from('profiles').select('id, is_reigning_champ, is_vibes_champion, in_cash_pool')
-    const badgeMap: Record<string, { is_reigning_champ: boolean; is_vibes_champion: boolean; in_cash_pool: boolean }> = {}
+    const { data: badgeFlags } = await supabase.from('profiles').select('id, is_reigning_champ, is_vibes_champion, in_cash_pool, is_sporting_panel')
+    const badgeMap: Record<string, { is_reigning_champ: boolean; is_vibes_champion: boolean; in_cash_pool: boolean; is_sporting_panel: boolean }> = {}
     badgeFlags?.forEach(b => {
       badgeMap[b.id] = {
         is_reigning_champ: b.is_reigning_champ ?? false,
         is_vibes_champion: b.is_vibes_champion ?? false,
         in_cash_pool: b.in_cash_pool ?? false,
+        is_sporting_panel: b.is_sporting_panel ?? false,
       }
     })
 
@@ -306,19 +310,7 @@ export default function FullLeaderboardPage() {
     setBonusCardPlayByUser(bonusCardPlayMap)
     setBonusCardName(bonusCardDisplayName(comp.bonus_card_name, comp.bonus_card_player_id != null ? playerMap[comp.bonus_card_player_id] : null))
 
-    const gwPointsMap: Record<string, Record<string, number>> = {}
-    pointsData?.forEach(p => {
-      if (!gwPointsMap[p.gameweek_id]) gwPointsMap[p.gameweek_id] = {}
-      gwPointsMap[p.gameweek_id][p.user_id] = p.total_points ?? 0
-    })
-
-    const avgMap: Record<number, number> = {}
-    Object.entries(gwPointsMap).forEach(([gwId, userPts]) => {
-      const vals = Object.values(userPts)
-      if (vals.length > 0) {
-        avgMap[gwMap[gwId]] = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length)
-      }
-    })
+    const avgMap = computeAvgByGw(pointsData, gwMap)
     setAvgByGw(avgMap)
 
     const fixtureGwMap: Record<number, string> = {}
@@ -346,6 +338,7 @@ export default function FullLeaderboardPage() {
         is_reigning_champ: badgeMap[entry.user_id]?.is_reigning_champ ?? false,
         is_vibes_champion: badgeMap[entry.user_id]?.is_vibes_champion ?? false,
         in_cash_pool: badgeMap[entry.user_id]?.in_cash_pool ?? false,
+        is_sporting_panel: badgeMap[entry.user_id]?.is_sporting_panel ?? false,
         joined_at: entry.joined_at,
         home_wins: 0,
         away_wins: 0,
@@ -425,6 +418,7 @@ export default function FullLeaderboardPage() {
     const topDog = computeTopDog(scoredGwNumbers, weeklyPointsByUser, isBotMap, bonusCardPlays, gwMap)
     setTopDogUserId(topDog.leaderUserId)
     setTopDogReignWeeks(topDog.reignWeeks)
+    setStreakByUser(computeStreaks(weeklyPointsByUser, avgMap))
 
     const aonMap: Record<string, { player_id: number; outcome: string }> = {}
     aonPicks?.forEach(a => { aonMap[`${a.user_id}_${a.gameweek_id}`] = { player_id: a.player_id, outcome: a.outcome } })
@@ -460,17 +454,7 @@ export default function FullLeaderboardPage() {
   const assistPlayers = new Set(matchEvents.filter(e => e.event_type === 'assist').map(e => e.player_id))
 
   function getStreak(player: RankedPlayer) {
-    const weeks = Object.keys(avgByGw).map(Number).sort((a, b) => b - a)
-    if (weeks.length < 2) return null
-    let streak = 0
-    for (const gw of weeks) {
-      const playerPts = player.weekly_points[gw]
-      const avg = avgByGw[gw]
-      if (playerPts === undefined || avg === undefined) break
-      if (playerPts > avg) streak++
-      else break
-    }
-    return streak >= 3 ? streak : null
+    return streakByUser[player.user_id] ?? null
   }
 
   type GwRow =
@@ -619,6 +603,7 @@ export default function FullLeaderboardPage() {
                           {player.is_reigning_champ && <CrownIcon size={13} color="var(--pop-green)" />}
                           {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={13} /></span>}
                           {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={13} /></span>}
+                          {player.is_sporting_panel && <span title="Sporting Panel member"><ScalesIcon size={13} /></span>}
                           {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={13} /></span>}
                           {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
                             <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">
@@ -882,6 +867,7 @@ export default function FullLeaderboardPage() {
           <span className="inline-flex items-center gap-1"><CrownIcon size={11} color="var(--pop-green)" /> Reigning champ</span>
           <span className="inline-flex items-center gap-1"><ShadesIcon size={11} /> Vibes champion</span>
           <span className="inline-flex items-center gap-1"><PoundCoinIcon size={11} /> In the cash pool</span>
+          <span className="inline-flex items-center gap-1"><ScalesIcon size={11} /> Sporting Panel member</span>
           <span className="inline-flex items-center gap-1"><FlameIcon size={11} /> Streak (3+ wks above avg)</span>
           <span className="inline-flex items-center gap-1"><TopDogIcon size={11} /> Top Dog — current leader, number = weeks leading</span>
           <span className="inline-flex items-center gap-1"><span style={{ color: 'var(--pop-green)' }}>★</span>🌍 Kit stars / earths</span>

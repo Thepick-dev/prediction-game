@@ -82,6 +82,17 @@ export function PoundCoinIcon({ size = 16, color = 'var(--pop-orange)', classNam
   )
 }
 
+// Sporting Panel — admin-assigned, see profiles.is_sporting_panel. The
+// panel "for the Avoidance of Manifestly Unfair Outcomes" — scales of
+// justice, matching the deliberately grandiose committee name.
+export function ScalesIcon({ size = 16, color = 'var(--pop-green)', className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M12 3v17M5 6h14M5 6 2.5 10a2.5 2.5 0 0 0 5 0L5 6ZM19 6l-2.5 4a2.5 2.5 0 0 0 5 0L19 6ZM9 20h6" />
+    </svg>
+  )
+}
+
 // Top Dog — current leaderboard leader, see the reign-tracking logic in
 // app/leaderboard/page.tsx. Silhouette traced from Wikimedia Commons
 // "File:Dog.svg" (Public Domain / CC0, https://commons.wikimedia.org/wiki/File:Dog.svg),
