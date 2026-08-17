@@ -17,7 +17,7 @@ import { pastDeadlineGameweekIds } from '../lib/pastDeadlineGameweeks'
 type Tab = 'teams' | 'players' | 'me' | 'trends'
 
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null; active: boolean }
-type PlayerRow = { id: number; name: string; web_name: string | null; team_id: number; position: string | null }
+type PlayerRow = { id: number; name: string; web_name: string | null; team_id: number }
 
 type TeamStat = {
   team: Team
@@ -97,8 +97,6 @@ export default function StatsHubPage() {
 
   const [teamSearch, setTeamSearch] = useState('')
   const [playerSearch, setPlayerSearch] = useState('')
-  const [playerPositionFilter, setPlayerPositionFilter] = useState<string>('ALL')
-
   const supabase = createClient()
   const { popArt } = usePopArtTheme(user?.id)
 
@@ -130,7 +128,7 @@ export default function StatsHubPage() {
         { data: fixtures }, pastDeadlineIds
       ] = await Promise.all([
         supabase.from('teams').select('id, name, short_name, short_code, active'),
-        supabase.from('players').select('id, name, web_name, team_id, position'),
+        supabase.from('players').select('id, name, web_name, team_id'),
         supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id),
         supabase.from('competition_entries').select('user_id, joined_at').eq('competition_id', comp.id).eq('removed', false),
         supabase.from('picks').select('id, user_id, gameweek_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('competition_id', comp.id),
@@ -344,13 +342,12 @@ export default function StatsHubPage() {
 
   const filteredPlayerStats = useMemo(() => {
     let list = playerStats
-    if (playerPositionFilter !== 'ALL') list = list.filter(p => p.player.position === playerPositionFilter)
     if (playerSearch.trim()) {
       const q = playerSearch.toLowerCase()
       list = list.filter(p => p.displayName.toLowerCase().includes(q))
     }
     return list
-  }, [playerStats, playerSearch, playerPositionFilter])
+  }, [playerStats, playerSearch])
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'teams', label: 'Teams' },
@@ -484,26 +481,13 @@ export default function StatsHubPage() {
                 </ResponsiveContainer>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2 mb-3">
-                <input
-                  type="text"
-                  placeholder="Search players..."
-                  value={playerSearch}
-                  onChange={e => setPlayerSearch(e.target.value)}
-                  className="pop-input flex-1 px-3 py-2 text-sm font-bold"
-                />
-                <select
-                  value={playerPositionFilter}
-                  onChange={e => setPlayerPositionFilter(e.target.value)}
-                  className="pop-input px-3 py-2 text-sm font-bold"
-                >
-                  <option value="ALL">All positions</option>
-                  <option value="GK">GK</option>
-                  <option value="DEF">DEF</option>
-                  <option value="MID">MID</option>
-                  <option value="FWD">FWD</option>
-                </select>
-              </div>
+              <input
+                type="text"
+                placeholder="Search players..."
+                value={playerSearch}
+                onChange={e => setPlayerSearch(e.target.value)}
+                className="pop-input w-full mb-3 px-3 py-2 text-sm font-bold"
+              />
 
               <div className="pop-panel" style={{ overflow: 'hidden', overflowX: 'auto' }}>
                 <table className="w-full" style={{ fontSize: '12px' }}>
@@ -749,26 +733,13 @@ export default function StatsHubPage() {
                 </ResponsiveContainer>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2 mb-3">
-                <input
-                  type="text"
-                  placeholder="Search players..."
-                  value={playerSearch}
-                  onChange={e => setPlayerSearch(e.target.value)}
-                  className="flex-1 bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-[#F5ECD9] placeholder:text-[#F5ECD9]/30 focus:outline-none focus:border-[#D9A441]/50"
-                />
-                <select
-                  value={playerPositionFilter}
-                  onChange={e => setPlayerPositionFilter(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-[#F5ECD9] focus:outline-none focus:border-[#D9A441]/50"
-                >
-                  <option value="ALL">All positions</option>
-                  <option value="GK">GK</option>
-                  <option value="DEF">DEF</option>
-                  <option value="MID">MID</option>
-                  <option value="FWD">FWD</option>
-                </select>
-              </div>
+              <input
+                type="text"
+                placeholder="Search players..."
+                value={playerSearch}
+                onChange={e => setPlayerSearch(e.target.value)}
+                className="w-full mb-3 bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-[#F5ECD9] placeholder:text-[#F5ECD9]/30 focus:outline-none focus:border-[#D9A441]/50"
+              />
 
               <div className="bg-white/5 border border-white/10 rounded-lg overflow-hidden overflow-x-auto">
                 <table className="w-full" style={{ fontSize: '12px' }}>
