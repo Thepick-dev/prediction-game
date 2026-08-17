@@ -127,6 +127,36 @@ describe('computeCompetitionAwards', () => {
     expect(talisman.detail).toBe('12 pts combined')
   })
 
+  it('ranks the Talisman on raw (non-Banker-doubled) points, with the doubled total shown alongside', () => {
+    const bankeredInput = {
+      ...input,
+      pointsData: [
+        // Alice bankered Player One: doubled to 12, raw was 6.
+        { user_id: 'alice', pick_id: 'p-alice', total_points: 20, player1_points: 12, player2_points: 0, breakdown: { team: 'home_win', is_banker: true, player1_raw: 6, player2_raw: 0 }, gameweek_id: 'gw1' },
+        // Bob's Player Three scored 8 raw, undoubled — beats Player One's 6 raw.
+        { user_id: 'bob', pick_id: 'p-bob', total_points: 13, player1_points: 8, player2_points: 0, breakdown: { team: 'away_win', is_banker: false }, gameweek_id: 'gw1' },
+        { user_id: 'futzy', pick_id: 'p-futzy', total_points: 100, player1_points: 0, player2_points: 0, breakdown: { team: null, is_banker: false }, gameweek_id: 'gw1' },
+      ],
+    }
+    const { talisman } = computeCompetitionAwards(bankeredInput)
+    expect(talisman.winnerDisplay).toBe('Player Three')
+    expect(talisman.detail).toBe('8 pts combined')
+  })
+
+  it('shows the Banker-doubled total in brackets only when it differs from the raw total', () => {
+    const bankeredInput = {
+      ...input,
+      picks: [{ id: 'p-alice', user_id: 'alice', player1_id: 1, player2_id: 2 }],
+      entries: [{ user_id: 'alice' }],
+      pointsData: [
+        { user_id: 'alice', pick_id: 'p-alice', total_points: 20, player1_points: 12, player2_points: 0, breakdown: { team: 'home_win', is_banker: true, player1_raw: 6, player2_raw: 0 }, gameweek_id: 'gw1' },
+      ],
+    }
+    const { talisman } = computeCompetitionAwards(bankeredInput)
+    expect(talisman.winnerDisplay).toBe('Player One')
+    expect(talisman.detail).toBe('6 pts combined (with Banker: 12)')
+  })
+
   it('reports no entrants when everyone is a bot', () => {
     const result = computeCompetitionAwards({ ...input, entries: [{ user_id: 'futzy' }] })
     expect(result.hasEntrants).toBe(false)

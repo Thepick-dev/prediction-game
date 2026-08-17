@@ -12,6 +12,7 @@ import TeamCrest from '../../components/TeamCrest'
 import { buildPlayerDisplayNames } from '../lib/players'
 import PopArtLoading from '../../components/PopArtLoading'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
+import { pastDeadlineGameweekIds } from '../lib/pastDeadlineGameweeks'
 
 type Tab = 'teams' | 'players' | 'me' | 'trends'
 
@@ -126,7 +127,7 @@ export default function StatsHubPage() {
       const [
         { data: teams }, { data: players }, { data: gameweeks },
         { data: entries }, { data: picks }, { data: points }, { data: events },
-        { data: fixtures }
+        { data: fixtures }, pastDeadlineIds
       ] = await Promise.all([
         supabase.from('teams').select('id, name, short_name, short_code, active'),
         supabase.from('players').select('id, name, web_name, team_id, position'),
@@ -136,7 +137,18 @@ export default function StatsHubPage() {
         supabase.from('points').select('user_id, pick_id, gameweek_id, total_points, team_points, player1_points, player2_points, breakdown').eq('competition_id', comp.id),
         supabase.from('match_events').select('player_id, event_type, fixture_id'),
         supabase.from('fixtures').select('id, gameweek_id'),
+        pastDeadlineGameweekIds(supabase),
       ])
+      const pastDeadlineIdSet = new Set(pastDeadlineIds)
+      // Team/player point tables below are already safe (they only count
+      // picks that have a matching `points` row, which can't exist before
+      // a gameweek is scored). But the raw `picks` table itself has no
+      // such gate — anything built straight from it (which team/player got
+      // picked, who's banked, manual-vs-autopick) has to be scoped to
+      // past-deadline gameweeks by hand, or it reveals live picks for the
+      // still-open gameweek exactly like every other backdoor this site
+      // has had to close.
+      const pastDeadlinePicks = (picks ?? []).filter(p => pastDeadlineIdSet.has(p.gameweek_id))
 
       const tMap: Record<number, Team> = {}
       teams?.forEach(t => { tMap[t.id] = t })
@@ -247,7 +259,7 @@ export default function StatsHubPage() {
       setAvgByGw(avgList)
 
       const teamPickCount: Record<number, number> = {}
-      picks?.forEach(p => { teamPickCount[p.team_id] = (teamPickCount[p.team_id] ?? 0) + 1 })
+      pastDeadlinePicks.forEach(p => { teamPickCount[p.team_id] = (teamPickCount[p.team_id] ?? 0) + 1 })
       const popularity = Object.entries(teamPickCount)
         .filter(([teamId]) => tMap[Number(teamId)])
         .map(([teamId, count]) => ({ name: teamDisplayName(tMap[Number(teamId)]), count }))
@@ -256,7 +268,7 @@ export default function StatsHubPage() {
       setTeamPopularity(popularity)
 
       const methodByGw: Record<number, { manual: number; autopick: number }> = {}
-      picks?.forEach(p => {
+      pastDeadlinePicks.forEach(p => {
         const gwNum = gwMap[p.gameweek_id]
         if (!gwNum) return
         if (!methodByGw[gwNum]) methodByGw[gwNum] = { manual: 0, autopick: 0 }
@@ -267,7 +279,7 @@ export default function StatsHubPage() {
 
       const teamBankCount: Record<number, number> = {}
       const playerBankCount: Record<number, number> = {}
-      picks?.forEach(p => {
+      pastDeadlinePicks.forEach(p => {
         if (!p.is_banker) return
         teamBankCount[p.team_id] = (teamBankCount[p.team_id] ?? 0) + 1
       })
@@ -275,7 +287,7 @@ export default function StatsHubPage() {
       setMostBankedTeam(topBankedTeamEntry ? { name: teamDisplayName(tMap[Number(topBankedTeamEntry[0])]), count: topBankedTeamEntry[1] } : null)
 
       // Bankers boost the whole pick, including both players — count both toward "most banked player" too.
-      picks?.forEach(p => {
+      pastDeadlinePicks.forEach(p => {
         if (!p.is_banker) return
         playerBankCount[p.player1_id] = (playerBankCount[p.player1_id] ?? 0) + 1
         playerBankCount[p.player2_id] = (playerBankCount[p.player2_id] ?? 0) + 1

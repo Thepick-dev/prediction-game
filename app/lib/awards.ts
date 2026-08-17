@@ -81,7 +81,13 @@ export function computeCompetitionAwards(input: CompetitionAwardsInput): {
   // Talisman looks at every pick made, bots included — it's a stat about
   // the footballer, not a trophy competed for by entrants, so leaving
   // Futzy's picks out would just make the total less accurate, not fairer.
+  // Talisman ranks on the RAW (non-banker-doubled) contribution — a true
+  // measure of the player, not of who happened to banker them that week.
+  // breakdown.player1_raw/player2_raw hold that pre-doubling value already
+  // (see scoring.ts); playerPointsWithBankerMap keeps the old doubled total
+  // alongside purely for display, in brackets.
   const playerPointsMap: Record<number, number> = {}
+  const playerPointsWithBankerMap: Record<number, number> = {}
 
   pointsData?.forEach(p => {
     const breakdown = p.breakdown as any
@@ -90,8 +96,16 @@ export function computeCompetitionAwards(input: CompetitionAwardsInput): {
     const pick = pickById[p.pick_id]
 
     if (pick) {
-      if (pick.player1_id != null) playerPointsMap[pick.player1_id] = (playerPointsMap[pick.player1_id] ?? 0) + (p.player1_points ?? 0)
-      if (pick.player2_id != null) playerPointsMap[pick.player2_id] = (playerPointsMap[pick.player2_id] ?? 0) + (p.player2_points ?? 0)
+      const p1Raw = breakdown?.player1_raw ?? p.player1_points ?? 0
+      const p2Raw = breakdown?.player2_raw ?? p.player2_points ?? 0
+      if (pick.player1_id != null) {
+        playerPointsMap[pick.player1_id] = (playerPointsMap[pick.player1_id] ?? 0) + p1Raw
+        playerPointsWithBankerMap[pick.player1_id] = (playerPointsWithBankerMap[pick.player1_id] ?? 0) + (p.player1_points ?? 0)
+      }
+      if (pick.player2_id != null) {
+        playerPointsMap[pick.player2_id] = (playerPointsMap[pick.player2_id] ?? 0) + p2Raw
+        playerPointsWithBankerMap[pick.player2_id] = (playerPointsWithBankerMap[pick.player2_id] ?? 0) + (p.player2_points ?? 0)
+      }
     }
 
     const t = totals[p.user_id]
@@ -236,13 +250,18 @@ export function computeCompetitionAwards(input: CompetitionAwardsInput): {
   const talismanCandidates = Object.entries(playerPointsMap).map(([playerId, value]) => ({
     name: playerDisplayNames[Number(playerId)] ?? 'Unknown',
     value,
+    extra: String(playerPointsWithBankerMap[Number(playerId)] ?? value),
   }))
   const talisman: CompetitionAward = {
     key: 'talisman',
     emoji: '🌟',
     title: 'Talisman',
-    explainer: "The footballer who's brought in the most combined points for everyone who picked him, across the whole competition.",
-    ...resolveWinners(talismanCandidates, c => `${c.value} pts combined`, { minQualifying: 1 }),
+    explainer: "The footballer who's brought in the most combined points for everyone who picked him, across the whole competition — Banker doubles excluded, so it measures the player rather than the pick.",
+    ...resolveWinners(
+      talismanCandidates,
+      c => c.extra !== String(c.value) ? `${c.value} pts combined (with Banker: ${c.extra})` : `${c.value} pts combined`,
+      { minQualifying: 1 }
+    ),
   }
 
   return { awards, talisman, hasEntrants: true }
