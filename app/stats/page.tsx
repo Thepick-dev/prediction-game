@@ -9,7 +9,7 @@ import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
-import { buildPlayerDisplayNames } from '../lib/players'
+import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import PopArtLoading from '../../components/PopArtLoading'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import { pastDeadlineGameweekIds } from '../lib/pastDeadlineGameweeks'
@@ -89,6 +89,14 @@ export default function StatsHubPage() {
   const [pickMethod, setPickMethod] = useState<{ gw: number; manual: number; autopick: number }[]>([])
   const [mostBankedTeam, setMostBankedTeam] = useState<{ name: string; count: number } | null>(null)
   const [mostBankedPlayer, setMostBankedPlayer] = useState<{ name: string; count: number } | null>(null)
+  const [bankerValueLeader, setBankerValueLeader] = useState<{ name: string; points: number } | null>(null)
+  const [bestBankerGameweek, setBestBankerGameweek] = useState<{ name: string; gw: number; points: number } | null>(null)
+  const [aonSuccessRate, setAonSuccessRate] = useState<{ rate: number; success: number; total: number } | null>(null)
+  const [mostNominatedAon, setMostNominatedAon] = useState<{ name: string; count: number } | null>(null)
+  const [bonusCardName, setBonusCardName] = useState<string | null>(null)
+  const [bonusCardUsage, setBonusCardUsage] = useState<{ used: number; total: number } | null>(null)
+  const [bonusCardAvgPoints, setBonusCardAvgPoints] = useState<number | null>(null)
+  const [bestBonusCardPlay, setBestBonusCardPlay] = useState<{ name: string; gw: number; points: number } | null>(null)
 
   const [myWeekly, setMyWeekly] = useState<{ gw: number; points: number }[]>([])
   const [myCumulative, setMyCumulative] = useState<{ gw: number; cumulative: number; rank: number }[]>([])
@@ -114,7 +122,7 @@ export default function StatsHubPage() {
 
     const { data: comp } = await supabase
       .from('competitions')
-      .select('id, name')
+      .select('id, name, bonus_card_enabled, bonus_card_player_id, bonus_card_name')
       .eq('status', 'active')
       .single()
 
@@ -125,7 +133,8 @@ export default function StatsHubPage() {
       const [
         { data: teams }, { data: players }, { data: gameweeks },
         { data: entries }, { data: picks }, { data: points }, { data: events },
-        { data: fixtures }, pastDeadlineIds
+        { data: fixtures }, { data: profiles }, { data: aonPicks }, { data: bonusCardPlays },
+        pastDeadlineIds
       ] = await Promise.all([
         supabase.from('teams').select('id, name, short_name, short_code, active'),
         supabase.from('players').select('id, name, web_name, team_id'),
@@ -135,8 +144,13 @@ export default function StatsHubPage() {
         supabase.from('points').select('user_id, pick_id, gameweek_id, total_points, team_points, player1_points, player2_points, breakdown').eq('competition_id', comp.id),
         supabase.from('match_events').select('player_id, event_type, fixture_id'),
         supabase.from('fixtures').select('id, gameweek_id'),
+        supabase.from('profiles').select('id, display_name'),
+        supabase.from('all_or_nothing_picks').select('user_id, gameweek_id, player_id, outcome').eq('competition_id', comp.id),
+        supabase.from('bonus_card_plays').select('user_id, gameweek_id, points').eq('competition_id', comp.id),
         pastDeadlineGameweekIds(supabase),
       ])
+      const profileMap: Record<string, string> = {}
+      profiles?.forEach(p => { profileMap[p.id] = p.display_name ?? 'Unknown' })
       const pastDeadlineIdSet = new Set(pastDeadlineIds)
       // Team/player point tables below are already safe (they only count
       // picks that have a matching `points` row, which can't exist before
@@ -295,6 +309,63 @@ export default function StatsHubPage() {
         ? { name: displayNames[Number(topBankedPlayerEntry[0])] ?? 'Unknown', count: topBankedPlayerEntry[1] }
         : null)
 
+      // Banker "value added" — the doubling adds back exactly the pick's
+      // own raw (undoubled) total, so that raw total IS the extra points
+      // Bankering earned that week. Sourced from `points`, which only
+      // exists once a gameweek is scored — safe by the same reasoning as
+      // the team/player stats above, no separate deadline gate needed.
+      const bankerValueByUser: Record<string, number> = {}
+      let bestBankerGw: { userId: string; gw: number; points: number } | null = null
+      points?.forEach(pt => {
+        if ((pt.breakdown as any)?.is_banker !== true) return
+        const extra = (pt.total_points ?? 0) / 2
+        bankerValueByUser[pt.user_id] = (bankerValueByUser[pt.user_id] ?? 0) + extra
+        const gwNum = gwMap[pt.gameweek_id]
+        if (gwNum && (!bestBankerGw || (pt.total_points ?? 0) > bestBankerGw.points)) {
+          bestBankerGw = { userId: pt.user_id, gw: gwNum, points: pt.total_points ?? 0 }
+        }
+      })
+      const topBankerValueEntry = Object.entries(bankerValueByUser).sort((a, b) => b[1] - a[1])[0]
+      setBankerValueLeader(topBankerValueEntry ? { name: profileMap[topBankerValueEntry[0]] ?? 'Unknown', points: Math.round(topBankerValueEntry[1]) } : null)
+      const finalBestBankerGw = bestBankerGw as { userId: string; gw: number; points: number } | null
+      setBestBankerGameweek(finalBestBankerGw ? { name: profileMap[finalBestBankerGw.userId] ?? 'Unknown', gw: finalBestBankerGw.gw, points: finalBestBankerGw.points } : null)
+
+      // --- All or Nothing: site-wide success rate + most-nominated player ---
+      // Scoped to resolved outcomes in past-deadline gameweeks only, on
+      // both counts deliberately — a pending nomination hasn't been scored
+      // yet, and the nominated player IS one of that user's two picks for
+      // the week, so showing it before the deadline would leak part of a
+      // still-secret pick exactly like the picks-table gap fixed above.
+      const resolvedAon = (aonPicks ?? []).filter(a => a.outcome !== 'pending' && pastDeadlineIdSet.has(a.gameweek_id))
+      const aonSuccessCount = resolvedAon.filter(a => a.outcome === 'success').length
+      setAonSuccessRate(resolvedAon.length > 0 ? { rate: Math.round((aonSuccessCount / resolvedAon.length) * 100), success: aonSuccessCount, total: resolvedAon.length } : null)
+
+      const aonPlayerCount: Record<number, number> = {}
+      resolvedAon.forEach(a => { aonPlayerCount[a.player_id] = (aonPlayerCount[a.player_id] ?? 0) + 1 })
+      const topAonPlayerEntry = Object.entries(aonPlayerCount).sort((a, b) => b[1] - a[1])[0]
+      setMostNominatedAon(topAonPlayerEntry ? { name: displayNames[Number(topAonPlayerEntry[0])] ?? 'Unknown', count: topAonPlayerEntry[1] } : null)
+
+      // --- Bonus Card ---
+      // Usage count is presence-only (how many, not which gameweek), safe
+      // regardless of deadline — mirrors the existing bonus_card_status
+      // view's own reasoning. Per-play detail (points, best play) is
+      // naturally gated instead: `points` stays null until that play is
+      // actually resolved during scoring.
+      if (comp.bonus_card_enabled) {
+        setBonusCardName(bonusCardDisplayName(comp.bonus_card_name, comp.bonus_card_player_id != null ? pMap[comp.bonus_card_player_id]?.name : null))
+        setBonusCardUsage({ used: (bonusCardPlays ?? []).length, total: entries?.length ?? 0 })
+
+        const resolvedBonusCardPlays = (bonusCardPlays ?? []).filter(b => b.points != null)
+        setBonusCardAvgPoints(resolvedBonusCardPlays.length > 0
+          ? Math.round((resolvedBonusCardPlays.reduce((sum, b) => sum + (b.points ?? 0), 0) / resolvedBonusCardPlays.length) * 10) / 10
+          : null)
+
+        const topBonusCardPlay = [...resolvedBonusCardPlays].sort((a, b) => (b.points ?? 0) - (a.points ?? 0))[0]
+        setBestBonusCardPlay(topBonusCardPlay
+          ? { name: profileMap[topBonusCardPlay.user_id] ?? 'Unknown', gw: gwMap[topBonusCardPlay.gameweek_id] ?? 0, points: topBonusCardPlay.points ?? 0 }
+          : null)
+      }
+
       // --- My performance ---
       if (authUser) {
         const weekly: { gw: number; points: number }[] = []
@@ -411,7 +482,7 @@ export default function StatsHubPage() {
           {tab === 'teams' && (
             <div>
               <div className="pop-panel p-4 mb-4" style={{ height: 260 }}>
-                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Top 10 teams by total points contributed</p>
+                <p className="sec-label">Top Teams by Points</p>
                 <ResponsiveContainer width="100%" height="90%">
                   <BarChart data={teamStats.slice(0, 10).map(t => ({ name: teamDisplayName(t.team), points: t.totalPoints }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
@@ -469,7 +540,7 @@ export default function StatsHubPage() {
           {tab === 'players' && (
             <div>
               <div className="pop-panel p-4 mb-4" style={{ height: 260 }}>
-                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Top 12 players by points earned for the users who picked them</p>
+                <p className="sec-label">Top Players by Points</p>
                 <ResponsiveContainer width="100%" height="90%">
                   <BarChart data={playerStats.slice(0, 12).map(p => ({ name: p.displayName, points: p.totalPickPoints }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
@@ -532,6 +603,7 @@ export default function StatsHubPage() {
                 <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No scored gameweeks yet — check back once results come in.</p>
               ) : (
                 <>
+                  <p className="sec-label">This Season</p>
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="pop-panel p-3">
                       <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Best Gameweek</p>
@@ -543,9 +615,9 @@ export default function StatsHubPage() {
                     </div>
                   </div>
 
+                  <p className="sec-label">By Gameweek</p>
                   <div className="pop-panel p-4 mb-4" style={{ height: 240 }}>
-                    <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Points per gameweek</p>
-                    <ResponsiveContainer width="100%" height="90%">
+                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={myWeekly.map(w => ({ name: `GW${w.gw}`, points: w.points }))}>
                         <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
                         <XAxis dataKey="name" {...popAxisProps()} />
@@ -556,9 +628,9 @@ export default function StatsHubPage() {
                     </ResponsiveContainer>
                   </div>
 
+                  <p className="sec-label">Rank Over Time <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(lower = better)</span></p>
                   <div className="pop-panel p-4" style={{ height: 240 }}>
-                    <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Your rank over the competition (lower = better)</p>
-                    <ResponsiveContainer width="100%" height="90%">
+                    <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={myCumulative.map(c => ({ name: `GW${c.gw}`, rank: c.rank }))}>
                         <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
                         <XAxis dataKey="name" {...popAxisProps()} />
@@ -575,6 +647,7 @@ export default function StatsHubPage() {
 
           {tab === 'trends' && (
             <div>
+              <p className="sec-label">Banker</p>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="pop-panel p-3">
                   <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Banked Team</p>
@@ -584,11 +657,52 @@ export default function StatsHubPage() {
                   <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Banked Player</p>
                   <p className="text-base font-black" style={{ color: 'var(--pop-yellow)' }}>{mostBankedPlayer ? `${mostBankedPlayer.name} (${mostBankedPlayer.count}x)` : '—'}</p>
                 </div>
+                <div className="pop-panel p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Value Added</p>
+                  <p className="text-base font-black" style={{ color: 'var(--pop-yellow)' }}>{bankerValueLeader ? `${bankerValueLeader.name} (+${bankerValueLeader.points})` : '—'}</p>
+                </div>
+                <div className="pop-panel p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Best Bankered GW</p>
+                  <p className="text-base font-black" style={{ color: 'var(--pop-yellow)' }}>{bestBankerGameweek ? `${bestBankerGameweek.name} — GW${bestBankerGameweek.gw} (${bestBankerGameweek.points})` : '—'}</p>
+                </div>
               </div>
 
+              <p className="sec-label">All or Nothing</p>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="pop-panel p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Success Rate</p>
+                  <p className="text-base font-black" style={{ color: 'var(--pop-green)' }}>{aonSuccessRate ? `${aonSuccessRate.rate}% (${aonSuccessRate.success}/${aonSuccessRate.total})` : '—'}</p>
+                </div>
+                <div className="pop-panel p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Nominated</p>
+                  <p className="text-base font-black" style={{ color: 'var(--pop-green)' }}>{mostNominatedAon ? `${mostNominatedAon.name} (${mostNominatedAon.count}x)` : '—'}</p>
+                </div>
+              </div>
+
+              {bonusCardName && (
+                <>
+                  <p className="sec-label">{bonusCardName}</p>
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="pop-panel p-3">
+                      <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Played</p>
+                      <p className="text-base font-black" style={{ color: 'var(--pop-blue)' }}>{bonusCardUsage ? `${bonusCardUsage.used} / ${bonusCardUsage.total}` : '—'}</p>
+                    </div>
+                    <div className="pop-panel p-3">
+                      <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Avg When Played</p>
+                      <p className="text-base font-black" style={{ color: 'var(--pop-blue)' }}>{bonusCardAvgPoints != null ? `${bonusCardAvgPoints} pts` : '—'}</p>
+                    </div>
+                    <div className="pop-panel p-3">
+                      <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Best Play</p>
+                      <p className="text-base font-black" style={{ color: 'var(--pop-blue)' }}>{bestBonusCardPlay ? `${bestBonusCardPlay.name} — GW${bestBonusCardPlay.gw} (${bestBonusCardPlay.points})` : '—'}</p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <p className="sec-label">League-Wide</p>
               <div className="pop-panel p-4 mb-4" style={{ height: 240 }}>
-                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Average score across all players, per gameweek</p>
-                <ResponsiveContainer width="100%" height="90%">
+                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Average Score by Gameweek</p>
+                <ResponsiveContainer width="100%" height="85%">
                   <LineChart data={avgByGw.map(a => ({ name: `GW${a.gw}`, avg: a.avg }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
                     <XAxis dataKey="name" {...popAxisProps()} />
@@ -600,8 +714,8 @@ export default function StatsHubPage() {
               </div>
 
               <div className="pop-panel p-4 mb-4" style={{ height: 260 }}>
-                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Most popular teams (all-time picks)</p>
-                <ResponsiveContainer width="100%" height="90%">
+                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Popular Teams</p>
+                <ResponsiveContainer width="100%" height="85%">
                   <BarChart data={teamPopularity}>
                     <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
                     <XAxis dataKey="name" {...popAxisProps()} interval={0} angle={-35} textAnchor="end" height={50} />
@@ -613,8 +727,8 @@ export default function StatsHubPage() {
               </div>
 
               <div className="pop-panel p-4" style={{ height: 240 }}>
-                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Manual picks vs autopicks, per gameweek</p>
-                <ResponsiveContainer width="100%" height="90%">
+                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Manual vs Autopick</p>
+                <ResponsiveContainer width="100%" height="85%">
                   <BarChart data={pickMethod.map(m => ({ name: `GW${m.gw}`, Manual: m.manual, Autopick: m.autopick }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
                     <XAxis dataKey="name" {...popAxisProps()} />
@@ -663,7 +777,7 @@ export default function StatsHubPage() {
           {tab === 'teams' && (
             <div>
               <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4" style={{ height: 260 }}>
-                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Top 10 teams by total points contributed</p>
+                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Top Teams by Points</p>
                 <ResponsiveContainer width="100%" height="90%">
                   <BarChart data={teamStats.slice(0, 10).map(t => ({ name: teamDisplayName(t.team), points: t.totalPoints }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
@@ -721,7 +835,7 @@ export default function StatsHubPage() {
           {tab === 'players' && (
             <div>
               <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4" style={{ height: 260 }}>
-                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Top 12 players by points earned for the users who picked them</p>
+                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Top Players by Points</p>
                 <ResponsiveContainer width="100%" height="90%">
                   <BarChart data={playerStats.slice(0, 12).map(p => ({ name: p.displayName, points: p.totalPickPoints }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
@@ -784,6 +898,7 @@ export default function StatsHubPage() {
                 <p className="text-[#F5ECD9]/50 text-sm">No scored gameweeks yet — check back once results come in.</p>
               ) : (
                 <>
+                  <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">This Season</p>
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="bg-white/5 border border-white/10 rounded-lg p-3">
                       <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold mb-1">Best Gameweek</p>
@@ -795,9 +910,9 @@ export default function StatsHubPage() {
                     </div>
                   </div>
 
+                  <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">By Gameweek</p>
                   <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4" style={{ height: 240 }}>
-                    <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Points per gameweek</p>
-                    <ResponsiveContainer width="100%" height="90%">
+                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={myWeekly.map(w => ({ name: `GW${w.gw}`, points: w.points }))}>
                         <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
                         <XAxis dataKey="name" {...axisProps()} />
@@ -808,9 +923,9 @@ export default function StatsHubPage() {
                     </ResponsiveContainer>
                   </div>
 
+                  <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Rank Over Time <span className="normal-case font-normal">(lower = better)</span></p>
                   <div className="bg-white/5 border border-white/10 rounded-lg p-4" style={{ height: 240 }}>
-                    <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Your rank over the competition (lower = better)</p>
-                    <ResponsiveContainer width="100%" height="90%">
+                    <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={myCumulative.map(c => ({ name: `GW${c.gw}`, rank: c.rank }))}>
                         <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
                         <XAxis dataKey="name" {...axisProps()} />
@@ -827,6 +942,7 @@ export default function StatsHubPage() {
 
           {tab === 'trends' && (
             <div>
+              <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Banker</p>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="bg-white/5 border border-white/10 rounded-lg p-3">
                   <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold mb-1">Most Banked Team</p>
@@ -836,11 +952,52 @@ export default function StatsHubPage() {
                   <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold mb-1">Most Banked Player</p>
                   <p className="text-base font-bold" style={{ color: GOLD }}>{mostBankedPlayer ? `${mostBankedPlayer.name} (${mostBankedPlayer.count}x)` : '—'}</p>
                 </div>
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold mb-1">Most Value Added</p>
+                  <p className="text-base font-bold" style={{ color: GOLD }}>{bankerValueLeader ? `${bankerValueLeader.name} (+${bankerValueLeader.points})` : '—'}</p>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold mb-1">Best Bankered GW</p>
+                  <p className="text-base font-bold" style={{ color: GOLD }}>{bestBankerGameweek ? `${bestBankerGameweek.name} — GW${bestBankerGameweek.gw} (${bestBankerGameweek.points})` : '—'}</p>
+                </div>
               </div>
 
+              <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">All or Nothing</p>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold mb-1">Success Rate</p>
+                  <p className="text-base font-bold" style={{ color: GOLD }}>{aonSuccessRate ? `${aonSuccessRate.rate}% (${aonSuccessRate.success}/${aonSuccessRate.total})` : '—'}</p>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold mb-1">Most Nominated</p>
+                  <p className="text-base font-bold" style={{ color: GOLD }}>{mostNominatedAon ? `${mostNominatedAon.name} (${mostNominatedAon.count}x)` : '—'}</p>
+                </div>
+              </div>
+
+              {bonusCardName && (
+                <>
+                  <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">{bonusCardName}</p>
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold mb-1">Played</p>
+                      <p className="text-base font-bold" style={{ color: GOLD }}>{bonusCardUsage ? `${bonusCardUsage.used} / ${bonusCardUsage.total}` : '—'}</p>
+                    </div>
+                    <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold mb-1">Avg When Played</p>
+                      <p className="text-base font-bold" style={{ color: GOLD }}>{bonusCardAvgPoints != null ? `${bonusCardAvgPoints} pts` : '—'}</p>
+                    </div>
+                    <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold mb-1">Best Play</p>
+                      <p className="text-base font-bold" style={{ color: GOLD }}>{bestBonusCardPlay ? `${bestBonusCardPlay.name} — GW${bestBonusCardPlay.gw} (${bestBonusCardPlay.points})` : '—'}</p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">League-Wide</p>
               <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4" style={{ height: 240 }}>
-                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Average score across all players, per gameweek</p>
-                <ResponsiveContainer width="100%" height="90%">
+                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Average Score by Gameweek</p>
+                <ResponsiveContainer width="100%" height="85%">
                   <LineChart data={avgByGw.map(a => ({ name: `GW${a.gw}`, avg: a.avg }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
                     <XAxis dataKey="name" {...axisProps()} />
@@ -852,8 +1009,8 @@ export default function StatsHubPage() {
               </div>
 
               <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4" style={{ height: 260 }}>
-                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Most popular teams (all-time picks)</p>
-                <ResponsiveContainer width="100%" height="90%">
+                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Most Popular Teams</p>
+                <ResponsiveContainer width="100%" height="85%">
                   <BarChart data={teamPopularity}>
                     <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
                     <XAxis dataKey="name" {...axisProps()} interval={0} angle={-35} textAnchor="end" height={50} />
@@ -865,8 +1022,8 @@ export default function StatsHubPage() {
               </div>
 
               <div className="bg-white/5 border border-white/10 rounded-lg p-4" style={{ height: 240 }}>
-                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Manual picks vs autopicks, per gameweek</p>
-                <ResponsiveContainer width="100%" height="90%">
+                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Manual vs Autopick</p>
+                <ResponsiveContainer width="100%" height="85%">
                   <BarChart data={pickMethod.map(m => ({ name: `GW${m.gw}`, Manual: m.manual, Autopick: m.autopick }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
                     <XAxis dataKey="name" {...axisProps()} />
