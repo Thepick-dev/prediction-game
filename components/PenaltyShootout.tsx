@@ -656,7 +656,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
 
       {bannedNames.length > 0 && (
         <div className="rounded-lg p-2.5 mb-3" style={{ background: 'rgba(250,0,60,0.1)', border: '1px solid rgba(250,0,60,0.4)' }}>
-          <p className="font-mono text-[10px]" style={{ color: 'var(--pop-red)' }}>
+          <p className="font-mono text-[10px]" style={{ color: 'var(--pop-green)' }}>
             🚫 {bannedNames.join(', ')} {bannedNames.length === 1 ? 'is' : 'are'} banned from this game for tampering with their score. If you see {bannedNames.length === 1 ? 'them' : 'them'} playing it, report it to the admin.
           </p>
         </div>
