@@ -106,8 +106,8 @@ export default function KitPreview({ pattern, colour1, colour2, colour3, stars =
         return (
           <g clipPath={`url(#${shirtClipId})`}>
             <rect x="0" y="0" width="28" height="28" fill={colour1} />
-            {Array.from({ length: 9 }).map((_, i) => (
-              <rect key={i} x={i * 3.1 + 0.5} y="0" width="0.8" height="28" fill={colour2} />
+            {Array.from({ length: 7 }).map((_, i) => (
+              <rect key={i} x={i * 4 + 1.2} y="0" width="1.6" height="28" fill={colour2} />
             ))}
           </g>
         )
