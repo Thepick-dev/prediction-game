@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '../app/lib/supabase'
+import { MINIGAME_MAX_SCORE } from '../app/lib/minigame'
 
 // Not connected to the prediction game in any way — purely a bit of fun,
 // separate scoring, separate table.
@@ -38,7 +39,7 @@ const MIN_DURATION = 0.28
 const CURVE_EXP = 0.75
 const BASE_HIT_PTS = 2
 const BONUS_HIT_PTS = 5
-const MAX_SCORE = 99
+const MAX_SCORE = MINIGAME_MAX_SCORE
 const STARTING_LIVES = 3
 const MAX_LIVES = 5
 const MILESTONES = [25, 50, 75]
@@ -566,9 +567,14 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
 
   async function saveScore(newBest: number) {
     setBestScore(newBest)
-    await supabase
-      .from('minigame_penalty_scores')
-      .upsert({ user_id: userId, best_score: newBest, updated_at: new Date().toISOString() })
+    // Goes through a server route, not a direct client write — the route
+    // verifies the caller's own session and rejects anything outside what
+    // the game can actually produce, rather than trusting this number.
+    await fetch('/api/minigame/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ score: newBest }),
+    })
     loadScores()
   }
 
