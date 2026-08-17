@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '../app/lib/supabase'
-import { MINIGAME_MAX_SCORE } from '../app/lib/minigame'
+import { MINIGAME_MAX_SCORE, MINIGAME_LOCKED_USERS } from '../app/lib/minigame'
 
 // Not connected to the prediction game in any way — purely a bit of fun,
 // separate scoring, separate table.
@@ -191,9 +191,26 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
   // unintended contact on whichever button renders in that same screen
   // position next, silently starting a new game nobody asked for.
   const lastShotAtRef = useRef(0)
+  // Set only by a real startGame() call, never by jumpToScore — a session
+  // token is proof a game genuinely began, which is exactly what an admin
+  // test-mode jump must never be able to produce.
+  const sessionTokenRef = useRef<string | null>(null)
   const supabase = createClient()
+  const [bannedNames, setBannedNames] = useState<string[]>([])
 
   useEffect(() => { loadScores() }, [])
+
+  // Public "wanted poster" for anyone banned for tampering (see
+  // app/lib/minigame.ts) — shown to everyone else so they know to flag it
+  // if they somehow see a banned player in the game. Its own isolated
+  // query; a problem here should never block the game itself loading.
+  useEffect(() => {
+    const bannedIds = Object.keys(MINIGAME_LOCKED_USERS)
+    if (bannedIds.length === 0) return
+    supabase.from('profiles').select('id, display_name').in('id', bannedIds).then(({ data }) => {
+      setBannedNames((data ?? []).map(p => p.display_name ?? 'Unknown'))
+    })
+  }, [])
 
   // Drives the zone's own drift once it's meant to be moving — a real Web
   // Animation rather than a static CSS keyframe, since its start/end
@@ -422,6 +439,14 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
     setShowViolin(false)
     setMilestone(null)
     setTestModeUsed(false)
+    // Fire-and-forget — a slow/failed session start just means this run's
+    // score won't be plausible to the server later (elapsedSeconds stays
+    // low), not that the game itself is blocked from being played.
+    sessionTokenRef.current = null
+    fetch('/api/minigame/session', { method: 'POST' })
+      .then(res => res.json())
+      .then(data => { sessionTokenRef.current = data.token ?? null })
+      .catch(() => {})
     newRound(0, STARTING_LIVES)
   }
 
@@ -568,12 +593,14 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
   async function saveScore(newBest: number) {
     setBestScore(newBest)
     // Goes through a server route, not a direct client write — the route
-    // verifies the caller's own session and rejects anything outside what
-    // the game can actually produce, rather than trusting this number.
+    // verifies the caller's own session, checks the score is plausible for
+    // how long that session has actually been running, and rejects
+    // anything outside what the game can produce, rather than trusting
+    // this number.
     await fetch('/api/minigame/score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ score: newBest }),
+      body: JSON.stringify({ score: newBest, session: sessionTokenRef.current }),
     })
     loadScores()
   }
@@ -599,6 +626,22 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
   const chaosVisuals = phase !== 'ready' && difficultyT > CHAOS_VISUAL_START_T
   const livesShown = Math.max(STARTING_LIVES, lives)
 
+  // Banned entirely, not just score-locked — can't start a session
+  // (app/api/minigame/session/route.ts rejects it server-side too), so
+  // there's no point rendering a game that could never save anyway.
+  if (userId in MINIGAME_LOCKED_USERS) {
+    return (
+      <div className="pop-art-theme text-center py-6" style={{ color: 'var(--pop-white)' }}>
+        <p style={{ fontSize: 44 }}>🚫</p>
+        <p className="pop-headline text-lg mt-2 mb-1" style={{ color: 'var(--pop-red)' }}>You are banned</p>
+        <p className="font-bold text-sm">No Shootout game for you!</p>
+        <p className="text-xs mt-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          Contact the admin if you think this is a mistake.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="pop-art-theme" style={{ color: 'var(--pop-white)' }}>
       <div className="flex items-center justify-between mb-3">
@@ -610,6 +653,14 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
           </p>
         </div>
       </div>
+
+      {bannedNames.length > 0 && (
+        <div className="rounded-lg p-2.5 mb-3" style={{ background: 'rgba(250,0,60,0.1)', border: '1px solid rgba(250,0,60,0.4)' }}>
+          <p className="font-mono text-[10px]" style={{ color: 'var(--pop-red)' }}>
+            🚫 {bannedNames.join(', ')} {bannedNames.length === 1 ? 'is' : 'are'} banned from this game for tampering with their score. If you see {bannedNames.length === 1 ? 'them' : 'them'} playing it, report it to the admin.
+          </p>
+        </div>
+      )}
 
       {isAdmin && (
         <div className="rounded-lg p-2.5 mb-3" style={{ background: 'rgba(125,55,165,0.08)', border: '1px solid rgba(125,55,165,0.3)' }}>
