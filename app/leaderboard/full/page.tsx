@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
 import Shell from '../../components/ceefax-shell'
-import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, TopDogIcon } from '../../../components/icons'
+import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, BlockedIcon, TopDogIcon } from '../../../components/icons'
+import { MINIGAME_LOCKED_USERS } from '../../lib/minigame'
 import HeroPage from '../../../components/HeroPage'
 import TeamCrest from '../../../components/TeamCrest'
 import KitBadge from '../../../components/KitBadge'
@@ -604,6 +605,7 @@ export default function FullLeaderboardPage() {
                           {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={13} /></span>}
                           {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={13} /></span>}
                           {player.is_sporting_panel && <span title="Sporting Panel member"><ScalesIcon size={13} /></span>}
+                          {player.user_id in MINIGAME_LOCKED_USERS && <span title="Banned from minigame"><BlockedIcon size={13} /></span>}
                           {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={13} /></span>}
                           {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
                             <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">
@@ -868,6 +870,7 @@ export default function FullLeaderboardPage() {
           <span className="inline-flex items-center gap-1"><ShadesIcon size={11} /> Vibes champion</span>
           <span className="inline-flex items-center gap-1"><PoundCoinIcon size={11} /> In the cash pool</span>
           <span className="inline-flex items-center gap-1"><ScalesIcon size={11} /> Sporting Panel member</span>
+          <span className="inline-flex items-center gap-1"><BlockedIcon size={11} /> Banned from minigame</span>
           <span className="inline-flex items-center gap-1"><FlameIcon size={11} /> Streak (3+ wks above avg)</span>
           <span className="inline-flex items-center gap-1"><TopDogIcon size={11} /> Top Dog — current leader, number = weeks leading</span>
           <span className="inline-flex items-center gap-1"><span style={{ color: 'var(--pop-green)' }}>★</span>🌍 Kit stars / earths</span>

@@ -8,9 +8,10 @@ import { usePopArtTheme } from '../lib/usePopArtTheme'
 import KitBadge from '../../components/KitBadge'
 import BotAvatar from '../../components/BotAvatar'
 import StarRating from '../../components/StarRating'
-import { CrownIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, FlameIcon, TopDogIcon } from '../../components/icons'
+import { CrownIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, BlockedIcon, FlameIcon, TopDogIcon } from '../../components/icons'
 import { computeTopDog } from '../lib/topDog'
 import { computeAvgByGw, computeStreaks } from '../lib/leaderboardBadges'
+import { MINIGAME_LOCKED_USERS } from '../lib/minigame'
 
 type Post = {
   pick_id: string
@@ -439,13 +440,15 @@ export default function WallPage() {
     const flags = badgeFlagsByUser[userId]
     const streak = streakByUser[userId]
     const isTopDog = topDogUserId === userId && topDogReignWeeks > 0
-    if (!flags?.is_reigning_champ && !flags?.is_vibes_champion && !flags?.in_cash_pool && !flags?.is_sporting_panel && !streak && !isTopDog) return null
+    const isBanned = userId in MINIGAME_LOCKED_USERS
+    if (!flags?.is_reigning_champ && !flags?.is_vibes_champion && !flags?.in_cash_pool && !flags?.is_sporting_panel && !isBanned && !streak && !isTopDog) return null
     return (
       <span className="inline-flex items-center gap-1">
         {flags?.is_reigning_champ && <CrownIcon size={13} color="var(--pop-green)" />}
         {flags?.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={13} /></span>}
         {flags?.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={13} /></span>}
         {flags?.is_sporting_panel && <span title="Sporting Panel member"><ScalesIcon size={13} /></span>}
+        {isBanned && <span title="Banned from minigame"><BlockedIcon size={13} /></span>}
         {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={13} /></span>}
         {isTopDog && (
           <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">

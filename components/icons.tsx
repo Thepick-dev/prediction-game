@@ -82,6 +82,17 @@ export function PoundCoinIcon({ size = 16, color = 'var(--pop-orange)', classNam
   )
 }
 
+// Banned from the minigame — see app/lib/minigame.ts's MINIGAME_LOCKED_USERS.
+// Universal "no entry" circle-slash, always red regardless of theme.
+export function BlockedIcon({ size = 16, color = 'var(--pop-red)', className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M5.5 5.5l13 13" />
+    </svg>
+  )
+}
+
 // Sporting Panel — admin-assigned, see profiles.is_sporting_panel. The
 // panel "for the Avoidance of Manifestly Unfair Outcomes" — scales of
 // justice, matching the deliberately grandiose committee name.
