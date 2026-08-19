@@ -330,7 +330,7 @@ export default function KitPreview({ pattern, colour1, colour2, colour3, stars =
             <path d="M26 7 L23 11" fill="none" stroke={colour3} strokeWidth="1.4" />
           </g>
         )}
-        <path d={shirtPath} fill="none" stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
+        <path d={shirtPath} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
         {typeof topScore === 'number' && topScore > 0 && (
           <text
             x="17.2"
@@ -349,10 +349,10 @@ export default function KitPreview({ pattern, colour1, colour2, colour3, stars =
           </text>
         )}
 
-        <path d={shortsPath} fill={colour2} stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
+        <path d={shortsPath} fill={colour2} stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
 
-        <path d={leftSockPath} fill={colour1} stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
-        <path d={rightSockPath} fill={colour1} stroke="#2A1F17" strokeWidth="0.6" strokeLinejoin="round" />
+        <path d={leftSockPath} fill={colour1} stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
+        <path d={rightSockPath} fill={colour1} stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
       </svg>
       <BadgeStats stars={stars} earths={earths} starColor={starColor} />
     </div>

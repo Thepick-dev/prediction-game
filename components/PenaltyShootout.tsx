@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '../app/lib/supabase'
-import { MINIGAME_MAX_SCORE, MINIGAME_LOCKED_USERS } from '../app/lib/minigame'
+import { MINIGAME_MAX_SCORE } from '../app/lib/minigame'
 
 // Not connected to the prediction game in any way — purely a bit of fun,
 // separate scoring, separate table.
@@ -197,18 +197,20 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
   const sessionTokenRef = useRef<string | null>(null)
   const supabase = createClient()
   const [bannedNames, setBannedNames] = useState<string[]>([])
+  const [amBanned, setAmBanned] = useState(false)
 
   useEffect(() => { loadScores() }, [])
 
-  // Public "wanted poster" for anyone banned for tampering (see
-  // app/lib/minigame.ts) — shown to everyone else so they know to flag it
-  // if they somehow see a banned player in the game. Its own isolated
-  // query; a problem here should never block the game itself loading.
+  // Public "wanted poster" for anyone banned for tampering (admin-set via
+  // profiles.is_minigame_banned on /admin/users) — shown to everyone else
+  // so they know to flag it if they somehow see a banned player in the
+  // game. Its own isolated query; a problem here should never block the
+  // game itself loading. Also checks the CURRENT viewer's own flag, since
+  // that decides whether they see the game at all.
   useEffect(() => {
-    const bannedIds = Object.keys(MINIGAME_LOCKED_USERS)
-    if (bannedIds.length === 0) return
-    supabase.from('profiles').select('id, display_name').in('id', bannedIds).then(({ data }) => {
+    supabase.from('profiles').select('id, display_name').eq('is_minigame_banned', true).then(({ data }) => {
       setBannedNames((data ?? []).map(p => p.display_name ?? 'Unknown'))
+      setAmBanned((data ?? []).some(p => p.id === userId))
     })
   }, [])
 
@@ -629,7 +631,7 @@ export default function PenaltyShootout({ userId, isAdmin = false }: { userId: s
   // Banned entirely, not just score-locked — can't start a session
   // (app/api/minigame/session/route.ts rejects it server-side too), so
   // there's no point rendering a game that could never save anyway.
-  if (userId in MINIGAME_LOCKED_USERS) {
+  if (amBanned) {
     return (
       <div className="pop-art-theme text-center py-6" style={{ color: 'var(--pop-white)' }}>
         <p style={{ fontSize: 44 }}>🚫</p>

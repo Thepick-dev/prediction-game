@@ -1,7 +1,6 @@
 import { createServerSupabaseClient } from '../../../lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { createHmac } from 'crypto'
-import { MINIGAME_LOCKED_USERS } from '../../../lib/minigame'
 
 // Called the moment a Penalty Shootout game actually starts, not when a
 // score is submitted — see app/api/minigame/score/route.ts for why. The
@@ -14,7 +13,9 @@ export async function POST() {
   if (!user) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
-  if (user.id in MINIGAME_LOCKED_USERS) {
+
+  const { data: profile } = await supabase.from('profiles').select('is_minigame_banned').eq('id', user.id).maybeSingle()
+  if (profile?.is_minigame_banned) {
     return NextResponse.json({ error: 'Banned from this game' }, { status: 403 })
   }
 

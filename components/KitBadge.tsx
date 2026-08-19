@@ -371,7 +371,7 @@ export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0
             <path d="M26 7 L23 11" fill="none" stroke={colour3} strokeWidth="1.4" />
           </g>
         )}
-        <path d={shirtPath} fill="none" stroke="#2A1F17" strokeWidth="1" strokeLinejoin="round" />
+        <path d={shirtPath} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1" strokeLinejoin="round" />
         {typeof topScore === 'number' && topScore > 0 && (
           <text
             x="17.2"

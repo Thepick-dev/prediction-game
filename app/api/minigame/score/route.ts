@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '../../../lib/supabase-server'
+import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { NextResponse } from 'next/server'
-import { MINIGAME_MAX_SCORE, MINIGAME_LOCKED_USERS } from '../../../lib/minigame'
+import { MINIGAME_MAX_SCORE } from '../../../lib/minigame'
 import { createHmac, timingSafeEqual } from 'crypto'
 
 // The fastest a round can possibly resolve is MIN_DURATION (0.28s) in
@@ -14,17 +15,18 @@ const MIN_SECONDS_PER_POINT = 0.15
 // difficulty), so there's no way to fully re-derive a score server-side.
 // What this route CAN do: never trust the caller's own user id (always
 // the verified session's), reject anything outside what the game can
-// actually produce, never let a submission lower an existing best, and —
-// the part missing the first time round — require proof that real time
-// actually elapsed since a session genuinely started.
+// actually produce, never let a submission lower an existing best, and
+// require proof that real time actually elapsed since a session began.
 //
-// History: a friend first inflated their own score to 69696969 by calling
-// the old direct-from-the-browser Supabase write with an arbitrary number
-// (no server-side check existed at all). Once that was closed with a
-// range check + DB constraint, they did it again — submitting exactly 99,
-// the range check's own ceiling, seconds after presumably not playing at
-// all. A plausible-looking number was never proof a game was actually
-// played; the session/timing check below is what actually proves that.
+// The write itself goes through the service-role client, not the regular
+// session-scoped one — minigame_penalty_scores' RLS no longer grants
+// authenticated users direct insert/update at all (see the REVOKE handed
+// over alongside this file). That closes the hole that let every fix up
+// to this point be bypassed with one raw browser-console call: this
+// route's validation used to be the ONLY thing standing between a request
+// and the table, and a request that skipped the route skipped everything
+// it checked, database constraint aside. Now the database itself refuses
+// the write unless it comes from here.
 export async function POST(request: Request) {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -32,7 +34,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  if (user.id in MINIGAME_LOCKED_USERS) {
+  const { data: profile } = await supabase.from('profiles').select('is_minigame_banned').eq('id', user.id).maybeSingle()
+  if (profile?.is_minigame_banned) {
     return NextResponse.json({ error: 'Your score is locked' }, { status: 403 })
   }
 
@@ -60,7 +63,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Score not plausible for how long this session has been running' }, { status: 400 })
   }
 
-  const { data: existing } = await supabase
+  const adminClient = createAdminSupabaseClient()
+
+  const { data: existing } = await adminClient
     .from('minigame_penalty_scores')
     .select('best_score')
     .eq('user_id', user.id)
@@ -70,7 +75,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, best_score: existing.best_score })
   }
 
-  const { error } = await supabase
+  const { error } = await adminClient
     .from('minigame_penalty_scores')
     .upsert({ user_id: user.id, best_score: score, updated_at: new Date().toISOString() })
 

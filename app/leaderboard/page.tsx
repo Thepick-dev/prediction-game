@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, BlockedIcon, TopDogIcon } from '../../components/icons'
-import { MINIGAME_LOCKED_USERS } from '../lib/minigame'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
@@ -26,6 +25,7 @@ type RankedPlayer = {
   is_vibes_champion: boolean
   in_cash_pool: boolean
   is_sporting_panel: boolean
+  is_minigame_banned: boolean
   joined_at: string
   home_wins: number
   away_wins: number
@@ -246,6 +246,12 @@ export default function LeaderboardPage() {
       }
     })
 
+    // Its own request too — brand new column, and a problem reading it
+    // must never be able to take the other badges above down with it.
+    const { data: minigameBanFlags } = await supabase.from('profiles').select('id, is_minigame_banned')
+    const minigameBanMap: Record<string, boolean> = {}
+    minigameBanFlags?.forEach(b => { minigameBanMap[b.id] = b.is_minigame_banned ?? false })
+
     setMatchEvents(events ?? [])
     setAllTeams(teams ?? [])
 
@@ -428,6 +434,7 @@ export default function LeaderboardPage() {
         is_vibes_champion: badgeMap[entry.user_id]?.is_vibes_champion ?? false,
         in_cash_pool: badgeMap[entry.user_id]?.in_cash_pool ?? false,
         is_sporting_panel: badgeMap[entry.user_id]?.is_sporting_panel ?? false,
+        is_minigame_banned: minigameBanMap[entry.user_id] ?? false,
         joined_at: entry.joined_at,
         home_wins: 0,
         away_wins: 0,
@@ -784,19 +791,21 @@ export default function LeaderboardPage() {
                               )}
                             </div>
                           </td>
-                          <td className="py-1.5 px-1 font-black uppercase" style={{ wordBreak: 'break-word' }}>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {player.is_bot ? <BotAvatar size={34} /> : (
-                                <KitBadge
-                                  pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
-                                  colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
-                                  colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
-                                  colour3={kitByUser[player.user_id]?.colour3}
-                                  size={34}
-                                />
+                          <td className="py-1.5 px-1 font-black uppercase" style={{ maxWidth: 0 }}>
+                            <div className="flex items-center gap-1.5">
+                              {player.is_bot ? <BotAvatar size={30} /> : (
+                                <span className="shrink-0">
+                                  <KitBadge
+                                    pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
+                                    colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
+                                    colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                                    colour3={kitByUser[player.user_id]?.colour3}
+                                    size={30}
+                                  />
+                                </span>
                               )}
-                              <span className="inline-flex flex-col leading-tight">
-                                <span>{player.display_name}</span>
+                              <span className="inline-flex flex-col leading-tight min-w-0" style={{ flex: '0 1 auto' }}>
+                                <span className="truncate block">{player.display_name}</span>
                                 {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
                                   <span className="normal-case font-normal" style={{ fontSize: '9px', letterSpacing: '1px' }}>
                                     <span style={{ color: 'var(--pop-green)' }}>{'★'.repeat(kitByUser[player.user_id]?.stars ?? 0)}</span>
@@ -804,20 +813,22 @@ export default function LeaderboardPage() {
                                   </span>
                                 )}
                               </span>
-                              {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
-                              {player.is_reigning_champ && <CrownIcon size={18} color="var(--pop-green)" />}
-                              {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={18} /></span>}
-                              {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={18} /></span>}
-                              {player.is_sporting_panel && <span title="Sporting Panel member"><ScalesIcon size={18} /></span>}
-                              {player.user_id in MINIGAME_LOCKED_USERS && <span title="Banned from minigame"><BlockedIcon size={18} /></span>}
-                              {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={18} /></span>}
-                              {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
-                                <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">
-                                  <TopDogIcon size={18} />
-                                  <span className="font-mono" style={{ fontSize: '10px', color: 'var(--pop-orange)' }}>{topDogReignWeeks}</span>
-                                </span>
-                              )}
-                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
+                              <span className="flex items-center gap-1 shrink-0">
+                                {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
+                                {player.is_reigning_champ && <CrownIcon size={15} color="var(--pop-green)" />}
+                                {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={15} /></span>}
+                                {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={15} /></span>}
+                                {player.is_sporting_panel && <span title="Sporting Panel member"><ScalesIcon size={15} /></span>}
+                                {player.is_minigame_banned && <span title="Banned from minigame"><BlockedIcon size={15} /></span>}
+                                {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={15} /></span>}
+                                {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
+                                  <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">
+                                    <TopDogIcon size={15} />
+                                    <span className="font-mono" style={{ fontSize: '9px', color: 'var(--pop-orange)' }}>{topDogReignWeeks}</span>
+                                  </span>
+                                )}
+                              </span>
+                              <span className="shrink-0" style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                             </div>
                           </td>
                           <td className="py-1.5 pl-1 pr-2 text-right font-black font-mono" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', fontSize: '23px' }}>{player.total_points}</td>

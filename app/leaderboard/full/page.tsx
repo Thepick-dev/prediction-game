@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
 import Shell from '../../components/ceefax-shell'
 import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, BlockedIcon, TopDogIcon } from '../../../components/icons'
-import { MINIGAME_LOCKED_USERS } from '../../lib/minigame'
 import HeroPage from '../../../components/HeroPage'
 import TeamCrest from '../../../components/TeamCrest'
 import KitBadge from '../../../components/KitBadge'
@@ -24,6 +23,7 @@ type RankedPlayer = {
   is_vibes_champion: boolean
   in_cash_pool: boolean
   is_sporting_panel: boolean
+  is_minigame_banned: boolean
   joined_at: string
   home_wins: number
   away_wins: number
@@ -185,6 +185,12 @@ export default function FullLeaderboardPage() {
       }
     })
 
+    // Its own request too — brand new column, and a problem reading it
+    // must never be able to take the other badges above down with it.
+    const { data: minigameBanFlags } = await supabase.from('profiles').select('id, is_minigame_banned')
+    const minigameBanMap: Record<string, boolean> = {}
+    minigameBanFlags?.forEach(b => { minigameBanMap[b.id] = b.is_minigame_banned ?? false })
+
     setMatchEvents(events ?? [])
     setAllTeams(teams ?? [])
 
@@ -340,6 +346,7 @@ export default function FullLeaderboardPage() {
         is_vibes_champion: badgeMap[entry.user_id]?.is_vibes_champion ?? false,
         in_cash_pool: badgeMap[entry.user_id]?.in_cash_pool ?? false,
         is_sporting_panel: badgeMap[entry.user_id]?.is_sporting_panel ?? false,
+        is_minigame_banned: minigameBanMap[entry.user_id] ?? false,
         joined_at: entry.joined_at,
         home_wins: 0,
         away_wins: 0,
@@ -553,18 +560,18 @@ export default function FullLeaderboardPage() {
           <table className="w-full" style={{ fontSize: '11.5px', tableLayout: 'fixed' }}>
             <thead>
               <tr className="text-left" style={{ fontSize: '9.5px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-                <th className="py-2 pl-1.5 pr-1 sm:px-2 uppercase tracking-wider" style={{ width: '7%' }}>#</th>
-                <th className="py-2 px-1 sm:px-2 uppercase tracking-wider" style={{ width: showBonusCard ? '27%' : '32%' }}>Player</th>
-                <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider" style={{ width: '8.5%' }}>HW</th>
-                <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider" style={{ width: '8.5%' }}>AW</th>
-                <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '9%' }} title="Best single-gameweek score (tiebreaker #3)">Best</th>
-                <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Tm</th>
-                <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Pl</th>
-                <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8.5%' }}>Bk</th>
+                <th className="py-2 pl-1.5 pr-1 sm:px-2 uppercase tracking-wider" style={{ width: '6%' }}>#</th>
+                <th className="py-2 px-1 sm:px-2 uppercase tracking-wider" style={{ width: showBonusCard ? '38%' : '42.5%' }}>Player</th>
+                <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider" style={{ width: '7%' }}>HW</th>
+                <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider" style={{ width: '7%' }}>AW</th>
+                <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '8%' }} title="Best single-gameweek score (tiebreaker #3)">Best</th>
+                <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '7%' }}>Tm</th>
+                <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '7%' }}>Pl</th>
+                <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '7%' }}>Bk</th>
                 {showBonusCard && (
-                  <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '5%' }} title={bonusCardName ?? undefined}>BC</th>
+                  <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" style={{ width: '4.5%' }} title={bonusCardName ?? undefined}>BC</th>
                 )}
-                <th className="py-2 pl-1 pr-1.5 sm:px-2 text-right uppercase tracking-wider font-black" style={{ width: '9.5%' }}>Tot</th>
+                <th className="py-2 pl-1 pr-1.5 sm:px-2 text-right uppercase tracking-wider font-black" style={{ width: '8.5%' }}>Tot</th>
               </tr>
             </thead>
             <tbody>
@@ -580,19 +587,21 @@ export default function FullLeaderboardPage() {
                       style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: isOwnRow ? 'rgba(160,0,250,0.06)' : undefined }}
                     >
                       <td className="py-2 pl-1.5 pr-1 sm:px-2" style={{ color: 'rgba(255,255,255,0.35)' }}>{index + 1}</td>
-                      <td className="py-2 px-1 sm:px-2 font-black uppercase" style={{ wordBreak: 'break-word' }}>
-                        <div className="flex items-center gap-1 flex-wrap">
+                      <td className="py-2 px-1 sm:px-2 font-black uppercase" style={{ maxWidth: 0 }}>
+                        <div className="flex items-center gap-1">
                           {player.is_bot ? <BotAvatar size={14} /> : (
-                            <KitBadge
-                              pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
-                              colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
-                              colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
-                              colour3={kitByUser[player.user_id]?.colour3}
-                              size={14}
-                            />
+                            <span className="shrink-0">
+                              <KitBadge
+                                pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
+                                colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
+                                colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                                colour3={kitByUser[player.user_id]?.colour3}
+                                size={14}
+                              />
+                            </span>
                           )}
-                          <span className="inline-flex flex-col leading-tight">
-                            <span>{player.display_name}</span>
+                          <span className="inline-flex flex-col leading-tight min-w-0" style={{ flex: '0 1 auto' }}>
+                            <span className="truncate block">{player.display_name}</span>
                             {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
                               <span className="normal-case font-normal" style={{ fontSize: '7px', letterSpacing: '1px' }}>
                                 <span style={{ color: 'var(--pop-green)' }}>{'★'.repeat(kitByUser[player.user_id]?.stars ?? 0)}</span>
@@ -600,20 +609,22 @@ export default function FullLeaderboardPage() {
                               </span>
                             )}
                           </span>
-                          {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
-                          {player.is_reigning_champ && <CrownIcon size={13} color="var(--pop-green)" />}
-                          {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={13} /></span>}
-                          {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={13} /></span>}
-                          {player.is_sporting_panel && <span title="Sporting Panel member"><ScalesIcon size={13} /></span>}
-                          {player.user_id in MINIGAME_LOCKED_USERS && <span title="Banned from minigame"><BlockedIcon size={13} /></span>}
-                          {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={13} /></span>}
-                          {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
-                            <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">
-                              <TopDogIcon size={13} />
-                              <span className="font-mono" style={{ fontSize: '9px', color: 'var(--pop-orange)' }}>{topDogReignWeeks}</span>
-                            </span>
-                          )}
-                          <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '8px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
+                          <span className="flex items-center gap-1 shrink-0">
+                            {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
+                            {player.is_reigning_champ && <CrownIcon size={13} color="var(--pop-green)" />}
+                            {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={13} /></span>}
+                            {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={13} /></span>}
+                            {player.is_sporting_panel && <span title="Sporting Panel member"><ScalesIcon size={13} /></span>}
+                            {player.is_minigame_banned && <span title="Banned from minigame"><BlockedIcon size={13} /></span>}
+                            {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={13} /></span>}
+                            {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
+                              <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">
+                                <TopDogIcon size={13} />
+                                <span className="font-mono" style={{ fontSize: '9px', color: 'var(--pop-orange)' }}>{topDogReignWeeks}</span>
+                              </span>
+                            )}
+                          </span>
+                          <span className="shrink-0" style={{ color: 'rgba(255,255,255,0.25)', fontSize: '8px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                         </div>
                       </td>
                       <td className="py-2 px-1 sm:px-2 text-center font-mono" style={{ color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{player.home_wins}</td>

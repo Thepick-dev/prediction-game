@@ -11,7 +11,6 @@ import StarRating from '../../components/StarRating'
 import { CrownIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, BlockedIcon, FlameIcon, TopDogIcon } from '../../components/icons'
 import { computeTopDog } from '../lib/topDog'
 import { computeAvgByGw, computeStreaks } from '../lib/leaderboardBadges'
-import { MINIGAME_LOCKED_USERS } from '../lib/minigame'
 
 type Post = {
   pick_id: string
@@ -56,6 +55,7 @@ export default function WallPage() {
   const [botByUser, setBotByUser] = useState<Record<string, boolean>>({})
   const [auraByUser, setAuraByUser] = useState<Record<string, number>>({})
   const [badgeFlagsByUser, setBadgeFlagsByUser] = useState<Record<string, { is_reigning_champ: boolean; is_vibes_champion: boolean; in_cash_pool: boolean; is_sporting_panel: boolean }>>({})
+  const [minigameBannedByUser, setMinigameBannedByUser] = useState<Record<string, boolean>>({})
   const [streakByUser, setStreakByUser] = useState<Record<string, number>>({})
   const [topDogUserId, setTopDogUserId] = useState<string | null>(null)
   const [topDogReignWeeks, setTopDogReignWeeks] = useState(0)
@@ -137,6 +137,13 @@ export default function WallPage() {
       }
     })
     setBadgeFlagsByUser(badgeMap)
+
+    // Its own request too — brand new column, and a problem reading it
+    // must never be able to take the other badges above down with it.
+    const { data: minigameBanFlags } = await supabase.from('profiles').select('id, is_minigame_banned')
+    const minigameBanMap: Record<string, boolean> = {}
+    minigameBanFlags?.forEach(b => { minigameBanMap[b.id] = b.is_minigame_banned ?? false })
+    setMinigameBannedByUser(minigameBanMap)
 
     const isBotMap: Record<string, boolean> = {}
     allBotFlags?.forEach(b => { isBotMap[b.id] = b.is_bot ?? false })
@@ -440,7 +447,7 @@ export default function WallPage() {
     const flags = badgeFlagsByUser[userId]
     const streak = streakByUser[userId]
     const isTopDog = topDogUserId === userId && topDogReignWeeks > 0
-    const isBanned = userId in MINIGAME_LOCKED_USERS
+    const isBanned = minigameBannedByUser[userId] ?? false
     if (!flags?.is_reigning_champ && !flags?.is_vibes_champion && !flags?.in_cash_pool && !flags?.is_sporting_panel && !isBanned && !streak && !isTopDog) return null
     return (
       <span className="inline-flex items-center gap-1">
