@@ -95,6 +95,9 @@ export default function ResultsPage() {
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
   const [profiles, setProfiles] = useState<Record<string, string>>({})
   const [isBotByUser, setIsBotByUser] = useState<Record<string, boolean>>({})
+  // Users removed from the competition — their historical picks/comments
+  // must never resurface anywhere, even after their deadline has passed.
+  const [activeUserIds, setActiveUserIds] = useState<Set<string>>(new Set())
   const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }>>({})
   const [teams, setTeams] = useState<Record<number, Team>>({})
   const [players, setPlayers] = useState<Record<number, string>>({})
@@ -131,7 +134,7 @@ export default function ResultsPage() {
     if (!comp) { setLoading(false); return }
     setCompetition(comp)
 
-    const [{ data: gws }, { data: profilesData }, { data: teamsData }, { data: playersData }] = await Promise.all([
+    const [{ data: gws }, { data: profilesData }, { data: teamsData }, { data: playersData }, { data: entries }] = await Promise.all([
       // All gameweeks, not just ones whose deadline has passed — future
       // gameweeks are still selectable here so their fixtures/schedule are
       // browsable ahead of time; loadPicksForGw is what actually keeps any
@@ -139,8 +142,13 @@ export default function ResultsPage() {
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).order('number', { ascending: true }),
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2'),
       supabase.from('teams').select('id, name, short_name, short_code'),
-      supabase.from('players').select('id, name, web_name, team_id')
+      supabase.from('players').select('id, name, web_name, team_id'),
+      // Removed entrants must never resurface here — their historical picks
+      // stay in the database but shouldn't be shown once they're gone.
+      supabase.from('competition_entries').select('user_id').eq('competition_id', comp.id).eq('removed', false),
     ])
+    const activeIds = new Set((entries ?? []).map(e => e.user_id))
+    setActiveUserIds(activeIds)
 
     // Kept as its own request, deliberately separate from the profiles query
     // above: if these columns ever have a problem, it should only affect kit
@@ -208,8 +216,9 @@ export default function ResultsPage() {
       .eq('competition_id', comp.id)
 
     // Futzy can top a gameweek like anyone else, but he can't be crowned —
-    // exclude bot rows before finding the leader.
-    const humanPoints = allPoints?.filter(p => !isBotMap[p.user_id]) ?? []
+    // exclude bot rows before finding the leader. Also exclude anyone since
+    // removed from the competition, same reasoning as everywhere else here.
+    const humanPoints = allPoints?.filter(p => !isBotMap[p.user_id] && activeIds.has(p.user_id)) ?? []
     if (humanPoints.length > 0) {
       const maxPts = Math.max(...humanPoints.map(p => p.total_points ?? 0))
       const topScorer = humanPoints.filter(p => (p.total_points ?? 0) === maxPts)[0]
@@ -265,7 +274,7 @@ export default function ResultsPage() {
       ? await supabase.from('match_events').select('player_id, event_type, fixture_id, minute').in('fixture_id', fixtureIds)
       : { data: [] as MatchEvent[] }
 
-    const realPicks = picksData ?? []
+    const realPicks = (picksData ?? []).filter(p => activeUserIds.has(p.user_id))
     const realPickUserIds = new Set(realPicks.map(p => p.user_id))
 
     let previewPicks: PickRow[] = []

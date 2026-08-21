@@ -4,19 +4,19 @@ import { requireAdmin } from '../../lib/require-admin'
 import { pastDeadlineGameweekIds } from '../../lib/pastDeadlineGameweeks'
 import { redirect } from 'next/navigation'
 
-// Uses the admin/service-role client for every write here (not the regular
-// session client): the admin is rating/approving OTHER users' rows —
-// picks.wall_status/wall_rating and profiles.wall_rating_total belong to
-// the commenter, not the admin's own session — and RLS on both tables is
-// scoped to "you can only touch your own row", exactly the same trap that
-// silently broke Futzy's competition_entries insert earlier. Reads still
-// use the regular client (admin's own session already sees everything it
-// needs to for a page gated by app/admin/layout.tsx).
-//
-// Every write below goes through this — Server Actions are reachable as
-// their own endpoint, not just "the button on a page only admins can see",
-// so the page layout's own admin check isn't a guarantee for these, and the
-// service-role client above bypasses RLS entirely so it needs its own gate.
+// Uses the admin/service-role client for every write AND read here (not
+// the regular session client): the admin is rating/approving/reviewing
+// OTHER users' rows — picks.wall_status/wall_rating, wall_comments.status,
+// wall_replies.status, etc. all belong to the commenter, not the admin's
+// own session — and RLS on all of these is scoped to "you can see approved
+// content, plus your own row regardless of status", exactly the same trap
+// that silently broke Futzy's competition_entries insert earlier. That
+// means an admin's regular session could only ever see PENDING content
+// they wrote themselves — everyone else's pending comments were silently
+// invisible to the moderation queue, so there was never a button to click
+// for them. Confirmed empirically this session: a freshly-inserted pending
+// wall_comment from another user returned zero rows via the admin's own
+// regular session, and zero via the regular client on this page.
 async function requireAdminAction() {
   const supabase = await createServerSupabaseClient()
   const admin = await requireAdmin(supabase)
@@ -26,6 +26,9 @@ async function requireAdminAction() {
 
 export default async function WallModerationPage() {
   const supabase = await createServerSupabaseClient()
+  const admin = await requireAdmin(supabase)
+  if (!admin) redirect('/')
+  const adminClient = createAdminSupabaseClient()
 
   // A pick comment only becomes visible for moderation once its gameweek's
   // deadline has passed — showing it earlier would let admin indirectly
@@ -33,8 +36,8 @@ export default async function WallModerationPage() {
   // before anyone else can, breaking the same rule that hides picks from
   // every other player. Comments for the still-open gameweek simply wait
   // here as 'pending' until the deadline passes, then appear as normal.
-  const pastGwIds = await pastDeadlineGameweekIds(supabase)
-  const { data: pendingPicks } = pastGwIds.length > 0 ? await supabase
+  const pastGwIds = await pastDeadlineGameweekIds(adminClient)
+  const { data: pendingPicks } = pastGwIds.length > 0 ? await adminClient
     .from('picks')
     .select('id, user_id, comments, gameweek_id, competition_id')
     .eq('wall_status', 'pending')
@@ -42,7 +45,7 @@ export default async function WallModerationPage() {
     .neq('comments', '')
     .in('gameweek_id', pastGwIds) : { data: [] }
 
-  const { data: pendingReplies } = await supabase
+  const { data: pendingReplies } = await adminClient
     .from('wall_replies')
     .select('id, pick_id, user_id, content, created_at')
     .eq('status', 'pending')
@@ -53,8 +56,8 @@ export default async function WallModerationPage() {
   // not run yet) just resolves with data: null here rather than throwing,
   // same as every other optional-column read elsewhere in this codebase.
   const [{ data: pendingComments }, { data: pendingCommentReplies }] = await Promise.all([
-    supabase.from('wall_comments').select('id, user_id, content, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
-    supabase.from('wall_comment_replies').select('id, comment_id, user_id, content, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
+    adminClient.from('wall_comments').select('id, user_id, content, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
+    adminClient.from('wall_comment_replies').select('id, comment_id, user_id, content, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
   ])
 
   const userIds = new Set<string>()
@@ -73,10 +76,10 @@ export default async function WallModerationPage() {
   pendingCommentReplies?.forEach(r => commentIdsForReplies.add(r.comment_id))
 
   const [{ data: profiles }, { data: gameweeks }, { data: parentPicks }, { data: parentComments }] = await Promise.all([
-    userIds.size ? supabase.from('profiles').select('id, display_name').in('id', [...userIds]) : Promise.resolve({ data: [] }),
-    gwIds.size ? supabase.from('gameweeks').select('id, number').in('id', [...gwIds]) : Promise.resolve({ data: [] }),
-    pickIdsForReplies.size ? supabase.from('picks').select('id, comments, user_id').in('id', [...pickIdsForReplies]) : Promise.resolve({ data: [] }),
-    commentIdsForReplies.size ? supabase.from('wall_comments').select('id, content, user_id').in('id', [...commentIdsForReplies]) : Promise.resolve({ data: [] }),
+    userIds.size ? adminClient.from('profiles').select('id, display_name').in('id', [...userIds]) : Promise.resolve({ data: [] }),
+    gwIds.size ? adminClient.from('gameweeks').select('id, number').in('id', [...gwIds]) : Promise.resolve({ data: [] }),
+    pickIdsForReplies.size ? adminClient.from('picks').select('id, comments, user_id').in('id', [...pickIdsForReplies]) : Promise.resolve({ data: [] }),
+    commentIdsForReplies.size ? adminClient.from('wall_comments').select('id, content, user_id').in('id', [...commentIdsForReplies]) : Promise.resolve({ data: [] }),
   ])
 
   const nameById: Record<string, string> = {}

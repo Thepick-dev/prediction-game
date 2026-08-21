@@ -132,8 +132,8 @@ export default function StatsHubPage() {
     try {
       const [
         { data: teams }, { data: players }, { data: gameweeks },
-        { data: entries }, { data: picks }, { data: points }, { data: events },
-        { data: fixtures }, { data: profiles }, { data: aonPicks }, { data: bonusCardPlays },
+        { data: entries }, { data: picksRaw }, { data: pointsRaw }, { data: events },
+        { data: fixtures }, { data: profiles }, { data: aonPicksRaw }, { data: bonusCardPlaysRaw },
         pastDeadlineIds
       ] = await Promise.all([
         supabase.from('teams').select('id, name, short_name, short_code, active'),
@@ -152,6 +152,18 @@ export default function StatsHubPage() {
       const profileMap: Record<string, string> = {}
       profiles?.forEach(p => { profileMap[p.id] = p.display_name ?? 'Unknown' })
       const pastDeadlineIdSet = new Set(pastDeadlineIds)
+
+      // A removed entrant's historical rows must never surface anywhere on
+      // this page — team/player popularity, banker leaders, AoN/Bonus Card
+      // stats, all of it. Filtering the four raw arrays once here, right
+      // after fetch, means every aggregation below (all keyed off these
+      // same names) is automatically scoped to current entrants without
+      // having to touch each one individually.
+      const activeUserIds = new Set((entries ?? []).map(e => e.user_id))
+      const picks = (picksRaw ?? []).filter(p => activeUserIds.has(p.user_id))
+      const points = (pointsRaw ?? []).filter(p => activeUserIds.has(p.user_id))
+      const aonPicks = (aonPicksRaw ?? []).filter(p => activeUserIds.has(p.user_id))
+      const bonusCardPlays = (bonusCardPlaysRaw ?? []).filter(p => activeUserIds.has(p.user_id))
       // Team/player point tables below are already safe (they only count
       // picks that have a matching `points` row, which can't exist before
       // a gameweek is scored). But the raw `picks` table itself has no

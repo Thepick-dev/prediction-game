@@ -11,6 +11,7 @@ import StarRating from '../../components/StarRating'
 import { CrownIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, BlockedIcon, FlameIcon, TopDogIcon } from '../../components/icons'
 import { computeTopDog } from '../lib/topDog'
 import { computeAvgByGw, computeStreaks } from '../lib/leaderboardBadges'
+import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 
 type Post = {
   pick_id: string
@@ -19,6 +20,15 @@ type Post = {
   comments: string | null
   wall_rating: number | null
   question_answer: string | null
+}
+type PickDetail = {
+  submitted_at: string | null
+  team_id: number
+  player1_id: number
+  player2_id: number
+  is_banker: boolean
+  aon: { player_id: number; outcome: string } | null
+  bonusCard: { player_id: number; points: number | null } | null
 }
 type Reply = { id: string; pick_id: string; user_id: string; content: string; created_at: string }
 type StandaloneComment = { id: string; user_id: string; content: string; status: string; created_at: string }
@@ -63,6 +73,10 @@ export default function WallPage() {
   const [ratingsByTarget, setRatingsByTarget] = useState<Record<string, TargetRating>>({})
   const [gwNumberById, setGwNumberById] = useState<Record<string, number>>({})
   const [questionByGw, setQuestionByGw] = useState<Record<string, Question>>({})
+  const [pickDetailsByPickId, setPickDetailsByPickId] = useState<Record<string, PickDetail>>({})
+  const [teamLabelById, setTeamLabelById] = useState<Record<number, string>>({})
+  const [playerDisplayNames, setPlayerDisplayNames] = useState<Record<number, string>>({})
+  const [bonusCardName, setBonusCardName] = useState('Bonus Card')
   const [replyDraft, setReplyDraft] = useState<Record<string, string>>({})
   const [sentReply, setSentReply] = useState<Record<string, boolean>>({})
   const [newCommentDraft, setNewCommentDraft] = useState('')
@@ -89,7 +103,7 @@ export default function WallPage() {
     setDisplayName(profile?.display_name ?? '')
     setIsAdmin(!!(profile?.is_admin || profile?.is_super_admin))
 
-    const { data: comp } = await supabase.from('competitions').select('id, name').eq('status', 'active').single()
+    const { data: comp } = await supabase.from('competitions').select('id, name, bonus_card_name, bonus_card_player_id').eq('status', 'active').single()
     setCompetition(comp)
     if (!comp) { setLoading(false); return }
 
@@ -97,20 +111,59 @@ export default function WallPage() {
     // (never an unapproved one) and, independent of that, anyone's weekly
     // question answer once its gameweek's deadline has passed — never the
     // actual team/player picks themselves. See the view definition for why
-    // that split matters.
-    const { data: wallPosts } = await supabase
-      .from('wall_posts')
-      .select('pick_id, user_id, gameweek_id, comments, wall_rating, question_answer')
-      .eq('competition_id', comp.id)
+    // that split matters. Team/player/banker/AoN/Bonus Card detail (for the
+    // picks-grid under each post) and a real timestamp (for true "latest
+    // first" ordering — this view exposes neither) come from a separate,
+    // narrowly-scoped route that re-derives the same deadline gate itself.
+    const [{ data: wallPosts }, { data: teamsData }, { data: playersData }, pickDetailsRes] = await Promise.all([
+      supabase.from('wall_posts').select('pick_id, user_id, gameweek_id, comments, wall_rating, question_answer').eq('competition_id', comp.id),
+      supabase.from('teams').select('id, name, short_name, short_code'),
+      supabase.from('players').select('id, name, web_name, team_id'),
+      fetch(`/api/wall/pick-details?competition_id=${comp.id}`).then(r => r.json()).catch(() => ({ pickDetails: {} })),
+    ])
 
-    const list = (wallPosts ?? []) as Post[]
+    const teamMap: Record<number, { name: string; short_name: string | null; short_code: string | null }> = {}
+    teamsData?.forEach(t => { teamMap[t.id] = t })
+    const teamLabels: Record<number, string> = {}
+    teamsData?.forEach(t => { teamLabels[t.id] = t.short_code ?? t.short_name ?? t.name })
+    setTeamLabelById(teamLabels)
+    setPlayerDisplayNames(buildPlayerDisplayNames(playersData ?? [], teamMap))
+    setBonusCardName(bonusCardDisplayName(comp.bonus_card_name, playersData?.find(p => p.id === comp.bonus_card_player_id)?.name ?? null))
+
+    const pickDetails = (pickDetailsRes?.pickDetails ?? {}) as Record<string, PickDetail>
+    setPickDetailsByPickId(pickDetails)
 
     const { data: gameweeks } = await supabase.from('gameweeks').select('id, number').eq('competition_id', comp.id)
     const gwMap: Record<string, number> = {}
     gameweeks?.forEach(g => { gwMap[g.id] = g.number })
     setGwNumberById(gwMap)
 
-    list.sort((a, b) => (gwMap[b.gameweek_id] ?? 0) - (gwMap[a.gameweek_id] ?? 0))
+    // Removed entrants must never resurface here, even for a gameweek from
+    // before they left — their historical picks stay in the database but
+    // shouldn't show anywhere on the site once they're gone. Exclusion
+    // (not an active-only allowlist) is deliberate: a standalone comment's
+    // author isn't necessarily a competition entrant at all (an admin
+    // announcement, say), so filtering down to "current entrants only"
+    // would wrongly hide those too — this only ever removes someone
+    // specifically flagged removed.
+    const { data: allCompEntries } = await supabase.from('competition_entries').select('user_id, removed').eq('competition_id', comp.id)
+    const removedUserIds = new Set((allCompEntries ?? []).filter(e => e.removed).map(e => e.user_id))
+
+    const list = ((wallPosts ?? []) as Post[]).filter(p => !removedUserIds.has(p.user_id))
+
+    // True "latest comment first" — sorted by when the pick was actually
+    // submitted, not by gameweek number (which only grouped same-week posts
+    // together and left their internal order arbitrary). Falls back to
+    // gameweek order only for the rare row this session's own deadline gate
+    // didn't have a timestamp for.
+    list.sort((a, b) => {
+      const ta = pickDetails[a.pick_id]?.submitted_at
+      const tb = pickDetails[b.pick_id]?.submitted_at
+      if (ta && tb) return new Date(tb).getTime() - new Date(ta).getTime()
+      if (ta) return -1
+      if (tb) return 1
+      return (gwMap[b.gameweek_id] ?? 0) - (gwMap[a.gameweek_id] ?? 0)
+    })
     setPosts(list)
 
     // Same admin-assigned badges + Streak + Top Dog treatment as the
@@ -183,7 +236,7 @@ export default function WallPage() {
       .from('wall_comments')
       .select('id, user_id, content, status, created_at')
       .order('created_at', { ascending: false })
-    const commentList = comments ?? []
+    const commentList = (comments ?? []).filter(c => !removedUserIds.has(c.user_id))
     setStandaloneComments(commentList)
 
     const commentIds = commentList.map(c => c.id)
@@ -194,7 +247,7 @@ export default function WallPage() {
         .select('id, comment_id, user_id, content, status, created_at')
         .in('comment_id', commentIds)
         .order('created_at', { ascending: true })
-      commentReplies = cReplies ?? []
+      commentReplies = (cReplies ?? []).filter(r => !removedUserIds.has(r.user_id))
     }
     const byComment: Record<string, CommentReply[]> = {}
     commentReplies.forEach(r => { (byComment[r.comment_id] ??= []).push(r) })
@@ -209,7 +262,7 @@ export default function WallPage() {
         .in('pick_id', pickIds)
         .eq('status', 'approved')
         .order('created_at', { ascending: true })
-      replies = r ?? []
+      replies = (r ?? []).filter(rep => !removedUserIds.has(rep.user_id))
     }
     const byPick: Record<string, Reply[]> = {}
     replies.forEach(r => { (byPick[r.pick_id] ??= []).push(r) })
@@ -642,8 +695,45 @@ export default function WallPage() {
                       className="relative rounded-2xl px-3.5 py-2.5 inline-block max-w-full"
                       style={{ background: isOwn ? ownBubbleBg : bubbleBg, borderTopLeftRadius: 4 }}
                     >
-                      {answer && q && (
-                        <div className="rounded-lg px-2.5 py-1.5 mb-2 text-xs" style={{ background: 'rgba(0,0,0,0.2)' }}>
+                      {(() => {
+                        const detail = pickDetailsByPickId[post.pick_id]
+                        if (!detail && !(answer && q)) return null
+                        const badge = (outcome: string) => ({
+                          background: outcome === 'success' ? 'var(--pop-green)' : outcome === 'failed' ? 'var(--pop-red)' : 'var(--pop-pink)',
+                          color: outcome === 'success' ? '#0A0A0A' : '#FFFFFF',
+                        })
+                        const aonLabel = (outcome: string) => outcome === 'success' ? 'AoN ✓' : outcome === 'failed' ? 'AoN ✕' : 'AoN'
+                        return (
+                          <div className="rounded-lg px-2.5 py-1.5 mb-2 text-xs" style={{ background: 'rgba(0,0,0,0.2)' }}>
+                            {detail && (
+                              <div>
+                                <div className="flex items-center gap-1 font-black">
+                                  <span style={{ color: popArt ? 'var(--pop-blue)' : '#D9A441' }}>{teamLabelById[detail.team_id] ?? '?'}</span>
+                                  {detail.is_banker && <span title="Banker" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}>★</span>}
+                                </div>
+                                <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                                  <span>{playerDisplayNames[detail.player1_id] ?? '?'}</span>
+                                  {detail.aon?.player_id === detail.player1_id && (
+                                    <span className="px-1 rounded font-black" style={{ fontSize: '9px', ...badge(detail.aon.outcome) }}>{aonLabel(detail.aon.outcome)}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                                  <span>{playerDisplayNames[detail.player2_id] ?? '?'}</span>
+                                  {detail.aon?.player_id === detail.player2_id && (
+                                    <span className="px-1 rounded font-black" style={{ fontSize: '9px', ...badge(detail.aon.outcome) }}>{aonLabel(detail.aon.outcome)}</span>
+                                  )}
+                                </div>
+                                {detail.bonusCard && (
+                                  <div className="mt-1">
+                                    <span className="px-1 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-pink)', color: '#fff' }}>
+                                      {bonusCardName}: {playerDisplayNames[detail.bonusCard.player_id] ?? '?'}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          {answer && q && (
+                            <div className={detail ? 'mt-1.5 pt-1.5' : ''} style={detail ? { borderTop: '1px solid rgba(255,255,255,0.1)' } : undefined}>
                           <span style={{ color: popArt ? 'var(--pop-yellow)' : '#D9A441' }} className="font-bold">{q.question}</span>
                           <span className="block mt-0.5">{answer}</span>
                           <div className="mt-1.5">
@@ -658,6 +748,9 @@ export default function WallPage() {
                           </div>
                         </div>
                       )}
+                          </div>
+                        )
+                      })()}
                       {post.comments && !deletedIds.has(post.pick_id) && (
                         <p className="text-sm break-words">{post.comments}</p>
                       )}
