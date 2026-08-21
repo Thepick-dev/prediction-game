@@ -371,7 +371,7 @@ export async function POST(request: Request) {
   return NextResponse.json({ success: true })
 }
 
-async function syncBonusCardPlay(
+export async function syncBonusCardPlay(
   supabase: any,
   opts: {
     existingPlay: { id: string; gameweek_id: string; fixture_id: number | null } | null
@@ -414,7 +414,7 @@ async function syncBonusCardPlay(
   })
 }
 
-async function syncAllOrNothingNomination(
+export async function syncAllOrNothingNomination(
   supabase: any,
   opts: {
     existingAoN: { id: number; gameweek_id: string; player_id: number; outcome: string; pick_id: string } | null

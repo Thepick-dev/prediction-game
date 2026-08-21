@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
-import { buildPlayerDisplayNames } from '../../lib/players'
+import { buildPlayerDisplayNames, bonusCardDisplayName } from '../../lib/players'
 
 type Option = { id: string; label: string }
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null }
 type Player = { id: number; name: string; web_name: string | null; team_id: number }
 type Pick = { user_id: string; gameweek_id: string; team_id: number; player1_id: number; player2_id: number; is_banker: boolean }
+type AoNRow = { gameweek_id: string; player_id: number }
+type BonusCardRow = { gameweek_id: string; player_id: number }
 
 export default function EditPickPage() {
   const [loading, setLoading] = useState(true)
@@ -17,6 +19,9 @@ export default function EditPickPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [players, setPlayers] = useState<Player[]>([])
   const [existingPicks, setExistingPicks] = useState<Record<string, Pick>>({})
+  const [bonusCardEnabled, setBonusCardEnabled] = useState(false)
+  const [bonusCardName, setBonusCardName] = useState('Bonus Card')
+  const [bonusCardPlayerId, setBonusCardPlayerId] = useState<number | null>(null)
 
   const [userId, setUserId] = useState('')
   const [gameweekId, setGameweekId] = useState('')
@@ -29,23 +34,47 @@ export default function EditPickPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
+  // All or Nothing / Bonus Card — 'none' | 'player1' | 'player2' so the
+  // radio can directly reflect which of the two picks (if either) the
+  // nomination is on. Both are scoped to the WHOLE competition (at most
+  // one row ever, not per gameweek), so "elsewhere" tracks a nomination
+  // that exists on a different gameweek — shown but not editable here,
+  // since moving it isn't what this control does.
+  const [aonChoice, setAonChoice] = useState<'none' | 'player1' | 'player2'>('none')
+  const [aonElsewhereGw, setAonElsewhereGw] = useState<number | null>(null)
+  const [playBonusCard, setPlayBonusCard] = useState(false)
+  const [bonusCardElsewhereGw, setBonusCardElsewhereGw] = useState<number | null>(null)
+
   const supabase = createClient()
 
   useEffect(() => { loadData() }, [])
 
+  const [aonByUser, setAonByUser] = useState<Record<string, AoNRow>>({})
+  const [bonusCardByUser, setBonusCardByUser] = useState<Record<string, BonusCardRow>>({})
+  const [gwNumberById, setGwNumberById] = useState<Record<string, number>>({})
+
   async function loadData() {
-    const { data: comp } = await supabase.from('competitions').select('id').eq('status', 'active').single()
+    const { data: comp } = await supabase.from('competitions').select('id, bonus_card_enabled, bonus_card_name, bonus_card_player_id').eq('status', 'active').single()
     if (!comp) { setLoading(false); return }
     setCompetitionId(comp.id)
+    setBonusCardEnabled(!!comp.bonus_card_enabled && comp.bonus_card_player_id != null)
+    setBonusCardPlayerId(comp.bonus_card_player_id ?? null)
 
-    const [{ data: entries }, { data: profiles }, { data: gws }, { data: teamsData }, { data: playersData }, { data: picks }] = await Promise.all([
+    const [{ data: entries }, { data: profiles }, { data: gws }, { data: teamsData }, { data: playersData }, { data: picks }, aonAndBonusCardRes] = await Promise.all([
       supabase.from('competition_entries').select('user_id').eq('competition_id', comp.id).eq('removed', false),
       supabase.from('profiles').select('id, display_name'),
       supabase.from('gameweeks').select('id, number').eq('competition_id', comp.id).order('number'),
       supabase.from('teams').select('id, name, short_name, short_code').eq('active', true).order('name'),
       supabase.from('players').select('id, name, web_name, team_id'),
       supabase.from('picks').select('user_id, gameweek_id, team_id, player1_id, player2_id, is_banker').eq('competition_id', comp.id),
+      // These two are RLS-scoped to "own row only" — the admin's regular
+      // session can't read another user's row directly, so they're fetched
+      // via a service-role-backed API route instead (same pattern as the
+      // write side in save()/api/admin/picks).
+      fetch(`/api/admin/picks?competition_id=${comp.id}`).then(r => r.json()).catch(() => ({ aonRows: [], bonusCardRows: [] })),
     ])
+    const aonRows = aonAndBonusCardRes.aonRows as { user_id: string; gameweek_id: string; player_id: number }[] | undefined
+    const bonusCardRows = aonAndBonusCardRes.bonusCardRows as { user_id: string; gameweek_id: string; player_id: number }[] | undefined
 
     const profileMap: Record<string, string> = {}
     profiles?.forEach(p => { profileMap[p.id] = p.display_name ?? 'Unknown' })
@@ -55,13 +84,25 @@ export default function EditPickPage() {
         .map(e => ({ id: e.user_id, label: profileMap[e.user_id] ?? 'Unknown' }))
         .sort((a, b) => a.label.localeCompare(b.label))
     )
+    const gwMap: Record<string, number> = {}
+    gws?.forEach(g => { gwMap[g.id] = g.number })
+    setGwNumberById(gwMap)
     setGameweeks((gws ?? []).map(g => ({ id: g.id, label: `Gameweek ${g.number}` })))
     setTeams(teamsData ?? [])
     setPlayers(playersData ?? [])
+    setBonusCardName(bonusCardDisplayName(comp.bonus_card_name, playersData?.find(p => p.id === comp.bonus_card_player_id)?.name ?? null))
 
     const pickMap: Record<string, Pick> = {}
     picks?.forEach(p => { pickMap[`${p.user_id}_${p.gameweek_id}`] = p })
     setExistingPicks(pickMap)
+
+    const aonMap: Record<string, AoNRow> = {}
+    aonRows?.forEach(a => { aonMap[a.user_id] = { gameweek_id: a.gameweek_id, player_id: a.player_id } })
+    setAonByUser(aonMap)
+
+    const bonusCardMap: Record<string, BonusCardRow> = {}
+    bonusCardRows?.forEach(b => { bonusCardMap[b.user_id] = { gameweek_id: b.gameweek_id, player_id: b.player_id } })
+    setBonusCardByUser(bonusCardMap)
 
     setLoading(false)
   }
@@ -73,6 +114,31 @@ export default function EditPickPage() {
   useEffect(() => {
     if (!userId || !gameweekId) return
     const existing = existingPicks[`${userId}_${gameweekId}`]
+
+    const aon = aonByUser[userId]
+    if (aon && aon.gameweek_id === gameweekId && existing) {
+      setAonChoice(aon.player_id === existing.player1_id ? 'player1' : aon.player_id === existing.player2_id ? 'player2' : 'none')
+      setAonElsewhereGw(null)
+    } else if (aon) {
+      setAonChoice('none')
+      setAonElsewhereGw(gwNumberById[aon.gameweek_id] ?? null)
+    } else {
+      setAonChoice('none')
+      setAonElsewhereGw(null)
+    }
+
+    const bc = bonusCardByUser[userId]
+    if (bc && bc.gameweek_id === gameweekId) {
+      setPlayBonusCard(true)
+      setBonusCardElsewhereGw(null)
+    } else if (bc) {
+      setPlayBonusCard(false)
+      setBonusCardElsewhereGw(gwNumberById[bc.gameweek_id] ?? null)
+    } else {
+      setPlayBonusCard(false)
+      setBonusCardElsewhereGw(null)
+    }
+
     if (existing) {
       setTeamId(String(existing.team_id))
       setPlayer1Id(String(existing.player1_id))
@@ -113,6 +179,8 @@ export default function EditPickPage() {
         player1_id: Number(player1Id),
         player2_id: Number(player2Id),
         is_banker: isBanker,
+        all_or_nothing_player_id: aonChoice === 'player1' ? Number(player1Id) : aonChoice === 'player2' ? Number(player2Id) : null,
+        play_bonus_card: playBonusCard,
       })
     })
     const data = await res.json()
@@ -221,6 +289,50 @@ export default function EditPickPage() {
           <input type="checkbox" checked={isBanker} onChange={e => setIsBanker(e.target.checked)} />
           Banker
         </label>
+
+        <div>
+          <label className="block text-xs font-medium mb-1">All or Nothing</label>
+          {aonElsewhereGw != null ? (
+            <p className="text-xs text-amber-600">
+              Already nominated on Gameweek {aonElsewhereGw} — clear it there first if it needs to move.
+            </p>
+          ) : (
+            <select
+              value={aonChoice}
+              onChange={e => setAonChoice(e.target.value as 'none' | 'player1' | 'player2')}
+              disabled={!player1Id || !player2Id}
+              className="border rounded px-3 py-2 text-sm w-full disabled:bg-gray-50 disabled:text-gray-400"
+            >
+              <option value="none">Not played</option>
+              {player1Id && <option value="player1">{displayNames[Number(player1Id)] ?? 'Player 1'} (Player 1)</option>}
+              {player2Id && <option value="player2">{displayNames[Number(player2Id)] ?? 'Player 2'} (Player 2)</option>}
+            </select>
+          )}
+        </div>
+
+        {bonusCardEnabled && (
+          <div>
+            <label className="block text-xs font-medium mb-1">{bonusCardName}</label>
+            {bonusCardElsewhereGw != null ? (
+              <p className="text-xs text-amber-600">
+                Already played on Gameweek {bonusCardElsewhereGw} — clear it there first if it needs to move.
+              </p>
+            ) : (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={playBonusCard}
+                  onChange={e => setPlayBonusCard(e.target.checked)}
+                  disabled={bonusCardPlayerId != null && (bonusCardPlayerId === Number(player1Id) || bonusCardPlayerId === Number(player2Id))}
+                />
+                Played {bonusCardName}
+                {bonusCardPlayerId != null && (bonusCardPlayerId === Number(player1Id) || bonusCardPlayerId === Number(player2Id)) && (
+                  <span className="text-xs text-amber-600">— can't play it on a player already picked this gameweek</span>
+                )}
+              </label>
+            )}
+          </div>
+        )}
 
         {message && (
           <p className={`text-sm ${message.startsWith('Error') ? 'text-red-600' : 'text-gray-600'}`}>{message}</p>

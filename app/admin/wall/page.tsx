@@ -166,7 +166,7 @@ export default async function WallModerationPage() {
     <div>
       <h1 className="text-2xl font-bold mb-2">The Wall — Moderation</h1>
       <p className="text-gray-500 text-sm mb-8">
-        Nothing appears on the public Wall until approved here. Rate each comment 0-5 stars when you approve it —
+        Nothing appears on the public Wall until approved here. Rate each comment 1-7 stars when you approve it —
         it adds to that player&apos;s running total, which carries over between competitions.
       </p>
 
