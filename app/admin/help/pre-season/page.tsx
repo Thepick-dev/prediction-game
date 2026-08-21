@@ -158,6 +158,16 @@ export default function PreSeasonHelpPage() {
             <li>Create the new competition at <a href="/admin/competitions" className="underline">Competitions</a> (name, dates) and mark it <strong>active</strong>.</li>
             <li>Add each gameweek’s deadline at <a href="/admin/gameweeks" className="underline">Gameweeks</a>.</li>
             <li>Import fixtures via <a href="/admin/sync" className="underline">Sync</a> (“Import Fixtures”), then check they’ve landed in the right gameweeks at <a href="/admin/fixtures" className="underline">Fixtures</a>.</li>
+            <li>
+              Want <a href="/admin/help/futzy" className="underline">Futzy</a> playing this season? Enable him on this
+              same Competitions page <strong>before Gameweek 1&rsquo;s deadline</strong> — that&rsquo;s when he drafts
+              his own tier-draft teams, same one-off window a human joining gets.
+            </li>
+            <li>
+              Running the <a href="/admin/help/bonus-card" className="underline">Bonus Card</a> this competition?
+              Nominate the player and enable it on Competitions whenever suits — unlike Futzy, there&rsquo;s no
+              deadline on this one.
+            </li>
           </ul>
         </div>
 
@@ -174,8 +184,10 @@ export default function PreSeasonHelpPage() {
             </li>
             <li>
               Set the scoring quartiles at <a href="/admin/quartiles" className="underline">Quartiles</a> — splits teams into four bands of
-              difficulty, used to work out how many points a result is worth. This isn’t a one-time job: it needs
-              resetting every week once the season starts, see <a href="/admin/help/weekly" className="underline">Weekly Routine</a>.
+              difficulty, used to work out how many points a result is worth. This is just the starting point: once
+              the season&rsquo;s open, each gameweek freezes its own snapshot of these bands through the
+              Prepare → Confirm step described in <a href="/admin/help/weekly" className="underline">Weekly Routine</a>,
+              so you won&rsquo;t be touching this page directly week to week.
             </li>
             <li>Set the draft tiers at <a href="/admin/draft-tiers" className="underline">Draft Tiers</a> — separate from quartiles, this is what players pick their “double-use” team from when they join.</li>
           </ul>

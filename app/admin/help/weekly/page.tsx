@@ -28,6 +28,11 @@ export default function WeeklyHelpPage() {
             a transfer window once players have been re-synced — if you do need to, check the result looks sane
             afterward.
           </p>
+          <p className="text-sm text-gray-700 mt-2">
+            If <a href="/admin/help/futzy" className="underline">Futzy</a> is enabled, this same sync is also what
+            keeps his picks sharp — he reads whatever&apos;s currently in the players table, so this one habit covers
+            both jobs.
+          </p>
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
@@ -76,6 +81,29 @@ export default function WeeklyHelpPage() {
             than the general <a href="/admin/quartiles" className="underline">Quartiles</a> page — that button only
             changes what was frozen for THAT gameweek, without risking anything else.
           </p>
+        </div>
+
+        <div className="bg-white border rounded-lg p-6">
+          <h2 className="font-bold mb-2">Worth checking regularly, not just weekly</h2>
+          <p className="text-sm text-gray-700 mb-2">
+            These aren&apos;t tied to the gameweek cycle, so they&apos;re easy to forget — nothing happens with any of
+            them until you act:
+          </p>
+          <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
+            <li>
+              <a href="/admin/wall" className="underline">The Wall</a> — every comment, reply and rating sits as
+              &quot;pending&quot; and stays invisible to everyone until you approve or discard it there.
+            </li>
+            <li>
+              <a href="/admin/users" className="underline">Users</a> — password reset requests and username change
+              requests both queue up here waiting on you; neither happens automatically.
+            </li>
+            <li>
+              If someone&apos;s clearly manipulating their own minigame score, the <strong>Minigame Ban</strong>
+              toggle on the same Users page blocks them from playing it and shows everyone else a public notice —
+              no code change needed for this anymore.
+            </li>
+          </ul>
         </div>
 
         <div className="bg-white border rounded-lg p-6">
