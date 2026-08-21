@@ -9,9 +9,10 @@ import KitBadge from '../../components/KitBadge'
 import BotAvatar from '../../components/BotAvatar'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import GameweekRecapCard from '../../components/GameweekRecapCard'
+import ResultsGrid, { type GridRow } from './ResultsGrid'
 import PopArtLoading from '../../components/PopArtLoading'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
-import { CrownIcon, CheckIcon, CrossIcon, BoltIcon } from '../../components/icons'
+import { CrownIcon } from '../../components/icons'
 
 type Gameweek = {
   id: string
@@ -412,6 +413,36 @@ export default function ResultsPage() {
     ? sortedPicks.map(p => ({ name: profiles[p.user_id] ?? 'Unknown', points: pointsMap[p.id]?.total_points ?? 0 }))
     : []
 
+  const gridRows: GridRow[] = sortedPicks.map(pick => {
+    const pts = pointsMap[pick.id]
+    const t = teams[pick.team_id]
+    const aon = aonByUser[pick.user_id]
+    const bonusCardPlay = bonusCardByUser[pick.user_id]
+    return {
+      userId: pick.user_id,
+      name: profiles[pick.user_id] ?? 'Unknown',
+      isBot: isBotByUser[pick.user_id] ?? false,
+      kit: kitByUser[pick.user_id] ?? null,
+      isOwnPick: pick.user_id === user?.id,
+      isWinner: isScored && pick.user_id === gwPotwUserId,
+      isAutopick: !!(pick.provisional || pick.is_autopick),
+      team: t ? (t.short_code ?? t.short_name ?? t.name) : '?',
+      isBanker: pick.is_banker,
+      teamPoints: pts?.team_points ?? null,
+      player1Name: players[pick.player1_id] ?? 'Unknown',
+      player1Points: pts?.player1_points ?? null,
+      player1Goal: goalPlayers.has(pick.player1_id),
+      player1Assist: assistPlayers.has(pick.player1_id),
+      player2Name: players[pick.player2_id] ?? 'Unknown',
+      player2Points: pts?.player2_points ?? null,
+      player2Goal: goalPlayers.has(pick.player2_id),
+      player2Assist: assistPlayers.has(pick.player2_id),
+      aon: aon ? { onPlayer1: aon.player_id === pick.player1_id, onPlayer2: aon.player_id === pick.player2_id, outcome: aon.outcome as 'pending' | 'success' | 'failed' } : null,
+      bonusCard: bonusCardPlay ? { playerName: players[bonusCardPlay.player_id] ?? 'Unknown', points: bonusCardPlay.points } : null,
+      totalPoints: pts?.total_points ?? null,
+    }
+  })
+
   if (loading) {
     return (
       <Shell active="RESULTS" theme={popArt ? 'pop-art' : 'classic'}>
@@ -647,137 +678,13 @@ export default function ResultsPage() {
                   <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>Nobody picked for this one yet.</p>
                 </div>
               ) : (
-                <div className="pop-panel mb-3" style={{ overflow: 'hidden' }}>
-                  {sortedPicks.map((pick) => {
-                    const pts = pointsMap[pick.id]
-                    const isWinner = isScored && pick.user_id === gwPotwUserId
-                    const isOwnPick = pick.user_id === user?.id
-                    const t = teams[pick.team_id]
-                    const answerLabel = pick.question_answer
-                      ? questionOptions.find(([letter]) => letter === pick.question_answer)?.[1] ?? pick.question_answer
-                      : null
-                    const aon = aonByUser[pick.user_id]
-                    const aonStyle = aon?.outcome === 'success'
-                      ? { background: 'var(--pop-green)', color: 'var(--pop-black)' }
-                      : aon?.outcome === 'failed'
-                      ? { background: 'var(--pop-red)', color: 'var(--pop-white)' }
-                      : { background: 'var(--pop-pink)', color: 'var(--pop-white)' }
-                    const aonIcon = aon?.outcome === 'success'
-                      ? <CheckIcon size={9} color="var(--pop-black)" />
-                      : aon?.outcome === 'failed'
-                      ? <CrossIcon size={9} color="var(--pop-white)" />
-                      : <BoltIcon size={9} color="var(--pop-white)" />
-                    const bonusCardPlay = bonusCardByUser[pick.user_id]
-
-                    return (
-                      <div
-                        key={pick.id}
-                        className="p-2.5"
-                        style={{ fontSize: '11px', borderTop: '1px solid rgba(255,255,255,0.06)', background: isWinner ? 'rgba(125,55,165,0.06)' : isOwnPick ? 'rgba(255,255,255,0.04)' : undefined }}
-                      >
-                        <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
-                          <div className="flex items-center gap-1.5 font-black uppercase min-w-0">
-                            {isBotByUser[pick.user_id] ? <BotAvatar size={14} /> : (
-                              <KitBadge
-                                pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
-                                colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
-                                colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
-                                colour3={kitByUser[pick.user_id]?.colour3}
-                                size={14}
-                              />
-                            )}
-                            <span className="truncate">{profiles[pick.user_id] ?? 'Unknown'}</span>
-                            {isOwnPick && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px] shrink-0">You</span>}
-                            {(pick.provisional || pick.is_autopick) && (
-                              <span className="px-1 rounded shrink-0" style={{ fontSize: '9px', background: 'rgba(255,255,255,0.15)' }} title="No pick was made in time, so the computer picked automatically">AP</span>
-                            )}
-                          </div>
-                          {showScoring && (
-                            <span className="font-black font-mono shrink-0" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums' }}>{pts?.total_points ?? '—'} pts</span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1 uppercase flex-wrap">
-                          <TeamCrest teamId={t?.id ?? null} teamName={t?.name ?? ''} size={15} />
-                          <span>{teamDisplayName(t)}</span>
-                          {pick.is_banker && <span className="font-black px-1 rounded" style={{ fontSize: '9px', background: 'var(--pop-yellow)', color: 'var(--pop-white)' }}>★ BANKER</span>}
-                          {showScoring && <span className="ml-auto font-mono" style={{ color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>{pts?.team_points ?? '—'} pts</span>}
-                        </div>
-                        {showScoring && pts?.breakdown?.team_detail?.opponent_team_id != null && (
-                          <div className="normal-case mt-0.5" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>
-                            <span
-                              className="inline-block px-1 rounded font-black mr-1"
-                              style={pts.breakdown.team_detail.is_home
-                                ? { background: 'rgba(0,242,250,0.2)', color: 'var(--pop-blue)' }
-                                : { background: 'rgba(250,97,0,0.2)', color: 'var(--pop-orange)' }}
-                              title={pts.breakdown.team_detail.is_home ? 'Played at home' : 'Played away'}
-                            >
-                              {pts.breakdown.team_detail.is_home ? 'H' : 'A'}
-                            </span>
-                            vs {teams[pts.breakdown.team_detail.opponent_team_id]?.short_code
-                              ?? teams[pts.breakdown.team_detail.opponent_team_id]?.short_name
-                              ?? '?'}
-                            {' '}(Q{pts.breakdown.team_detail.team_quartile}→Q{pts.breakdown.team_detail.opponent_quartile})
-                            {pts.breakdown.team_detail.team_score != null
-                              ? <>{' '}· {pts.breakdown.team_detail.team_score}-{pts.breakdown.team_detail.opponent_score}</>
-                              : <>{' '}· not played yet</>}
-                          </div>
-                        )}
-
-                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 uppercase">
-                          <span>
-                            {players[pick.player1_id] ?? 'Unknown'}
-                            {goalPlayers.has(pick.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
-                            {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
-                            {aon?.player_id === pick.player1_id && <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '9px', ...aonStyle }}>{aonIcon} AoN</span>}
-                            {showScoring && <span className="normal-case ml-1 font-mono" style={{ color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>({pts?.player1_points ?? '—'} pts)</span>}
-                          </span>
-                          <span>
-                            {players[pick.player2_id] ?? 'Unknown'}
-                            {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
-                            {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ fontSize: '9px', background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
-                            {aon?.player_id === pick.player2_id && <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '9px', ...aonStyle }}>{aonIcon} AoN</span>}
-                            {showScoring && <span className="normal-case ml-1 font-mono" style={{ color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>({pts?.player2_points ?? '—'} pts)</span>}
-                          </span>
-                        </div>
-
-                        {bonusCardPlay && (
-                          <div className="mt-1.5">
-                            <span className="pop-badge pop-badge--blue px-1.5 py-0.5 text-[9px] inline-flex items-center gap-1">
-                              {bonusCardName}: {players[bonusCardPlay.player_id] ?? 'Unknown'}
-                              {showScoring && bonusCardPlay.points != null && <span className="font-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>+{bonusCardPlay.points} pts</span>}
-                            </span>
-                          </div>
-                        )}
-
-                        {question && (
-                          <div className="normal-case mt-1.5" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>
-                            <span className="uppercase tracking-wider font-black">Answer:</span> {answerLabel ?? '—'}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-
-                  <div className="px-3 py-2 uppercase tracking-wider" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
-                    <span className="font-black mr-2">Key:</span>
-                    <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span> Goal
-                    <span className="mx-2">·</span>
-                    <span className="px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span> Assist
-                    <span className="mx-2">·</span>
-                    <span className="px-0.5 rounded font-black" style={{ background: 'var(--pop-yellow)', color: 'var(--pop-white)' }}>★B</span> Banker
-                    <span className="mx-2">·</span>
-                    <span className="px-0.5 rounded font-black" style={{ background: 'rgba(0,242,250,0.2)', color: 'var(--pop-blue)' }}>H</span>/<span className="px-0.5 rounded font-black" style={{ background: 'rgba(250,97,0,0.2)', color: 'var(--pop-orange)' }}>A</span> Home/Away
-                    <span className="mx-2">·</span>
-                    <span className="px-0.5 rounded" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — computer picked it (deadline passed, no pick made)
-                    <span className="mx-2">·</span>
-                    <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-pink)', color: 'var(--pop-white)' }}><BoltIcon size={9} color="var(--pop-white)" /> AoN</span> All or Nothing played, result pending
-                    <span className="mx-2">·</span>
-                    <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}><CheckIcon size={9} color="var(--pop-black)" /> AoN</span> succeeded
-                    <span className="mx-2">·</span>
-                    <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-red)', color: 'var(--pop-white)' }}><CrossIcon size={9} color="var(--pop-white)" /> AoN</span> failed
-                  </div>
-                </div>
+                <ResultsGrid
+                  competitionName={competition.name}
+                  gameweekNumber={selectedGameweek!.number}
+                  bonusCardName={bonusCardName ?? 'Bonus Card'}
+                  showScoring={showScoring}
+                  rows={gridRows}
+                />
               )}
             </>
           )}
