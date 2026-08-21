@@ -413,6 +413,13 @@ export default function ResultsPage() {
     ? sortedPicks.map(p => ({ name: profiles[p.user_id] ?? 'Unknown', points: pointsMap[p.id]?.total_points ?? 0 }))
     : []
 
+  // Multiple-choice gets a real per-option tally; freetext has no discrete
+  // options to count, so the closest equivalent is simply how many people
+  // answered at all.
+  const gridQuestionTally = question?.question_type === 'freetext'
+    ? (freetextAnswers.length > 0 ? [{ label: 'Answered', count: freetextAnswers.length }] : [])
+    : questionTally.map(t => ({ label: t.label as string, count: t.count }))
+
   const gridRows: GridRow[] = sortedPicks.map(pick => {
     const pts = pointsMap[pick.id]
     const t = teams[pick.team_id]
@@ -426,6 +433,7 @@ export default function ResultsPage() {
       isOwnPick: pick.user_id === user?.id,
       isWinner: isScored && pick.user_id === gwPotwUserId,
       isAutopick: !!(pick.provisional || pick.is_autopick),
+      teamId: pick.team_id,
       team: t ? (t.short_code ?? t.short_name ?? t.name) : '?',
       isBanker: pick.is_banker,
       teamPoints: pts?.team_points ?? null,
@@ -687,6 +695,8 @@ export default function ResultsPage() {
                   bonusCardName={bonusCardName ?? 'Bonus Card'}
                   showScoring={showScoring}
                   rows={gridRows}
+                  questionText={question?.question ?? null}
+                  questionTally={gridQuestionTally}
                 />
               )}
             </>
