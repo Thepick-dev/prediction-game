@@ -1,5 +1,30 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { createAdminSupabaseClient } from '../../lib/supabase-admin'
+import { requireAdmin } from '../../lib/require-admin'
+import { redirect } from 'next/navigation'
 import PositionEditor from './PositionEditor'
+
+// The editor previously wrote straight to team_league_positions from the
+// browser's own session. RLS on that table silently blocks it — the update
+// runs, matches zero rows, and comes back as success (no error, empty
+// result array) rather than a permission error, so the button said "Positions
+// saved" while nothing actually changed. Confirmed empirically. Fixed the
+// same way as every other admin write this session: verify the caller here
+// (regular session), then do the real write with the service-role client.
+async function savePositions(updates: { id: string; position: number }[]) {
+  'use server'
+  const supabase = await createServerSupabaseClient()
+  const admin = await requireAdmin(supabase)
+  if (!admin) redirect('/')
+  const adminClient = createAdminSupabaseClient()
+
+  const results = await Promise.all(
+    updates.map(u => adminClient.from('team_league_positions').update({ position: u.position }).eq('id', u.id))
+  )
+  const errored = results.find(r => r.error)
+  if (errored?.error) return { error: errored.error.message }
+  return { success: true }
+}
 
 export default async function StandingsPage() {
   const supabase = await createServerSupabaseClient()
@@ -77,7 +102,7 @@ export default async function StandingsPage() {
       </div>
 
       {editorRows.length > 0 && lastSynced && (
-        <PositionEditor initialRows={editorRows} recordedAt={lastSynced} />
+        <PositionEditor initialRows={editorRows} recordedAt={lastSynced} onSave={savePositions} />
       )}
     </div>
   )

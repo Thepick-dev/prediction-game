@@ -439,6 +439,9 @@ export default function ResultsPage() {
       player2Assist: assistPlayers.has(pick.player2_id),
       aon: aon ? { onPlayer1: aon.player_id === pick.player1_id, onPlayer2: aon.player_id === pick.player2_id, outcome: aon.outcome as 'pending' | 'success' | 'failed' } : null,
       bonusCard: bonusCardPlay ? { playerName: players[bonusCardPlay.player_id] ?? 'Unknown', points: bonusCardPlay.points } : null,
+      answer: pick.question_answer
+        ? questionOptions.find(([letter]) => letter === pick.question_answer)?.[1] ?? pick.question_answer
+        : null,
       totalPoints: pts?.total_points ?? null,
     }
   })

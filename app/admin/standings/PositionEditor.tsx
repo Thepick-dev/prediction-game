@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '../../lib/supabase'
 
 type Row = {
   id: string
@@ -10,12 +9,22 @@ type Row = {
   teamName: string
 }
 
-export default function PositionEditor({ initialRows, recordedAt }: { initialRows: Row[]; recordedAt: string }) {
-  const [rows, setRows] = useState<Row[]>([...initialRows].sort((a, b) => a.position - b.position))
+type SaveResult = { error?: string; success?: boolean }
+
+export default function PositionEditor({
+  initialRows, recordedAt, onSave,
+}: {
+  initialRows: Row[]
+  recordedAt: string
+  onSave: (updates: { id: string; position: number }[]) => Promise<SaveResult>
+}) {
+  // Starts alphabetical, not by whatever position was last recorded — with
+  // a blank/pre-season table every team's stats are identical anyway, so
+  // "current position" order is meaningless and just makes a team hard to
+  // find. Alphabetical is what you actually want when placing teams by hand.
+  const [rows, setRows] = useState<Row[]>([...initialRows].sort((a, b) => a.teamName.localeCompare(b.teamName)))
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
-
-  const supabase = createClient()
 
   function move(index: number, direction: -1 | 1) {
     const newIndex = index + direction
@@ -30,18 +39,11 @@ export default function PositionEditor({ initialRows, recordedAt }: { initialRow
     setMessage('')
 
     // Positions are derived from current array order: index 0 = position 1.
-    const updates = rows.map((row, i) =>
-      supabase
-        .from('team_league_positions')
-        .update({ position: i + 1 })
-        .eq('id', row.id)
-    )
+    const updates = rows.map((row, i) => ({ id: row.id, position: i + 1 }))
+    const result = await onSave(updates)
 
-    const results = await Promise.all(updates)
-    const anyError = results.find(r => r.error)
-
-    if (anyError?.error) {
-      setMessage('Error saving: ' + anyError.error.message)
+    if (result?.error) {
+      setMessage('Error saving: ' + result.error)
     } else {
       setMessage('Positions saved')
     }
