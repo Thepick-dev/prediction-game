@@ -115,20 +115,20 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
       </div>
       {shareError && <p className="text-xs mb-2" style={{ color: '#FA003C' }}>{shareError}</p>}
 
-      <div ref={gridRef} className="rounded-lg p-6" style={{ background: '#0A0A0A' }}>
-        <p className="font-black uppercase" style={{ fontSize: '36px', color: '#CCFA00', fontFamily: 'var(--font-display), sans-serif', lineHeight: 1.05 }}>
+      <div ref={gridRef} className="rounded-2xl p-7" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <p className="font-black uppercase" style={{ fontSize: '52px', color: '#CCFA00', fontFamily: 'var(--font-display), sans-serif', lineHeight: 1, textShadow: '0 0 8px rgba(204,250,0,0.5), 0 0 34px rgba(204,250,0,0.22)' }}>
           {competitionName} — Gameweek {gameweekNumber}
         </p>
-        <p className="mb-5" style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(255,255,255,0.45)' }}>
-          {showScoring ? 'Results' : 'Picks — not yet scored'}
+        <p className="mb-6 font-black uppercase" style={{ fontSize: '19px', letterSpacing: '0.04em', color: 'rgba(255,255,255,0.55)' }}>
+          {showScoring ? '🏆 Results' : 'Picks are locked in'}
         </p>
 
         {questionText && questionTally.length > 0 && (
-          <div className="rounded-lg mb-5 px-5 py-4" style={{ background: 'rgba(125,55,165,0.15)', border: '1px solid rgba(125,55,165,0.5)' }}>
-            <p className="font-black mb-2.5" style={{ fontSize: '18px', color: '#fff' }}>{questionText}</p>
-            <div className="flex flex-wrap gap-2.5">
+          <div className="rounded-2xl mb-6 px-6 py-5" style={{ background: 'linear-gradient(135deg, rgba(160,0,250,0.28), rgba(160,0,250,0.1))', border: '2px solid rgba(160,0,250,0.6)' }}>
+            <p className="font-black mb-3" style={{ fontSize: '23px', color: '#fff' }}>{questionText}</p>
+            <div className="flex flex-wrap gap-3">
               {questionTally.map(t => (
-                <span key={t.label} className="px-3 py-1.5 rounded-lg font-black" style={{ fontSize: '16px', background: 'rgba(255,255,255,0.1)', color: '#fff' }}>
+                <span key={t.label} className="px-4 py-2 rounded-xl font-black" style={{ fontSize: '19px', background: 'rgba(255,255,255,0.12)', color: '#fff' }}>
                   {t.label}: <span style={{ color: '#CCFA00' }}>{t.count}</span>
                 </span>
               ))}
@@ -137,7 +137,7 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
         )}
 
         <div ref={scrollRef} className="overflow-x-auto">
-          <table className="border-collapse" style={{ fontSize: '19px', minWidth: '1280px', width: '100%' }}>
+          <table className="border-collapse" style={{ fontSize: '22px', minWidth: '1420px', width: '100%' }}>
             <thead>
               <tr>
                 {['Player', 'Team', 'Result', 'Player 1', 'Player 2', 'Bonuses', 'Answer', 'Total'].map((h, i) => (
@@ -145,9 +145,9 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                     key={h}
                     className="text-left whitespace-nowrap"
                     style={{
-                      fontSize: '15px', textTransform: 'uppercase', letterSpacing: '0.06em',
-                      color: 'rgba(255,255,255,0.45)', padding: '12px 16px',
-                      borderBottom: '2px solid rgba(255,255,255,0.15)',
+                      fontSize: '17px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800,
+                      color: 'rgba(255,255,255,0.5)', padding: '14px 18px',
+                      borderBottom: '3px solid rgba(255,255,255,0.18)',
                       textAlign: i === 7 ? 'right' : 'left',
                     }}
                   >
@@ -158,60 +158,67 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
             </thead>
             <tbody>
               {rows.map((row, i) => (
-                <tr key={row.userId} style={{ background: i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined }}>
-                  <td className="whitespace-nowrap" style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                    <div className="flex items-center gap-2.5 font-black uppercase" style={{ color: '#fff' }}>
+                <tr
+                  key={row.userId}
+                  style={{
+                    background: row.isWinner ? 'linear-gradient(90deg, rgba(204,250,0,0.14), rgba(204,250,0,0.03))' : (i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined),
+                    boxShadow: row.isWinner ? 'inset 4px 0 0 #CCFA00' : undefined,
+                  }}
+                >
+                  <td className="whitespace-nowrap" style={{ padding: '18px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div className="flex items-center gap-3 font-black uppercase" style={{ color: '#fff' }}>
                       <span className="shrink-0">
-                        {row.isBot ? <BotAvatar size={32} /> : (
+                        {row.isBot ? <BotAvatar size={40} /> : (
                           <KitBadge
                             pattern={row.kit?.pattern ?? 'solid'}
                             colour1={row.kit?.colour1 ?? '#1E4D6B'}
                             colour2={row.kit?.colour2 ?? '#F5ECD9'}
                             colour3={row.kit?.colour3}
-                            size={32}
+                            size={40}
                           />
                         )}
                       </span>
                       <span>{row.name}</span>
-                      {row.isOwnPick && <span className="px-2 py-1 rounded" style={{ fontSize: '13px', background: '#A000FA', color: '#fff' }}>YOU</span>}
-                      {row.isAutopick && <span className="px-2 py-1 rounded" style={{ fontSize: '13px', background: 'rgba(255,255,255,0.15)', color: '#fff' }} title="Autopicked">AP</span>}
+                      {row.isWinner && <span className="px-2.5 py-1 rounded-lg" style={{ fontSize: '14px', background: '#CCFA00', color: '#0A0A0A' }}>★ WINNER</span>}
+                      {row.isOwnPick && <span className="px-2.5 py-1 rounded-lg" style={{ fontSize: '14px', background: '#A000FA', color: '#fff' }}>YOU</span>}
+                      {row.isAutopick && <span className="px-2.5 py-1 rounded-lg" style={{ fontSize: '14px', background: 'rgba(255,255,255,0.15)', color: '#fff' }} title="Autopicked">AP</span>}
                     </div>
                   </td>
-                  <td className="whitespace-nowrap font-black" style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', color: '#00F2FA' }}>
-                    <div className="flex items-center gap-2">
-                      <TeamCrest teamId={row.teamId} teamName={row.team} size={30} />
+                  <td className="whitespace-nowrap font-black" style={{ padding: '18px', borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#00F2FA' }}>
+                    <div className="flex items-center gap-2.5">
+                      <TeamCrest teamId={row.teamId} teamName={row.team} size={38} />
                       <span>{row.team}</span>
-                      {row.isBanker && <span className="px-2 py-1 rounded font-black" style={{ fontSize: '13px', background: '#7D37A5', color: '#fff' }}>★B</span>}
+                      {row.isBanker && <span className="px-2.5 py-1 rounded-lg font-black" style={{ fontSize: '14px', background: '#7D37A5', color: '#fff' }}>★B</span>}
                     </div>
                   </td>
-                  <td className="whitespace-nowrap font-mono" style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.6)', fontSize: '16px' }}>
+                  <td className="whitespace-nowrap font-mono" style={{ padding: '18px', borderBottom: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', fontSize: '18px' }}>
                     {showScoring ? `${row.teamPoints ?? 0} pts` : 'Pending'}
                   </td>
-                  <td className="whitespace-nowrap" style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', color: '#fff' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '18px', borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#fff' }}>
                     {row.player1Name}
-                    {row.player1Goal && <span className="ml-2 px-1.5 rounded font-black" style={{ fontSize: '13px', background: '#CCFA00', color: '#0A0A0A' }}>G</span>}
-                    {row.player1Assist && <span className="ml-1 px-1.5 rounded font-black" style={{ fontSize: '13px', background: 'rgba(204,250,0,0.25)', color: '#CCFA00' }}>A</span>}
-                    {showScoring && <span className="ml-2 font-mono" style={{ fontSize: '16px', color: 'rgba(255,255,255,0.6)' }}>({row.player1Points ?? 0})</span>}
+                    {row.player1Goal && <span className="ml-2 px-2 rounded-lg font-black" style={{ fontSize: '14px', background: '#CCFA00', color: '#0A0A0A' }}>G</span>}
+                    {row.player1Assist && <span className="ml-1.5 px-2 rounded-lg font-black" style={{ fontSize: '14px', background: 'rgba(204,250,0,0.25)', color: '#CCFA00' }}>A</span>}
+                    {showScoring && <span className="ml-2 font-mono" style={{ fontSize: '18px', color: 'rgba(255,255,255,0.6)' }}>({row.player1Points ?? 0})</span>}
                     {row.aon?.onPlayer1 && (
-                      <span className="ml-2 px-2 py-1 rounded font-black" style={{ fontSize: '13px', background: aonBg[row.aon.outcome], color: row.aon.outcome === 'success' ? '#0A0A0A' : '#fff' }}>
+                      <span className="ml-2 px-2.5 py-1 rounded-lg font-black" style={{ fontSize: '14px', background: aonBg[row.aon.outcome], color: row.aon.outcome === 'success' ? '#0A0A0A' : '#fff' }}>
                         {aonLabel[row.aon.outcome]}
                       </span>
                     )}
                   </td>
-                  <td className="whitespace-nowrap" style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', color: '#fff' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '18px', borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#fff' }}>
                     {row.player2Name}
-                    {row.player2Goal && <span className="ml-2 px-1.5 rounded font-black" style={{ fontSize: '13px', background: '#CCFA00', color: '#0A0A0A' }}>G</span>}
-                    {row.player2Assist && <span className="ml-1 px-1.5 rounded font-black" style={{ fontSize: '13px', background: 'rgba(204,250,0,0.25)', color: '#CCFA00' }}>A</span>}
-                    {showScoring && <span className="ml-2 font-mono" style={{ fontSize: '16px', color: 'rgba(255,255,255,0.6)' }}>({row.player2Points ?? 0})</span>}
+                    {row.player2Goal && <span className="ml-2 px-2 rounded-lg font-black" style={{ fontSize: '14px', background: '#CCFA00', color: '#0A0A0A' }}>G</span>}
+                    {row.player2Assist && <span className="ml-1.5 px-2 rounded-lg font-black" style={{ fontSize: '14px', background: 'rgba(204,250,0,0.25)', color: '#CCFA00' }}>A</span>}
+                    {showScoring && <span className="ml-2 font-mono" style={{ fontSize: '18px', color: 'rgba(255,255,255,0.6)' }}>({row.player2Points ?? 0})</span>}
                     {row.aon?.onPlayer2 && (
-                      <span className="ml-2 px-2 py-1 rounded font-black" style={{ fontSize: '13px', background: aonBg[row.aon.outcome], color: row.aon.outcome === 'success' ? '#0A0A0A' : '#fff' }}>
+                      <span className="ml-2 px-2.5 py-1 rounded-lg font-black" style={{ fontSize: '14px', background: aonBg[row.aon.outcome], color: row.aon.outcome === 'success' ? '#0A0A0A' : '#fff' }}>
                         {aonLabel[row.aon.outcome]}
                       </span>
                     )}
                   </td>
-                  <td className="whitespace-nowrap" style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '18px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                     {row.bonusCard ? (
-                      <span className="px-2 py-1 rounded font-black" style={{ fontSize: '13px', background: '#00F2FA', color: '#0A0A0A' }}>
+                      <span className="px-2.5 py-1 rounded-lg font-black" style={{ fontSize: '14px', background: '#00F2FA', color: '#0A0A0A' }}>
                         {bonusCardName}: {row.bonusCard.playerName}
                         {showScoring && row.bonusCard.points != null && ` +${row.bonusCard.points}`}
                       </span>
@@ -219,11 +226,20 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                       <span style={{ color: 'rgba(255,255,255,0.25)' }}>—</span>
                     )}
                   </td>
-                  <td className="whitespace-nowrap" style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.8)', fontSize: '17px' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '18px', borderBottom: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', fontSize: '19px' }}>
                     {row.answer ?? <span style={{ color: 'rgba(255,255,255,0.25)' }}>—</span>}
                   </td>
-                  <td className="whitespace-nowrap text-right font-mono font-black" style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', color: '#CCFA00', fontSize: '30px' }}>
-                    {showScoring ? `${row.totalPoints ?? 0} pts` : 'Pending'}
+                  <td className="whitespace-nowrap text-right" style={{ padding: '18px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                    <span
+                      className="inline-block font-mono font-black rounded-xl"
+                      style={{
+                        fontSize: '38px', color: showScoring ? '#0A0A0A' : 'rgba(255,255,255,0.4)',
+                        background: showScoring ? '#CCFA00' : 'rgba(255,255,255,0.08)',
+                        padding: showScoring ? '2px 16px' : '2px 12px',
+                      }}
+                    >
+                      {showScoring ? row.totalPoints ?? 0 : 'TBD'}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -231,14 +247,14 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
           </table>
         </div>
 
-        <div className="flex flex-wrap gap-4 mt-5" style={{ fontSize: '15px', color: 'rgba(255,255,255,0.5)' }}>
-          <span><span className="px-2 py-1 rounded font-black" style={{ background: '#CCFA00', color: '#0A0A0A' }}>G</span> Goal</span>
-          <span><span className="px-2 py-1 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: '#CCFA00' }}>A</span> Assist</span>
-          <span><span className="px-2 py-1 rounded font-black" style={{ background: '#7D37A5', color: '#fff' }}>★B</span> Banker</span>
-          <span><span className="px-2 py-1 rounded font-black" style={{ background: aonBg.pending, color: '#fff' }}>AoN</span> All or Nothing, pending</span>
-          <span><span className="px-2 py-1 rounded font-black" style={{ background: aonBg.success, color: '#0A0A0A' }}>AoN ✓</span> succeeded</span>
-          <span><span className="px-2 py-1 rounded font-black" style={{ background: aonBg.failed, color: '#fff' }}>AoN ✕</span> failed</span>
-          <span><span className="px-2 py-1 rounded font-black" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff' }}>AP</span> Autopick</span>
+        <div className="flex flex-wrap gap-5 mt-6" style={{ fontSize: '16px', color: 'rgba(255,255,255,0.55)' }}>
+          <span><span className="px-2.5 py-1 rounded-lg font-black" style={{ background: '#CCFA00', color: '#0A0A0A' }}>G</span> Goal</span>
+          <span><span className="px-2.5 py-1 rounded-lg font-black" style={{ background: 'rgba(204,250,0,0.25)', color: '#CCFA00' }}>A</span> Assist</span>
+          <span><span className="px-2.5 py-1 rounded-lg font-black" style={{ background: '#7D37A5', color: '#fff' }}>★B</span> Banker</span>
+          <span><span className="px-2.5 py-1 rounded-lg font-black" style={{ background: aonBg.pending, color: '#fff' }}>AoN</span> All or Nothing, pending</span>
+          <span><span className="px-2.5 py-1 rounded-lg font-black" style={{ background: aonBg.success, color: '#0A0A0A' }}>AoN ✓</span> succeeded</span>
+          <span><span className="px-2.5 py-1 rounded-lg font-black" style={{ background: aonBg.failed, color: '#fff' }}>AoN ✕</span> failed</span>
+          <span><span className="px-2.5 py-1 rounded-lg font-black" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff' }}>AP</span> Autopick</span>
         </div>
       </div>
     </div>
