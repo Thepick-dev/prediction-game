@@ -102,6 +102,10 @@ export default function ResultsPage() {
   const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }>>({})
   const [teams, setTeams] = useState<Record<number, Team>>({})
   const [players, setPlayers] = useState<Record<number, string>>({})
+  // Bare names (no club-code suffix) for the results grid specifically —
+  // the grid already shows the picked team once, so repeating each
+  // player's own club code was redundant clutter.
+  const [playersBare, setPlayersBare] = useState<Record<number, string>>({})
   const [potwUserId, setPotwUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingPicks, setLoadingPicks] = useState(false)
@@ -190,12 +194,17 @@ export default function ResultsPage() {
     teamsData?.forEach(t => { teamMap[t.id] = t })
 
     const playerMap = buildPlayerDisplayNames(playersData ?? [], teamMap)
+    // Passing an empty team map means buildPlayerDisplayNames never finds a
+    // club code to append, so it falls back to the bare name — reusing the
+    // same helper rather than duplicating its shortening logic.
+    const playerBareMap = buildPlayerDisplayNames(playersData ?? [], {})
 
     setProfiles(profileMap)
     setIsBotByUser(isBotMap)
     setKitByUser(kitMap)
     setTeams(teamMap)
     setPlayers(playerMap)
+    setPlayersBare(playerBareMap)
     setBonusCardName(bonusCardDisplayName(comp.bonus_card_name, comp.bonus_card_player_id != null ? playerMap[comp.bonus_card_player_id] : null))
     setGameweeks(gws ?? [])
 
@@ -420,11 +429,24 @@ export default function ResultsPage() {
     ? (freetextAnswers.length > 0 ? [{ label: 'Answered', count: freetextAnswers.length }] : [])
     : questionTally.map(t => ({ label: t.label as string, count: t.count }))
 
+  // Which team each team played this gameweek — falls back to this when a
+  // pick hasn't been scored yet (no frozen team_detail to read the real
+  // resolved fixture from). A double-gameweek team briefly resolves to
+  // whichever of its two fixtures appears last here pre-scoring; once
+  // scored, the frozen breakdown below takes over and is exact.
+  const opponentByTeamId: Record<number, number> = {}
+  fixtures.forEach(f => {
+    opponentByTeamId[f.home_team_id] = f.away_team_id
+    opponentByTeamId[f.away_team_id] = f.home_team_id
+  })
+
   const gridRows: GridRow[] = sortedPicks.map(pick => {
     const pts = pointsMap[pick.id]
     const t = teams[pick.team_id]
     const aon = aonByUser[pick.user_id]
     const bonusCardPlay = bonusCardByUser[pick.user_id]
+    const opponentId = pts?.breakdown?.team_detail?.opponent_team_id ?? opponentByTeamId[pick.team_id] ?? null
+    const opponent = opponentId != null ? teams[opponentId] : undefined
     return {
       userId: pick.user_id,
       name: profiles[pick.user_id] ?? 'Unknown',
@@ -435,18 +457,19 @@ export default function ResultsPage() {
       isAutopick: !!(pick.provisional || pick.is_autopick),
       teamId: pick.team_id,
       team: t ? (t.short_code ?? t.short_name ?? t.name) : '?',
+      opponentCode: opponent ? (opponent.short_code ?? opponent.short_name ?? opponent.name) : null,
       isBanker: pick.is_banker,
       teamPoints: pts?.team_points ?? null,
-      player1Name: players[pick.player1_id] ?? 'Unknown',
+      player1Name: playersBare[pick.player1_id] ?? 'Unknown',
       player1Points: pts?.player1_points ?? null,
       player1Goal: goalPlayers.has(pick.player1_id),
       player1Assist: assistPlayers.has(pick.player1_id),
-      player2Name: players[pick.player2_id] ?? 'Unknown',
+      player2Name: playersBare[pick.player2_id] ?? 'Unknown',
       player2Points: pts?.player2_points ?? null,
       player2Goal: goalPlayers.has(pick.player2_id),
       player2Assist: assistPlayers.has(pick.player2_id),
       aon: aon ? { onPlayer1: aon.player_id === pick.player1_id, onPlayer2: aon.player_id === pick.player2_id, outcome: aon.outcome as 'pending' | 'success' | 'failed' } : null,
-      bonusCard: bonusCardPlay ? { playerName: players[bonusCardPlay.player_id] ?? 'Unknown', points: bonusCardPlay.points } : null,
+      bonusCard: bonusCardPlay ? { playerName: playersBare[bonusCardPlay.player_id] ?? 'Unknown', points: bonusCardPlay.points } : null,
       answer: pick.question_answer
         ? questionOptions.find(([letter]) => letter === pick.question_answer)?.[1] ?? pick.question_answer
         : null,
