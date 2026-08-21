@@ -33,15 +33,36 @@ const aonLabel = { pending: 'AoN', success: 'AoN ✓', failed: 'AoN ✕' } as co
 
 export default function PrintGridView({ competitionName, bonusCardName, gwColumns, playerRows }: Props) {
   const gridRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [sharing, setSharing] = useState(false)
   const [shareError, setShareError] = useState<string | null>(null)
 
   async function handleShare() {
-    if (!gridRef.current) return
+    if (!gridRef.current || !scrollRef.current) return
     setSharing(true)
     setShareError(null)
+
+    // html-to-image only captures what's currently visible inside a
+    // scrolling container — with enough gameweeks the table is wider than
+    // the screen, so left as-is the exported image is silently cropped to
+    // whatever fit on screen at capture time. Temporarily expand the
+    // scroll container to its full content width so every column is
+    // actually in the DOM's laid-out size, capture at that size, then put
+    // the scrollbar back exactly as it was.
+    const scrollEl = scrollRef.current
+    const originalWidth = scrollEl.style.width
+    const originalOverflow = scrollEl.style.overflow
+    scrollEl.style.width = `${scrollEl.scrollWidth}px`
+    scrollEl.style.overflow = 'visible'
+
     try {
-      const dataUrl = await toPng(gridRef.current, { pixelRatio: 1.5, backgroundColor: '#0A0A0A' })
+      const node = gridRef.current
+      const dataUrl = await toPng(node, {
+        pixelRatio: 1.5,
+        backgroundColor: '#0A0A0A',
+        width: node.scrollWidth,
+        height: node.scrollHeight,
+      })
       const filename = `${competitionName.replace(/\s+/g, '-').toLowerCase()}-picks-grid.png`
 
       const canShareFiles = typeof navigator.share === 'function' && typeof navigator.canShare === 'function'
@@ -50,7 +71,6 @@ export default function PrintGridView({ competitionName, bonusCardName, gwColumn
         const file = new File([blob], filename, { type: 'image/png' })
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({ files: [file], title: `${competitionName} — All Picks` })
-          setSharing(false)
           return
         }
       }
@@ -63,8 +83,11 @@ export default function PrintGridView({ competitionName, bonusCardName, gwColumn
       window.open(`https://wa.me/?text=${text}`, '_blank')
     } catch {
       setShareError('Could not generate the image — try again.')
+    } finally {
+      scrollEl.style.width = originalWidth
+      scrollEl.style.overflow = originalOverflow
+      setSharing(false)
     }
-    setSharing(false)
   }
 
   return (
@@ -94,7 +117,7 @@ export default function PrintGridView({ competitionName, bonusCardName, gwColumn
           {competitionName} — All Picks
         </p>
 
-        <div className="overflow-x-auto">
+        <div ref={scrollRef} className="overflow-x-auto">
           <table className="border-collapse text-xs w-full">
             <thead>
               <tr>

@@ -47,7 +47,10 @@ export default function WeeklyHelpPage() {
           </p>
           <ol className="list-decimal pl-5 text-sm text-gray-700 space-y-2">
             <li>Go to <a href="/admin/sync" className="underline">Sync</a> and click <strong>Sync Results</strong> — pulls in the finished scores for the gameweek that just finished.</li>
-            <li>Click <strong>Sync Standings</strong> — updates the league table with those results. Do this before the next step, since it feeds straight into it.</li>
+            <li>
+              Click <strong>Sync Standings</strong> — updates the league table with those results. On its own this
+              doesn&apos;t change anything players see yet — it just feeds the quartile update two steps below.
+            </li>
             <li>
               Go to <a href="/admin/events" className="underline">Match Events</a>, pick that gameweek, and click <strong>Sync from FPL</strong>.
               This fills in goalscorers, assists, own goals automatically. Wait roughly an hour after the last match
@@ -58,12 +61,20 @@ export default function WeeklyHelpPage() {
             <li>
               Go to <a href="/admin/gameweeks" className="underline">Gameweeks</a>, find that gameweek, and set its status to <strong>completed</strong>.
               This is what actually calculates everyone&apos;s points for it. It uses the quartile bands that were
-              frozen for THIS gameweek back when it was prepared and opened (see step 6, below, from when this was
-              the "next" gameweek) — not whatever the live table says right now. Timing this step no longer matters
-              the way it used to; the snapshot already locked in the right bands weeks ago.
+              frozen for THIS gameweek back when it was prepared and opened (the "Prepare to Open" step below, from
+              when this was the "next" gameweek) — not whatever the live table says right now. Timing this step no
+              longer matters the way it used to; the snapshot already locked in the right bands weeks ago.
             </li>
             <li>
               Spot-check the <a href="/leaderboard" className="underline">Leaderboard</a> — does it look right?
+            </li>
+            <li>
+              Go to <a href="/admin/quartiles" className="underline">Quartiles</a> and click <strong>Reset to League
+              Table</strong>. This is the step that actually uses the standings you just synced — quartile bands
+              never update on their own, this button is the only thing that copies the current table into them
+              (splitting 1st-5th into Q1, 6th-10th into Q2, and so on). Skip this and the NEXT gameweek&apos;s bands
+              will freeze from whatever was last set, which could be stale. If you&apos;d rather keep a team in a
+              band by hand regardless of table position, adjust it individually here instead.
             </li>
             <li>
               Now go to <a href="/admin/gameweeks" className="underline">Gameweeks</a>, find the NEXT gameweek (still
