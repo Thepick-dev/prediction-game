@@ -45,60 +45,40 @@ async function issueCard(formData: FormData) {
     redirect('/admin/discipline?error=' + encodeURIComponent(cardError?.message ?? 'Could not save the card'))
   }
 
-  // Re-derived server-side, never trusted from the form — a red always
-  // triggers; a yellow only triggers if there's already one other
-  // unresolved (active, not yet linked to a suspension) yellow this
-  // competition, in which case this new one is the 2nd.
-  let otherUnresolvedYellowId: string | null = null
-  let triggers = cardType === 'red'
-  if (cardType === 'yellow') {
-    const { data: existingYellow } = await supabase
-      .from('discipline_cards')
-      .select('id')
-      .eq('competition_id', competitionId)
-      .eq('user_id', userId)
-      .eq('card_type', 'yellow')
-      .eq('status', 'active')
-      .is('resolved_suspension_id', null)
-      .neq('id', card.id)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle()
-    if (existingYellow) {
-      triggers = true
-      otherUnresolvedYellowId = existingYellow.id
-    }
-  }
+  // Whether this causes a suspension is the admin's explicit call (a
+  // checkbox on the form, defaulted from the game's rule but editable) —
+  // the one exception enforced here regardless of what was submitted: a
+  // red always causes one, matching the checkbox being locked-on client-side.
+  const causesSuspension = cardType === 'red' || formData.get('causes_suspension') === 'true'
 
-  if (triggers) {
-    const startGameweekId = formData.get('suspension_start_gameweek_id') as string
-    const gameweeksCount = Math.max(1, parseInt(formData.get('suspension_gameweeks_count') as string) || 1)
+  if (causesSuspension) {
+    const requestedGameweekIds = formData.getAll('suspension_gameweek_ids') as string[]
     const suspensionReason = (formData.get('suspension_reason') as string)?.trim() || reason
 
-    // Escalation counts suspensions that actually stand — an overturned one
-    // (rescinded on appeal) doesn't count against a player, but a reduced
-    // one still does, since it still happened.
-    const { count: priorCount } = await supabase
-      .from('suspensions')
-      .select('id', { count: 'exact', head: true })
-      .eq('competition_id', competitionId)
-      .eq('user_id', userId)
-      .in('status', ['active', 'appealed_reduced'])
-    const suspensionNumber = (priorCount ?? 0) + 1
-
-    const { data: allGameweeks } = await supabase
+    // Only ever suspend from a gameweek that hasn't locked yet — defensive
+    // filter against whatever ids were actually submitted, never trusted
+    // outright even though the client only ever offers valid ones.
+    const { data: validGameweeks } = await supabase
       .from('gameweeks')
-      .select('id, number, status')
+      .select('id, number')
       .eq('competition_id', competitionId)
       .in('status', ['upcoming', 'open'])
-      .order('number', { ascending: true })
+      .in('id', requestedGameweekIds.length > 0 ? requestedGameweekIds : ['00000000-0000-0000-0000-000000000000'])
 
-    const startIndex = (allGameweeks ?? []).findIndex(g => g.id === startGameweekId)
-    const targetGameweeks = startIndex >= 0
-      ? (allGameweeks ?? []).slice(startIndex, startIndex + gameweeksCount)
-      : []
+    const targetGameweeks = (validGameweeks ?? []).sort((a, b) => a.number - b.number)
 
     if (targetGameweeks.length > 0) {
+      // Escalation counts suspensions that actually stand — an overturned
+      // one (rescinded on appeal) doesn't count against a player, but a
+      // reduced one still does, since it still happened.
+      const { count: priorCount } = await supabase
+        .from('suspensions')
+        .select('id', { count: 'exact', head: true })
+        .eq('competition_id', competitionId)
+        .eq('user_id', userId)
+        .in('status', ['active', 'appealed_reduced'])
+      const suspensionNumber = (priorCount ?? 0) + 1
+
       const { data: suspension, error: suspensionError } = await supabase
         .from('suspensions')
         .insert({
@@ -117,7 +97,29 @@ async function issueCard(formData: FormData) {
         await supabase.from('suspension_gameweeks').insert(
           targetGameweeks.map(gw => ({ suspension_id: suspension.id, gameweek_id: gw.id }))
         )
-        const linkedCardIds = otherUnresolvedYellowId ? [card.id, otherUnresolvedYellowId] : [card.id]
+
+        // If this is a yellow and another unresolved yellow already exists,
+        // pair it in too — this is just bookkeeping (so it stops counting
+        // as "unresolved" for a future card) rather than a policy decision,
+        // so it happens whenever a yellow ends up causing a suspension,
+        // regardless of whether the admin's call matched the usual "2nd
+        // yellow" default.
+        let linkedCardIds = [card.id]
+        if (cardType === 'yellow') {
+          const { data: existingYellow } = await supabase
+            .from('discipline_cards')
+            .select('id')
+            .eq('competition_id', competitionId)
+            .eq('user_id', userId)
+            .eq('card_type', 'yellow')
+            .eq('status', 'active')
+            .is('resolved_suspension_id', null)
+            .neq('id', card.id)
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle()
+          if (existingYellow) linkedCardIds = [card.id, existingYellow.id]
+        }
         await supabase.from('discipline_cards').update({ resolved_suspension_id: suspension.id }).in('id', linkedCardIds)
       }
     }
