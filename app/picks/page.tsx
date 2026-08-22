@@ -375,14 +375,17 @@ export default function PicksPage() {
 
     if (!entry) { window.location.href = '/join'; return }
 
-    // Status first, not just the deadline: a gameweek an admin has already
-    // locked (or completed) should never be offered for picking, even if
-    // its deadline field happens to still read as being in the future.
+    // Status alone decides this, not the deadline — a gameweek only
+    // becomes pickable once an admin has actually confirmed it open via
+    // Prepare -> Confirm on Gameweeks. Before that it's just "upcoming",
+    // which must never be offered for picking even though it's the
+    // earliest non-locked gameweek — the deadline being in the future
+    // doesn't mean quartiles/fixtures have been reviewed and frozen yet.
     const { data: gw } = await supabase
       .from('gameweeks')
       .select('id, number, deadline, status')
       .eq('competition_id', comp.id)
-      .in('status', ['upcoming', 'open'])
+      .eq('status', 'open')
       .order('deadline', { ascending: true })
       .limit(1)
       .single()
@@ -1001,7 +1004,12 @@ export default function PicksPage() {
               </div>
             )}
 
-            {deadlinePassed ? (
+            {!gameweek ? (
+              <div className="pop-panel pop-panel--yellow p-6 text-center">
+                <p className="pop-headline text-2xl mb-1">No Gameweek Open Yet</p>
+                <p className="font-bold text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>Check back once the admin opens the next one for picking.</p>
+              </div>
+            ) : deadlinePassed ? (
               <div className="pop-panel pop-panel--blue p-6 text-center">
                 <p className="pop-headline text-2xl">Locked — See You Next Gameweek!</p>
               </div>

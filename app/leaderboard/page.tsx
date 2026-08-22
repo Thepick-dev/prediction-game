@@ -450,7 +450,17 @@ export default function LeaderboardPage() {
       }
     })
 
-    pointsData?.forEach(p => {
+    // Iterating pointsByPickId (not the raw pointsData fetch) so the
+    // ranking totals actually pick up the live preview rows merged in
+    // above for any gameweek that's past deadline but not yet marked
+    // completed — previously this loop only ever saw frozen `points` rows,
+    // so a gameweek that had genuinely started (events synced, live
+    // preview computable) still showed zero on the leaderboard until an
+    // admin ran Recalculate Points or marked it completed. Once a
+    // gameweek IS completed its real row is what's in here anyway (the
+    // preview merge only ever touches still-in-progress gameweeks), so
+    // this is a strict superset, not a behaviour change for finished ones.
+    Object.values(pointsByPickId).forEach((p: any) => {
       const t = totals[p.user_id]
       if (!t) return
 
