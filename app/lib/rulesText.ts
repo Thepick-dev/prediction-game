@@ -41,6 +41,12 @@ export const RULES_TEXT = {
   futzy: [
     "Futzy (AI) plays by the same rules as everyone else — the same deadlines, the same team/player usage caps, and (where enabled) Banker, All or Nothing and the Bonus Card too — but can never be crowned the winner, even if he tops the table.",
   ],
+  discipline: [
+    "Admin can issue a yellow or red card for any conduct they judge worthy of one — it's their call, not a fixed offense list. Appeals go through the Sporting Panel.",
+    "A straight red costs you a gameweek (admin can lengthen this for serious conduct). Two yellow cards also cost you a gameweek — and once two yellows combine into a suspension, the count resets, so a future yellow starts fresh.",
+    "A suspended gameweek scores zero, but nothing else is lost — your team, player, Banker and Bonus Card uses are all untouched, since you simply don't get a pick that week. You also can't play All or Nothing or the Bonus Card in a suspended gameweek, but neither use is wasted — both remain available for a later one.",
+    "Suspensions escalate: a 2nd suspension costs two gameweeks, and so on. Yellow/red cards and any active suspension show next to your name on the Leaderboard — click for the reason.",
+  ],
   quartiles: [
     'The 20 Premier League clubs are divided into four quartiles of five — Q1 (strongest) to Q4 (weakest). Quartiles are used to calculate team points based on the difficulty of the result.',
     "Betting odds set the quartiles for the first 6 gameweeks of a brand new season, before there's enough of a real league table to go on. From gameweek 7 onward, the actual table takes over. A competition starting partway through a season (e.g. a second half beginning in January) uses the real table from its very first gameweek, since one already exists by then.",

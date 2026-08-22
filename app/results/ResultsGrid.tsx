@@ -31,6 +31,7 @@ export type GridRow = {
   bonusCard: { playerName: string; points: number | null } | null
   answer: string | null
   totalPoints: number | null
+  suspended: { reason: string; suspensionNumber: number } | null
 }
 
 type Props = {
@@ -179,8 +180,8 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                 <tr
                   key={row.userId}
                   style={{
-                    background: row.isWinner ? 'linear-gradient(90deg, rgba(204,250,0,0.14), rgba(204,250,0,0.03))' : (i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined),
-                    boxShadow: row.isWinner ? 'inset 4px 0 0 #CCFA00' : undefined,
+                    background: row.suspended ? 'linear-gradient(90deg, rgba(250,0,60,0.14), rgba(250,0,60,0.03))' : row.isWinner ? 'linear-gradient(90deg, rgba(204,250,0,0.14), rgba(204,250,0,0.03))' : (i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined),
+                    boxShadow: row.suspended ? 'inset 4px 0 0 #FA003C' : row.isWinner ? 'inset 4px 0 0 #CCFA00' : undefined,
                   }}
                 >
                   <td className="whitespace-nowrap" style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
@@ -202,6 +203,15 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                       {row.isAutopick && <span className="px-2 py-0.5 rounded-lg shrink-0" style={{ fontSize: '12px', background: 'rgba(255,255,255,0.15)', color: '#fff' }} title="Autopicked">AP</span>}
                     </div>
                   </td>
+                  {row.suspended ? (
+                    <td colSpan={6} className="whitespace-nowrap" style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      <span className="px-2 py-0.5 rounded-lg font-black uppercase mr-2" style={{ fontSize: '13px', background: '#FA003C', color: '#fff' }}>
+                        Suspended — GW{row.suspended.suspensionNumber >= 2 ? `s (ban #${row.suspended.suspensionNumber})` : ''}
+                      </span>
+                      <span style={{ fontSize: '18px', color: 'rgba(255,255,255,0.6)' }}>{row.suspended.reason}</span>
+                    </td>
+                  ) : (
+                  <>
                   <td className="whitespace-nowrap font-black" style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#00F2FA' }}>
                     <div className="flex items-center gap-2">
                       <TeamCrest teamId={row.teamId} teamName={row.team} size={34} />
@@ -247,6 +257,8 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                   <td className="whitespace-nowrap" style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}>
                     {row.answer ? <span style={{ fontSize: fitSize(row.answer, 22, 14) }}>{row.answer}</span> : <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '20px' }}>—</span>}
                   </td>
+                  </>
+                  )}
                   <td className="whitespace-nowrap text-right" style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                     <span
                       className="inline-block font-mono font-black rounded-xl"
@@ -256,7 +268,7 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                         padding: showScoring ? '0 16px' : '0 12px', lineHeight: 1.5,
                       }}
                     >
-                      {showScoring ? row.totalPoints ?? 0 : 'TBD'}
+                      {row.suspended ? 0 : showScoring ? row.totalPoints ?? 0 : 'TBD'}
                     </span>
                   </td>
                 </tr>
@@ -273,6 +285,7 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
           <span><span className="px-2 py-0.5 rounded-lg font-black" style={{ background: aonBg.success, color: '#0A0A0A' }}>AoN ✓</span> succeeded</span>
           <span><span className="px-2 py-0.5 rounded-lg font-black" style={{ background: aonBg.failed, color: '#fff' }}>AoN ✕</span> failed</span>
           <span><span className="px-2 py-0.5 rounded-lg font-black" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff' }}>AP</span> Autopick</span>
+          <span><span className="px-2 py-0.5 rounded-lg font-black" style={{ background: '#FA003C', color: '#fff' }}>Suspended</span> missing a gameweek for a card</span>
         </div>
       </div>
     </div>

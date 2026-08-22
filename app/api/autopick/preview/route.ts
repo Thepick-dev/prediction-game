@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '../../../lib/supabase-server'
 import { deriveAutopick } from '../../../lib/autopick'
 import { requireUser } from '../../../lib/require-admin'
+import { getSuspendedUserIds } from '../../../lib/suspensions'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -44,7 +45,8 @@ export async function GET(request: Request) {
     .eq('gameweek_id', gameweek_id)
 
   const existingPickUserIds = new Set(existingPicks?.map(p => p.user_id) ?? [])
-  const missingUsers = entries?.filter(e => !existingPickUserIds.has(e.user_id)) ?? []
+  const suspendedUserIds = await getSuspendedUserIds(supabase, gameweek_id)
+  const missingUsers = entries?.filter(e => !existingPickUserIds.has(e.user_id) && !suspendedUserIds.has(e.user_id)) ?? []
 
   const previews: Record<string, { team_id: number; player1_id: number; player2_id: number }> = {}
 

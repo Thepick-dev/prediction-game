@@ -185,6 +185,7 @@ thead th {
 .pop-panel--blue { border-color: var(--pop-blue); box-shadow: 0 0 18px rgba(0, 242, 250, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
 .pop-panel--green { border-color: var(--pop-green); box-shadow: 0 0 18px rgba(204, 250, 0, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
 .pop-panel--yellow { border-color: var(--pop-yellow); box-shadow: 0 0 18px rgba(125, 55, 165, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
+.pop-panel--red { border-color: var(--pop-red); box-shadow: 0 0 18px rgba(250, 0, 60, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
 
 /* Opt-in "breathing" glow — same accent colours as the variants above, just
    animated, so it reads as an extension of the existing look rather than a

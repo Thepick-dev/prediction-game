@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { getSuspendedUserIds } from './suspensions'
 
 export type DerivedPick = {
   team_id: number
@@ -233,7 +234,11 @@ export async function runAutopickForGameweek(supabase: SupabaseClient, gameweek_
     .eq('gameweek_id', gameweek_id)
 
   const existingPickUserIds = new Set(existingPicks?.map(p => p.user_id) ?? [])
-  const missingUsers = entries?.filter(e => !existingPickUserIds.has(e.user_id)) ?? []
+  const suspendedUserIds = await getSuspendedUserIds(supabase, gameweek_id)
+  // A suspended user gets no pick at all this gameweek — not an autopick
+  // that then scores zero — so nothing of theirs (team/player/banker use)
+  // is ever consumed by a gameweek they were never really part of.
+  const missingUsers = entries?.filter(e => !existingPickUserIds.has(e.user_id) && !suspendedUserIds.has(e.user_id)) ?? []
 
   if (missingUsers.length === 0) {
     return { success: true, autopicks_created: 0, missing_users: 0 }

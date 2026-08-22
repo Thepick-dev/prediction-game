@@ -93,6 +93,9 @@ export default function ResultsPage() {
   // "deadline passed" gate as everything else on this page.
   const [bonusCardByUser, setBonusCardByUser] = useState<Record<string, { player_id: number; points: number | null }>>({})
   const [bonusCardName, setBonusCardName] = useState<string | null>(null)
+  // Active suspensions covering the selected gameweek, keyed by user —
+  // shown regardless of deadline (a disciplinary fact, not a hidden pick).
+  const [suspensionByUser, setSuspensionByUser] = useState<Record<string, { reason: string; suspensionNumber: number }>>({})
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
   const [profiles, setProfiles] = useState<Record<string, string>>({})
   const [isBotByUser, setIsBotByUser] = useState<Record<string, boolean>>({})
@@ -258,6 +261,23 @@ export default function ResultsPage() {
       setMatchEvents([])
       setQuestion(null)
       setAonByUser({})
+      setBonusCardByUser({})
+
+      // Suspensions are a disciplinary fact, not a hidden pick, so unlike
+      // everything else above they're fetched even ahead of the deadline —
+      // same reasoning as the Picks page showing its own suspension panel
+      // as soon as the gameweek opens, not just once it locks.
+      const { data: suspRows } = await supabase
+        .from('suspension_gameweeks')
+        .select('suspensions!inner(user_id, status, reason, suspension_number)')
+        .eq('gameweek_id', gwId)
+        .eq('suspensions.status', 'active')
+      const suspensionMap: Record<string, { reason: string; suspensionNumber: number }> = {}
+      ;(suspRows as any[] ?? []).forEach(r => {
+        suspensionMap[r.suspensions.user_id] = { reason: r.suspensions.reason, suspensionNumber: r.suspensions.suspension_number }
+      })
+      setSuspensionByUser(suspensionMap)
+
       setLoadingPicks(false)
       return
     }
@@ -328,6 +348,21 @@ export default function ResultsPage() {
     const bonusCardMap: Record<string, { player_id: number; points: number | null }> = {}
     bonusCardRows?.forEach(b => { bonusCardMap[b.user_id] = { player_id: b.player_id, points: b.points } })
     setBonusCardByUser(bonusCardMap)
+
+    // Its own isolated query, same reasoning as everywhere else on this
+    // page. A suspension is a disciplinary fact, not a hidden pick, so it's
+    // shown regardless of deadline — same reasoning as the other presence
+    // views (bonus_card_plays/all_or_nothing_picks above).
+    const { data: suspRows } = await supabase
+      .from('suspension_gameweeks')
+      .select('suspensions!inner(user_id, status, reason, suspension_number)')
+      .eq('gameweek_id', gwId)
+      .eq('suspensions.status', 'active')
+    const suspensionMap: Record<string, { reason: string; suspensionNumber: number }> = {}
+    ;(suspRows as any[] ?? []).forEach(r => {
+      suspensionMap[r.suspensions.user_id] = { reason: r.suspensions.reason, suspensionNumber: r.suspensions.suspension_number }
+    })
+    setSuspensionByUser(suspensionMap)
 
     // Once the deadline's passed but before a gameweek is marked "completed",
     // there's no frozen points row yet — show a live calculation instead,
@@ -474,8 +509,45 @@ export default function ResultsPage() {
         ? questionOptions.find(([letter]) => letter === pick.question_answer)?.[1] ?? pick.question_answer
         : null,
       totalPoints: pts?.total_points ?? null,
+      suspended: null,
     }
   })
+
+  // Anyone with an active suspension covering this gameweek never gets a
+  // pick row at all (see the discipline system plan) — the AP/preview
+  // fallback above skips them too, so they'd otherwise vanish from Results
+  // entirely. Add them back as a distinct row rather than leaving a gap.
+  const suspendedNoPickRows: GridRow[] = Object.entries(suspensionByUser)
+    .filter(([userId]) => activeUserIds.has(userId) && !gridRows.some(r => r.userId === userId))
+    .map(([userId, s]) => ({
+      userId,
+      name: profiles[userId] ?? 'Unknown',
+      isBot: isBotByUser[userId] ?? false,
+      kit: kitByUser[userId] ?? null,
+      isOwnPick: userId === user?.id,
+      isWinner: false,
+      isAutopick: false,
+      teamId: 0,
+      team: '',
+      opponentCode: null,
+      isBanker: false,
+      teamPoints: null,
+      player1Name: '',
+      player1Points: null,
+      player1Goal: false,
+      player1Assist: false,
+      player2Name: '',
+      player2Points: null,
+      player2Goal: false,
+      player2Assist: false,
+      aon: null,
+      bonusCard: null,
+      answer: null,
+      totalPoints: 0,
+      suspended: { reason: s.reason, suspensionNumber: s.suspensionNumber },
+    }))
+
+  const allGridRows = [...gridRows, ...suspendedNoPickRows]
 
   if (loading) {
     return (
@@ -717,7 +789,7 @@ export default function ResultsPage() {
                   gameweekNumber={selectedGameweek!.number}
                   bonusCardName={bonusCardName ?? 'Bonus Card'}
                   showScoring={showScoring}
-                  rows={gridRows}
+                  rows={allGridRows}
                   questionText={question?.question ?? null}
                   questionTally={gridQuestionTally}
                 />

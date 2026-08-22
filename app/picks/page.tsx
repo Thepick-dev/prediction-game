@@ -215,6 +215,7 @@ export default function PicksPage() {
   const [lowEffortWarning, setLowEffortWarning] = useState(false)
   const [hasPick, setHasPick] = useState(false)
   const [showSlip, setShowSlip] = useState(false)
+  const [suspension, setSuspension] = useState<{ reason: string; suspension_number: number; gameweeks_count: number } | null>(null)
 
   const [selectedTeam, setSelectedTeam] = useState<number | null>(null)
   const [selectedFixture, setSelectedFixture] = useState<number | null>(null)
@@ -392,6 +393,20 @@ export default function PicksPage() {
 
     setGameweek(gw)
     if (gw) setDeadlinePassed(new Date() > new Date(gw.deadline))
+
+    // Its own isolated query, same reasoning as everywhere else on this
+    // page — a brand new, optional feature, so a problem reading it must
+    // never be able to take the rest of the pick screen down with it.
+    if (gw) {
+      const { data: suspRows } = await supabase
+        .from('suspension_gameweeks')
+        .select('suspensions!inner(user_id, status, reason, suspension_number, gameweeks_count)')
+        .eq('gameweek_id', gw.id)
+        .eq('suspensions.user_id', user.id)
+        .eq('suspensions.status', 'active')
+      const row = (suspRows as any)?.[0]?.suspensions
+      setSuspension(row ? { reason: row.reason, suspension_number: row.suspension_number, gameweeks_count: row.gameweeks_count } : null)
+    }
 
     const [{ data: teamsData }, { data: playersData }] = await Promise.all([
       supabase.from('teams').select('id, name, short_name, short_code').eq('active', true).order('name'),
@@ -1008,6 +1023,16 @@ export default function PicksPage() {
               <div className="pop-panel pop-panel--yellow p-6 text-center">
                 <p className="pop-headline text-2xl mb-1">No Gameweek Open Yet</p>
                 <p className="font-bold text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>Check back once the admin opens the next one for picking.</p>
+              </div>
+            ) : suspension ? (
+              <div className="pop-panel pop-panel--red p-6 text-center">
+                <p className="pop-headline text-2xl mb-1">You're Suspended This Gameweek</p>
+                <p className="font-bold text-sm mb-3" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                  Suspension #{suspension.suspension_number} ({suspension.gameweeks_count} gameweek{suspension.gameweeks_count === 1 ? '' : 's'}) — {suspension.reason}
+                </p>
+                <p className="font-bold text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  You score zero this gameweek but keep every team, player, Banker and Bonus Card use — nothing is spent. Think it's wrong? Raise it with the Sporting Panel.
+                </p>
               </div>
             ) : deadlinePassed ? (
               <div className="pop-panel pop-panel--blue p-6 text-center">

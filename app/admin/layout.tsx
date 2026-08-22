@@ -88,6 +88,7 @@ export default async function AdminLayout({
                 <a href="/admin/picks-log" className="block hover:text-white">Picks Log</a>
                 <a href="/admin/print-grid" className="block hover:text-white">Print Grid</a>
                 <a href="/admin/edit-pick" className="block hover:text-white">Edit Pick</a>
+                <a href="/admin/discipline" className="block hover:text-white">🟨🟥 Discipline</a>
                 <a href="/admin/wall" className="hover:text-white inline-flex items-center gap-1.5">
                   The Wall
                   {((pendingWallComments ?? 0) + (pendingWallReplies ?? 0)) > 0 && (
@@ -143,6 +144,7 @@ export default async function AdminLayout({
                 <a href="/admin/help/pre-season" className="block hover:text-white">New Season Setup</a>
                 <a href="/admin/help/deploying-changes" className="block hover:text-white">Making Changes Yourself</a>
                 <a href="/admin/help/bonus-card" className="block hover:text-white">The Bonus Card</a>
+                <a href="/admin/help/discipline" className="block hover:text-white">Yellow &amp; Red Cards</a>
                 <a href="/admin/help/futzy" className="block hover:text-white">Futzy</a>
                 <a href="/admin/help/snapshots" className="block hover:text-white">Snapshots</a>
               </div>

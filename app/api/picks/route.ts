@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { getSuspendedUserIds } from '../../lib/suspensions'
 import { NextResponse } from 'next/server'
 
 async function getDoubleUseTeams(supabase: any, competition_id: string, user_id: string): Promise<number[]> {
@@ -116,6 +117,11 @@ export async function POST(request: Request) {
 
   if (!entry || entry.removed) {
     return NextResponse.json({ error: 'You are not entered in this competition' }, { status: 400 })
+  }
+
+  const suspendedUserIds = await getSuspendedUserIds(supabase, gameweek_id)
+  if (suspendedUserIds.has(user.id)) {
+    return NextResponse.json({ error: "You're suspended for this gameweek and can't submit a pick." }, { status: 400 })
   }
 
   const doubleUseTeams = await getDoubleUseTeams(supabase, competition_id, user.id)

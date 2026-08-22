@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
-import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, BlockedIcon, TopDogIcon } from '../../components/icons'
+import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, BlockedIcon, TopDogIcon, YellowCardIcon, RedCardIcon } from '../../components/icons'
+import Modal from '../../components/Modal'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
@@ -107,6 +108,17 @@ export default function LeaderboardPage() {
   // public so it can show on anyone's row, not just your own.
   const [rivalByUser, setRivalByUser] = useState<Record<string, string>>({})
   const [rivalPickerFor, setRivalPickerFor] = useState<string | null>(null)
+  // Active (non-rescinded) card counts per user, plus who's currently
+  // serving a suspension (any active suspension covering a gameweek that
+  // hasn't been scored yet). Publicly readable by design — see the
+  // discipline system plan.
+  const [cardCountByUser, setCardCountByUser] = useState<Record<string, { yellow: number; red: number }>>({})
+  const [currentlySuspendedIds, setCurrentlySuspendedIds] = useState<Set<string>>(new Set())
+  const [disciplineModalUserId, setDisciplineModalUserId] = useState<string | null>(null)
+  const [disciplineModalData, setDisciplineModalData] = useState<{
+    cards: { card_type: string; reason: string; status: string; created_at: string }[]
+    suspensions: { suspension_number: number; gameweeks_count: number; reason: string; status: string }[]
+  } | null>(null)
   const [savingRival, setSavingRival] = useState(false)
   // Top Dog — the current leaderboard leader and how many completed
   // gameweeks running they've held it, recomputed fresh on every load.
@@ -251,6 +263,46 @@ export default function LeaderboardPage() {
     const { data: minigameBanFlags } = await supabase.from('profiles').select('id, is_minigame_banned')
     const minigameBanMap: Record<string, boolean> = {}
     minigameBanFlags?.forEach(b => { minigameBanMap[b.id] = b.is_minigame_banned ?? false })
+
+    // Its own request too — a brand new feature, and a problem reading it
+    // must never be able to take the rest of the leaderboard down with it.
+    const { data: activeCards } = await supabase
+      .from('discipline_cards')
+      .select('user_id, card_type')
+      .eq('competition_id', comp.id)
+      .eq('status', 'active')
+    const cardCountMap: Record<string, { yellow: number; red: number }> = {}
+    activeCards?.forEach(c => {
+      const entry = (cardCountMap[c.user_id] ??= { yellow: 0, red: 0 })
+      if (c.card_type === 'yellow') entry.yellow++
+      else entry.red++
+    })
+    setCardCountByUser(cardCountMap)
+
+    // "Currently suspended" = an active suspension covering at least one
+    // gameweek that hasn't been scored yet — deliberately not narrowed to
+    // exactly "this week", so an upcoming ban shows as clearly as a live one.
+    const { data: activeSuspensions } = await supabase
+      .from('suspensions')
+      .select('id, user_id')
+      .eq('competition_id', comp.id)
+      .eq('status', 'active')
+    const suspensionIds = (activeSuspensions ?? []).map(s => s.id)
+    const { data: suspGwRows } = suspensionIds.length > 0
+      ? await supabase.from('suspension_gameweeks').select('suspension_id, gameweek_id').in('suspension_id', suspensionIds)
+      : { data: [] as { suspension_id: string; gameweek_id: string }[] }
+    const suspGwIds = [...new Set((suspGwRows ?? []).map(r => r.gameweek_id))]
+    const { data: suspGwStatuses } = suspGwIds.length > 0
+      ? await supabase.from('gameweeks').select('id, status').in('id', suspGwIds)
+      : { data: [] as { id: string; status: string }[] }
+    const gwStatusMap: Record<string, string> = {}
+    suspGwStatuses?.forEach(g => { gwStatusMap[g.id] = g.status })
+    const pendingSuspensionIds = new Set(
+      (suspGwRows ?? []).filter(r => gwStatusMap[r.gameweek_id] !== 'completed').map(r => r.suspension_id)
+    )
+    setCurrentlySuspendedIds(new Set(
+      (activeSuspensions ?? []).filter(s => pendingSuspensionIds.has(s.id)).map(s => s.user_id)
+    ))
 
     setMatchEvents(events ?? [])
     setAllTeams(teams ?? [])
@@ -705,6 +757,20 @@ export default function LeaderboardPage() {
     setSavingRival(false)
   }
 
+  // Lazy, fetch-on-first-click, same pattern as SportingPanelLink — full
+  // discipline history is only ever needed once someone actually clicks a
+  // card badge, not eagerly for every row on the leaderboard.
+  async function openDisciplineModal(userId: string) {
+    setDisciplineModalUserId(userId)
+    if (!competition) return
+    setDisciplineModalData(null)
+    const [{ data: cards }, { data: suspensions }] = await Promise.all([
+      supabase.from('discipline_cards').select('card_type, reason, status, created_at').eq('user_id', userId).eq('competition_id', competition.id).order('created_at', { ascending: false }),
+      supabase.from('suspensions').select('suspension_number, gameweeks_count, reason, status').eq('user_id', userId).eq('competition_id', competition.id).order('suspension_number', { ascending: false }),
+    ])
+    setDisciplineModalData({ cards: cards ?? [], suspensions: suspensions ?? [] })
+  }
+
   if (loading) {
     return (
       <Shell active="LEADERBOARD" theme={popArt ? 'pop-art' : 'classic'}>
@@ -830,6 +896,36 @@ export default function LeaderboardPage() {
                                 {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={15} /></span>}
                                 {player.is_sporting_panel && <span title="Sporting Panel member"><ScalesIcon size={15} /></span>}
                                 {player.is_minigame_banned && <span title="Banned from minigame"><BlockedIcon size={15} /></span>}
+                                {currentlySuspendedIds.has(player.user_id) && (
+                                  <button
+                                    onClick={e => { e.stopPropagation(); openDisciplineModal(player.user_id) }}
+                                    className="pop-badge px-1.5 py-0.5 text-[8px] font-black uppercase"
+                                    style={{ background: 'var(--pop-red)', color: '#fff' }}
+                                    title="Suspended — click for details"
+                                  >
+                                    Suspended
+                                  </button>
+                                )}
+                                {((cardCountByUser[player.user_id]?.yellow ?? 0) > 0 || (cardCountByUser[player.user_id]?.red ?? 0) > 0) && (
+                                  <button
+                                    onClick={e => { e.stopPropagation(); openDisciplineModal(player.user_id) }}
+                                    className="inline-flex items-center gap-0.5"
+                                    title="Discipline history — click for details"
+                                  >
+                                    {(cardCountByUser[player.user_id]?.yellow ?? 0) > 0 && (
+                                      <span className="inline-flex items-center gap-0.5">
+                                        <YellowCardIcon size={13} />
+                                        <span className="font-mono" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)' }}>{cardCountByUser[player.user_id].yellow}</span>
+                                      </span>
+                                    )}
+                                    {(cardCountByUser[player.user_id]?.red ?? 0) > 0 && (
+                                      <span className="inline-flex items-center gap-0.5">
+                                        <RedCardIcon size={13} />
+                                        <span className="font-mono" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)' }}>{cardCountByUser[player.user_id].red}</span>
+                                      </span>
+                                    )}
+                                  </button>
+                                )}
                                 {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={15} /></span>}
                                 {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
                                   <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">
@@ -1139,6 +1235,8 @@ export default function LeaderboardPage() {
                 <div className="flex items-center gap-2.5"><PoundCoinIcon size={20} /> In the cash pool</div>
                 <div className="flex items-center gap-2.5"><ScalesIcon size={20} /> Sporting Panel member</div>
                 <div className="flex items-center gap-2.5"><BlockedIcon size={20} /> Banned from minigame</div>
+                <div className="flex items-center gap-2.5"><YellowCardIcon size={18} />/<RedCardIcon size={18} /> Yellow/red cards this competition — click one on a row for the reason</div>
+                <div className="flex items-center gap-2.5"><span className="pop-badge px-1.5 py-0.5 text-[10px] font-black uppercase" style={{ background: 'var(--pop-red)', color: '#fff' }}>Suspended</span> Missing a gameweek for a card — click for details</div>
                 <div className="flex items-center gap-2.5"><FlameIcon size={20} /> On a streak — 3+ weeks above average</div>
                 <div className="flex items-center gap-2.5"><TopDogIcon size={20} /> Top Dog — current leader, number = weeks leading</div>
                 <div className="flex items-center gap-2.5"><span className="font-mono font-black" style={{ color: 'var(--pop-green)' }}>▲2</span> Moved up 2 places since last gameweek (▼ = down)</div>
@@ -1196,6 +1294,54 @@ export default function LeaderboardPage() {
             />
           )
         })()}
+
+        {disciplineModalUserId && (
+          <Modal onClose={() => setDisciplineModalUserId(null)} title={`Discipline — ${ranked.find(p => p.user_id === disciplineModalUserId)?.display_name ?? 'Unknown'}`} popArt>
+            {!disciplineModalData ? (
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>Loading...</p>
+            ) : (
+              <div className="space-y-4">
+                {disciplineModalData.suspensions.length > 0 && (
+                  <div>
+                    <p className="font-black uppercase tracking-wider text-xs mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Suspensions</p>
+                    <div className="space-y-2">
+                      {disciplineModalData.suspensions.map((s, i) => (
+                        <div key={i} className="pop-panel pop-panel--red p-3">
+                          <p className="font-black text-sm">
+                            Suspension #{s.suspension_number} — {s.gameweeks_count} gameweek{s.gameweeks_count === 1 ? '' : 's'}
+                            {s.status !== 'active' && <span className="ml-2 font-normal" style={{ color: 'rgba(255,255,255,0.5)' }}>({s.status.replace('_', ' ')})</span>}
+                          </p>
+                          <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.7)' }}>{s.reason}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <p className="font-black uppercase tracking-wider text-xs mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Cards</p>
+                  {disciplineModalData.cards.length === 0 ? (
+                    <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>No cards this competition.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {disciplineModalData.cards.map((c, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          {c.card_type === 'yellow' ? <YellowCardIcon size={20} /> : <RedCardIcon size={20} />}
+                          <div>
+                            <p className="text-sm" style={{ color: '#fff' }}>
+                              {c.reason}
+                              {c.status === 'rescinded' && <span className="ml-2 font-black uppercase" style={{ fontSize: '10px', color: 'var(--pop-green)' }}>Rescinded</span>}
+                            </p>
+                            <p className="font-mono" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{new Date(c.created_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </Modal>
+        )}
       </>
     )
   }

@@ -118,3 +118,25 @@ export function TopDogIcon({ size = 16, color = 'var(--pop-orange)', className }
     </svg>
   )
 }
+
+// Discipline cards — a simple rounded rectangle, same as a real referee's
+// card, tilted slightly to read as a card rather than a swatch. Yellow and
+// red are deliberately fixed fill colours (not the color prop) since the
+// card's own colour IS the information — recolouring it would defeat the
+// point. size/color/className kept for signature consistency with every
+// other icon here even though color goes unused.
+export function YellowCardIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <rect x="5" y="2" width="14" height="20" rx="2.5" fill="#F5C518" stroke="#8a6d00" strokeWidth="1" transform="rotate(-8 12 12)" />
+    </svg>
+  )
+}
+
+export function RedCardIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <rect x="5" y="2" width="14" height="20" rx="2.5" fill="var(--pop-red)" stroke="#5c0016" strokeWidth="1" transform="rotate(-8 12 12)" />
+    </svg>
+  )
+}

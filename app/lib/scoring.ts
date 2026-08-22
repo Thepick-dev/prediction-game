@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { deriveAutopick } from './autopick'
+import { getSuspendedUserIds } from './suspensions'
 
 export type ScoringResult =
   | { error: string }
@@ -550,7 +551,8 @@ export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_
     .eq('removed', false)
 
   const pickedUserIds = new Set(picks.map(p => p.user_id))
-  const missingUsers = (entries ?? []).filter(e => !pickedUserIds.has(e.user_id))
+  const suspendedUserIds = await getSuspendedUserIds(supabase, gameweek_id)
+  const missingUsers = (entries ?? []).filter(e => !pickedUserIds.has(e.user_id) && !suspendedUserIds.has(e.user_id))
 
   const provisionalPicks: Pick[] = []
   for (const entry of missingUsers) {
