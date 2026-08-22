@@ -67,7 +67,7 @@ export async function POST(request: Request) {
   const matchedFixtureIds = new Set<number>()
   const unmatchedFplFixtures: string[] = []
   const eventsToInsert: { fixture_id: number; player_id: number; event_type: string; team_id: number | null }[] = []
-  const scoreUpdates: { fixture_id: number; home_score: number; away_score: number }[] = []
+  const scoreUpdates: { fixture_id: number; home_score: number; away_score: number; status: 'finished' | 'in_play' }[] = []
 
   for (const ff of fplFixtures) {
     const ourHomeId = fplTeamIdToOurTeamId[ff.team_h]
@@ -85,20 +85,27 @@ export async function POST(request: Request) {
       continue
     }
 
-    // FPL's `finished` flag stays false for hours after full-time — it
-    // only flips once they've fully confirmed the match (VAR review, final
-    // bonus points, etc). `finished_provisional` flips at the final
-    // whistle, with the same stats (goals/assists/bonus) already
-    // populated, and this route is always safe to re-run once `finished`
-    // does flip since it deletes and re-inserts rather than adding on top.
-    if (!ff.finished_provisional) {
-      unmatchedFplFixtures.push(`${label} (hasn't kicked off / finished yet on FPL — skipped)`)
+    // `started` covers kicked-off-but-still-playing too, not just finished
+    // — FPL's stats (goals/assists) update live during a match, so this
+    // can be re-run mid-game for a running provisional score, not just
+    // after full time. Always safe to re-run at any point since it deletes
+    // and re-inserts rather than adding on top.
+    if (!ff.started) {
+      unmatchedFplFixtures.push(`${label} (hasn't kicked off yet on FPL — skipped)`)
       continue
     }
 
     matchedFixtureIds.add(ourFixtureId)
     if (typeof ff.team_h_score === 'number' && typeof ff.team_a_score === 'number') {
-      scoreUpdates.push({ fixture_id: ourFixtureId, home_score: ff.team_h_score, away_score: ff.team_a_score })
+      // Only mark the fixture "finished" once FPL's own provisional
+      // full-time flag agrees — otherwise a mid-match sync would freeze it
+      // as finished while still being played.
+      scoreUpdates.push({
+        fixture_id: ourFixtureId,
+        home_score: ff.team_h_score,
+        away_score: ff.team_a_score,
+        status: ff.finished_provisional ? 'finished' : 'in_play',
+      })
     }
 
     ;(ff.stats ?? []).forEach((stat: any) => {
@@ -143,7 +150,7 @@ export async function POST(request: Request) {
   }
 
   for (const s of scoreUpdates) {
-    await supabase.from('fixtures').update({ home_score: s.home_score, away_score: s.away_score, status: 'finished' }).eq('id', s.fixture_id)
+    await supabase.from('fixtures').update({ home_score: s.home_score, away_score: s.away_score, status: s.status }).eq('id', s.fixture_id)
   }
 
   return NextResponse.json({
