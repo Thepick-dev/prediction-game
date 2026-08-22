@@ -217,18 +217,29 @@ export default async function DisciplinePage({ searchParams }: { searchParams: P
   }
 
   const [{ data: entries }, { data: gameweeks }, { data: cards }, { data: suspensions }, { data: suspGwLinks }] = await Promise.all([
-    supabase.from('competition_entries').select('user_id, profiles(id, display_name, is_bot)').eq('competition_id', comp.id).eq('removed', false),
+    supabase.from('competition_entries').select('user_id').eq('competition_id', comp.id).eq('removed', false),
     supabase.from('gameweeks').select('id, number, status, deadline').eq('competition_id', comp.id).order('number', { ascending: true }),
     supabase.from('discipline_cards').select('id, user_id, card_type, reason, status, created_at, resolved_suspension_id, issued_gameweek_id').eq('competition_id', comp.id).order('created_at', { ascending: false }),
     supabase.from('suspensions').select('id, user_id, suspension_number, gameweeks_count, status, reason, trigger_card_id').eq('competition_id', comp.id).order('created_at', { ascending: false }),
     supabase.from('suspension_gameweeks').select('suspension_id, gameweeks(number)'),
   ])
 
-  const users = (entries ?? [])
-    .map((e: any) => e.profiles)
-    .filter((p: any) => p && !p.is_bot)
-    .map((p: any) => ({ id: p.id, name: p.display_name ?? 'Unknown' }))
-    .sort((a: any, b: any) => a.name.localeCompare(b.name))
+  // Two separate queries joined in JS, not an embedded `profiles(...)` on
+  // competition_entries — competition_entries.user_id references
+  // auth.users, not public.profiles directly, so there's no FK path
+  // PostgREST can walk between the two tables (confirmed: that embed
+  // errors outright with PGRST200, which is exactly why the player
+  // dropdown was silently empty). Every other page in this codebase joins
+  // these two the same two-query way for the same reason.
+  const entryUserIds = (entries ?? []).map(e => e.user_id)
+  const { data: entryProfiles } = entryUserIds.length > 0
+    ? await supabase.from('profiles').select('id, display_name, is_bot').in('id', entryUserIds)
+    : { data: [] as { id: string; display_name: string | null; is_bot: boolean | null }[] }
+
+  const users = (entryProfiles ?? [])
+    .filter(p => !p.is_bot)
+    .map(p => ({ id: p.id, name: p.display_name ?? 'Unknown' }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   const nameByUserId: Record<string, string> = {}
   users.forEach(u => { nameByUserId[u.id] = u.name })
