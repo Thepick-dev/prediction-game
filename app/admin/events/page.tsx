@@ -162,7 +162,7 @@ export default function EventsPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-8">Match Events</h1>
-      <p className="text-gray-500 text-sm mb-6">Enter goalscorers and assists for each fixture after the gameweek is complete.</p>
+      <p className="text-gray-500 text-sm mb-6">Enter goalscorers and assists manually, or use &quot;Sync from FPL&quot; below to pull them in automatically — including mid-match, not just once a gameweek is finished.</p>
 
       <div className="bg-white border rounded-lg p-6 mb-6">
         <h2 className="font-bold mb-4">Select Gameweek</h2>
