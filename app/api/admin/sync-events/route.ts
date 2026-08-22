@@ -85,8 +85,14 @@ export async function POST(request: Request) {
       continue
     }
 
-    if (!ff.finished) {
-      unmatchedFplFixtures.push(`${label} (not finished yet on FPL — skipped)`)
+    // FPL's `finished` flag stays false for hours after full-time — it
+    // only flips once they've fully confirmed the match (VAR review, final
+    // bonus points, etc). `finished_provisional` flips at the final
+    // whistle, with the same stats (goals/assists/bonus) already
+    // populated, and this route is always safe to re-run once `finished`
+    // does flip since it deletes and re-inserts rather than adding on top.
+    if (!ff.finished_provisional) {
+      unmatchedFplFixtures.push(`${label} (hasn't kicked off / finished yet on FPL — skipped)`)
       continue
     }
 
