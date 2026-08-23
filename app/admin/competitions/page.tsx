@@ -274,6 +274,29 @@ export default async function CompetitionsPage({
     redirect(`/admin/competitions?comp=${competitionId}#bonus-card`)
   }
 
+  // Cosmetic pause, not a functional one — deadlines/autopick/scoring keep
+  // running exactly as normal underneath (an explicit choice, see proxy.ts).
+  // This just decides what a non-admin sees when they load any page: the
+  // real site, or a "Game Cancelled" message. Nothing is deleted or reset
+  // either way, and toggling back on is instant.
+  async function togglePause(formData: FormData) {
+    'use server'
+    const supabase = await requireAdminAction()
+    const id = formData.get('id') as string
+    const current = formData.get('current') === 'true'
+    await supabase.from('competitions').update({ paused: !current }).eq('id', id)
+    redirect(`/admin/competitions?comp=${id}#pause`)
+  }
+
+  async function setPauseMessage(formData: FormData) {
+    'use server'
+    const supabase = await requireAdminAction()
+    const competitionId = formData.get('competition_id') as string
+    const message = (formData.get('message') as string)?.trim() || null
+    await supabase.from('competitions').update({ paused_message: message }).eq('id', competitionId)
+    redirect(`/admin/competitions?comp=${competitionId}#pause`)
+  }
+
   const hasActiveCompetition = competitions?.some(c => c.status === 'active') ?? false
 
   return (
@@ -285,6 +308,51 @@ export default async function CompetitionsPage({
           Couldn&apos;t delete that competition: {deleteError}
         </div>
       )}
+
+      {(() => {
+        const activeComp = competitions?.find(c => c.status === 'active')
+        if (!activeComp) return null
+        return (
+          <div id="pause" className={`border rounded-lg p-6 mb-8 ${activeComp.paused ? 'bg-red-50 border-red-300' : 'bg-white'}`}>
+            <h2 className="font-bold mb-1">{activeComp.paused ? '🚫 Game is Cancelled' : 'Pause Game'}</h2>
+            <p className="text-xs text-gray-500 mb-4">
+              Instantly shows &quot;Game Cancelled&quot; to every player on every page — useful if you need to freeze
+              things while sorting out a dispute or a problem. Nothing is deleted: picks, scores and history are
+              untouched, and deadlines keep passing normally in the background while paused. You (admin) always see
+              the real site. Reactivate any time.
+            </p>
+            <div className="flex items-center gap-3 mb-4 flex-wrap">
+              <span className="text-xs text-gray-500">Status:</span>
+              <span className={`px-2 py-0.5 rounded text-xs font-medium ${activeComp.paused ? 'bg-red-600 text-white' : 'bg-green-100 text-green-700'}`}>
+                {activeComp.paused ? 'CANCELLED' : 'Live'}
+              </span>
+              <ConfirmActionButton
+                action={togglePause}
+                hiddenFields={{ id: activeComp.id, current: String(activeComp.paused ?? false) }}
+                label={activeComp.paused ? 'Reactivate Game' : 'Cancel Game'}
+                confirmText={activeComp.paused ? 'Bring the game back for everyone?' : 'Show "Game Cancelled" to every player right now?'}
+                confirmLabel={activeComp.paused ? 'Yes, reactivate' : 'Yes, cancel it'}
+                className={`text-xs rounded px-3 py-1.5 ${activeComp.paused ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                Message shown to players <span className="text-gray-400">(optional — leave blank for a generic message)</span>
+              </label>
+              <form action={setPauseMessage} className="flex items-center gap-2 flex-wrap">
+                <input type="hidden" name="competition_id" value={activeComp.id} />
+                <input
+                  name="message"
+                  defaultValue={activeComp.paused_message ?? ''}
+                  placeholder="e.g. Paused while we sort something out — back soon"
+                  className="border rounded px-2 py-1 text-xs w-80"
+                />
+                <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Save message</button>
+              </form>
+            </div>
+          </div>
+        )
+      })()}
 
       <div className="bg-white border rounded-lg p-6 mb-8">
         <h2 className="font-bold mb-4">Create New Competition</h2>
