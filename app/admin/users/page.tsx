@@ -107,6 +107,13 @@ export default async function UsersPage({
     }
   })
 
+  // Its own isolated request, same reasoning as the other badge columns —
+  // a brand new column, and a problem reading it should only affect this
+  // one toggle, never take down the whole Users page with it.
+  const { data: peacePrizeExtras } = await supabase.from('profiles').select('id, is_peace_prize')
+  const peacePrizeMap: Record<string, boolean> = {}
+  peacePrizeExtras?.forEach(p => { peacePrizeMap[p.id] = p.is_peace_prize ?? false })
+
   // Its own isolated request too — brand new column, and a problem
   // reading it must never be able to take the toggles above down with it.
   const { data: minigameBanExtras } = await supabase.from('profiles').select('id, is_minigame_banned')
@@ -173,7 +180,7 @@ export default async function UsersPage({
     'use server'
     const admin = await requireAdminAction()
     const id = formData.get('id') as string
-    const field = formData.get('field') as 'can_post_news' | 'is_super_admin' | 'is_sporting_panel' | 'is_reigning_champ' | 'is_vibes_champion' | 'in_cash_pool' | 'is_minigame_banned'
+    const field = formData.get('field') as 'can_post_news' | 'is_super_admin' | 'is_sporting_panel' | 'is_reigning_champ' | 'is_vibes_champion' | 'in_cash_pool' | 'is_minigame_banned' | 'is_peace_prize'
     const current = formData.get('current') === 'true'
     await admin.from('profiles').update({ [field]: !current }).eq('id', id)
     redirect('/admin/users')
@@ -497,6 +504,7 @@ export default async function UsersPage({
               <th className="pb-2">Reigning Champ</th>
               <th className="pb-2">Vibes Champion</th>
               <th className="pb-2">Cash Pool</th>
+              <th className="pb-2">Peace Prize</th>
               <th className="pb-2">Minigame Ban</th>
               <th className="pb-2">Edit Name</th>
               <th className="pb-2">Kit Badges</th>
@@ -588,6 +596,16 @@ export default async function UsersPage({
                     <input type="hidden" name="current" value={String(badges.in_cash_pool)} />
                     <button type="submit" className={`text-xs px-2 py-1 rounded border ${badges.in_cash_pool ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
                       {badges.in_cash_pool ? '💷 In' : '— No'}
+                    </button>
+                  </form>
+                </td>
+                <td className="py-2">
+                  <form action={toggleFlag}>
+                    <input type="hidden" name="id" value={profile.id} />
+                    <input type="hidden" name="field" value="is_peace_prize" />
+                    <input type="hidden" name="current" value={String(peacePrizeMap[profile.id] ?? false)} />
+                    <button type="submit" className={`text-xs px-2 py-1 rounded border ${peacePrizeMap[profile.id] ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                      {peacePrizeMap[profile.id] ? '🕊 Peace' : '— No'}
                     </button>
                   </form>
                 </td>

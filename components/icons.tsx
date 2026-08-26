@@ -140,3 +140,20 @@ export function RedCardIcon({ size = 16, className }: IconProps) {
     </svg>
   )
 }
+
+// LMS Peace Prize — dove with an olive branch, traced from Wikimedia
+// Commons "File:Black Peace Dove.svg" (CC BY-SA 3.0 / GFDL, by uploader
+// Rfc1394, https://commons.wikimedia.org/wiki/File:Black_Peace_Dove.svg),
+// path data left exactly as published, only recoloured — same approach as
+// TopDogIcon above. Fixed white fill (not the color prop), per the badge
+// being specifically "white" rather than palette-matched like the others.
+export function DoveIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 760 680" className={className} aria-hidden="true">
+      <path fill="#ffffff" d="M270,450c0,0-203-27-262-214c0,0,127,54,277,17c0,0,20-28-59-115c0,0,237,20,247,145c0,0,104-141,225-45
+	c0,0,16-12,1-48c0,0-75,22-100-44c0,0,53-13,76,7c0,0-4-15-21-35c0,0-38,44-107-7c0,0,19-40,71-24c0,0-111-13-132-55
+	c0,0,48-61,144,41c0,0-2-46,10-63c0,0,77,17,30,90c0,0,15,18,22,34c0,0,3-51,27-62c0,0,65,31-4,104c0,0,39,121-8,152
+	c0,0,11-47-1-55c0,0-83-1-112,107c0,0-10,223-301,193c0,0-75,64-75,97l-132-51C126,649,321,542,310,480z" />
+    </svg>
+  )
+}

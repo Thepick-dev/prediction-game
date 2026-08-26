@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
-import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, BlockedIcon, TopDogIcon, YellowCardIcon, RedCardIcon } from '../../components/icons'
+import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, BlockedIcon, TopDogIcon, YellowCardIcon, RedCardIcon, DoveIcon } from '../../components/icons'
 import Modal from '../../components/Modal'
 import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
@@ -27,6 +27,7 @@ type RankedPlayer = {
   in_cash_pool: boolean
   is_sporting_panel: boolean
   is_minigame_banned: boolean
+  is_peace_prize: boolean
   joined_at: string
   home_wins: number
   away_wins: number
@@ -264,6 +265,12 @@ export default function LeaderboardPage() {
     const minigameBanMap: Record<string, boolean> = {}
     minigameBanFlags?.forEach(b => { minigameBanMap[b.id] = b.is_minigame_banned ?? false })
 
+    // Its own request too — brand new column, and a problem reading it
+    // must never be able to take the other badges above down with it.
+    const { data: peacePrizeFlags } = await supabase.from('profiles').select('id, is_peace_prize')
+    const peacePrizeMap: Record<string, boolean> = {}
+    peacePrizeFlags?.forEach(b => { peacePrizeMap[b.id] = b.is_peace_prize ?? false })
+
     // Its own request too — a brand new feature, and a problem reading it
     // must never be able to take the rest of the leaderboard down with it.
     const { data: activeCards } = await supabase
@@ -487,6 +494,7 @@ export default function LeaderboardPage() {
         in_cash_pool: badgeMap[entry.user_id]?.in_cash_pool ?? false,
         is_sporting_panel: badgeMap[entry.user_id]?.is_sporting_panel ?? false,
         is_minigame_banned: minigameBanMap[entry.user_id] ?? false,
+        is_peace_prize: peacePrizeMap[entry.user_id] ?? false,
         joined_at: entry.joined_at,
         home_wins: 0,
         away_wins: 0,
@@ -896,6 +904,7 @@ export default function LeaderboardPage() {
                                 {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={15} /></span>}
                                 {player.is_sporting_panel && <span title="Sporting Panel member"><ScalesIcon size={15} /></span>}
                                 {player.is_minigame_banned && <span title="Banned from minigame"><BlockedIcon size={15} /></span>}
+                                {player.is_peace_prize && <span title="LMS Peace Prize"><DoveIcon size={15} /></span>}
                                 {currentlySuspendedIds.has(player.user_id) && (
                                   <button
                                     onClick={e => { e.stopPropagation(); openDisciplineModal(player.user_id) }}
@@ -1235,6 +1244,7 @@ export default function LeaderboardPage() {
                 <div className="flex items-center gap-2.5"><PoundCoinIcon size={20} /> In the cash pool</div>
                 <div className="flex items-center gap-2.5"><ScalesIcon size={20} /> Sporting Panel member</div>
                 <div className="flex items-center gap-2.5"><BlockedIcon size={20} /> Banned from minigame</div>
+                <div className="flex items-center gap-2.5"><DoveIcon size={18} /> LMS Peace Prize</div>
                 <div className="flex items-center gap-2.5"><YellowCardIcon size={18} />/<RedCardIcon size={18} /> Yellow/red cards this competition — click one on a row for the reason</div>
                 <div className="flex items-center gap-2.5"><span className="pop-badge px-1.5 py-0.5 text-[10px] font-black uppercase" style={{ background: 'var(--pop-red)', color: '#fff' }}>Suspended</span> Missing a gameweek for a card — click for details</div>
                 <div className="flex items-center gap-2.5"><FlameIcon size={20} /> On a streak — 3+ weeks above average</div>
