@@ -260,7 +260,7 @@ export function computeCompetitionAwards(input: CompetitionAwardsInput): {
     ...resolveWinners(
       talismanCandidates,
       c => c.extra !== String(c.value) ? `${c.value} pts combined (with Banker: ${c.extra})` : `${c.value} pts combined`,
-      { minQualifying: 1 }
+      { minQualifying: 1, alwaysShowIndividualDetail: true }
     ),
   }
 
@@ -284,9 +284,9 @@ export type ResolvedAward = {
 export function resolveWinners(
   candidates: AwardCandidate[],
   formatDetail: (c: AwardCandidate) => string,
-  opts: { direction?: 'max' | 'min'; minQualifying?: number } = {}
+  opts: { direction?: 'max' | 'min'; minQualifying?: number; alwaysShowIndividualDetail?: boolean } = {}
 ): ResolvedAward {
-  const { direction = 'max', minQualifying = -Infinity } = opts
+  const { direction = 'max', minQualifying = -Infinity, alwaysShowIndividualDetail = false } = opts
 
   if (candidates.length === 0) {
     return { winnerDisplay: 'Not decided yet', detail: '', tiedEntries: null }
@@ -305,7 +305,17 @@ export function resolveWinners(
   if (tied.length === 1) {
     return { winnerDisplay: tied[0].name, detail: formatDetail(tied[0]), tiedEntries: null }
   }
-  if (tied.length === 2) {
+  // The inline "A & B" case normally shares one detail line between both
+  // names, which is safe everywhere else because formatDetail there only
+  // ever reads the tie-determining `value` — identical for both by
+  // definition of being tied. Talisman is the exception: its detail also
+  // reports each player's own Banker-inclusive `extra`, which can differ
+  // between two players tied on the same raw total. Showing tied[0]'s
+  // figure under both names would misattribute one player's Banker boost
+  // to the other, so Talisman opts into always breaking ties out into
+  // tiedEntries (same click-to-see-all popup already built for 3+ ties)
+  // instead, however few players are tied.
+  if (tied.length === 2 && !alwaysShowIndividualDetail) {
     return { winnerDisplay: `${tied[0].name} & ${tied[1].name}`, detail: formatDetail(tied[0]), tiedEntries: null }
   }
   return {
