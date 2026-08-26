@@ -260,7 +260,7 @@ export function computeCompetitionAwards(input: CompetitionAwardsInput): {
     ...resolveWinners(
       talismanCandidates,
       c => c.extra !== String(c.value) ? `${c.value} pts combined (with Banker: ${c.extra})` : `${c.value} pts combined`,
-      { minQualifying: 1, alwaysShowIndividualDetail: true }
+      { minQualifying: 1 }
     ),
   }
 
@@ -284,9 +284,9 @@ export type ResolvedAward = {
 export function resolveWinners(
   candidates: AwardCandidate[],
   formatDetail: (c: AwardCandidate) => string,
-  opts: { direction?: 'max' | 'min'; minQualifying?: number; alwaysShowIndividualDetail?: boolean } = {}
+  opts: { direction?: 'max' | 'min'; minQualifying?: number } = {}
 ): ResolvedAward {
-  const { direction = 'max', minQualifying = -Infinity, alwaysShowIndividualDetail = false } = opts
+  const { direction = 'max', minQualifying = -Infinity } = opts
 
   if (candidates.length === 0) {
     return { winnerDisplay: 'Not decided yet', detail: '', tiedEntries: null }
@@ -305,23 +305,29 @@ export function resolveWinners(
   if (tied.length === 1) {
     return { winnerDisplay: tied[0].name, detail: formatDetail(tied[0]), tiedEntries: null }
   }
-  // The inline "A & B" case normally shares one detail line between both
-  // names, which is safe everywhere else because formatDetail there only
-  // ever reads the tie-determining `value` — identical for both by
-  // definition of being tied. Talisman is the exception: its detail also
-  // reports each player's own Banker-inclusive `extra`, which can differ
-  // between two players tied on the same raw total. Showing tied[0]'s
-  // figure under both names would misattribute one player's Banker boost
-  // to the other, so Talisman opts into always breaking ties out into
-  // tiedEntries (same click-to-see-all popup already built for 3+ ties)
-  // instead, however few players are tied.
-  if (tied.length === 2 && !alwaysShowIndividualDetail) {
-    return { winnerDisplay: `${tied[0].name} & ${tied[1].name}`, detail: formatDetail(tied[0]), tiedEntries: null }
+
+  // The inline "A & B" case shares one detail line between both names —
+  // fine as long as every tied entry would actually show the same detail
+  // text (true for most awards, since formatDetail there only ever reads
+  // the tie-determining `value`, identical by definition of being tied).
+  // Talisman is the one award whose detail also reports a per-candidate
+  // Banker-inclusive `extra`, which CAN differ between two players tied on
+  // the same raw total — but usually doesn't. So this checks the actual
+  // rendered detail rather than assuming: two tied entries whose detail
+  // text genuinely matches (the common case) still get the clean inline
+  // "A & B" line; only a real mismatch breaks them out into tiedEntries
+  // (the same click-to-see-all popup already built for 3+ ties), so nobody
+  // gets someone else's figure attributed to them.
+  const details = tied.map(formatDetail)
+  const allDetailsMatch = details.every(d => d === details[0])
+
+  if (tied.length === 2 && allDetailsMatch) {
+    return { winnerDisplay: `${tied[0].name} & ${tied[1].name}`, detail: details[0], tiedEntries: null }
   }
   return {
     winnerDisplay: `Multiple players (${tied.length})`,
-    detail: formatDetail(tied[0]),
-    tiedEntries: tied.map(c => ({ name: c.name, detail: formatDetail(c) })),
+    detail: details[0],
+    tiedEntries: tied.map((c, i) => ({ name: c.name, detail: details[i] })),
   }
 }
 
