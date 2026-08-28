@@ -145,6 +145,7 @@ export default async function AdminLayout({
                 <a href="/admin/help/deploying-changes" className="block hover:text-white">Making Changes Yourself</a>
                 <a href="/admin/help/bonus-card" className="block hover:text-white">The Bonus Card</a>
                 <a href="/admin/help/discipline" className="block hover:text-white">Yellow &amp; Red Cards</a>
+                <a href="/admin/help/pause-game" className="block hover:text-white">Pausing The Game</a>
                 <a href="/admin/help/futzy" className="block hover:text-white">Futzy</a>
                 <a href="/admin/help/snapshots" className="block hover:text-white">Snapshots</a>
               </div>

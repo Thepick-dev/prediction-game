@@ -93,7 +93,9 @@ export default function PreSeasonHelpPage() {
             <div className="border-t border-red-100 pt-4">
               <h3 className="font-bold text-sm mb-1">3. Adding new hero background images</h3>
               <p className="text-sm text-gray-700 mb-2">
-                There are 14 in the rotation as of writing this — every page picks one at random.
+                There are 20 in the rotation as of writing this — every page picks one at random. Check the actual
+                current count in <code className="bg-gray-100 px-1 rounded">components/HeroPage.tsx</code> (step 3
+                below) before numbering a new one, since this number is easy to let drift out of date here.
               </p>
               <ol className="list-decimal pl-5 text-sm text-gray-700 space-y-1.5">
                 <li>
@@ -180,7 +182,9 @@ export default function PreSeasonHelpPage() {
             </li>
             <li>
               <strong>Important:</strong> once real results start coming in and you begin syncing standings during the season,
-              don’t go back and manually override again — the next sync will just overwrite it anyway.
+              don’t go back and manually override again — the next sync will just overwrite it anyway. The Standings
+              page shows a clear banner (green = live synced, amber = manually overridden) so it&rsquo;s always obvious
+              which one Autopick will actually use.
             </li>
             <li>
               Set the scoring quartiles at <a href="/admin/quartiles" className="underline">Quartiles</a> — splits teams into four bands of

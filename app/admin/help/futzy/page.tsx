@@ -44,8 +44,8 @@ export default function FutzyHelpPage() {
             <em>this competition&apos;s own scoring rules</em> (not real-world Fantasy Premier League points):
           </p>
           <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
-            <li><strong>Teams</strong>: a simple win/draw/loss probability model built from the quartile gap between your team and the opponent, weighted against the actual points your Scoring page has set for each result.</li>
-            <li><strong>Players</strong>: expected goals × your goal points, plus expected assists × your assist points, reduced for injury/rotation doubt and nudged by recent form.</li>
+            <li><strong>Teams</strong>: a win/draw/loss probability model built from the quartile gap between your team and the opponent, weighted against the actual points your Scoring page has set for each result — calibrated against 1,140 real Premier League results (2022-25), not guessed.</li>
+            <li><strong>Players</strong>: expected goals × your goal points, plus expected assists × your assist points, reduced for injury/rotation doubt and nudged by recent form, then adjusted up or down by how good this specific upcoming fixture looks for them (via Fantasy Premier League&apos;s own next-gameweek projection) — so his player choice, not just his team choice, reacts to who they&apos;re playing that week.</li>
           </ul>
           <p className="text-sm text-gray-700 mt-2">
             He then picks whichever legal combination scores highest, respecting the same team-used-once/player-used-twice

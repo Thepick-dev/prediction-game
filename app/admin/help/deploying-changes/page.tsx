@@ -25,6 +25,12 @@ export default function DeployingChangesHelpPage() {
             <li>Scroll down to &quot;Commit changes&quot; and click the green <strong>Commit changes</strong> button (the default options are fine).</li>
             <li>That&apos;s it — Vercel (the hosting service) notices the change automatically and rebuilds the site, usually ready inside a minute or two. Refresh the live site to see it.</li>
           </ol>
+          <p className="text-sm text-gray-700 mt-3">
+            If it&apos;s been more than a few minutes and the live site still shows the old version, the automatic
+            rebuild can occasionally be slow or miss the trigger — ask Claude Code to check the deploy status
+            (<code className="bg-gray-100 px-1 rounded">npx vercel ls</code>) and push it live directly if needed,
+            rather than waiting indefinitely.
+          </p>
         </div>
 
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
