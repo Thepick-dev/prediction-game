@@ -86,6 +86,7 @@ export default function LeaderboardPage() {
   const [pickDetails, setPickDetails] = useState<Record<string, PickDetail[]>>({})
   const [allGameweeks, setAllGameweeks] = useState<{ id: string; number: number; deadline: string }[]>([])
   const [matchEvents, setMatchEvents] = useState<any[]>([])
+  const [fixtureGwMap, setFixtureGwMap] = useState<Record<number, string>>({})
   const [allTeams, setAllTeams] = useState<Team[]>([])
   const [teamMap, setTeamMap] = useState<Record<number, Team>>({})
   const [kitByUser, setKitByUser] = useState<Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }>>({})
@@ -466,9 +467,15 @@ export default function LeaderboardPage() {
 
     // Goals scored by a picked player only count towards that specific
     // gameweek's pick, not their season total, so we need to know which
-    // gameweek each goal's fixture belongs to.
+    // gameweek each goal's fixture belongs to. Also stored in state (not
+    // just this local var) so the per-gameweek G/A markers in the expanded
+    // breakdown below can look events up the same way, rather than the
+    // "did this player ever score all season" flat set that used to badge
+    // every gameweek row for a player the moment they'd scored once, even
+    // in weeks that hadn't been played yet.
     const fixtureGwMap: Record<number, string> = {}
     fixtures?.forEach(f => { fixtureGwMap[f.id] = f.gameweek_id })
+    setFixtureGwMap(fixtureGwMap)
 
     const goalCountByPlayerGw: Record<string, number> = {}
     events?.forEach(e => {
@@ -641,8 +648,12 @@ export default function LeaderboardPage() {
     setLoading(false)
   }
 
-  const goalPlayers = new Set(matchEvents.filter(e => e.event_type === 'goal').map(e => e.player_id))
-  const assistPlayers = new Set(matchEvents.filter(e => e.event_type === 'assist').map(e => e.player_id))
+  // Keyed by `${player_id}_${gameweek_id}`, not just player_id — a goal
+  // scored in GW1 must only badge that player's GW1 row, never every other
+  // gameweek row for anyone who's ever picked them (including gameweeks
+  // that haven't been played yet, which is what this used to do).
+  const goalEventKeys = new Set(matchEvents.filter(e => e.event_type === 'goal' && e.fixture_id != null).map(e => `${e.player_id}_${fixtureGwMap[e.fixture_id]}`))
+  const assistEventKeys = new Set(matchEvents.filter(e => e.event_type === 'assist' && e.fixture_id != null).map(e => `${e.player_id}_${fixtureGwMap[e.fixture_id]}`))
 
   function getStreak(player: RankedPlayer) {
     return streakByUser[player.user_id] ?? null
@@ -1125,8 +1136,8 @@ export default function LeaderboardPage() {
                                           <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.68)' }}>{d.team_points ?? '—'}</td>
                                           <td className="py-1 pr-1 uppercase">
                                             {d.player1}
-                                            {goalPlayers.has(d.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
-                                            {assistPlayers.has(d.player1_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                                            {goalEventKeys.has(`${d.player1_id}_${gw.id}`) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
+                                            {assistEventKeys.has(`${d.player1_id}_${gw.id}`) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
                                             {d.aon?.player_id === d.player1_id && (
                                               <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '8px', ...(d.aon.outcome === 'success' ? { background: 'var(--pop-green)', color: 'var(--pop-black)' } : d.aon.outcome === 'failed' ? { background: 'var(--pop-red)', color: 'var(--pop-white)' } : { background: 'var(--pop-blue)', color: 'var(--pop-black)' }) }}>
                                                 {d.aon.outcome === 'success' ? <CheckIcon size={8} color="var(--pop-black)" /> : d.aon.outcome === 'failed' ? <CrossIcon size={8} color="var(--pop-white)" /> : <BoltIcon size={8} color="var(--pop-black)" />} AoN
@@ -1136,8 +1147,8 @@ export default function LeaderboardPage() {
                                           <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.68)' }}>{d.player1_points ?? '—'}</td>
                                           <td className="py-1 pr-1 uppercase">
                                             {d.player2}
-                                            {goalPlayers.has(d.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
-                                            {assistPlayers.has(d.player2_id) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                                            {goalEventKeys.has(`${d.player2_id}_${gw.id}`) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
+                                            {assistEventKeys.has(`${d.player2_id}_${gw.id}`) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
                                             {d.aon?.player_id === d.player2_id && (
                                               <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '8px', ...(d.aon.outcome === 'success' ? { background: 'var(--pop-green)', color: 'var(--pop-black)' } : d.aon.outcome === 'failed' ? { background: 'var(--pop-red)', color: 'var(--pop-white)' } : { background: 'var(--pop-blue)', color: 'var(--pop-black)' }) }}>
                                                 {d.aon.outcome === 'success' ? <CheckIcon size={8} color="var(--pop-black)" /> : d.aon.outcome === 'failed' ? <CrossIcon size={8} color="var(--pop-white)" /> : <BoltIcon size={8} color="var(--pop-black)" />} AoN
@@ -1549,14 +1560,14 @@ export default function LeaderboardPage() {
                                         <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.team_points ?? '—'}</td>
                                         <td className="py-1 pr-1 uppercase">
                                           {d.player1}
-                                          {goalPlayers.has(d.player1_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold">G</span>}
-                                          {assistPlayers.has(d.player1_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span>}
+                                          {goalEventKeys.has(`${d.player1_id}_${gw.id}`) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold">G</span>}
+                                          {assistEventKeys.has(`${d.player1_id}_${gw.id}`) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span>}
                                         </td>
                                         <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.player1_points ?? '—'}</td>
                                         <td className="py-1 pr-1 uppercase">
                                           {d.player2}
-                                          {goalPlayers.has(d.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold">G</span>}
-                                          {assistPlayers.has(d.player2_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span>}
+                                          {goalEventKeys.has(`${d.player2_id}_${gw.id}`) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold">G</span>}
+                                          {assistEventKeys.has(`${d.player2_id}_${gw.id}`) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span>}
                                         </td>
                                         <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.player2_points ?? '—'}</td>
                                         <td className="py-1 text-right font-bold">{d.points ?? '—'}</td>

@@ -18,8 +18,14 @@ async function savePositions(updates: { id: string; position: number }[]) {
   if (!admin) redirect('/')
   const adminClient = createAdminSupabaseClient()
 
+  // Flagged so the page can show a clear "this is a manual override, not
+  // the real synced table" warning — previously indistinguishable, which
+  // is exactly what caused real confusion about which one autopick would
+  // actually use. A genuine Sync Standings run always clears this flag
+  // again (see app/api/sync/standings/route.ts), since a fresh sync means
+  // these are real values again.
   const results = await Promise.all(
-    updates.map(u => adminClient.from('team_league_positions').update({ position: u.position }).eq('id', u.id))
+    updates.map(u => adminClient.from('team_league_positions').update({ position: u.position, is_manual_override: true }).eq('id', u.id))
   )
   const errored = results.find(r => r.error)
   if (errored?.error) return { error: errored.error.message }
@@ -43,6 +49,10 @@ export default async function StandingsPage() {
   teams?.forEach(t => { teamMap[t.id] = t.short_name ?? t.name })
 
   const lastSynced = positions && positions.length > 0 ? positions[0].recorded_at : null
+  // Defensive default (?? false) since is_manual_override is a newer,
+  // optional column — a problem reading it should just show "synced",
+  // never break this page.
+  const isOverridden = (positions ?? []).some(p => p.is_manual_override ?? false)
 
   const sorted = [...(positions ?? [])].sort((a, b) => a.position - b.position)
 
@@ -56,6 +66,25 @@ export default async function StandingsPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-2">League Standings</h1>
+
+      {/* This is the table autopick actually reads team strength/order
+          from (see app/lib/autopick.ts) — a manual override and a real
+          sync both write to the exact same rows, so without this banner
+          there was no way to tell which one was currently in effect. */}
+      {positions && positions.length > 0 && (
+        isOverridden ? (
+          <div className="bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 mb-4 text-sm text-amber-800">
+            <strong>⚠️ Manually overridden</strong> — these positions were set by hand below, not pulled from the real
+            Premier League table. This is what Autopick will use. Run Sync Standings on the Sync page to go back to
+            the real table.
+          </div>
+        ) : (
+          <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-800">
+            ✓ Live synced standings — this is what Autopick will use.
+          </div>
+        )
+      )}
+
       <p className="text-gray-500 text-sm mb-8">
         {lastSynced
           ? `Last synced: ${new Date(lastSynced).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}`

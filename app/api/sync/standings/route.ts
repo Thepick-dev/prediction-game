@@ -39,7 +39,12 @@ export async function POST() {
     goal_difference: entry.goalDifference,
     points: entry.points,
     recorded_at: new Date().toISOString(),
-    season: '2026'
+    season: '2026',
+    // A real sync always means these are genuine values again — clears
+    // any admin manual override still flagged from a previous edit (see
+    // app/admin/standings/page.tsx's savePositions), so the "which one is
+    // active" banner there switches back correctly.
+    is_manual_override: false
   }))
 
   // recorded_at is a plain date (no time component), with a unique
