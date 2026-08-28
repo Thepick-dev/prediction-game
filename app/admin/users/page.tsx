@@ -156,7 +156,16 @@ export default async function UsersPage({
     const id = formData.get('id') as string
     const display_name = formData.get('display_name') as string
     await admin.from('profiles').update({ display_name }).eq('id', id)
-    revalidatePath('/admin/users')
+    // 'layout' + root path, not the literal page path — confirmed
+    // empirically (live Playwright test against the real deployed site)
+    // that revalidatePath('/admin/users') alone did NOT bust the client
+    // Router Cache on the redirect back to this same page: the DB write
+    // was correct but the redirected page kept showing the pre-write
+    // value until a genuinely fresh navigation. Per Next's own docs, only
+    // this root+layout form is documented to "purge the Client Cache" —
+    // broader than needed, but this page is low-traffic admin-only, so
+    // reliability here matters far more than cache efficiency.
+    revalidatePath('/', 'layout')
     redirect('/admin/users')
   }
 
@@ -166,7 +175,16 @@ export default async function UsersPage({
     const id = formData.get('id') as string
     const approved = formData.get('approved') === 'true'
     await admin.from('profiles').update({ approved: !approved }).eq('id', id)
-    revalidatePath('/admin/users')
+    // 'layout' + root path, not the literal page path — confirmed
+    // empirically (live Playwright test against the real deployed site)
+    // that revalidatePath('/admin/users') alone did NOT bust the client
+    // Router Cache on the redirect back to this same page: the DB write
+    // was correct but the redirected page kept showing the pre-write
+    // value until a genuinely fresh navigation. Per Next's own docs, only
+    // this root+layout form is documented to "purge the Client Cache" —
+    // broader than needed, but this page is low-traffic admin-only, so
+    // reliability here matters far more than cache efficiency.
+    revalidatePath('/', 'layout')
     redirect('/admin/users')
   }
 
@@ -176,7 +194,16 @@ export default async function UsersPage({
     const id = formData.get('id') as string
     const is_admin = formData.get('is_admin') === 'true'
     await admin.from('profiles').update({ is_admin: !is_admin }).eq('id', id)
-    revalidatePath('/admin/users')
+    // 'layout' + root path, not the literal page path — confirmed
+    // empirically (live Playwright test against the real deployed site)
+    // that revalidatePath('/admin/users') alone did NOT bust the client
+    // Router Cache on the redirect back to this same page: the DB write
+    // was correct but the redirected page kept showing the pre-write
+    // value until a genuinely fresh navigation. Per Next's own docs, only
+    // this root+layout form is documented to "purge the Client Cache" —
+    // broader than needed, but this page is low-traffic admin-only, so
+    // reliability here matters far more than cache efficiency.
+    revalidatePath('/', 'layout')
     redirect('/admin/users')
   }
 
@@ -187,7 +214,16 @@ export default async function UsersPage({
     const field = formData.get('field') as 'can_post_news' | 'is_super_admin' | 'is_sporting_panel' | 'is_reigning_champ' | 'is_vibes_champion' | 'in_cash_pool' | 'is_minigame_banned' | 'is_peace_prize'
     const current = formData.get('current') === 'true'
     await admin.from('profiles').update({ [field]: !current }).eq('id', id)
-    revalidatePath('/admin/users')
+    // 'layout' + root path, not the literal page path — confirmed
+    // empirically (live Playwright test against the real deployed site)
+    // that revalidatePath('/admin/users') alone did NOT bust the client
+    // Router Cache on the redirect back to this same page: the DB write
+    // was correct but the redirected page kept showing the pre-write
+    // value until a genuinely fresh navigation. Per Next's own docs, only
+    // this root+layout form is documented to "purge the Client Cache" —
+    // broader than needed, but this page is low-traffic admin-only, so
+    // reliability here matters far more than cache efficiency.
+    revalidatePath('/', 'layout')
     redirect('/admin/users')
   }
 
@@ -201,7 +237,16 @@ export default async function UsersPage({
     if (error) {
       redirect(`/admin/users?kitError=${encodeURIComponent(error.message)}`)
     }
-    revalidatePath('/admin/users')
+    // 'layout' + root path, not the literal page path — confirmed
+    // empirically (live Playwright test against the real deployed site)
+    // that revalidatePath('/admin/users') alone did NOT bust the client
+    // Router Cache on the redirect back to this same page: the DB write
+    // was correct but the redirected page kept showing the pre-write
+    // value until a genuinely fresh navigation. Per Next's own docs, only
+    // this root+layout form is documented to "purge the Client Cache" —
+    // broader than needed, but this page is low-traffic admin-only, so
+    // reliability here matters far more than cache efficiency.
+    revalidatePath('/', 'layout')
     redirect('/admin/users')
   }
 
@@ -242,7 +287,16 @@ export default async function UsersPage({
     if (error) {
       redirect(`/admin/users?error=${encodeURIComponent(error.message)}`)
     }
-    revalidatePath('/admin/users')
+    // 'layout' + root path, not the literal page path — confirmed
+    // empirically (live Playwright test against the real deployed site)
+    // that revalidatePath('/admin/users') alone did NOT bust the client
+    // Router Cache on the redirect back to this same page: the DB write
+    // was correct but the redirected page kept showing the pre-write
+    // value until a genuinely fresh navigation. Per Next's own docs, only
+    // this root+layout form is documented to "purge the Client Cache" —
+    // broader than needed, but this page is low-traffic admin-only, so
+    // reliability here matters far more than cache efficiency.
+    revalidatePath('/', 'layout')
     redirect('/admin/users')
   }
 
@@ -268,7 +322,16 @@ export default async function UsersPage({
       await admin.from('password_reset_requests').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', requestId)
     }
 
-    revalidatePath('/admin/users')
+    // 'layout' + root path, not the literal page path — confirmed
+    // empirically (live Playwright test against the real deployed site)
+    // that revalidatePath('/admin/users') alone did NOT bust the client
+    // Router Cache on the redirect back to this same page: the DB write
+    // was correct but the redirected page kept showing the pre-write
+    // value until a genuinely fresh navigation. Per Next's own docs, only
+    // this root+layout form is documented to "purge the Client Cache" —
+    // broader than needed, but this page is low-traffic admin-only, so
+    // reliability here matters far more than cache efficiency.
+    revalidatePath('/', 'layout')
     redirect(`/admin/users?resetCode=${encodeURIComponent(code)}&resetFor=${encodeURIComponent(displayName || 'this player')}`)
   }
 
@@ -280,7 +343,16 @@ export default async function UsersPage({
     const admin = await requireAdminAction()
     const requestId = formData.get('requestId') as string
     await admin.from('password_reset_requests').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', requestId)
-    revalidatePath('/admin/users')
+    // 'layout' + root path, not the literal page path — confirmed
+    // empirically (live Playwright test against the real deployed site)
+    // that revalidatePath('/admin/users') alone did NOT bust the client
+    // Router Cache on the redirect back to this same page: the DB write
+    // was correct but the redirected page kept showing the pre-write
+    // value until a genuinely fresh navigation. Per Next's own docs, only
+    // this root+layout form is documented to "purge the Client Cache" —
+    // broader than needed, but this page is low-traffic admin-only, so
+    // reliability here matters far more than cache efficiency.
+    revalidatePath('/', 'layout')
     redirect('/admin/users')
   }
 
@@ -297,7 +369,16 @@ export default async function UsersPage({
     }
 
     await admin.from('username_change_requests').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', id)
-    revalidatePath('/admin/users')
+    // 'layout' + root path, not the literal page path — confirmed
+    // empirically (live Playwright test against the real deployed site)
+    // that revalidatePath('/admin/users') alone did NOT bust the client
+    // Router Cache on the redirect back to this same page: the DB write
+    // was correct but the redirected page kept showing the pre-write
+    // value until a genuinely fresh navigation. Per Next's own docs, only
+    // this root+layout form is documented to "purge the Client Cache" —
+    // broader than needed, but this page is low-traffic admin-only, so
+    // reliability here matters far more than cache efficiency.
+    revalidatePath('/', 'layout')
     redirect('/admin/users')
   }
 
@@ -306,7 +387,16 @@ export default async function UsersPage({
     const admin = await requireAdminAction()
     const id = formData.get('id') as string
     await admin.from('username_change_requests').update({ status: 'rejected', resolved_at: new Date().toISOString() }).eq('id', id)
-    revalidatePath('/admin/users')
+    // 'layout' + root path, not the literal page path — confirmed
+    // empirically (live Playwright test against the real deployed site)
+    // that revalidatePath('/admin/users') alone did NOT bust the client
+    // Router Cache on the redirect back to this same page: the DB write
+    // was correct but the redirected page kept showing the pre-write
+    // value until a genuinely fresh navigation. Per Next's own docs, only
+    // this root+layout form is documented to "purge the Client Cache" —
+    // broader than needed, but this page is low-traffic admin-only, so
+    // reliability here matters far more than cache efficiency.
+    revalidatePath('/', 'layout')
     redirect('/admin/users')
   }
 
