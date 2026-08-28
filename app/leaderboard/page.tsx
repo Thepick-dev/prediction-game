@@ -9,6 +9,7 @@ import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
 import BotAvatar from '../../components/BotAvatar'
+import FutzyExplainerLink from '../../components/FutzyExplainerLink'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import { computeTopDog } from '../lib/topDog'
 import { computeAvgByGw, computeStreaks } from '../lib/leaderboardBadges'
@@ -900,7 +901,10 @@ export default function LeaderboardPage() {
                                 </span>
                               )}
                               <span className="inline-flex flex-col leading-tight min-w-0" style={{ flex: '0 1 auto' }}>
-                                <span className="truncate block">{player.display_name}</span>
+                                <span className="truncate inline-flex items-center gap-1">
+                                  {player.display_name}
+                                  {player.is_bot && <FutzyExplainerLink popArt />}
+                                </span>
                                 {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
                                   <span className="normal-case font-normal" style={{ fontSize: '9px', letterSpacing: '1px' }}>
                                     <span style={{ color: 'var(--pop-green)' }}>{'★'.repeat(kitByUser[player.user_id]?.stars ?? 0)}</span>
