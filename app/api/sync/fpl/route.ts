@@ -128,6 +128,14 @@ export async function POST() {
       form: player.form != null ? parseFloat(player.form) : null,
       chance_of_playing: player.chance_of_playing_this_round ?? null,
       injury_news: player.news || null,
+      // FPL's own next-gameweek expected points (already fixture-difficulty-
+      // aware) and season points-per-game — Futzy's projection model uses
+      // their RATIO as a fixture-aware adjustment on top of our own xG/xA
+      // conversion (see projectPlayer in app/lib/botPick.ts), not the
+      // absolute values directly, since ep_next is in FPL's own scoring
+      // currency, not this competition's.
+      ep_next: player.ep_next != null ? parseFloat(player.ep_next) : null,
+      points_per_game: player.points_per_game != null ? parseFloat(player.points_per_game) : null,
     }))
     .filter((p: any) => p.team_id !== null)
 
