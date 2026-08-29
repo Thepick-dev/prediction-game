@@ -385,6 +385,12 @@ export default function LeaderboardPage() {
     type ProvisionalPick = { user_id: string; gameweek_id: string; team_id: number; player1_id: number; player2_id: number }
     let provisionalPicks: ProvisionalPick[] = []
 
+    // Bonus Card points only land in bonus_card_plays.points once a gameweek
+    // is actually completed/recalculated — without this, a card played in a
+    // still-live gameweek would show 0 here even though the preview below
+    // already knows its live value, the same gap the G/A markers had before.
+    const bonusCardPreviewPoints: Record<string, number> = {}
+
     await Promise.all(previewGameweeks.map(async gw => {
       try {
         const [previewRes, scoringPreviewRes] = await Promise.all([
@@ -416,6 +422,9 @@ export default function LeaderboardPage() {
           } else {
             pointsByPickId[row.pick_id] = row
           }
+        })
+        ;(scoringData.bonusCardRows ?? []).forEach((row: any) => {
+          bonusCardPreviewPoints[row.user_id] = row.points
         })
       } catch {
         // ignore preview failures
@@ -566,10 +575,12 @@ export default function LeaderboardPage() {
     // actual ranking totals below.
     bonusCardPlays?.forEach(play => {
       const t = totals[play.user_id]
-      if (!t || play.points == null) return
-      t.bonus_card_points += play.points
-      t.total_points += play.points
-      t.points_without_banker += play.points
+      if (!t) return
+      const points = play.points ?? bonusCardPreviewPoints[play.user_id] ?? null
+      if (points == null) return
+      t.bonus_card_points += points
+      t.total_points += points
+      t.points_without_banker += points
     })
 
     // Tiebreaker #3: best single gameweek score, banker included — already
