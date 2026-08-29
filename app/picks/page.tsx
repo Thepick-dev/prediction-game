@@ -351,83 +351,48 @@ export default function PicksPage() {
     if (!user) { window.location.href = '/login'; return }
     setUser(user)
 
-    const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', user.id).single()
+    // Profile fields and the active competition don't depend on each
+    // other, so they go over the wire together rather than one-after-
+    // another — same data as before (is_admin/is_super_admin merged into
+    // the one profile query instead of a second round-trip for it), just
+    // not waiting on itself unnecessarily.
+    const [{ data: profile }, { data: comp }] = await Promise.all([
+      supabase.from('profiles').select('display_name, is_admin, is_super_admin').eq('id', user.id).single(),
+      supabase.from('competitions').select('id, name').eq('status', 'active').single(),
+    ])
     setDisplayName(profile?.display_name ?? '')
-
-    // Its own query, same isolation reasoning as everywhere else — only
-    // gates the shootout's admin test-mode controls, so a problem here
-    // must never be able to take anything else on this page down with it.
-    const { data: adminProfile } = await supabase.from('profiles').select('is_admin, is_super_admin').eq('id', user.id).single()
-    setIsAdmin(!!(adminProfile?.is_admin || adminProfile?.is_super_admin))
-
-    const { data: comp } = await supabase
-      .from('competitions')
-      .select('id, name')
-      .eq('status', 'active')
-      .single()
+    setIsAdmin(!!(profile?.is_admin || profile?.is_super_admin))
 
     if (!comp) { setLoading(false); return }
     setCompetition(comp)
 
-    const { data: entry } = await supabase
-      .from('competition_entries')
-      .select('id')
-      .eq('competition_id', comp.id)
-      .eq('user_id', user.id)
-      .single()
+    // Everything here only needs comp.id, so it all goes out together too —
+    // both gameweek candidates are fetched unconditionally rather than
+    // trying the open one, waiting for it to fail, then trying locked.
+    //
+    // Status alone decides which gameweek is pickable, not the deadline —
+    // a gameweek only becomes pickable once an admin has actually
+    // confirmed it open via Prepare -> Confirm on Gameweeks. Before that
+    // it's just "upcoming", which must never be offered for picking even
+    // though it's the earliest non-locked gameweek — the deadline being in
+    // the future doesn't mean quartiles/fixtures have been reviewed and
+    // frozen yet. The locked fallback covers the normal in-between state
+    // now that auto-lock happens within minutes of a deadline rather than
+    // once a day — that's when the live "how's everyone doing" table is
+    // most worth showing. Never falls back to a "completed" one — that has
+    // its own full, final view on Results/Leaderboard instead.
+    const [{ data: entry }, { data: openGw }, { data: lockedGw }, { data: upcomingGw }] = await Promise.all([
+      supabase.from('competition_entries').select('id').eq('competition_id', comp.id).eq('user_id', user.id).single(),
+      supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).eq('status', 'open').order('deadline', { ascending: true }).limit(1).maybeSingle(),
+      supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).eq('status', 'locked').order('deadline', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).eq('status', 'upcoming').order('deadline', { ascending: true }).limit(1).maybeSingle(),
+    ])
 
     if (!entry) { window.location.href = '/join'; return }
 
-    // Status alone decides this, not the deadline — a gameweek only
-    // becomes pickable once an admin has actually confirmed it open via
-    // Prepare -> Confirm on Gameweeks. Before that it's just "upcoming",
-    // which must never be offered for picking even though it's the
-    // earliest non-locked gameweek — the deadline being in the future
-    // doesn't mean quartiles/fixtures have been reviewed and frozen yet.
-    const { data: openGw } = await supabase
-      .from('gameweeks')
-      .select('id, number, deadline, status')
-      .eq('competition_id', comp.id)
-      .eq('status', 'open')
-      .order('deadline', { ascending: true })
-      .limit(1)
-      .maybeSingle()
-
-    // Falls back to the most recently locked gameweek when there's no
-    // open one — since gameweeks now auto-lock within minutes of their
-    // deadline (not just once a day), that's the normal in-between state
-    // most of the time, not a rare edge case, and it's exactly when the
-    // live "how's everyone doing" table below is most worth showing.
-    // Never falls back to a "completed" one — that has its own full,
-    // final view on Results/Leaderboard instead.
-    let gw = openGw
-    if (!gw) {
-      const { data: lockedGw } = await supabase
-        .from('gameweeks')
-        .select('id, number, deadline, status')
-        .eq('competition_id', comp.id)
-        .eq('status', 'locked')
-        .order('deadline', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      gw = lockedGw
-    }
-
+    const gw = openGw ?? lockedGw
     setGameweek(gw)
     if (gw) setDeadlinePassed(new Date() > new Date(gw.deadline))
-
-    // Its own isolated query, same reasoning as elsewhere on this page — only
-    // used to tell the player when the NEXT gameweek opens up while they're
-    // looking at the locked/live view of the current one, so a problem here
-    // must never be able to take the rest of the page down with it.
-    const { data: upcomingGw } = await supabase
-      .from('gameweeks')
-      .select('id, number, deadline, status')
-      .eq('competition_id', comp.id)
-      .eq('status', 'upcoming')
-      .order('deadline', { ascending: true })
-      .limit(1)
-      .maybeSingle()
     setNextGameweek(upcomingGw ?? null)
 
     // Its own isolated query, same reasoning as everywhere else on this

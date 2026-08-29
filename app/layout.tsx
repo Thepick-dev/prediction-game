@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Bebas_Neue } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 const alfaSlabOne = Alfa_Slab_One({
@@ -57,7 +58,10 @@ export default function RootLayout({
         <link rel="preload" as="image" href="/logo.png" />
         <link rel="preload" as="image" href="/mascot-cap-photo.png" />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Analytics />
+      </body>
     </html>
   )
 }

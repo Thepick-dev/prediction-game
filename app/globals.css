@@ -447,11 +447,13 @@ thead th {
   100% { transform: rotate(360deg) scale(1); }
 }
 
-/* Loading-screen badge — a slow confident scale + glow breathe, not a
-   spin. A spinning crest reads as "broken record"; a breathing glow
-   reads as "alive and working" without being frantic. */
+/* Loading-screen badge — a single quick confident flash on arrival, not a
+   loop. An infinite breathing pulse reads as "still working very hard"
+   the longer a page takes to load, which is exactly backwards — this
+   plays once (~0.5s) then holds still, so the mark feels instant
+   regardless of how long the data underneath actually takes. */
 .pop-logo-pulse {
-  animation: pop-logo-pulse 1.3s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation: pop-logo-pulse 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1;
 }
 
 /* Deliberately kept pink here, not the new primary purple used everywhere
@@ -461,8 +463,9 @@ thead th {
    to rgba(160, 0, 250, ...) to match the rest of the theme if the mascot
    art itself is ever repainted to suit the new palette. */
 @keyframes pop-logo-pulse {
-  0%, 100% { transform: scale(0.92); filter: drop-shadow(0 0 8px rgba(213, 0, 109, 0.4)); }
-  50% { transform: scale(1.12); filter: drop-shadow(0 0 40px rgba(213, 0, 109, 0.95)); }
+  0% { transform: scale(0.75); filter: drop-shadow(0 0 0 rgba(213, 0, 109, 0)); }
+  60% { transform: scale(1.08); filter: drop-shadow(0 0 30px rgba(213, 0, 109, 0.8)); }
+  100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(213, 0, 109, 0.35)); }
 }
 
 /* Penalty shootout aim marker — sweeps the width of the track and back.
