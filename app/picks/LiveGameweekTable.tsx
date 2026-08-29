@@ -31,6 +31,7 @@ type Row = {
   bonusCard: { playerName: string; points: number | null } | null
   weeklyPoints: number | null
   cumulativeTotal: number
+  movement: number
 }
 
 const aonBg = { pending: '#A000FA', success: '#CCFA00', failed: '#FA003C' } as const
@@ -73,10 +74,22 @@ export default function LiveGameweekTable({
   const gridRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
-  useEffect(() => { loadData() }, [gameweekId])
+  useEffect(() => {
+    loadData()
+    // A still-live gameweek keeps changing underneath whoever's looking at
+    // this — goals, assists, results — so it re-polls on its own rather than
+    // only ever refreshing on a manual page reload. Stops once the gameweek
+    // is completed: nothing left to move by then.
+    if (gameweekStatus === 'completed') return
+    const interval = setInterval(() => loadData(true), 60000)
+    return () => clearInterval(interval)
+  }, [gameweekId, gameweekStatus])
 
-  async function loadData() {
-    setLoading(true)
+  // `background` skips the loading placeholder — a poll refresh should
+  // quietly swap the numbers in place, not flash the whole table away and
+  // back every minute.
+  async function loadData(background = false) {
+    if (!background) setLoading(true)
 
     const [
       { data: entries },
@@ -235,12 +248,26 @@ export default function LiveGameweekTable({
         bonusCard: bonusCardPlay ? { playerName: playerMap[bonusCardPlay.player_id] ?? 'Unknown', points: bonusCardPoints } : null,
         weeklyPoints: pts?.total_points ?? null,
         cumulativeTotal: cumulativeByUser[pick.user_id] ?? 0,
+        movement: 0,
       }
     })
 
     // Cumulative total, highest first — this panel is about "how's
     // everyone doing overall", not just this week's scramble.
     builtRows.sort((a, b) => b.cumulativeTotal - a.cumulativeTotal)
+
+    // "Movement" = how many places this gameweek's points have shuffled
+    // someone up or down the overall standings, comparing today's ranking
+    // against what it would've been going into this gameweek (total minus
+    // this week's own points). Purely a re-derivation of data already on
+    // the row — no extra fetch, no stored "last seen" snapshot needed.
+    const rankedBeforeThisGw = [...builtRows].sort((a, b) =>
+      (b.cumulativeTotal - (b.weeklyPoints ?? 0)) - (a.cumulativeTotal - (a.weeklyPoints ?? 0))
+    )
+    const rankBeforeByUser: Record<string, number> = {}
+    rankedBeforeThisGw.forEach((row, idx) => { rankBeforeByUser[row.userId] = idx + 1 })
+    builtRows.forEach((row, idx) => { row.movement = rankBeforeByUser[row.userId] - (idx + 1) })
+
     setRows(builtRows)
     setBonusCardName(bonusCardDisplayName(comp?.bonus_card_name, comp?.bonus_card_player_id != null ? playerMap[comp.bonus_card_player_id] : null))
     setLoading(false)
@@ -299,21 +326,30 @@ export default function LiveGameweekTable({
       </div>
       {shareError && <p className="text-xs mb-2" style={{ color: 'var(--pop-red)' }}>{shareError}</p>}
 
-      <div ref={gridRef} className="rounded-2xl p-3 sm:p-4 space-y-1.5" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div ref={gridRef} className="rounded-2xl p-2.5 sm:p-3 space-y-1" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
         {rows.map((row, i) => (
           <div
             key={row.userId}
-            className="rounded-xl p-2 sm:p-2.5"
+            className="rounded-xl p-1.5 sm:p-2"
             style={{
               background: row.isOwnRow ? 'rgba(160,0,250,0.1)' : 'rgba(255,255,255,0.03)',
               border: row.isOwnRow ? '1px solid rgba(160,0,250,0.4)' : '1px solid rgba(255,255,255,0.06)',
             }}
           >
-            <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
-              <div className="flex items-center gap-1.5 min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-0.5 flex-wrap">
+              <div className="flex items-center gap-1 min-w-0">
                 <span className="font-mono font-black shrink-0" style={{ color: 'rgba(255,255,255,0.35)', fontSize: '12px' }}>{i + 1}</span>
-                <span className="shrink-0">
-                  {row.isBot ? <BotAvatar size={24} /> : <KitBadge pattern={row.kit?.pattern ?? 'solid'} colour1={row.kit?.colour1 ?? '#1E4D6B'} colour2={row.kit?.colour2 ?? '#F5ECD9'} colour3={row.kit?.colour3} size={24} />}
+                {row.movement !== 0 && (
+                  <span
+                    className="font-mono font-black shrink-0 inline-flex items-center"
+                    style={{ fontSize: '9px', color: row.movement > 0 ? 'var(--pop-green)' : 'var(--pop-red)' }}
+                    title={row.movement > 0 ? `Up ${row.movement} place${row.movement === 1 ? '' : 's'} this gameweek` : `Down ${Math.abs(row.movement)} place${Math.abs(row.movement) === 1 ? '' : 's'} this gameweek`}
+                  >
+                    {row.movement > 0 ? '📈' : '📉'}{Math.abs(row.movement)}
+                  </span>
+                )}
+                <span className="shrink-0 ml-0.5">
+                  {row.isBot ? <BotAvatar size={20} /> : <KitBadge pattern={row.kit?.pattern ?? 'solid'} colour1={row.kit?.colour1 ?? '#1E4D6B'} colour2={row.kit?.colour2 ?? '#F5ECD9'} colour3={row.kit?.colour3} size={20} />}
                 </span>
                 <span className="font-black uppercase truncate" style={{ fontSize: '13px' }}>{row.name}</span>
                 {row.isAutopick && <span className="px-1 py-0.5 rounded font-black shrink-0" style={{ fontSize: '9px', background: 'rgba(255,255,255,0.15)' }} title="Autopicked">AP</span>}
@@ -332,15 +368,15 @@ export default function LiveGameweekTable({
               </div>
             </div>
 
-            <div className="space-y-0.5" style={{ fontSize: '11px' }}>
-              <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col gap-px" style={{ fontSize: '11px' }}>
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-bold uppercase truncate" style={{ background: 'rgba(0,242,250,0.12)', color: 'var(--pop-blue)' }}>
                   <TeamCrest teamId={row.teamId} teamName={row.team} size={14} />
                   {row.team}
                 </span>
                 <PtsPill value={row.teamPoints} doubled={row.isBanker} />
               </div>
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="uppercase font-bold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>
                   {row.player1Name}
                   {row.player1Goal && <span className="ml-0.5 px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
@@ -349,7 +385,7 @@ export default function LiveGameweekTable({
                 </span>
                 <PtsPill value={row.player1Points} doubled={row.isBanker} />
               </div>
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="uppercase font-bold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>
                   {row.player2Name}
                   {row.player2Goal && <span className="ml-0.5 px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
@@ -359,7 +395,7 @@ export default function LiveGameweekTable({
                 <PtsPill value={row.player2Points} doubled={row.isBanker} />
               </div>
               {row.bonusCard && (
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="px-1.5 py-0.5 rounded font-black uppercase truncate" style={{ background: 'rgba(160,0,250,0.2)', color: 'var(--pop-pink)' }}>
                     🎴 {bonusCardName ?? 'Bonus Card'}: {row.bonusCard.playerName}
                   </span>
