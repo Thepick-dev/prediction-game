@@ -111,8 +111,7 @@ export default function FutzyExplainerLink({ popArt = false }: { popArt?: boolea
             ever fails, it falls straight back to the single best-projected option automatically.
           </p>
           <p className="text-xs leading-relaxed" style={{ color: popArt ? 'rgba(255,255,255,0.5)' : 'rgba(245,236,217,0.55)' }}>
-            His one-line Wall comment is a separate step, written after the pick&apos;s already made — it never
-            influences what he picks. He can never be crowned the winner, even if he tops the table.
+            He can never be crowned the winner, even if he tops the table.
           </p>
           <button
             onClick={() => setOpen(false)}
