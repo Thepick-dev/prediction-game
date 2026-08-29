@@ -48,10 +48,19 @@ export default function FutzyHelpPage() {
             <li><strong>Players</strong>: expected goals × your goal points, plus expected assists × your assist points, reduced for injury/rotation doubt and nudged by recent form, then adjusted up or down by how good this specific upcoming fixture looks for them (via Fantasy Premier League&apos;s own next-gameweek projection) — so his player choice, not just his team choice, reacts to who they&apos;re playing that week.</li>
           </ul>
           <p className="text-sm text-gray-700 mt-2">
-            He then picks whichever legal combination scores highest, respecting the same team-used-once/player-used-twice
-            rules as anyone else. You can see exactly what he considered — not just what he picked — on{' '}
-            <a href="/admin/futzy" className="underline">his page</a>, admin-only (never shown publicly, so it never
-            leaks a still-hidden pick before the deadline).
+            That maths narrows things down to a handful of the strongest legal options — respecting the same
+            team-used-once/player-used-twice rules as anyone else. From there, an AI (Gemini — the same free API
+            already used for his Wall comments, no extra cost) makes the actual final call from among ONLY those
+            options, weighing things like injury news text the raw numbers can&apos;t interpret (e.g. preferring a
+            slightly lower-projected but clearly fit player over a higher one who&apos;s a doubt). It can never pick
+            anything outside the maths&apos; own shortlist, so it can&apos;t produce an illegal or nonsensical pick.
+            If that step is ever unavailable (rate limit, network issue, bad response), it falls straight back to
+            the single best-projected combination automatically — never blocks a pick from happening.
+          </p>
+          <p className="text-sm text-gray-700 mt-2">
+            You can see exactly what he considered, which path decided it (Gemini or the maths fallback), and — when
+            Gemini chose — its own short reasoning, on <a href="/admin/futzy" className="underline">his page</a>,
+            admin-only (never shown publicly, so it never leaks a still-hidden pick before the deadline).
           </p>
         </div>
 

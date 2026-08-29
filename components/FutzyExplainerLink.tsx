@@ -101,13 +101,18 @@ export default function FutzyExplainerLink({ popArt = false }: { popArt?: boolea
             🤖 How Futzy Picks
           </h3>
           <p className="text-xs leading-relaxed mb-2" style={{ color: popArt ? 'rgba(255,255,255,0.75)' : 'rgba(245,236,217,0.8)' }}>
-            He&apos;s not a chatbot deciding — it&apos;s a maths formula. His team is whichever&apos;s projected to
-            score the most points, based on real Premier League history. His two players come from expected
-            goals/assists, adjusted for injury doubt, form, and how good this week&apos;s fixture looks for them.
+            A maths formula does the heavy lifting: his team is whichever&apos;s projected to score the most points
+            (based on real Premier League history), and his players come from expected goals/assists, adjusted for
+            injury doubt, form, and how good this week&apos;s fixture looks for them.
+          </p>
+          <p className="text-xs leading-relaxed mb-2" style={{ color: popArt ? 'rgba(255,255,255,0.75)' : 'rgba(245,236,217,0.8)' }}>
+            An AI (Gemini) then makes the final call from the maths&apos; own strongest few options — never anything
+            outside that shortlist — weighing things like injury news the numbers alone can&apos;t read. If that step
+            ever fails, it falls straight back to the single best-projected option automatically.
           </p>
           <p className="text-xs leading-relaxed" style={{ color: popArt ? 'rgba(255,255,255,0.5)' : 'rgba(245,236,217,0.55)' }}>
-            The only AI part is his one-line Wall comment, written after the pick&apos;s already made — it has no
-            say in what he picks. He can never be crowned the winner, even if he tops the table.
+            His one-line Wall comment is a separate step, written after the pick&apos;s already made — it never
+            influences what he picks. He can never be crowned the winner, even if he tops the table.
           </p>
           <button
             onClick={() => setOpen(false)}

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { generateFutzyVoice } from './futzyVoice'
+import { chooseFutzyPick } from './futzyDecision'
 
 // Futzy — team + two players, Banker, All-or-Nothing, the Bonus Card, and
 // tier draft participation, all reasoned from the same xG/xA/fixture-
@@ -20,7 +21,11 @@ type PlayerRow = {
   chance_of_playing: number | null
   ep_next: number | null
   points_per_game: number | null
+  name: string | null
+  web_name: string | null
+  injury_news: string | null
 }
+type TeamRow = { id: number; name: string; short_name: string | null }
 
 // Calibrated against 1,140 real Premier League matches (2022-23 through
 // 2024-25, closing odds from football-data.co.uk, de-vigged into fair
@@ -99,6 +104,13 @@ export type BotPickReasoning = {
   top_players: { player_id: number; projected: number }[]
   all_or_nothing_player_id: number | null
   bonus_card_player_id: number | null
+  // Which of the top options actually got picked, and why — 'gemini' means
+  // an AI decision step chose among the maths' own shortlist (never outside
+  // it); 'maths' means it fell back to the plain top-projected combination,
+  // either because the AI step was skipped (a lookahead call, see
+  // useAiDecision below) or its response was missing/invalid.
+  decision_source: 'gemini' | 'maths'
+  gemini_reasoning: string | null
 }
 
 export type DerivedBotPick = {
@@ -122,13 +134,22 @@ export type DerivedBotPick = {
  * double-use team; player used max twice), read from Futzy's own
  * picks/tier_draft_picks history, same shape deriveAutopick already
  * establishes.
+ *
+ * useAiDecision (default true): whether to let Gemini choose among the
+ * maths' own top candidates for the TEAM/PLAYER pick specifically (see
+ * futzyDecision.ts) — always false for shouldPlayBanker's own lookahead
+ * calls below, which only need a projected TOTAL to compare gameweeks
+ * against each other, not a real decision, so there's no reason to spend
+ * an extra API call (or wait on one) for a hypothetical future week that
+ * may never actually get played out this way.
  */
 export async function deriveBotPick(
   supabase: SupabaseClient,
   botUserId: string,
   gameweekId: string,
   competitionId: string,
-  gameweekNumber: number
+  gameweekNumber: number,
+  useAiDecision: boolean = true
 ): Promise<DerivedBotPick | null> {
   const [
     { data: activeTeams },
@@ -144,11 +165,11 @@ export async function deriveBotPick(
     { data: aonExclusions },
     { data: existingBonusCardPlay },
   ] = await Promise.all([
-    supabase.from('teams').select('id').eq('active', true),
+    supabase.from('teams').select('id, name, short_name').eq('active', true),
     supabase.from('tier_assignments').select('team_id, tier').eq('competition_id', competitionId),
     supabase.from('competition_scoring_rules').select('result_type, quartile_diff, points').eq('competition_id', competitionId),
     supabase.from('player_scoring_rules').select('event_type, points').eq('competition_id', competitionId),
-    supabase.from('players').select('id, team_id, active, xg, xa, form, chance_of_playing, ep_next, points_per_game'),
+    supabase.from('players').select('id, team_id, active, xg, xa, form, chance_of_playing, ep_next, points_per_game, name, web_name, injury_news'),
     // Excludes THIS gameweek's own (possibly already-existing, from an
     // earlier day's cron run) pick — otherwise re-deriving the same
     // gameweek would count today's not-yet-overwritten row as a prior use
@@ -242,12 +263,58 @@ export async function deriveBotPick(
 
   if (playerCandidates.length < 2) return null
 
-  const chosenTeam = teamCandidates[0]
-  const player1 = playerCandidates[0]
+  // Pure maths default — always computed, since it's both the fallback AND
+  // what a lookahead call (useAiDecision: false) uses outright.
+  let chosenTeam = teamCandidates[0]
+  let player1 = playerCandidates[0]
   // Deliberately not preferring a different team for player2 (unlike
   // autopick's fallback default) — no game rule requires it, and forcing it
   // would de-optimise Futzy's whole point for no scoring reason.
-  const player2 = playerCandidates.find(p => p.player_id !== player1.player_id) ?? playerCandidates[1]
+  let player2 = playerCandidates.find(p => p.player_id !== player1.player_id) ?? playerCandidates[1]
+  let decisionSource: 'gemini' | 'maths' = 'maths'
+  let geminiReasoning: string | null = null
+
+  // --- AI decision step -------------------------------------------------
+  // Hands Gemini the maths' own top few candidates (never anything outside
+  // them — see futzyDecision.ts) and lets it choose the actual combination,
+  // weighing fitness/injury text the pure numbers can't interpret. Any
+  // failure (missing key, network, invalid response) silently keeps the
+  // maths default above untouched.
+  if (useAiDecision) {
+    const teamById = new Map(activeTeams.map(t => [t.id, t]))
+    const playerById = new Map(allPlayers.map(p => [p.id, p]))
+
+    const teamShortlist = teamCandidates.slice(0, 5).map(c => {
+      const t = teamById.get(c.team_id)
+      return { team_id: c.team_id, name: t?.short_name ?? t?.name ?? `Team ${c.team_id}`, projected: c.projected }
+    })
+    const playerShortlist = playerCandidates.slice(0, 10).map(c => {
+      const p = playerById.get(c.player_id)
+      const t = teamById.get(c.team_id)
+      return {
+        player_id: c.player_id,
+        name: p?.web_name || p?.name || `Player ${c.player_id}`,
+        team_name: t?.short_name ?? t?.name ?? `Team ${c.team_id}`,
+        projected: c.projected,
+        chance_of_playing: p?.chance_of_playing ?? null,
+        injury_news: p?.injury_news ?? null,
+      }
+    })
+
+    const decision = await chooseFutzyPick(teamShortlist, playerShortlist)
+    if (decision) {
+      const teamMatch = teamCandidates.find(c => c.team_id === decision.team_id)
+      const player1Match = playerCandidates.find(c => c.player_id === decision.player1_id)
+      const player2Match = playerCandidates.find(c => c.player_id === decision.player2_id)
+      if (teamMatch && player1Match && player2Match) {
+        chosenTeam = teamMatch
+        player1 = player1Match
+        player2 = player2Match
+        decisionSource = 'gemini'
+        geminiReasoning = decision.reasoning || null
+      }
+    }
+  }
 
   // --- All or Nothing -------------------------------------------------
   // Only ever nominates one of THIS week's two picks (same rule a human is
@@ -319,6 +386,8 @@ export async function deriveBotPick(
       top_players: playerCandidates.slice(0, 5).map(c => ({ player_id: c.player_id, projected: Math.round(c.projected * 100) / 100 })),
       all_or_nothing_player_id: aonPlayerId,
       bonus_card_player_id: bonusCardDecision?.player_id ?? null,
+      decision_source: decisionSource,
+      gemini_reasoning: geminiReasoning,
     },
   }
 }
@@ -403,7 +472,10 @@ async function shouldPlayBanker(
     .limit(4)
 
   for (const gw of futureGws ?? []) {
-    const futureDerived = await deriveBotPick(supabase, botUserId, gw.id, competitionId, gw.number)
+    // false: this only needs a projected TOTAL to compare against, not a
+    // real decision for a hypothetical future week — see deriveBotPick's
+    // own doc comment on useAiDecision.
+    const futureDerived = await deriveBotPick(supabase, botUserId, gw.id, competitionId, gw.number, false)
     if (futureDerived && futureDerived.reasoning.chosen.projected_total > thisWeekProjected) return false
   }
 
@@ -633,6 +705,8 @@ export async function runBotPickForGameweek(supabase: SupabaseClient, gameweekId
       banker: playBanker,
       all_or_nothing_player_id: derived.reasoning.all_or_nothing_player_id,
       bonus_card_player_id: derived.reasoning.bonus_card_player_id,
+      decision_source: derived.reasoning.decision_source,
+      gemini_reasoning: derived.reasoning.gemini_reasoning,
     },
   }, { onConflict: 'competition_id,gameweek_id' })
 

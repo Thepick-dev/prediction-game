@@ -126,9 +126,17 @@ export default async function FutzyPage() {
                     <p className="text-xs text-gray-500 mb-1">
                       {compName[log.competition_id] ?? 'Unknown competition'} — GW{gwNumber[log.gameweek_id] ?? '?'}
                     </p>
-                    <p className="text-sm font-medium mb-2">
+                    <p className="text-sm font-medium mb-1">
                       {teamName[log.chosen?.team_id] ?? '?'} · {playerName[log.chosen?.player1_id] ?? '?'} · {playerName[log.chosen?.player2_id] ?? '?'}
                       {' '}<span className="text-gray-400">(projected {log.chosen?.projected_total ?? '?'} pts)</span>
+                    </p>
+                    <p className="text-xs mb-2">
+                      <span className={`px-1.5 py-0.5 rounded ${log.candidates?.decision_source === 'gemini' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {log.candidates?.decision_source === 'gemini' ? '✨ Gemini chose this' : 'Top-projected pick (maths only)'}
+                      </span>
+                      {log.candidates?.gemini_reasoning && (
+                        <span className="text-gray-500 ml-2 italic">&ldquo;{log.candidates.gemini_reasoning}&rdquo;</span>
+                      )}
                     </p>
                     {(log.candidates?.banker || log.candidates?.all_or_nothing_player_id || log.candidates?.bonus_card_player_id) && (
                       <p className="text-xs text-gray-500 mb-2">
