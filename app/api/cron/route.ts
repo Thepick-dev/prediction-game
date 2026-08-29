@@ -1,6 +1,7 @@
 import { createAdminSupabaseClient } from '../../lib/supabase-admin'
 import { runAutopickForGameweek } from '../../lib/autopick'
 import { runBotPickForGameweek } from '../../lib/botPick'
+import { syncPlayers } from '../../lib/syncPlayers'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -14,6 +15,14 @@ export async function GET(request: Request) {
   // than one keyed to a cookie session that will never be present.
   const supabase = createAdminSupabaseClient()
   const now = new Date()
+
+  // Runs first, before Futzy's own pick derivation below — so his
+  // projections use whatever's freshest from today's run, not yesterday's.
+  // Deliberately here on the once-a-day cron rather than the frequent
+  // live-sync one (app/api/cron/live-sync): underlying xG/xA/form/injury
+  // data doesn't meaningfully change within a few minutes, so polling it
+  // that often would just be wasted FPL API calls and DB writes.
+  const playerSyncResult = await syncPlayers(supabase)
 
   // Futzy — re-derive and submit his pick for ONLY the single next
   // gameweek (deadline still ahead) in a bot_enabled competition, every
@@ -68,7 +77,7 @@ export async function GET(request: Request) {
     .lt('deadline', now.toISOString())
 
   if (!gameweeks || gameweeks.length === 0) {
-    return NextResponse.json({ success: true, message: 'No gameweeks to process', bot_results: botResults })
+    return NextResponse.json({ success: true, message: 'No gameweeks to process', player_sync: playerSyncResult, bot_results: botResults })
   }
 
   const results = []
@@ -94,5 +103,5 @@ export async function GET(request: Request) {
     results.push({ gameweek_id: gw.id, ...data })
   }
 
-  return NextResponse.json({ success: true, results, bot_results: botResults })
+  return NextResponse.json({ success: true, player_sync: playerSyncResult, results, bot_results: botResults })
 }

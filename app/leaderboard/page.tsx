@@ -85,7 +85,7 @@ export default function LeaderboardPage() {
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
   const [teamsExpandedUsers, setTeamsExpandedUsers] = useState<Set<string>>(new Set())
   const [pickDetails, setPickDetails] = useState<Record<string, PickDetail[]>>({})
-  const [allGameweeks, setAllGameweeks] = useState<{ id: string; number: number; deadline: string }[]>([])
+  const [allGameweeks, setAllGameweeks] = useState<{ id: string; number: number; deadline: string; status: string }[]>([])
   const [matchEvents, setMatchEvents] = useState<any[]>([])
   const [fixtureGwMap, setFixtureGwMap] = useState<Record<number, string>>({})
   const [allTeams, setAllTeams] = useState<Team[]>([])
@@ -823,6 +823,15 @@ export default function LeaderboardPage() {
   // Shared by both theme branches below.
   const showBonusCard = competition?.bonus_card_player_id != null
 
+  // Deadline's passed but not yet marked "completed" — the totals above
+  // already include a live preview for these (see the aggregation loop
+  // near the top of this file), and now that results/events sync
+  // automatically every few minutes during a live gameweek, that preview
+  // can genuinely move up or down as goals/assists get confirmed or
+  // corrected mid-match, not just once after full time. Surfaced here so
+  // that's expected, not alarming.
+  const liveGameweekNumbers = allGameweeks.filter(g => g.status === 'locked').map(g => g.number)
+
   if (popArt) {
     return (
       <>
@@ -849,6 +858,15 @@ export default function LeaderboardPage() {
               </div>
             </div>
             <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name}</p>
+
+            {liveGameweekNumbers.length > 0 && (
+              <div className="pop-panel pop-panel--blue p-3 mb-4 flex items-center gap-2.5">
+                <span className="inline-block rounded-full shrink-0" style={{ width: 8, height: 8, background: 'var(--pop-blue)' }} />
+                <p className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                  <strong style={{ color: 'var(--pop-blue)' }}>GW{liveGameweekNumbers.join(', ')} live</strong> — points below update automatically as goals and assists are confirmed, and can go up or down if something gets corrected. Final once the gameweek's marked complete.
+                </p>
+              </div>
+            )}
 
             <div className="pop-panel" style={{ overflow: 'hidden' }}>
               {/* Deliberately just rank, player and total — everything else
