@@ -14,6 +14,7 @@ import PopArtLoading from '../../components/PopArtLoading'
 import PenaltyShootout from '../../components/PenaltyShootout'
 import { BoltIcon } from '../../components/icons'
 import { QUARTILE_RING_COLORS } from '../lib/quartileColors'
+import LiveGameweekTable from './LiveGameweekTable'
 
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null }
 type Player = { id: number; name: string; web_name: string | null; team_id: number; value: number | null; active: boolean | null; xg: number | null; xa: number | null; form: number | null }
@@ -382,14 +383,34 @@ export default function PicksPage() {
     // which must never be offered for picking even though it's the
     // earliest non-locked gameweek — the deadline being in the future
     // doesn't mean quartiles/fixtures have been reviewed and frozen yet.
-    const { data: gw } = await supabase
+    const { data: openGw } = await supabase
       .from('gameweeks')
       .select('id, number, deadline, status')
       .eq('competition_id', comp.id)
       .eq('status', 'open')
       .order('deadline', { ascending: true })
       .limit(1)
-      .single()
+      .maybeSingle()
+
+    // Falls back to the most recently locked gameweek when there's no
+    // open one — since gameweeks now auto-lock within minutes of their
+    // deadline (not just once a day), that's the normal in-between state
+    // most of the time, not a rare edge case, and it's exactly when the
+    // live "how's everyone doing" table below is most worth showing.
+    // Never falls back to a "completed" one — that has its own full,
+    // final view on Results/Leaderboard instead.
+    let gw = openGw
+    if (!gw) {
+      const { data: lockedGw } = await supabase
+        .from('gameweeks')
+        .select('id, number, deadline, status')
+        .eq('competition_id', comp.id)
+        .eq('status', 'locked')
+        .order('deadline', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      gw = lockedGw
+    }
 
     setGameweek(gw)
     if (gw) setDeadlinePassed(new Date() > new Date(gw.deadline))
@@ -1035,8 +1056,20 @@ export default function PicksPage() {
                 </p>
               </div>
             ) : deadlinePassed ? (
-              <div className="pop-panel pop-panel--blue p-6 text-center">
-                <p className="pop-headline text-2xl">Locked — See You Next Gameweek!</p>
+              <div>
+                <div className="pop-panel pop-panel--blue p-6 text-center mb-4">
+                  <p className="pop-headline text-2xl">Locked — See You Next Gameweek!</p>
+                </div>
+                {gameweek && competition && (
+                  <LiveGameweekTable
+                    competitionId={competition.id}
+                    competitionName={competition.name}
+                    gameweekId={gameweek.id}
+                    gameweekNumber={gameweek.number}
+                    gameweekStatus={gameweek.status}
+                    currentUserId={user?.id}
+                  />
+                )}
               </div>
             ) : (
               <>
