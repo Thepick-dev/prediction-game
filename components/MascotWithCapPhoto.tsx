@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 // The full mascot with a real player photo patched onto the front of the
 // cap. Deliberately layered in code rather than baked into logo.png itself
@@ -16,7 +16,17 @@ import { useState, useCallback } from 'react'
 export default function MascotWithCapPhoto({ className, style }: { className?: string; style?: React.CSSProperties }) {
   const [logoLoaded, setLogoLoaded] = useState(false)
   const [photoLoaded, setPhotoLoaded] = useState(false)
-  const ready = logoLoaded && photoLoaded
+  const [forceShow, setForceShow] = useState(false)
+  const ready = (logoLoaded && photoLoaded) || forceShow
+
+  // This is a loading screen — it must never be the thing that gets stuck.
+  // A slow connection or a genuinely broken image (this has happened once
+  // already, from an oversized file) would otherwise leave it invisible
+  // forever, since opacity only ever turns on once both images fire onLoad.
+  useEffect(() => {
+    const timeout = setTimeout(() => setForceShow(true), 3000)
+    return () => clearTimeout(timeout)
+  }, [])
 
   // Ref callbacks, not just onLoad — a browser-cached image (the normal
   // case after someone's first visit) can already be .complete the instant

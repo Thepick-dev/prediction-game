@@ -239,15 +239,18 @@ export default function StatsHubPage() {
       }))
 
       // --- Team stats ---
+      // Totals here are the actual points a pick of this team earned,
+      // Banker doubling included — not the pre-doubling raw score — so
+      // this matches what everyone actually won, made explicit in the
+      // column header below rather than silently stripped back out.
       const teamAgg: Record<number, { picked: number; banked: number; total: number }> = {}
       points?.forEach(pt => {
         const pick = pickById[pt.pick_id]
         if (!pick) return
         const isBanker = (pt.breakdown as any)?.is_banker === true
-        const raw = isBanker ? (pt.team_points ?? 0) / 2 : (pt.team_points ?? 0)
         if (!teamAgg[pick.team_id]) teamAgg[pick.team_id] = { picked: 0, banked: 0, total: 0 }
         teamAgg[pick.team_id].picked += 1
-        teamAgg[pick.team_id].total += raw
+        teamAgg[pick.team_id].total += pt.team_points ?? 0
         if (isBanker) teamAgg[pick.team_id].banked += 1
       })
       const teamStatList: TeamStat[] = Object.entries(teamAgg)
@@ -270,14 +273,14 @@ export default function StatsHubPage() {
         if (e.event_type === 'assist') assistCount[e.player_id] = (assistCount[e.player_id] ?? 0) + 1
       })
 
+      // Same reasoning as team totals above — the actual (Banker-doubled
+      // where applicable) points a pick of this player earned, not the
+      // stripped-back raw score.
       const playerPickAgg: Record<number, { picked: number; total: number }> = {}
       points?.forEach(pt => {
         const pick = pickById[pt.pick_id]
         if (!pick) return
-        const isBanker = (pt.breakdown as any)?.is_banker === true
-        const p1 = isBanker ? (pt.player1_points ?? 0) / 2 : (pt.player1_points ?? 0)
-        const p2 = isBanker ? (pt.player2_points ?? 0) / 2 : (pt.player2_points ?? 0)
-        ;[[pick.player1_id, p1], [pick.player2_id, p2]].forEach(([pid, val]) => {
+        ;[[pick.player1_id, pt.player1_points ?? 0], [pick.player2_id, pt.player2_points ?? 0]].forEach(([pid, val]) => {
           const playerId = pid as number
           if (!playerPickAgg[playerId]) playerPickAgg[playerId] = { picked: 0, total: 0 }
           playerPickAgg[playerId].picked += 1
@@ -537,7 +540,7 @@ export default function StatsHubPage() {
           {tab === 'teams' && (
             <div>
               <div className="pop-panel p-4 mb-4" style={{ height: 260 }}>
-                <p className="sec-label">Top Teams by Points</p>
+                <p className="sec-label">Top Teams by Points (inc. Banker)</p>
                 <ResponsiveContainer width="100%" height="90%">
                   <BarChart data={teamStats.slice(0, 10).map(t => ({ name: teamDisplayName(t.team), points: t.totalPoints }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
@@ -556,6 +559,7 @@ export default function StatsHubPage() {
                 onChange={e => setTeamSearch(e.target.value)}
                 className="pop-input w-full mb-3 px-3 py-2 text-sm font-bold"
               />
+              <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>Points below include any Banker doubling.</p>
 
               <div className="pop-panel" style={{ overflow: 'hidden', overflowX: 'auto' }}>
                 <table className="w-full" style={{ fontSize: '12px' }}>
@@ -595,7 +599,7 @@ export default function StatsHubPage() {
           {tab === 'players' && (
             <div>
               <div className="pop-panel p-4 mb-4" style={{ height: 260 }}>
-                <p className="sec-label">Top Players by Points</p>
+                <p className="sec-label">Top Players by Points (inc. Banker)</p>
                 <ResponsiveContainer width="100%" height="90%">
                   <BarChart data={playerStats.slice(0, 12).map(p => ({ name: p.displayName, points: p.totalPickPoints }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
@@ -614,6 +618,7 @@ export default function StatsHubPage() {
                 onChange={e => setPlayerSearch(e.target.value)}
                 className="pop-input w-full mb-3 px-3 py-2 text-sm font-bold"
               />
+              <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>Points below include any Banker doubling.</p>
 
               <div className="pop-panel" style={{ overflow: 'hidden', overflowX: 'auto' }}>
                 <table className="w-full" style={{ fontSize: '12px' }}>
@@ -832,7 +837,7 @@ export default function StatsHubPage() {
           {tab === 'teams' && (
             <div>
               <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4" style={{ height: 260 }}>
-                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Top Teams by Points</p>
+                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Top Teams by Points (inc. Banker)</p>
                 <ResponsiveContainer width="100%" height="90%">
                   <BarChart data={teamStats.slice(0, 10).map(t => ({ name: teamDisplayName(t.team), points: t.totalPoints }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
@@ -851,6 +856,7 @@ export default function StatsHubPage() {
                 onChange={e => setTeamSearch(e.target.value)}
                 className="w-full mb-3 bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-[#F5ECD9] placeholder:text-[#F5ECD9]/30 focus:outline-none focus:border-[#D9A441]/50"
               />
+              <p className="text-xs mb-2 text-[#F5ECD9]/40">Points below include any Banker doubling.</p>
 
               <div className="bg-white/5 border border-white/10 rounded-lg overflow-hidden overflow-x-auto">
                 <table className="w-full" style={{ fontSize: '12px' }}>
@@ -890,7 +896,7 @@ export default function StatsHubPage() {
           {tab === 'players' && (
             <div>
               <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4" style={{ height: 260 }}>
-                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Top Players by Points</p>
+                <p className="text-xs uppercase tracking-wider text-[#F5ECD9]/50 mb-2 font-bold">Top Players by Points (inc. Banker)</p>
                 <ResponsiveContainer width="100%" height="90%">
                   <BarChart data={playerStats.slice(0, 12).map(p => ({ name: p.displayName, points: p.totalPickPoints }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
@@ -909,6 +915,7 @@ export default function StatsHubPage() {
                 onChange={e => setPlayerSearch(e.target.value)}
                 className="w-full mb-3 bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-[#F5ECD9] placeholder:text-[#F5ECD9]/30 focus:outline-none focus:border-[#D9A441]/50"
               />
+              <p className="text-xs mb-2 text-[#F5ECD9]/40">Points below include any Banker doubling.</p>
 
               <div className="bg-white/5 border border-white/10 rounded-lg overflow-hidden overflow-x-auto">
                 <table className="w-full" style={{ fontSize: '12px' }}>
