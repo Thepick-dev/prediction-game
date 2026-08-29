@@ -42,12 +42,19 @@ const aonLabel = { pending: 'AoN', success: 'AoN ✓', failed: 'AoN ✕' } as co
 // (no pick, or the preview call failed), matching the header's own total.
 function PtsPill({ value, doubled }: { value: number | null; doubled?: boolean }) {
   return (
-    <span className="font-mono font-black shrink-0 whitespace-nowrap" style={{ fontSize: '12px', color: value === null ? 'rgba(255,255,255,0.3)' : value > 0 ? 'var(--pop-green)' : 'rgba(255,255,255,0.4)' }}>
+    <span className="font-mono font-black whitespace-nowrap" style={{ fontSize: '12px', textAlign: 'right', color: value === null ? 'rgba(255,255,255,0.3)' : value > 0 ? 'var(--pop-green)' : 'rgba(255,255,255,0.4)' }}>
       {value === null ? '—' : `${value > 0 ? '+' : ''}${value}`}
       {doubled && value !== null && <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}> ×2</span>}
     </span>
   )
 }
+
+// Every item row (team/player1/player2/bonus card) uses this same two-
+// column grid — a fixed-width points column on the right, everything else
+// truncating into the remaining space on the left — so points always line
+// up in the same place regardless of how long a name or badge combo runs,
+// instead of drifting around depending on each row's own content width.
+const ITEM_GRID_STYLE = { display: 'grid', gridTemplateColumns: '1fr 58px', columnGap: '8px', alignItems: 'center' } as const
 
 // A mobile-native "how's everyone doing right now" view for a locked/live
 // gameweek — deliberately NOT the ResultsGrid ticket (that one's fixed-width
@@ -359,43 +366,43 @@ export default function LiveGameweekTable({
                   </span>
                 )}
               </div>
-              <div className="font-mono font-black shrink-0 whitespace-nowrap" style={{ fontSize: '13px' }}>
-                <span style={{ color: 'var(--pop-green)' }}>{row.weeklyPoints ?? '—'}</span>
-                <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}> this wk</span>
-                <span style={{ color: 'rgba(255,255,255,0.3)' }}> · </span>
-                <span style={{ color: 'rgba(255,255,255,0.55)' }}>{row.cumulativeTotal}</span>
-                <span style={{ fontSize: '9px', fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}> total</span>
+              <div className="flex items-baseline gap-1 shrink-0 flex-wrap justify-end">
+                <span className="font-mono font-black" style={{ fontSize: '21px', color: 'var(--pop-green)' }}>{row.weeklyPoints ?? '—'}</span>
+                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>this wk</span>
+                <span style={{ color: 'rgba(255,255,255,0.25)' }}>·</span>
+                <span className="font-mono font-black" style={{ fontSize: '17px', color: '#FFFFFF' }}>{row.cumulativeTotal}</span>
+                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>total</span>
               </div>
             </div>
 
             <div className="flex flex-col gap-px" style={{ fontSize: '11px' }}>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-bold uppercase truncate" style={{ background: 'rgba(0,242,250,0.12)', color: 'var(--pop-blue)' }}>
+              <div style={ITEM_GRID_STYLE}>
+                <span className="inline-flex items-center gap-1 min-w-0 px-1.5 py-0.5 rounded font-bold uppercase" style={{ background: 'rgba(0,242,250,0.12)', color: 'var(--pop-blue)' }}>
                   <TeamCrest teamId={row.teamId} teamName={row.team} size={14} />
-                  {row.team}
+                  <span className="truncate">{row.team}</span>
                 </span>
                 <PtsPill value={row.teamPoints} doubled={row.isBanker} />
               </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="uppercase font-bold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                  {row.player1Name}
-                  {row.player1Goal && <span className="ml-0.5 px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
-                  {row.player1Assist && <span className="ml-0.5 px-1 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
-                  {row.aon?.onPlayer1 && <span className="ml-0.5 px-1 rounded font-black" style={{ background: aonBg[row.aon.outcome], color: row.aon.outcome === 'success' ? '#0A0A0A' : '#fff' }}>{aonLabel[row.aon.outcome]}</span>}
+              <div style={ITEM_GRID_STYLE}>
+                <span className="flex items-center gap-1 min-w-0">
+                  <span className="uppercase font-bold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{row.player1Name}</span>
+                  {row.player1Goal && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
+                  {row.player1Assist && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                  {row.aon?.onPlayer1 && <span className="shrink-0 px-1 rounded font-black" style={{ background: aonBg[row.aon.outcome], color: row.aon.outcome === 'success' ? '#0A0A0A' : '#fff' }}>{aonLabel[row.aon.outcome]}</span>}
                 </span>
                 <PtsPill value={row.player1Points} doubled={row.isBanker} />
               </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="uppercase font-bold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                  {row.player2Name}
-                  {row.player2Goal && <span className="ml-0.5 px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
-                  {row.player2Assist && <span className="ml-0.5 px-1 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
-                  {row.aon?.onPlayer2 && <span className="ml-0.5 px-1 rounded font-black" style={{ background: aonBg[row.aon.outcome], color: row.aon.outcome === 'success' ? '#0A0A0A' : '#fff' }}>{aonLabel[row.aon.outcome]}</span>}
+              <div style={ITEM_GRID_STYLE}>
+                <span className="flex items-center gap-1 min-w-0">
+                  <span className="uppercase font-bold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{row.player2Name}</span>
+                  {row.player2Goal && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
+                  {row.player2Assist && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                  {row.aon?.onPlayer2 && <span className="shrink-0 px-1 rounded font-black" style={{ background: aonBg[row.aon.outcome], color: row.aon.outcome === 'success' ? '#0A0A0A' : '#fff' }}>{aonLabel[row.aon.outcome]}</span>}
                 </span>
                 <PtsPill value={row.player2Points} doubled={row.isBanker} />
               </div>
               {row.bonusCard && (
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div style={ITEM_GRID_STYLE}>
                   <span className="px-1.5 py-0.5 rounded font-black uppercase truncate" style={{ background: 'rgba(160,0,250,0.2)', color: 'var(--pop-pink)' }}>
                     🎴 {bonusCardName ?? 'Bonus Card'}: {row.bonusCard.playerName}
                   </span>
