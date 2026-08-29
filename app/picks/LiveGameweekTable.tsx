@@ -299,41 +299,44 @@ export default function LiveGameweekTable({
       </div>
       {shareError && <p className="text-xs mb-2" style={{ color: 'var(--pop-red)' }}>{shareError}</p>}
 
-      <div ref={gridRef} className="rounded-2xl p-3 sm:p-4 space-y-2" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div ref={gridRef} className="rounded-2xl p-3 sm:p-4 space-y-1.5" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
         {rows.map((row, i) => (
           <div
             key={row.userId}
-            className="rounded-xl p-2.5 sm:p-3"
+            className="rounded-xl p-2 sm:p-2.5"
             style={{
               background: row.isOwnRow ? 'rgba(160,0,250,0.1)' : 'rgba(255,255,255,0.03)',
               border: row.isOwnRow ? '1px solid rgba(160,0,250,0.4)' : '1px solid rgba(255,255,255,0.06)',
             }}
           >
-            <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
-              <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+              <div className="flex items-center gap-1.5 min-w-0">
                 <span className="font-mono font-black shrink-0" style={{ color: 'rgba(255,255,255,0.35)', fontSize: '12px' }}>{i + 1}</span>
                 <span className="shrink-0">
                   {row.isBot ? <BotAvatar size={24} /> : <KitBadge pattern={row.kit?.pattern ?? 'solid'} colour1={row.kit?.colour1 ?? '#1E4D6B'} colour2={row.kit?.colour2 ?? '#F5ECD9'} colour3={row.kit?.colour3} size={24} />}
                 </span>
                 <span className="font-black uppercase truncate" style={{ fontSize: '13px' }}>{row.name}</span>
                 {row.isAutopick && <span className="px-1 py-0.5 rounded font-black shrink-0" style={{ fontSize: '9px', background: 'rgba(255,255,255,0.15)' }} title="Autopicked">AP</span>}
+                {row.isBanker && (
+                  <span className="px-1 py-0.5 rounded font-black shrink-0" style={{ fontSize: '9px', background: 'rgba(255,209,0,0.2)', color: '#FFD100' }} title="Banker — everything below is doubled: team, both players">
+                    ★ BANKER ×2 EVERYTHING
+                  </span>
+                )}
               </div>
-              <div className="text-right shrink-0">
-                <div className="font-mono font-black" style={{ fontSize: '18px', color: 'var(--pop-green)' }}>
-                  {row.weeklyPoints ?? '—'} <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>this wk</span>
-                </div>
-                <div className="font-mono font-black" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)' }}>
-                  {row.cumulativeTotal} <span style={{ fontSize: '9px', fontWeight: 700 }}>total</span>
-                </div>
+              <div className="font-mono font-black shrink-0 whitespace-nowrap" style={{ fontSize: '13px' }}>
+                <span style={{ color: 'var(--pop-green)' }}>{row.weeklyPoints ?? '—'}</span>
+                <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}> this wk</span>
+                <span style={{ color: 'rgba(255,255,255,0.3)' }}> · </span>
+                <span style={{ color: 'rgba(255,255,255,0.55)' }}>{row.cumulativeTotal}</span>
+                <span style={{ fontSize: '9px', fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}> total</span>
               </div>
             </div>
 
-            <div className="space-y-1" style={{ fontSize: '11px' }}>
+            <div className="space-y-0.5" style={{ fontSize: '11px' }}>
               <div className="flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-bold uppercase truncate" style={{ background: 'rgba(0,242,250,0.12)', color: 'var(--pop-blue)' }}>
                   <TeamCrest teamId={row.teamId} teamName={row.team} size={14} />
                   {row.team}
-                  {row.isBanker && <span className="ml-0.5" title="Banker — points doubled">★ Banker</span>}
                 </span>
                 <PtsPill value={row.teamPoints} doubled={row.isBanker} />
               </div>

@@ -201,6 +201,7 @@ export default function PicksPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [competition, setCompetition] = useState<any>(null)
   const [gameweek, setGameweek] = useState<Gameweek | null>(null)
+  const [nextGameweek, setNextGameweek] = useState<Gameweek | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [players, setPlayers] = useState<Player[]>([])
   const [playerReactions, setPlayerReactions] = useState<Record<number, { type: 'emoji' | 'text'; content: string }>>({})
@@ -414,6 +415,20 @@ export default function PicksPage() {
 
     setGameweek(gw)
     if (gw) setDeadlinePassed(new Date() > new Date(gw.deadline))
+
+    // Its own isolated query, same reasoning as elsewhere on this page — only
+    // used to tell the player when the NEXT gameweek opens up while they're
+    // looking at the locked/live view of the current one, so a problem here
+    // must never be able to take the rest of the page down with it.
+    const { data: upcomingGw } = await supabase
+      .from('gameweeks')
+      .select('id, number, deadline, status')
+      .eq('competition_id', comp.id)
+      .eq('status', 'upcoming')
+      .order('deadline', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    setNextGameweek(upcomingGw ?? null)
 
     // Its own isolated query, same reasoning as everywhere else on this
     // page — a brand new, optional feature, so a problem reading it must
@@ -1033,8 +1048,13 @@ export default function PicksPage() {
                 <div>
                   <p className="pop-headline text-2xl sm:text-3xl mb-0.5">GW{gameweek.number}</p>
                   <p className="font-black text-xs uppercase">
-                    {deadlinePassed ? 'Deadline passed' : hasPick ? 'Pick submitted!' : 'Pick required!'}
+                    {deadlinePassed ? 'Locked — see you next gameweek!' : hasPick ? 'Pick submitted!' : 'Pick required!'}
                   </p>
+                  {deadlinePassed && nextGameweek && (
+                    <p className="font-bold text-xs mt-1" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                      GW{nextGameweek.number} deadline: {new Date(nextGameweek.deadline).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}
+                    </p>
+                  )}
                 </div>
                 {!deadlinePassed && <CountdownClock time={countdown} theme="pop-art" />}
               </div>
@@ -1056,21 +1076,16 @@ export default function PicksPage() {
                 </p>
               </div>
             ) : deadlinePassed ? (
-              <div>
-                <div className="pop-panel pop-panel--blue p-6 text-center mb-4">
-                  <p className="pop-headline text-2xl">Locked — See You Next Gameweek!</p>
-                </div>
-                {gameweek && competition && (
-                  <LiveGameweekTable
-                    competitionId={competition.id}
-                    competitionName={competition.name}
-                    gameweekId={gameweek.id}
-                    gameweekNumber={gameweek.number}
-                    gameweekStatus={gameweek.status}
-                    currentUserId={user?.id}
-                  />
-                )}
-              </div>
+              gameweek && competition && (
+                <LiveGameweekTable
+                  competitionId={competition.id}
+                  competitionName={competition.name}
+                  gameweekId={gameweek.id}
+                  gameweekNumber={gameweek.number}
+                  gameweekStatus={gameweek.status}
+                  currentUserId={user?.id}
+                />
+              )
             ) : (
               <>
                 <p className="pop-headline text-2xl sm:text-3xl mb-2 sm:mb-3">Pick Your Team</p>
