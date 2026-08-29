@@ -447,16 +447,24 @@ thead th {
   100% { transform: rotate(360deg) scale(1); }
 }
 
-/* Loading-screen badge — a single quick confident flash on arrival, not a
-   loop. An infinite breathing pulse reads as "still working very hard"
-   the longer a page takes to load, which is exactly backwards — this
-   plays once (~0.5s) then holds still, so the mark feels instant
-   regardless of how long the data underneath actually takes.
-   `forwards` keeps it sitting at the animation's own resting frame
-   afterwards, rather than snapping back to no-transform/no-glow the
-   instant it ends — that snap-back read as a glitch, not a clean stop. */
+/* Loading-screen badge — a quick confident bounce-in (0.3s, plays once,
+   holds at scale 1 — `forwards` on this one only) with a separate, gentle
+   glow that keeps breathing underneath it the whole time the page is
+   loading. Two different properties (transform vs filter), two different
+   animations, so the bounce can be a one-shot while the glow never fully
+   stops — a dead-still badge read as "frozen"/broken the longer a page
+   took, even though the earlier one-shot-then-hold version was already an
+   improvement over the original slow 1.3s breathing loop. This keeps it
+   visibly alive without going back to that slow, heavy pulse. */
 .pop-logo-pulse {
-  animation: pop-logo-pulse 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+  animation:
+    pop-logo-bounce-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards,
+    pop-logo-idle-glow 1.6s ease-in-out 0.3s infinite;
+}
+
+@keyframes pop-logo-bounce-in {
+  0% { transform: scale(0.7); }
+  100% { transform: scale(1); }
 }
 
 /* Deliberately kept pink here, not the new primary purple used everywhere
@@ -465,10 +473,9 @@ thead th {
    of the palette swap, and the purple glow was clashing with them. Revert
    to rgba(160, 0, 250, ...) to match the rest of the theme if the mascot
    art itself is ever repainted to suit the new palette. */
-@keyframes pop-logo-pulse {
-  0% { transform: scale(0.75); filter: drop-shadow(0 0 0 rgba(213, 0, 109, 0)); }
-  60% { transform: scale(1.08); filter: drop-shadow(0 0 30px rgba(213, 0, 109, 0.8)); }
-  100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(213, 0, 109, 0.35)); }
+@keyframes pop-logo-idle-glow {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(213, 0, 109, 0.3)); }
+  50% { filter: drop-shadow(0 0 20px rgba(213, 0, 109, 0.65)); }
 }
 
 /* Penalty shootout aim marker — sweeps the width of the track and back.
