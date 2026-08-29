@@ -195,6 +195,49 @@ export default function StatsHubPage() {
       const pickById: Record<string, { user_id: string; team_id: number; player1_id: number; player2_id: number; is_banker: boolean; is_autopick: boolean; gameweek_id: string }> = {}
       picks?.forEach(p => { pickById[p.id] = p })
 
+      // The `points` table only gets written once an admin marks a gameweek
+      // "completed" (or runs Recalculate Points) — nothing fills it in as
+      // events come in live. Without this, anyone picked only in a still-
+      // live gameweek (e.g. scored last night, gameweek not yet completed)
+      // is invisible on this whole page until it's finalised — same gap
+      // already fixed on the Leaderboard and the Picks page's live table.
+      // previewGameweekScoring itself refuses anything before its deadline,
+      // so this is safe to call unconditionally for every gameweek here.
+      const previewGameweeks = (gameweeks ?? []).filter(g =>
+        new Date(g.deadline) < new Date() && g.status !== 'completed'
+      )
+      const realPickKeys = new Set(picks.map(p => `${p.user_id}-${p.gameweek_id}`))
+      await Promise.all(previewGameweeks.map(async gw => {
+        try {
+          const [previewRes, scoringPreviewRes] = await Promise.all([
+            fetch(`/api/autopick/preview?gameweek_id=${gw.id}`),
+            fetch(`/api/scoring/preview?gameweek_id=${gw.id}`),
+          ])
+          const previewData = await previewRes.json()
+          Object.entries(previewData.previews ?? {}).forEach(([userId, p]: [string, any]) => {
+            if (!activeUserIds.has(userId) || realPickKeys.has(`${userId}-${gw.id}`)) return
+            const previewPickId = `preview-${userId}`
+            pickById[previewPickId] = {
+              user_id: userId, team_id: p.team_id, player1_id: p.player1_id, player2_id: p.player2_id,
+              is_banker: false, is_autopick: true, gameweek_id: gw.id,
+            }
+            pastDeadlinePicks.push({
+              id: previewPickId, user_id: userId, gameweek_id: gw.id, team_id: p.team_id,
+              player1_id: p.player1_id, player2_id: p.player2_id, is_banker: false, is_autopick: true,
+            })
+          })
+
+          const scoringData = await scoringPreviewRes.json()
+          ;(scoringData.rows ?? []).forEach((row: any) => {
+            if (activeUserIds.has(row.user_id)) points.push(row)
+          })
+        } catch {
+          // A problem previewing one still-live gameweek must never take the
+          // rest of this page down — worst case, its numbers stay stale
+          // until that gameweek is completed for real.
+        }
+      }))
+
       // --- Team stats ---
       const teamAgg: Record<number, { picked: number; banked: number; total: number }> = {}
       points?.forEach(pt => {
