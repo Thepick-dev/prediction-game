@@ -1,6 +1,7 @@
 import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { syncEventsForGameweek } from '../../../lib/syncEvents'
 import { syncResults } from '../../../lib/syncResults'
+import { lockOverdueGameweeks } from '../../../lib/lockGameweeks'
 import { NextResponse } from 'next/server'
 
 // Meant to be hit every few minutes by an external scheduler (Vercel's own
@@ -8,11 +9,13 @@ import { NextResponse } from 'next/server'
 // was built for), so a live gameweek's goals/assists/scores stay current
 // without an admin manually clicking "Sync Results"/"Sync from FPL" during
 // a match. Deliberately its own route rather than folding into /api/cron —
-// that one only ever runs once a day and does unrelated things (locking
-// gameweeks, autopicks, Futzy, player data refresh); this needs a much
-// tighter interval and should only ever touch live-match data, nothing
-// that changes slowly (see /api/cron for why player sync lives there
-// instead, not here).
+// that one only ever runs once a day and does unrelated things (Futzy,
+// player data refresh); this needs a much tighter interval. Locking an
+// overdue gameweek is the one exception shared with the daily cron (see
+// lockGameweeks.ts) — a deadline passing is exactly the kind of thing this
+// frequent cron exists for, so a gameweek locks (and autopicks) within
+// minutes rather than waiting up to 24 hours for the daily run, which
+// stays as a safety net if this one ever stops running.
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -22,9 +25,11 @@ export async function GET(request: Request) {
   const supabase = createAdminSupabaseClient()
   const now = new Date()
 
+  const lockResults = await lockOverdueGameweeks(supabase)
+
   const { data: comp } = await supabase.from('competitions').select('id').eq('status', 'active').single()
   if (!comp) {
-    return NextResponse.json({ success: true, message: 'No active competition', results: [] })
+    return NextResponse.json({ success: true, message: 'No active competition', lockResults, results: [] })
   }
 
   // Same "still live" definition already used by the Leaderboard's own
@@ -39,7 +44,7 @@ export async function GET(request: Request) {
     .neq('status', 'completed')
 
   if (!gameweeks || gameweeks.length === 0) {
-    return NextResponse.json({ success: true, message: 'No live gameweek right now', results: [] })
+    return NextResponse.json({ success: true, message: 'No live gameweek right now', lockResults, results: [] })
   }
 
   // Not gameweek-scoped (football-data.org just returns "everything
@@ -57,5 +62,5 @@ export async function GET(request: Request) {
     results.push({ gameweek_id: gw.id, gameweek_number: gw.number, ...result })
   }
 
-  return NextResponse.json({ success: true, resultsSync, results })
+  return NextResponse.json({ success: true, lockResults, resultsSync, results })
 }

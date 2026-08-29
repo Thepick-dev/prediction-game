@@ -1,7 +1,7 @@
 import { createAdminSupabaseClient } from '../../lib/supabase-admin'
-import { runAutopickForGameweek } from '../../lib/autopick'
 import { runBotPickForGameweek } from '../../lib/botPick'
 import { syncPlayers } from '../../lib/syncPlayers'
+import { lockOverdueGameweeks } from '../../lib/lockGameweeks'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -69,39 +69,11 @@ export async function GET(request: Request) {
   // Catch any gameweek whose deadline has passed and hasn't been locked
   // yet — not just ones that passed in a narrow recent window. This means
   // a gameweek can never be missed, even if the cron job doesn't run for
-  // a day or two, or a deadline falls at an awkward time.
-  const { data: gameweeks } = await supabase
-    .from('gameweeks')
-    .select('id, competition_id, deadline, status, number')
-    .in('status', ['open', 'upcoming'])
-    .lt('deadline', now.toISOString())
-
-  if (!gameweeks || gameweeks.length === 0) {
-    return NextResponse.json({ success: true, message: 'No gameweeks to process', player_sync: playerSyncResult, bot_results: botResults })
-  }
-
-  const results = []
-
-  for (const gw of gameweeks) {
-    await supabase
-      .from('gameweeks')
-      .update({ status: 'locked' })
-      .eq('id', gw.id)
-
-    // Once the very first gameweek's deadline passes for a competition,
-    // permanently lock every player's tier draft picks so double-use
-    // team selections can no longer be changed for the rest of the season.
-    if (gw.number === 1) {
-      await supabase
-        .from('tier_draft_picks')
-        .update({ locked: true })
-        .eq('competition_id', gw.competition_id)
-        .eq('locked', false)
-    }
-
-    const data = await runAutopickForGameweek(supabase, gw.id)
-    results.push({ gameweek_id: gw.id, ...data })
-  }
+  // a day or two, or a deadline falls at an awkward time. Kept here as a
+  // safety net even though the frequent live-sync cron now also does this
+  // (see lockGameweeks.ts) — this is what still catches it if that one
+  // ever stops running for some reason.
+  const results = await lockOverdueGameweeks(supabase)
 
   return NextResponse.json({ success: true, player_sync: playerSyncResult, results, bot_results: botResults })
 }
