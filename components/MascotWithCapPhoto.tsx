@@ -1,7 +1,3 @@
-'use client'
-
-import { useState, useCallback, useEffect } from 'react'
-
 // The full mascot with a real player photo patched onto the front of the
 // cap. Deliberately layered in code rather than baked into logo.png itself
 // — swapping in a different player is just replacing the one file at
@@ -9,60 +5,28 @@ import { useState, useCallback, useEffect } from 'react'
 // the full-screen loading animation, never the small header logo (see
 // PopArtLoading.tsx) — that split is intentional, not an oversight.
 //
-// The two images load independently over the network, so without this
-// they'd pop in one at a time (whichever finishes downloading first) —
-// visibly un-smooth on a slower connection. Held at opacity 0 until BOTH
-// have actually loaded, then faded in together as one composite.
+// Renders immediately, unconditionally — both images are small and
+// preloaded (see app/layout.tsx's <link rel="preload">), so there's no
+// good reason to hide the mascot behind an "onLoad" gate. An earlier
+// version did exactly that (opacity 0 until both images fired onLoad),
+// which meant the bounce-in CSS animation — its clock starts the instant
+// this div mounts, whether visible or not — was often already partway
+// through its cycle by the time the gate lifted: a clipped, awkward pop
+// instead of a clean bounce. Simpler and faster to just show it.
 export default function MascotWithCapPhoto({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  const [logoLoaded, setLogoLoaded] = useState(false)
-  const [photoLoaded, setPhotoLoaded] = useState(false)
-  const [forceShow, setForceShow] = useState(false)
-  const ready = (logoLoaded && photoLoaded) || forceShow
-
-  // This is a loading screen — it must never be the thing that gets stuck.
-  // A slow connection or a genuinely broken image (this has happened once
-  // already, from an oversized file) would otherwise leave it invisible
-  // forever, since opacity only ever turns on once both images fire onLoad.
-  useEffect(() => {
-    const timeout = setTimeout(() => setForceShow(true), 3000)
-    return () => clearTimeout(timeout)
-  }, [])
-
-  // Ref callbacks, not just onLoad — a browser-cached image (the normal
-  // case after someone's first visit) can already be .complete the instant
-  // it mounts, before React ever attaches the onLoad listener, which would
-  // otherwise leave this stuck invisible forever rather than just briefly
-  // un-smooth.
-  const logoRef = useCallback((img: HTMLImageElement | null) => {
-    if (img?.complete) setLogoLoaded(true)
-  }, [])
-  const photoRef = useCallback((img: HTMLImageElement | null) => {
-    if (img?.complete) setPhotoLoaded(true)
-  }, [])
-
   return (
     <div
       className={className}
-      style={{
-        position: 'relative',
-        aspectRatio: '1118 / 960',
-        opacity: ready ? 1 : 0,
-        transition: 'opacity 0.2s ease',
-        ...style,
-      }}
+      style={{ position: 'relative', aspectRatio: '1118 / 960', ...style }}
     >
       <img
-        ref={logoRef}
         src="/logo.png"
         alt=""
-        onLoad={() => setLogoLoaded(true)}
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
       />
       <img
-        ref={photoRef}
         src="/mascot-cap-photo.png"
         alt=""
-        onLoad={() => setPhotoLoaded(true)}
         style={{
           position: 'absolute',
           left: '40%',

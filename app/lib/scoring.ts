@@ -342,7 +342,13 @@ export function computeBonusCardPoints(
 }
 
 async function loadCommonScoringData(supabase: SupabaseClient, gameweek_id: string, competition_id: string) {
-  const [{ data: picks }, { data: fixtures }, { data: scoringRules }, { data: playerScoringRules }] = await Promise.all([
+  // `players` (only needed to detect double-gameweek players by team — if
+  // it ever has a problem, scoring should still run, just without that
+  // specific safeguard) doesn't depend on anything else here, so it joins
+  // this first wave instead of waiting behind it. `match_events` is the
+  // one genuine dependency — it needs fixture ids — so that stays a
+  // second, separate round-trip.
+  const [{ data: picks }, { data: fixtures }, { data: scoringRules }, { data: playerScoringRules }, { data: players }] = await Promise.all([
     supabase
       .from('picks')
       .select('id, user_id, team_id, fixture_id, player1_id, player2_id, player1_fixture_id, player2_fixture_id, is_banker, competition_id')
@@ -359,18 +365,13 @@ async function loadCommonScoringData(supabase: SupabaseClient, gameweek_id: stri
       .from('player_scoring_rules')
       .select('event_type, points')
       .eq('competition_id', competition_id),
+    supabase.from('players').select('id, team_id'),
   ])
 
   const { data: matchEvents } = await supabase
     .from('match_events')
     .select('player_id, event_type, fixture_id')
     .in('fixture_id', fixtures?.map(f => f.id) ?? [])
-
-  // Kept as its own request, deliberately separate from the core queries
-  // above: this is only needed to detect double-gameweek players by team,
-  // so if it ever has a problem, scoring should still run — just without
-  // that specific safeguard — rather than failing outright.
-  const { data: players } = await supabase.from('players').select('id, team_id')
 
   return { picks: picks ?? [], fixtures: fixtures ?? [], scoringRules: scoringRules ?? [], playerScoringRules: playerScoringRules ?? [], matchEvents: matchEvents ?? [], players: players ?? [] }
 }
@@ -532,33 +533,48 @@ export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_
     return { rows: [], bonusCardRows: [] }
   }
 
-  const { picks, fixtures, scoringRules, playerScoringRules, matchEvents, players } = await loadCommonScoringData(supabase, gameweek_id, gameweek.competition_id)
-
-  const { data: assignments } = await supabase
-    .from('tier_assignments')
-    .select('team_id, tier')
-    .eq('competition_id', gameweek.competition_id)
+  // None of these five depend on each other — they only need
+  // gameweek.competition_id/gameweek_id, which is already known — so they
+  // go out as one wave instead of five sequential round-trips. This
+  // function gets called from Leaderboard, Picks, and Stats Hub for every
+  // still-live gameweek, so the round-trip cost here is paid on nearly
+  // every page load site-wide.
+  const [
+    { picks, fixtures, scoringRules, playerScoringRules, matchEvents, players },
+    { data: assignments },
+    { data: entries },
+    suspendedUserIds,
+    { data: bonusCardPlays },
+  ] = await Promise.all([
+    loadCommonScoringData(supabase, gameweek_id, gameweek.competition_id),
+    supabase.from('tier_assignments').select('team_id, tier').eq('competition_id', gameweek.competition_id),
+    supabase.from('competition_entries').select('user_id').eq('competition_id', gameweek.competition_id).eq('removed', false),
+    getSuspendedUserIds(supabase, gameweek_id),
+    // Read-only, same as everything else in this function — computed fresh
+    // from live data, never written back, so it can be called as often as
+    // the UI wants without side effects.
+    supabase.from('bonus_card_plays').select('id, user_id, gameweek_id, player_id, fixture_id').eq('gameweek_id', gameweek_id),
+  ])
 
   const quartileMap: Record<number, number> = {}
   assignments?.forEach(a => { quartileMap[a.team_id] = a.tier })
 
   const realRows = computePickScores(gameweek_id, picks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players)
 
-  const { data: entries } = await supabase
-    .from('competition_entries')
-    .select('user_id')
-    .eq('competition_id', gameweek.competition_id)
-    .eq('removed', false)
-
   const pickedUserIds = new Set(picks.map(p => p.user_id))
-  const suspendedUserIds = await getSuspendedUserIds(supabase, gameweek_id)
   const missingUsers = (entries ?? []).filter(e => !pickedUserIds.has(e.user_id) && !suspendedUserIds.has(e.user_id))
 
-  const provisionalPicks: Pick[] = []
-  for (const entry of missingUsers) {
-    const derived = await deriveAutopick(supabase, entry.user_id, gameweek_id, gameweek.competition_id)
-    if (!derived) continue
-    provisionalPicks.push({
+  // Each missing user's autopick derivation is independent of every other
+  // user's — run them together rather than one at a time, since a busy
+  // gameweek can have a dozen+ of these outstanding right after a deadline
+  // passes and before everyone's real autopick has been written.
+  const derivedPicks = await Promise.all(
+    missingUsers.map(entry => deriveAutopick(supabase, entry.user_id, gameweek_id, gameweek.competition_id))
+  )
+  const provisionalPicks: Pick[] = missingUsers.flatMap((entry, i) => {
+    const derived = derivedPicks[i]
+    if (!derived) return []
+    return [{
       id: `preview-${entry.user_id}`,
       user_id: entry.user_id,
       team_id: derived.team_id,
@@ -569,18 +585,10 @@ export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_
       player2_fixture_id: derived.player2_fixture_id,
       is_banker: false,
       competition_id: gameweek.competition_id,
-    })
-  }
+    }]
+  })
 
   const provisionalRows = computePickScores(gameweek_id, provisionalPicks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players)
-
-  // Read-only, same as everything else in this function — computed fresh
-  // from live data, never written back, so it can be called as often as the
-  // UI wants without side effects.
-  const { data: bonusCardPlays } = await supabase
-    .from('bonus_card_plays')
-    .select('id, user_id, gameweek_id, player_id, fixture_id')
-    .eq('gameweek_id', gameweek_id)
 
   const bonusCardRows = computeBonusCardPoints(bonusCardPlays ?? [], fixtures, players, matchEvents, playerScoringRules)
 

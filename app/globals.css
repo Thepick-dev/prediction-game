@@ -451,9 +451,12 @@ thead th {
    loop. An infinite breathing pulse reads as "still working very hard"
    the longer a page takes to load, which is exactly backwards — this
    plays once (~0.5s) then holds still, so the mark feels instant
-   regardless of how long the data underneath actually takes. */
+   regardless of how long the data underneath actually takes.
+   `forwards` keeps it sitting at the animation's own resting frame
+   afterwards, rather than snapping back to no-transform/no-glow the
+   instant it ends — that snap-back read as a glitch, not a clean stop. */
 .pop-logo-pulse {
-  animation: pop-logo-pulse 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1;
+  animation: pop-logo-pulse 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
 }
 
 /* Deliberately kept pink here, not the new primary purple used everywhere

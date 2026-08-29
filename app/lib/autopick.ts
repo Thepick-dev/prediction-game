@@ -97,19 +97,25 @@ export async function deriveAutopick(
   gameweekId: string,
   competitionId: string
 ): Promise<DerivedPick | null> {
-  const [{ data: activeTeams }, { data: leaguePositions }, { data: allPlayers }, { data: userPicks }, { data: tierPicks }, { data: gwFixtures }] = await Promise.all([
+  // All seven queries are independent of each other's results, so they go
+  // out as one wave rather than the value lookup waiting on everything
+  // above it to finish first — that was costing a whole extra network
+  // round-trip (150-700ms+ each way this is called) for no reason, and
+  // this runs once per still-unpicked entrant every time a live gameweek's
+  // preview is requested.
+  const [{ data: activeTeams }, { data: leaguePositions }, { data: allPlayers }, { data: userPicks }, { data: tierPicks }, { data: gwFixtures }, { data: playerValues }] = await Promise.all([
     supabase.from('teams').select('id, name').eq('active', true),
     supabase.from('team_league_positions').select('team_id, position, recorded_at').order('recorded_at', { ascending: false }),
     supabase.from('players').select('id, name, team_id'),
     supabase.from('picks').select('team_id, player1_id, player2_id').eq('user_id', userId).eq('competition_id', competitionId),
     supabase.from('tier_draft_picks').select('tier1_team_id, tier2_team_id, tier3_team_id, tier4_team_id').eq('competition_id', competitionId).eq('user_id', userId).single(),
     supabase.from('fixtures').select('id, home_team_id, away_team_id').eq('gameweek_id', gameweekId),
+    // Deliberately tolerant of failure, same as before: if this column
+    // ever has a problem, autopick should still work — just without the
+    // value preference — rather than failing outright.
+    supabase.from('players').select('id, value'),
   ])
 
-  // Kept as its own request, deliberately separate from the players query
-  // above: if this column ever has a problem, autopick should still work —
-  // just without the value preference — rather than failing outright.
-  const { data: playerValues } = await supabase.from('players').select('id, value')
   const valueByPlayerId: Record<number, number> = {}
   playerValues?.forEach(p => { if (p.value != null) valueByPlayerId[p.id] = p.value })
 
