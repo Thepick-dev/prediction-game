@@ -147,20 +147,6 @@ export default function LiveGameweekTable({
     const assistIds = new Set((events ?? []).filter(e => e.event_type === 'assist').map(e => e.player_id))
 
     const realPickUserIds = new Set((picksData ?? []).map(p => p.user_id))
-    let previewPicks: typeof picksData = []
-    if (gameweekStatus !== 'completed') {
-      try {
-        const previewRes = await fetch(`/api/autopick/preview?gameweek_id=${gameweekId}`)
-        const previewData = await previewRes.json()
-        previewPicks = Object.entries(previewData.previews ?? {})
-          .filter(([userId]) => !realPickUserIds.has(userId))
-          .map(([userId, p]: [string, any]) => ({
-            id: `preview-${userId}`, user_id: userId, team_id: p.team_id,
-            player1_id: p.player1_id, player2_id: p.player2_id, is_banker: false, is_autopick: true,
-          }))
-      } catch { previewPicks = [] }
-    }
-    const allPicksThisGw = [...(picksData ?? []), ...previewPicks].filter(p => activeUserIds.has(p.user_id))
 
     // Cumulative totals need every gameweek's real points PLUS a live
     // preview for this one specifically if it hasn't been scored for real
@@ -168,17 +154,30 @@ export default function LiveGameweekTable({
     // (and already had a live-preview gap bug fixed in, earlier this
     // session), so this deliberately mirrors it rather than risking the
     // same mistake twice.
+    //
+    // One call to /api/scoring/preview covers both the live points AND
+    // the autopick previews for whoever hasn't picked yet — it derives
+    // those internally anyway, so a separate /api/autopick/preview call
+    // would just be re-doing the exact same work a second time.
     const pointsByPickId: Record<string, { user_id: string; total_points: number | null; team_points: number | null; player1_points: number | null; player2_points: number | null; breakdown: any }> = {}
     allPointsData?.forEach(p => { pointsByPickId[p.pick_id] = p })
     let liveBonusCardRows: { user_id: string; points: number }[] = []
+    let previewPicks: typeof picksData = []
     if (gameweekStatus !== 'completed') {
       try {
         const previewScoringRes = await fetch(`/api/scoring/preview?gameweek_id=${gameweekId}`)
         const previewScoringData = await previewScoringRes.json()
         ;(previewScoringData.rows ?? []).forEach((row: any) => { pointsByPickId[row.pick_id] = row })
         liveBonusCardRows = previewScoringData.bonusCardRows ?? []
-      } catch { /* leave real points as-is */ }
+        previewPicks = Object.entries(previewScoringData.previews ?? {})
+          .filter(([userId]) => !realPickUserIds.has(userId))
+          .map(([userId, p]: [string, any]) => ({
+            id: `preview-${userId}`, user_id: userId, team_id: p.team_id,
+            player1_id: p.player1_id, player2_id: p.player2_id, is_banker: false, is_autopick: true,
+          }))
+      } catch { /* leave real points/picks as-is */ }
     }
+    const allPicksThisGw = [...(picksData ?? []), ...previewPicks].filter(p => activeUserIds.has(p.user_id))
     const liveBonusCardByUser: Record<string, number> = {}
     liveBonusCardRows.forEach(r => { liveBonusCardByUser[r.user_id] = r.points })
 

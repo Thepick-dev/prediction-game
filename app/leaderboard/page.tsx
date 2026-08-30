@@ -393,12 +393,14 @@ export default function LeaderboardPage() {
 
     await Promise.all(previewGameweeks.map(async gw => {
       try {
-        const [previewRes, scoringPreviewRes] = await Promise.all([
-          fetch(`/api/autopick/preview?gameweek_id=${gw.id}`),
-          fetch(`/api/scoring/preview?gameweek_id=${gw.id}`),
-        ])
-        const data = await previewRes.json()
-        const previews = data.previews ?? {}
+        // /api/scoring/preview's own autopick derivation (for whoever
+        // hasn't picked yet) is reused here instead of also calling
+        // /api/autopick/preview separately — that second call was
+        // re-deriving the exact same picks for the exact same missing
+        // users a second time, plus paying for a whole extra round-trip.
+        const scoringPreviewRes = await fetch(`/api/scoring/preview?gameweek_id=${gw.id}`)
+        const scoringData = await scoringPreviewRes.json()
+        const previews = scoringData.previews ?? {}
         Object.entries(previews).forEach(([userId, p]: [string, any]) => {
           if (!realPickKeys.has(`${userId}-${gw.id}`)) {
             provisionalPicks.push({
@@ -415,7 +417,6 @@ export default function LeaderboardPage() {
         // plain `preview-${userId}` id — remap to match this page's own
         // `preview-${userId}-${gameweekId}` convention (it spans several
         // gameweeks at once, so needs the gameweek in the key to stay unique).
-        const scoringData = await scoringPreviewRes.json()
         ;(scoringData.rows ?? []).forEach((row: any) => {
           if (row.pick_id.startsWith('preview-')) {
             pointsByPickId[`preview-${row.user_id}-${gw.id}`] = row

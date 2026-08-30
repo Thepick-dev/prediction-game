@@ -473,6 +473,15 @@ thead th {
   100% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 8px rgba(213, 0, 109, 0.3)); }
 }
 
+/* Quiet loading spinner — every navigation after the one-time mascot
+   intro this session (see PopArtLoading.tsx), and the brief moment before
+   a signed-out visitor gets redirected to /login. Deliberately plain: the
+   mascot already made its entrance once, this is just "still working". */
+@keyframes pop-quiet-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 /* Penalty shootout aim marker — sweeps the width of the track and back.
    Duration is set inline per-shot (it gets faster as the streak grows),
    so this only defines the path, not the speed. */

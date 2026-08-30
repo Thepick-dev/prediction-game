@@ -499,9 +499,11 @@ async function resolveBonusCard(
   ))
 }
 
+export type AutopickPreviewMap = Record<string, { team_id: number; player1_id: number; player2_id: number }>
+
 export type PreviewScoringResult =
   | { error: string }
-  | { rows: PickScoreRow[]; bonusCardRows: BonusCardPointsRow[] }
+  | { rows: PickScoreRow[]; bonusCardRows: BonusCardPointsRow[]; previews: AutopickPreviewMap }
 
 // Read-only version for a gameweek that's locked (deadline passed) but not
 // yet marked "completed" — no gameweek_quartiles snapshot exists yet, so
@@ -530,7 +532,7 @@ export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_
   // shouldn't have to gate this correctly themselves. Nothing about a
   // gameweek, autopick included, is shown before its deadline actually passes.
   if (new Date() < new Date(gameweek.deadline)) {
-    return { rows: [], bonusCardRows: [] }
+    return { rows: [], bonusCardRows: [], previews: {} }
   }
 
   // None of these five depend on each other — they only need
@@ -592,5 +594,17 @@ export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_
 
   const bonusCardRows = computeBonusCardPoints(bonusCardPlays ?? [], fixtures, players, matchEvents, playerScoringRules)
 
-  return { rows: [...realRows, ...provisionalRows], bonusCardRows }
+  // Already computed above for scoring purposes — exposed here too so
+  // callers that need "what would this still-unpicked user's autopick be"
+  // (Leaderboard, the Picks page's live table, Stats Hub) can get it from
+  // this one response instead of also hitting /api/autopick/preview
+  // separately, which was re-deriving the exact same picks for the exact
+  // same missing users a second time.
+  const previews: AutopickPreviewMap = {}
+  missingUsers.forEach((entry, i) => {
+    const derived = derivedPicks[i]
+    if (derived) previews[entry.user_id] = derived
+  })
+
+  return { rows: [...realRows, ...provisionalRows], bonusCardRows, previews }
 }
