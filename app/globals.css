@@ -448,14 +448,14 @@ thead th {
 }
 
 /* Loading-screen badge — a playful wobble-in: overshoots, rocks back the
-   other way, and settles with decreasing swings, all done in ~0.7s. One
-   single-shot animation (not a loop) — the whole thing is meant to read
-   as "quick and full of character", not as ongoing motion to sit and
-   watch. `forwards` holds the settled end state (upright, soft resting
-   glow), which is also just what the artwork looks like at rest — no
-   snap back to a different, un-animated style once it finishes. */
+   other way, and settles with decreasing swings. Plays on every single
+   page load now (not just once per session), so it has to be very
+   quick — ~0.25s — rather than something to sit and watch. `forwards`
+   holds the settled end state (upright, soft resting glow), which is
+   also just what the artwork looks like at rest — no snap back to a
+   different, un-animated style once it finishes. */
 .pop-logo-pulse {
-  animation: pop-logo-wobble-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+  animation: pop-logo-wobble-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
 }
 
 /* Deliberately kept pink here, not the new primary purple used everywhere
@@ -471,15 +471,6 @@ thead th {
   60% { transform: scale(1.03) rotate(4deg); }
   80% { transform: scale(0.99) rotate(-1.5deg); }
   100% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 8px rgba(213, 0, 109, 0.3)); }
-}
-
-/* Quiet loading spinner — every navigation after the one-time mascot
-   intro this session (see PopArtLoading.tsx), and the brief moment before
-   a signed-out visitor gets redirected to /login. Deliberately plain: the
-   mascot already made its entrance once, this is just "still working". */
-@keyframes pop-quiet-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }
 
 /* Penalty shootout aim marker — sweeps the width of the track and back.

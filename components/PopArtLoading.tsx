@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react'
 import MascotWithCapPhoto from './MascotWithCapPhoto'
 
-const SESSION_KEY = 'lms-intro-shown'
-
 // A quick, synchronous stand-in for "is someone actually signed in" — the
 // real answer needs an async Supabase call, which is exactly what's still
 // loading at the moment this component is asked to render. @supabase/ssr
@@ -25,64 +23,39 @@ function hasSupabaseSessionCookie(): boolean {
 // — fixed, covers the header/nav too, so the mark is genuinely the only
 // thing on screen.
 //
-// The full wobble-in intro only plays once per browser tab (sessionStorage,
-// not localStorage — a deliberate "once per visit", not "once ever") and
-// only for someone who already has a session — never for a signed-out
-// visitor about to be bounced to /login, and never again once they've
-// already seen it navigating around the site this session. Every other
-// loading moment gets a small, quiet spinner instead of the full takeover.
-// `label` (the rare genuine-message case, like "no active competition")
-// always shows in full — it isn't really a loading state at all.
+// Plays a very quick wobble (see .pop-logo-pulse in globals.css) on every
+// single loading moment, signed-in visitors only — never for a signed-out
+// one about to be bounced to /login. `label` (the rare genuine-message
+// case, like "no active competition") always shows in full — it isn't
+// really a loading state at all.
 export default function PopArtLoading({ label }: { label?: string }) {
-  const [phase, setPhase] = useState<'pending' | 'intro' | 'quiet'>('pending')
+  const [signedIn, setSignedIn] = useState<boolean | null>(null)
 
   useEffect(() => {
     if (label) return
-    if (!hasSupabaseSessionCookie()) { setPhase('quiet'); return }
-    try {
-      if (sessionStorage.getItem(SESSION_KEY) === '1') {
-        setPhase('quiet')
-      } else {
-        sessionStorage.setItem(SESSION_KEY, '1')
-        setPhase('intro')
-      }
-    } catch {
-      // Private-browsing/storage-blocked contexts can throw on access —
-      // default to showing the intro rather than guessing at session state.
-      setPhase('intro')
-    }
+    setSignedIn(hasSupabaseSessionCookie())
   }, [label])
 
   // Nothing is known yet (the instant before the effect above runs) —
   // render just the backdrop rather than guessing, so there's no flash of
   // the wrong choice.
-  if (!label && phase === 'pending') {
+  if (!label && signedIn === null) {
     return <div className="pop-art-theme fixed inset-0 z-[999]" style={{ background: 'var(--pop-black)' }} />
   }
 
-  if (label || phase === 'intro') {
-    return (
-      <div
-        className="pop-art-theme fixed inset-0 z-[999] flex flex-col items-center justify-center gap-6"
-        style={{ background: 'var(--pop-black)' }}
-      >
-        <MascotWithCapPhoto className="pop-logo-pulse w-[330px] sm:w-[220px]" />
-        {label && (
-          <p className="pop-headline text-sm tracking-widest" style={{ color: 'rgba(255,255,255,0.5)' }}>{label}</p>
-        )}
-      </div>
-    )
+  if (!label && !signedIn) {
+    return <div className="pop-art-theme fixed inset-0 z-[999]" style={{ background: 'var(--pop-black)' }} />
   }
 
   return (
-    <div className="pop-art-theme fixed inset-0 z-[999] flex items-center justify-center" style={{ background: 'var(--pop-black)' }}>
-      <div
-        style={{
-          width: 28, height: 28, borderRadius: '50%',
-          border: '3px solid rgba(255,255,255,0.15)', borderTopColor: 'var(--pop-blue)',
-          animation: 'pop-quiet-spin 0.7s linear infinite',
-        }}
-      />
+    <div
+      className="pop-art-theme fixed inset-0 z-[999] flex flex-col items-center justify-center gap-6"
+      style={{ background: 'var(--pop-black)' }}
+    >
+      <MascotWithCapPhoto className="pop-logo-pulse w-[330px] sm:w-[220px]" />
+      {label && (
+        <p className="pop-headline text-sm tracking-widest" style={{ color: 'rgba(255,255,255,0.5)' }}>{label}</p>
+      )}
     </div>
   )
 }

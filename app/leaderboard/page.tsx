@@ -664,9 +664,27 @@ export default function LeaderboardPage() {
   // Keyed by `${player_id}_${gameweek_id}`, not just player_id — a goal
   // scored in GW1 must only badge that player's GW1 row, never every other
   // gameweek row for anyone who's ever picked them (including gameweeks
-  // that haven't been played yet, which is what this used to do).
-  const goalEventKeys = new Set(matchEvents.filter(e => e.event_type === 'goal' && e.fixture_id != null).map(e => `${e.player_id}_${fixtureGwMap[e.fixture_id]}`))
-  const assistEventKeys = new Set(matchEvents.filter(e => e.event_type === 'assist' && e.fixture_id != null).map(e => `${e.player_id}_${fixtureGwMap[e.fixture_id]}`))
+  // that haven't been played yet, which is what this used to do). Counts,
+  // not just presence — a brace shows as "G x2", not a single G.
+  const goalCountByKey: Record<string, number> = {}
+  const assistCountByKey: Record<string, number> = {}
+  matchEvents.forEach(e => {
+    if (e.fixture_id == null) return
+    const key = `${e.player_id}_${fixtureGwMap[e.fixture_id]}`
+    if (e.event_type === 'goal') goalCountByKey[key] = (goalCountByKey[key] ?? 0) + 1
+    if (e.event_type === 'assist') assistCountByKey[key] = (assistCountByKey[key] ?? 0) + 1
+  })
+  // Presence-only views of the same data, kept for the classic theme's own
+  // badge rendering (dead/unreachable code — usePopArtTheme always returns
+  // true — deliberately left untouched rather than building anything new
+  // for it, this just keeps it compiling against the same keys as before).
+  const goalEventKeys = new Set(Object.keys(goalCountByKey))
+  const assistEventKeys = new Set(Object.keys(assistCountByKey))
+  // "G x2" for a brace, not two separate G badges — table cells here are
+  // tight on space, unlike the Picks page's live table.
+  function eventLabel(letter: 'G' | 'A', count: number) {
+    return count > 1 ? `${letter} x${count}` : letter
+  }
 
   function getStreak(player: RankedPlayer) {
     return streakByUser[player.user_id] ?? null
@@ -1170,8 +1188,8 @@ export default function LeaderboardPage() {
                                           <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.68)' }}>{d.team_points ?? '—'}</td>
                                           <td className="py-1 pr-1 uppercase">
                                             {d.player1}
-                                            {goalEventKeys.has(`${d.player1_id}_${gw.id}`) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
-                                            {assistEventKeys.has(`${d.player1_id}_${gw.id}`) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                                            {goalCountByKey[`${d.player1_id}_${gw.id}`] > 0 && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>{eventLabel('G', goalCountByKey[`${d.player1_id}_${gw.id}`])}</span>}
+                                            {assistCountByKey[`${d.player1_id}_${gw.id}`] > 0 && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>{eventLabel('A', assistCountByKey[`${d.player1_id}_${gw.id}`])}</span>}
                                             {d.aon?.player_id === d.player1_id && (
                                               <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '8px', ...(d.aon.outcome === 'success' ? { background: 'var(--pop-green)', color: 'var(--pop-black)' } : d.aon.outcome === 'failed' ? { background: 'var(--pop-red)', color: 'var(--pop-white)' } : { background: 'var(--pop-blue)', color: 'var(--pop-black)' }) }}>
                                                 {d.aon.outcome === 'success' ? <CheckIcon size={8} color="var(--pop-black)" /> : d.aon.outcome === 'failed' ? <CrossIcon size={8} color="var(--pop-white)" /> : <BoltIcon size={8} color="var(--pop-black)" />} AoN
@@ -1181,8 +1199,8 @@ export default function LeaderboardPage() {
                                           <td className="py-1 pr-1 text-right" style={{ color: 'rgba(255,255,255,0.68)' }}>{d.player1_points ?? '—'}</td>
                                           <td className="py-1 pr-1 uppercase">
                                             {d.player2}
-                                            {goalEventKeys.has(`${d.player2_id}_${gw.id}`) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
-                                            {assistEventKeys.has(`${d.player2_id}_${gw.id}`) && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
+                                            {goalCountByKey[`${d.player2_id}_${gw.id}`] > 0 && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>{eventLabel('G', goalCountByKey[`${d.player2_id}_${gw.id}`])}</span>}
+                                            {assistCountByKey[`${d.player2_id}_${gw.id}`] > 0 && <span className="ml-0.5 px-0.5 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>{eventLabel('A', assistCountByKey[`${d.player2_id}_${gw.id}`])}</span>}
                                             {d.aon?.player_id === d.player2_id && (
                                               <span className="ml-0.5 px-1 rounded font-black inline-flex items-center gap-0.5" style={{ fontSize: '8px', ...(d.aon.outcome === 'success' ? { background: 'var(--pop-green)', color: 'var(--pop-black)' } : d.aon.outcome === 'failed' ? { background: 'var(--pop-red)', color: 'var(--pop-white)' } : { background: 'var(--pop-blue)', color: 'var(--pop-black)' }) }}>
                                                 {d.aon.outcome === 'success' ? <CheckIcon size={8} color="var(--pop-black)" /> : d.aon.outcome === 'failed' ? <CrossIcon size={8} color="var(--pop-white)" /> : <BoltIcon size={8} color="var(--pop-black)" />} AoN

@@ -21,12 +21,12 @@ type Row = {
   isAutopick: boolean
   player1Name: string
   player1Points: number | null
-  player1Goal: boolean
-  player1Assist: boolean
+  player1Goals: number
+  player1Assists: number
   player2Name: string
   player2Points: number | null
-  player2Goal: boolean
-  player2Assist: boolean
+  player2Goals: number
+  player2Assists: number
   aon: { onPlayer1: boolean; onPlayer2: boolean; outcome: 'pending' | 'success' | 'failed' } | null
   bonusCard: { playerName: string; points: number | null } | null
   weeklyPoints: number | null
@@ -55,6 +55,14 @@ function PtsPill({ value, doubled }: { value: number | null; doubled?: boolean }
 // up in the same place regardless of how long a name or badge combo runs,
 // instead of drifting around depending on each row's own content width.
 const ITEM_GRID_STYLE = { display: 'grid', gridTemplateColumns: '1fr 58px', columnGap: '8px', alignItems: 'center' } as const
+
+// Team's row (just a crest + short code) fits the two-column version above.
+// Player rows also need to fit any G/A/All-or-Nothing badges, which used to
+// sit inline right after the name — jumbled together and competing with it
+// for space. This gives the badges their own dedicated middle column
+// instead, so the name always has its own clean truncating lane and the
+// badges never crowd into it.
+const PLAYER_GRID_STYLE = { display: 'grid', gridTemplateColumns: '1fr auto 58px', columnGap: '6px', alignItems: 'center' } as const
 
 // A mobile-native "how's everyone doing right now" view for a locked/live
 // gameweek — deliberately NOT the ResultsGrid ticket (that one's fixed-width
@@ -143,8 +151,12 @@ export default function LiveGameweekTable({
     const { data: events } = fixtureIds.length > 0
       ? await supabase.from('match_events').select('player_id, event_type').in('fixture_id', fixtureIds)
       : { data: [] as { player_id: number; event_type: string }[] }
-    const goalIds = new Set((events ?? []).filter(e => e.event_type === 'goal').map(e => e.player_id))
-    const assistIds = new Set((events ?? []).filter(e => e.event_type === 'assist').map(e => e.player_id))
+    const goalCountByPlayer: Record<number, number> = {}
+    const assistCountByPlayer: Record<number, number> = {}
+    ;(events ?? []).forEach(e => {
+      if (e.event_type === 'goal') goalCountByPlayer[e.player_id] = (goalCountByPlayer[e.player_id] ?? 0) + 1
+      if (e.event_type === 'assist') assistCountByPlayer[e.player_id] = (assistCountByPlayer[e.player_id] ?? 0) + 1
+    })
 
     const realPickUserIds = new Set((picksData ?? []).map(p => p.user_id))
 
@@ -244,12 +256,12 @@ export default function LiveGameweekTable({
         isAutopick: !!pick.is_autopick,
         player1Name: playerMap[pick.player1_id] ?? 'Unknown',
         player1Points: pts?.player1_points ?? null,
-        player1Goal: goalIds.has(pick.player1_id),
-        player1Assist: assistIds.has(pick.player1_id),
+        player1Goals: goalCountByPlayer[pick.player1_id] ?? 0,
+        player1Assists: assistCountByPlayer[pick.player1_id] ?? 0,
         player2Name: playerMap[pick.player2_id] ?? 'Unknown',
         player2Points: pts?.player2_points ?? null,
-        player2Goal: goalIds.has(pick.player2_id),
-        player2Assist: assistIds.has(pick.player2_id),
+        player2Goals: goalCountByPlayer[pick.player2_id] ?? 0,
+        player2Assists: assistCountByPlayer[pick.player2_id] ?? 0,
         aon: aon ? { onPlayer1: aon.player_id === pick.player1_id, onPlayer2: aon.player_id === pick.player2_id, outcome: aonOutcome ?? 'pending' } : null,
         bonusCard: bonusCardPlay ? { playerName: playerMap[bonusCardPlay.player_id] ?? 'Unknown', points: bonusCardPoints } : null,
         weeklyPoints: pts?.total_points ?? null,
@@ -361,7 +373,7 @@ export default function LiveGameweekTable({
                 {row.isAutopick && <span className="px-1 py-0.5 rounded font-black shrink-0" style={{ fontSize: '9px', background: 'rgba(255,255,255,0.15)' }} title="Autopicked">AP</span>}
                 {row.isBanker && (
                   <span className="px-1 py-0.5 rounded font-black shrink-0" style={{ fontSize: '9px', background: 'rgba(255,209,0,0.2)', color: '#FFD100' }} title="Banker — everything below is doubled: team, both players">
-                    ★ BANKER ×2 EVERYTHING
+                    ★ BANKER
                   </span>
                 )}
               </div>
@@ -382,20 +394,20 @@ export default function LiveGameweekTable({
                 </span>
                 <PtsPill value={row.teamPoints} doubled={row.isBanker} />
               </div>
-              <div style={ITEM_GRID_STYLE}>
-                <span className="flex items-center gap-1 min-w-0">
-                  <span className="uppercase font-bold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{row.player1Name}</span>
-                  {row.player1Goal && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
-                  {row.player1Assist && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
+              <div style={PLAYER_GRID_STYLE}>
+                <span className="uppercase font-bold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{row.player1Name}</span>
+                <span className="flex items-center gap-1 shrink-0">
+                  {row.player1Goals > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>{'G'.repeat(row.player1Goals)}</span>}
+                  {row.player1Assists > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>{'A'.repeat(row.player1Assists)}</span>}
                   {row.aon?.onPlayer1 && <span className="shrink-0 px-1 rounded font-black" style={{ background: aonBg[row.aon.outcome], color: row.aon.outcome === 'success' ? '#0A0A0A' : '#fff' }}>{aonLabel[row.aon.outcome]}</span>}
                 </span>
                 <PtsPill value={row.player1Points} doubled={row.isBanker} />
               </div>
-              <div style={ITEM_GRID_STYLE}>
-                <span className="flex items-center gap-1 min-w-0">
-                  <span className="uppercase font-bold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{row.player2Name}</span>
-                  {row.player2Goal && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
-                  {row.player2Assist && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
+              <div style={PLAYER_GRID_STYLE}>
+                <span className="uppercase font-bold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{row.player2Name}</span>
+                <span className="flex items-center gap-1 shrink-0">
+                  {row.player2Goals > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>{'G'.repeat(row.player2Goals)}</span>}
+                  {row.player2Assists > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>{'A'.repeat(row.player2Assists)}</span>}
                   {row.aon?.onPlayer2 && <span className="shrink-0 px-1 rounded font-black" style={{ background: aonBg[row.aon.outcome], color: row.aon.outcome === 'success' ? '#0A0A0A' : '#fff' }}>{aonLabel[row.aon.outcome]}</span>}
                 </span>
                 <PtsPill value={row.player2Points} doubled={row.isBanker} />
