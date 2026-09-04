@@ -52,6 +52,7 @@ export default function EditPickPage() {
   const [aonByUser, setAonByUser] = useState<Record<string, AoNRow>>({})
   const [bonusCardByUser, setBonusCardByUser] = useState<Record<string, BonusCardRow>>({})
   const [gwNumberById, setGwNumberById] = useState<Record<string, number>>({})
+  const [gwDeadlineById, setGwDeadlineById] = useState<Record<string, string>>({})
 
   async function loadData() {
     const { data: comp } = await supabase.from('competitions').select('id, bonus_card_enabled, bonus_card_name, bonus_card_player_id').eq('status', 'active').single()
@@ -60,13 +61,12 @@ export default function EditPickPage() {
     setBonusCardEnabled(!!comp.bonus_card_enabled && comp.bonus_card_player_id != null)
     setBonusCardPlayerId(comp.bonus_card_player_id ?? null)
 
-    const [{ data: entries }, { data: profiles }, { data: gws }, { data: teamsData }, { data: playersData }, { data: picks }, aonAndBonusCardRes] = await Promise.all([
+    const [{ data: entries }, { data: profiles }, { data: gws }, { data: teamsData }, { data: playersData }, aonAndBonusCardRes] = await Promise.all([
       supabase.from('competition_entries').select('user_id').eq('competition_id', comp.id).eq('removed', false),
       supabase.from('profiles').select('id, display_name'),
-      supabase.from('gameweeks').select('id, number').eq('competition_id', comp.id).order('number'),
+      supabase.from('gameweeks').select('id, number, deadline').eq('competition_id', comp.id).order('number'),
       supabase.from('teams').select('id, name, short_name, short_code').eq('active', true).order('name'),
       supabase.from('players').select('id, name, web_name, team_id'),
-      supabase.from('picks').select('user_id, gameweek_id, team_id, player1_id, player2_id, is_banker').eq('competition_id', comp.id),
       // These two are RLS-scoped to "own row only" — the admin's regular
       // session can't read another user's row directly, so they're fetched
       // via a service-role-backed API route instead (same pattern as the
@@ -85,15 +85,39 @@ export default function EditPickPage() {
         .sort((a, b) => a.label.localeCompare(b.label))
     )
     const gwMap: Record<string, number> = {}
-    gws?.forEach(g => { gwMap[g.id] = g.number })
+    const gwDeadlineMap: Record<string, string> = {}
+    gws?.forEach(g => { gwMap[g.id] = g.number; gwDeadlineMap[g.id] = g.deadline })
     setGwNumberById(gwMap)
+    setGwDeadlineById(gwDeadlineMap)
     setGameweeks((gws ?? []).map(g => ({ id: g.id, label: `Gameweek ${g.number}` })))
     setTeams(teamsData ?? [])
     setPlayers(playersData ?? [])
     setBonusCardName(bonusCardDisplayName(comp.bonus_card_name, playersData?.find(p => p.id === comp.bonus_card_player_id)?.name ?? null))
 
+    // Same hard rule as everywhere else on the site — a pre-deadline pick's
+    // actual content never reaches the browser at all, not just "isn't
+    // shown". Split into two queries rather than one unfiltered fetch:
+    // content only for gameweeks whose deadline has already passed, and a
+    // presence-only fetch (no team/player columns) for every gameweek so
+    // "this user already has a pick" can still be detected pre-deadline.
+    const pastDeadlineGwIds = (gws ?? []).filter(g => new Date(g.deadline) < new Date()).map(g => g.id)
+    const [{ data: revealedPicks }, { data: presenceRows }] = await Promise.all([
+      pastDeadlineGwIds.length
+        ? supabase.from('picks').select('user_id, gameweek_id, team_id, player1_id, player2_id, is_banker').eq('competition_id', comp.id).in('gameweek_id', pastDeadlineGwIds)
+        : Promise.resolve({ data: [] as Pick[] }),
+      supabase.from('picks').select('user_id, gameweek_id').eq('competition_id', comp.id),
+    ])
+
     const pickMap: Record<string, Pick> = {}
-    picks?.forEach(p => { pickMap[`${p.user_id}_${p.gameweek_id}`] = p })
+    revealedPicks?.forEach(p => { pickMap[`${p.user_id}_${p.gameweek_id}`] = p })
+    presenceRows?.forEach(p => {
+      const key = `${p.user_id}_${p.gameweek_id}`
+      // A presence-only stand-in when the real content was withheld — team/
+      // player fields are never actually used while a row looks like this;
+      // the prefill effect below checks the deadline itself before ever
+      // reading them.
+      if (!pickMap[key]) pickMap[key] = { user_id: p.user_id, gameweek_id: p.gameweek_id, team_id: 0, player1_id: 0, player2_id: 0, is_banker: false }
+    })
     setExistingPicks(pickMap)
 
     const aonMap: Record<string, AoNRow> = {}
@@ -139,12 +163,27 @@ export default function EditPickPage() {
       setBonusCardElsewhereGw(null)
     }
 
-    if (existing) {
+    // Same hard rule as everywhere else on the site — nobody, admin
+    // included, sees what a pick actually was before that gameweek's
+    // deadline passes. Below the deadline, this deliberately does NOT
+    // prefill from `existing` even though it's sitting right there in
+    // memory: admin can still type in a fresh pick and save() will
+    // overwrite whatever's already there, just without ever displaying it.
+    const deadline = gwDeadlineById[gameweekId]
+    const deadlinePassed = deadline ? new Date(deadline) < new Date() : false
+
+    if (existing && deadlinePassed) {
       setTeamId(String(existing.team_id))
       setPlayer1Id(String(existing.player1_id))
       setPlayer2Id(String(existing.player2_id))
       setIsBanker(existing.is_banker)
       setMessage('This user already has a pick for this gameweek — editing it below.')
+    } else if (existing) {
+      setTeamId('')
+      setPlayer1Id('')
+      setPlayer2Id('')
+      setIsBanker(false)
+      setMessage("This user already has a pick for this gameweek, but it's hidden until the deadline passes — entering one below will overwrite it.")
     } else {
       setTeamId('')
       setPlayer1Id('')
@@ -152,7 +191,7 @@ export default function EditPickPage() {
       setIsBanker(false)
       setMessage('')
     }
-  }, [userId, gameweekId])
+  }, [userId, gameweekId, gwDeadlineById])
 
   const filteredPlayers1 = playerSearch1.length >= 2
     ? players.filter(p => p.name.toLowerCase().includes(playerSearch1.toLowerCase())).slice(0, 8)

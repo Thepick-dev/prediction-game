@@ -68,12 +68,25 @@ async function buildSnapshot(admin: ReturnType<typeof createAdminSupabaseClient>
     admin.from('profiles').select('*'),
   ])
 
+  // Same hard rule as everywhere else on the site — nobody, admin included,
+  // sees what a pick actually was before that gameweek's deadline passes.
+  // A debugging snapshot is otherwise deliberately a full raw dump, but
+  // this one table needs its actual selections stripped for any gameweek
+  // still before its deadline; presence/timing (id, user_id, gameweek_id,
+  // submitted_at) stays so "who's picked so far" is still debuggable.
+  const pastDeadlineGwIds = new Set((gameweeks ?? []).filter(g => new Date(g.deadline) < new Date()).map(g => g.id))
+  const redactedPicks = (picks ?? []).map(p =>
+    pastDeadlineGwIds.has(p.gameweek_id)
+      ? p
+      : { id: p.id, user_id: p.user_id, gameweek_id: p.gameweek_id, submitted_at: p.submitted_at, is_autopick: p.is_autopick, redacted: 'pre-deadline pick content withheld' }
+  )
+
   return {
     snapshot_taken_at: new Date().toISOString(),
     competition,
     gameweeks,
     fixtures,
-    picks,
+    picks: redactedPicks,
     points,
     tier_draft_picks: tierDraftPicks,
     draft_tier_assignments: draftTierAssignments,

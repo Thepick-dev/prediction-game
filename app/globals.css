@@ -447,30 +447,24 @@ thead th {
   100% { transform: rotate(360deg) scale(1); }
 }
 
-/* Loading-screen badge — a playful wobble-in: overshoots, rocks back the
-   other way, and settles with decreasing swings. Plays on every single
-   page load now (not just once per session), so it has to be very
-   quick — ~0.25s — rather than something to sit and watch. `forwards`
-   holds the settled end state (upright, soft resting glow), which is
-   also just what the artwork looks like at rest — no snap back to a
-   different, un-animated style once it finishes. */
+/* Loading-screen badge. The previous multi-stage wobble (rotate + scale
+   overshoot across 5 keyframes) looked janky in practice: it plays on
+   every single page load now, competing with a cold page's own JS/font/
+   hydration work for frame time, and a fast-loading page can unmount it
+   before it finishes — a rotating, still-overshooting badge cut off
+   mid-flight looks broken in a way a plain fade never can. This is
+   deliberately just two properties (opacity, scale) with no rotation and
+   only two keyframes — cheap to composite, and safe to interrupt at any
+   point since every frame in between still looks like "fading in
+   normally", never like a wrong or unfinished pose. `forwards` holds the
+   settled end state rather than snapping back once it finishes. */
 .pop-logo-pulse {
-  animation: pop-logo-wobble-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+  animation: pop-logo-fade-in 0.2s ease-out 1 forwards;
 }
 
-/* Deliberately kept pink here, not the new primary purple used everywhere
-   else — the mascot artwork itself is a fixed raster image (public/logo.png,
-   public/mascot-cap-photo.png) whose own illustrated colours weren't part
-   of the palette swap, and the purple glow was clashing with them. Revert
-   to rgba(160, 0, 250, ...) to match the rest of the theme if the mascot
-   art itself is ever repainted to suit the new palette. */
-@keyframes pop-logo-wobble-in {
-  0% { transform: scale(0.6) rotate(-18deg); filter: drop-shadow(0 0 0 rgba(213, 0, 109, 0)); }
-  20% { transform: scale(1.08) rotate(12deg); filter: drop-shadow(0 0 24px rgba(213, 0, 109, 0.7)); }
-  40% { transform: scale(0.97) rotate(-8deg); }
-  60% { transform: scale(1.03) rotate(4deg); }
-  80% { transform: scale(0.99) rotate(-1.5deg); }
-  100% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 8px rgba(213, 0, 109, 0.3)); }
+@keyframes pop-logo-fade-in {
+  0% { opacity: 0; transform: scale(0.94); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
 /* Penalty shootout aim marker — sweeps the width of the track and back.

@@ -18,6 +18,10 @@ export const RULES_TEXT = {
     'Picks can be edited until the deadline, then locked and visible to everyone. Miss the deadline and you receive an autopick — see below for how that works.',
     "If a picked player doesn't play at all that gameweek (injured, benched, rested, transferred), the pick still counts as one of their two uses and scores zero for them — the same applies to a Bonus Card play, below.",
   ],
+  pickPrivacy: [
+    "Nobody can see what you've picked for a gameweek before its deadline — not other players, and not admin either. That's enforced everywhere on the site, not just hidden in the display.",
+    "Admin can see THAT you've picked (so reminders and autopick only ever apply to people who've genuinely missed the deadline), just never what it was, until the same moment it becomes visible to everyone else — when the deadline passes.",
+  ],
   autopick: [
     "Miss the deadline and the site picks for you automatically: the lowest-placed available team in the league table, and two players who haven't already been used twice.",
     'Players are drawn from those valued at £5.5m or more on Fantasy Premier League — a deliberately recognisable pool of well-known names, not a random pick from the entire player list.',
@@ -50,7 +54,7 @@ export const RULES_TEXT = {
   quartiles: [
     'The 20 Premier League clubs are divided into four quartiles of five — Q1 (strongest) to Q4 (weakest). Quartiles are used to calculate team points based on the difficulty of the result.',
     "Betting odds set the quartiles for the first 6 gameweeks of a brand new season, before there's enough of a real league table to go on. From gameweek 7 onward, the actual table takes over. A competition starting partway through a season (e.g. a second half beginning in January) uses the real table from its very first gameweek, since one already exists by then.",
-    'Quartiles are locked at the point each gameweek deadline passes — past scores are never affected by future quartile changes.',
+    "Quartiles are locked in before you pick each gameweek, well before it's scored — past results and how a past fixture is shown are never affected by a quartile change in a later gameweek.",
   ],
   scoringIntro: "Team points depend on the result and the quartile differential between your team and their opponent. ↑ means your team is the underdog, ↓ means favourite. Bigger upsets, bigger points.",
   tiebreakers: [

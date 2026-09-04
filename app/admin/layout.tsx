@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '../lib/supabase-server'
+import { pastDeadlineGameweekIds } from '../lib/pastDeadlineGameweeks'
 import { redirect } from 'next/navigation'
 
 export default async function AdminLayout({
@@ -32,10 +33,18 @@ export default async function AdminLayout({
   // pattern shows up) — if a newer, optional table isn't there yet, that
   // count just quietly reads 0 rather than breaking the nav on every
   // admin page.
+  // Same reasoning as pastDeadlineGameweeks.ts's own comment: even just a
+  // pending-comment COUNT that includes a still-live gameweek indirectly
+  // reveals that at least one pick has been made there before the deadline
+  // — scoped the same way the Wall moderation queue and pending-count API
+  // already are, for consistency.
+  const pastGwIds = await pastDeadlineGameweekIds(supabase)
   const [{ count: pendingApprovals }, { count: pendingResets }, { count: pendingWallComments }, { count: pendingWallReplies }] = await Promise.all([
     supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('approved', false),
     supabase.from('password_reset_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-    supabase.from('picks').select('id', { count: 'exact', head: true }).eq('wall_status', 'pending').not('comments', 'is', null).neq('comments', ''),
+    pastGwIds.length
+      ? supabase.from('picks').select('id', { count: 'exact', head: true }).eq('wall_status', 'pending').not('comments', 'is', null).neq('comments', '').in('gameweek_id', pastGwIds)
+      : Promise.resolve({ count: 0 }),
     supabase.from('wall_replies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
   ])
   const notificationCount = (pendingApprovals ?? 0) + (pendingResets ?? 0) + (pendingWallComments ?? 0) + (pendingWallReplies ?? 0)

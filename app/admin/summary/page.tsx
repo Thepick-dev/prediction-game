@@ -79,8 +79,20 @@ export default function AdminSummaryPage() {
   async function loadPicksForGw(gwId: string) {
     setLoadingPicks(true)
 
+    // Same hard rule as everywhere else on the site — a pre-deadline
+    // pick's actual content never reaches the browser at all, not just
+    // "isn't shown". This whole page is a post-deadline reveal tool
+    // (boldest/safest/contrarian picks etc. only make sense once picks
+    // are public anyway), so below the deadline it simply never fetches
+    // pick content in the first place, rather than fetching it and
+    // hiding it behind the `!deadlinePassed` check further down.
+    const gw = gameweeks.find(g => g.id === gwId)
+    const gwDeadlinePassed = gw ? new Date() > new Date(gw.deadline) : false
+
     const [{ data: picksData }, { data: profilesData }, { data: questionData }] = await Promise.all([
-      supabase.from('picks').select('id, user_id, team_id, player1_id, player2_id, is_banker, is_autopick, submitted_at, question_answer').eq('gameweek_id', gwId),
+      gwDeadlinePassed
+        ? supabase.from('picks').select('id, user_id, team_id, player1_id, player2_id, is_banker, is_autopick, submitted_at, question_answer').eq('gameweek_id', gwId)
+        : Promise.resolve({ data: [] as PickRow[] }),
       supabase.from('profiles').select('id, display_name'),
       supabase.from('gameweek_questions').select('*').eq('gameweek_id', gwId).single()
     ])
