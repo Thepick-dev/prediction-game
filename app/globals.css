@@ -467,6 +467,24 @@ thead th {
   100% { opacity: 1; transform: scale(1); }
 }
 
+/* "Futzy Says" header ticker (see ceefax-shell.tsx) — content is rendered
+   twice back to back, so sliding exactly half its own width loops
+   seamlessly with no visible seam or jump. Duration is set inline per
+   page load, scaled to how much text there actually is, so the scroll
+   speed reads the same whether admin's written one line or five. */
+.pop-ticker-track {
+  animation-name: pop-ticker-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes pop-ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pop-ticker-track { animation: none; }
+}
+
 /* Penalty shootout aim marker — sweeps the width of the track and back.
    Duration is set inline per-shot (it gets faster as the streak grows),
    so this only defines the path, not the speed. */

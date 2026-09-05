@@ -274,6 +274,24 @@ export default async function CompetitionsPage({
     redirect(`/admin/competitions?comp=${competitionId}#bonus-card`)
   }
 
+  // Blank lines and surrounding whitespace are stripped so a stray Enter
+  // key doesn't leave an empty gap sitting in the ticker forever. Storing
+  // it as one newline-separated block (not a separate table) keeps this a
+  // single textarea to edit, matching how little content this ever needs
+  // to hold — a handful of short lines, rewritten every so often.
+  async function setFutzySaysText(formData: FormData) {
+    'use server'
+    const supabase = await requireAdminAction()
+    const competitionId = formData.get('competition_id') as string
+    const raw = (formData.get('text') as string) ?? ''
+    const cleaned = raw.split('\n').map(line => line.trim()).filter(Boolean).join('\n') || null
+    await supabase
+      .from('competitions')
+      .update({ futzy_says_text: cleaned })
+      .eq('id', competitionId)
+    redirect(`/admin/competitions?comp=${competitionId}#futzy`)
+  }
+
   // Cosmetic pause, not a functional one — deadlines/autopick/scoring keep
   // running exactly as normal underneath (an explicit choice, see proxy.ts).
   // This just decides what a non-admin sees when they load any page: the
@@ -622,6 +640,24 @@ export default async function CompetitionsPage({
                 <span className="text-xs text-gray-400">Disabling stops new picks — his history/points stand either way.</span>
               </div>
             )}
+            <div className="mt-5 pt-5 border-t">
+              <h3 className="font-bold text-sm mb-1">📢 Futzy Says (ticker)</h3>
+              <p className="text-xs text-gray-500 mb-3">
+                A scrolling ribbon shown across the top of the site. One line each — reminders, shout-outs, whatever
+                you like. Leave it empty to hide the ticker entirely.
+              </p>
+              <form action={setFutzySaysText}>
+                <input type="hidden" name="competition_id" value={selectedCompId} />
+                <textarea
+                  name="text"
+                  rows={4}
+                  defaultValue={selectedComp?.futzy_says_text ?? ''}
+                  placeholder={'Deadline reminder: GW6 locks Friday 6pm\nAdders on a 4-week hot streak'}
+                  className="border rounded px-2 py-1 text-xs w-full mb-2"
+                />
+                <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Save ticker</button>
+              </form>
+            </div>
           </div>
           </>
         )

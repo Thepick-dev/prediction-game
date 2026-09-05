@@ -57,6 +57,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
   const [topScore, setTopScore] = useState(0)
   const kit = kitBase ? { ...kitBase, colour3: kitColour3, stars: kitStars, earths: kitEarths } : null
   const [nextDeadline, setNextDeadline] = useState<{ number: number; deadline: string } | null>(null)
+  const [futzySaysLines, setFutzySaysLines] = useState<string[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   const countdown = useCountdown(nextDeadline?.deadline ?? null)
@@ -157,6 +158,24 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
     })()
   }, [user?.id])
 
+  // Same isolation reasoning as the deadline lookup just above — a brand
+  // new, purely decorative feature, so a problem here must never take the
+  // rest of the header down with it. Shown to any signed-in visitor, same
+  // as the header itself, not gated on being on a "pop-art" page.
+  useEffect(() => {
+    if (!user?.id) return
+    const supabase = createClient()
+    supabase
+      .from('competitions')
+      .select('futzy_says_text')
+      .eq('status', 'active')
+      .single()
+      .then(({ data }) => {
+        const lines = (data?.futzy_says_text ?? '').split('\n').map((l: string) => l.trim()).filter(Boolean)
+        setFutzySaysLines(lines)
+      })
+  }, [user?.id])
+
   useEffect(() => {
     if (!user?.id) return
     const supabase = createClient()
@@ -222,6 +241,28 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
         className={isPopArt ? 'sticky top-0 z-50' : 'bg-[#2A1F17] border-b-4 border-[#D9A441] sticky top-0 z-50'}
         style={isPopArt ? { borderBottom: '2px solid rgba(255,255,255,0.15)' } : undefined}
       >
+        {isPopArt && futzySaysLines.length > 0 && (
+          // Admin-editable, one line each — see /admin/competitions. Full-
+          // width and outside the max-w-4xl wrapper below on purpose, so it
+          // reads as its own banner rather than being boxed in with the nav.
+          <div className="overflow-hidden whitespace-nowrap" style={{ background: 'rgba(160,0,250,0.18)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <div
+              className="pop-ticker-track inline-flex items-center py-1 font-black uppercase"
+              style={{ fontSize: '11px', color: 'var(--pop-pink)', animationDuration: `${Math.max(15, futzySaysLines.join(' ').length * 0.2)}s` }}
+            >
+              {[0, 1].map(dup => (
+                <span key={dup} className="inline-flex items-center shrink-0">
+                  {futzySaysLines.map((line, i) => (
+                    <span key={i} className="inline-flex items-center shrink-0">
+                      <span className="mx-4">🤖 Futzy says: {line}</span>
+                      <span style={{ color: 'rgba(255,255,255,0.3)' }}>•</span>
+                    </span>
+                  ))}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex sm:grid sm:grid-cols-3 items-center justify-between h-14">
             <Link
