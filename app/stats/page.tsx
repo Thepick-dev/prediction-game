@@ -57,7 +57,11 @@ function tooltipStyle() {
 // Pop-art equivalents of the two helpers above — same shape, different
 // palette, so every chart just switches which pair it calls rather than
 // duplicating the chart JSX itself.
-const POP_ACCENT = 'var(--pop-blue)'
+// Literal hex, not var(--pop-blue): these values are read as raw SVG fill/
+// stroke attributes by Recharts, and the share-to-image capture renders the
+// chart in an isolated context where CSS custom properties don't resolve —
+// an unresolved var() there silently drops the bar/line colour entirely.
+const POP_ACCENT = '#00F2FA'
 const POP_GRID = 'rgba(255,255,255,0.1)'
 function popAxisProps() {
   return { tick: { fill: '#ffffff', fontSize: 10, opacity: 0.6 }, stroke: 'rgba(255,255,255,0.2)' }
@@ -731,7 +735,7 @@ export default function StatsHubPage() {
                         <XAxis dataKey="name" {...popAxisProps()} />
                         <YAxis {...popAxisProps()} reversed allowDecimals={false} />
                         <Tooltip {...popTooltipStyle()} />
-                        <Line type="monotone" dataKey="rank" stroke="var(--pop-pink)" strokeWidth={2} dot={{ r: 3, fill: 'var(--pop-pink)' }} />
+                        <Line type="monotone" dataKey="rank" stroke="#A000FA" strokeWidth={2} dot={{ r: 3, fill: '#A000FA' }} />
                       </LineChart>
                     </ResponsiveContainer>
                   </ShareableCard>
