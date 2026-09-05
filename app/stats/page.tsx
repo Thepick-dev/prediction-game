@@ -69,6 +69,17 @@ function popTooltipStyle() {
   }
 }
 
+// Six real hues in the site's own palette (excludes black/white/surface,
+// which don't work as line colours on a dark chart) — cycled, with a
+// dimmer second pass of the same six if there are ever more than six
+// entrants, so every line still reads as "this site's palette" rather
+// than reaching for an unrelated colour scale.
+const RANK_LINE_COLOURS = ['#FA6100', '#7D37A5', '#CCFA00', '#00F2FA', '#A000FA', '#FA003C']
+function rankLineColour(index: number): string {
+  const base = RANK_LINE_COLOURS[index % RANK_LINE_COLOURS.length]
+  return index < RANK_LINE_COLOURS.length ? base : `${base}99`
+}
+
 function teamDisplayName(team: Team | undefined) {
   if (!team) return 'Unknown'
   return team.short_name ?? team.name.replace(' FC', '').replace(' AFC', '')
@@ -102,6 +113,12 @@ export default function StatsHubPage() {
   const [myCumulative, setMyCumulative] = useState<{ gw: number; cumulative: number; rank: number }[]>([])
   const [myBest, setMyBest] = useState<{ gw: number; points: number } | null>(null)
   const [myWorst, setMyWorst] = useState<{ gw: number; points: number } | null>(null)
+
+  // Everyone's rank each gameweek, for the League Trends "race" chart —
+  // one row per gameweek, one numeric column per user id (their rank that
+  // week), plus their display name for the end-of-line labels.
+  const [allRanksChartData, setAllRanksChartData] = useState<Record<string, number | string>[]>([])
+  const [rankedUserMeta, setRankedUserMeta] = useState<{ uid: string; name: string; finalRank: number }[]>([])
 
   const [teamSearch, setTeamSearch] = useState('')
   const [playerSearch, setPlayerSearch] = useState('')
@@ -444,6 +461,8 @@ export default function StatsHubPage() {
         const userIds = Array.from(new Set(picks?.map(p => p.user_id) ?? entries?.map(e => e.user_id) ?? []))
         const cumByUser: Record<string, number> = {}
         const cumulative: { gw: number; cumulative: number; rank: number }[] = []
+        const rankChartRows: Record<string, number | string>[] = []
+        let lastRanked: { uid: string; total: number }[] = []
         allGwNumbers.forEach(gwNum => {
           userIds.forEach(uid => {
             cumByUser[uid] = (cumByUser[uid] ?? 0) + (gwPointsByUser[gwNum]?.[uid] ?? 0)
@@ -451,10 +470,24 @@ export default function StatsHubPage() {
           const ranked = userIds
             .map(uid => ({ uid, total: cumByUser[uid] ?? 0 }))
             .sort((a, b) => b.total - a.total)
+          lastRanked = ranked
           const myRank = ranked.findIndex(r => r.uid === authUser.id) + 1
           cumulative.push({ gw: gwNum, cumulative: Math.round(cumByUser[authUser.id] ?? 0), rank: myRank || ranked.length })
+
+          // Every user's rank this gameweek, for the League Trends chart —
+          // ranks are a strict ordering (each index+1 is unique even when
+          // two totals tie), so no two lines can ever land on the exact
+          // same value at the same gameweek, which is what keeps the
+          // end-of-line name labels from ever overlapping.
+          const row: Record<string, number | string> = { name: `GW${gwNum}` }
+          ranked.forEach((r, i) => { row[r.uid] = i + 1 })
+          rankChartRows.push(row)
         })
         setMyCumulative(cumulative)
+        setAllRanksChartData(rankChartRows)
+        setRankedUserMeta(
+          lastRanked.map((r, i) => ({ uid: r.uid, name: profileMap[r.uid] ?? 'Unknown', finalRank: i + 1 }))
+        )
       }
 
       setLoading(false)
@@ -756,6 +789,49 @@ export default function StatsHubPage() {
                       <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Best Play</p>
                       <p className="text-base font-black" style={{ color: 'var(--pop-blue)' }}>{bestBonusCardPlay ? `${bestBonusCardPlay.name} — GW${bestBonusCardPlay.gw} (${bestBonusCardPlay.points})` : '—'}</p>
                     </div>
+                  </div>
+                </>
+              )}
+
+              {allRanksChartData.length > 1 && rankedUserMeta.length > 0 && (
+                <>
+                  <p className="sec-label">The Race</p>
+                  <div className="pop-panel p-4 mb-4" style={{ height: Math.max(260, rankedUserMeta.length * 26) }}>
+                    <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                      Position by Gameweek <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(lower = better)</span>
+                    </p>
+                    <ResponsiveContainer width="100%" height="88%">
+                      <LineChart data={allRanksChartData} margin={{ top: 4, right: 78, bottom: 0, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
+                        <XAxis dataKey="name" {...popAxisProps()} />
+                        <YAxis {...popAxisProps()} reversed allowDecimals={false} domain={[1, rankedUserMeta.length]} width={20} />
+                        <Tooltip {...popTooltipStyle()} />
+                        {rankedUserMeta.map((u, i) => {
+                          const color = rankLineColour(i)
+                          return (
+                            <Line
+                              key={u.uid}
+                              type="monotone"
+                              dataKey={u.uid}
+                              name={u.name}
+                              stroke={color}
+                              strokeWidth={2}
+                              dot={false}
+                              activeDot={{ r: 3 }}
+                              isAnimationActive={false}
+                              label={(props: any) => {
+                                if (props.index !== allRanksChartData.length - 1) return null
+                                return (
+                                  <text x={props.x + 8} y={props.y} dy={3} fontSize={10} fontWeight={700} fill={color} textAnchor="start">
+                                    {u.name}
+                                  </text>
+                                )
+                              }}
+                            />
+                          )
+                        })}
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
                 </>
               )}
