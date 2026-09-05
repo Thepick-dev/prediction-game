@@ -17,6 +17,7 @@ import { computeCompetitionAwards, resolveWinners, awardWinnerNames, type Compet
 import PersonalSeasonShareCard from '../../components/PersonalSeasonShareCard'
 import LeaderboardShareCard from '../../components/LeaderboardShareCard'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
+import { RULES_TEXT } from '../lib/rulesText'
 import PopArtLoading from '../../components/PopArtLoading'
 
 type RankedPlayer = {
@@ -147,6 +148,18 @@ export default function LeaderboardPage() {
   const { popArt } = usePopArtTheme(user?.id)
 
   useEffect(() => { loadData() }, [])
+
+  // While any gameweek is genuinely live (deadline passed, not yet marked
+  // completed), re-run loadData every minute so the "points update
+  // automatically" banner below is actually true rather than only
+  // reflecting a fresh recompute on the next manual page load. Re-arms
+  // itself each time loadData() updates allGameweeks, and stops scheduling
+  // once nothing is live anymore.
+  useEffect(() => {
+    if (!allGameweeks.some(g => g.status === 'locked')) return
+    const interval = setInterval(() => { loadData() }, 60000)
+    return () => clearInterval(interval)
+  }, [allGameweeks])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -1320,6 +1333,21 @@ export default function LeaderboardPage() {
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-red)', color: 'var(--pop-white)' }}><CrossIcon size={11} color="var(--pop-white)" /> AoN</span> All or Nothing failed</div>
                 <div className="flex items-center gap-2.5" style={{ color: 'rgba(255,255,255,0.5)' }}>▼ Tap a row to see their week-by-week picks</div>
               </div>
+            </div>
+
+            <div className="pop-panel p-4 mt-3">
+              <p className="font-black uppercase tracking-wider text-xs mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>How Ties Are Split</p>
+              <p className="mb-2" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+                When two or more players are level, these criteria are applied in order until the tie breaks.
+              </p>
+              <ol className="space-y-1" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)' }}>
+                {RULES_TEXT.tiebreakers.map((criterion, i) => (
+                  <li key={i} className="flex gap-2.5">
+                    <span className="font-black shrink-0" style={{ color: 'var(--pop-green)' }}>{i + 1}.</span>
+                    <span>{criterion}</span>
+                  </li>
+                ))}
+              </ol>
             </div>
 
           </div>

@@ -12,6 +12,7 @@ import { buildPlayerDisplayNames, bonusCardDisplayName } from '../../lib/players
 import { computeTopDog } from '../../lib/topDog'
 import { computeAvgByGw, computeStreaks } from '../../lib/leaderboardBadges'
 import { usePopArtTheme } from '../../lib/usePopArtTheme'
+import { RULES_TEXT } from '../../lib/rulesText'
 import PopArtLoading from '../../../components/PopArtLoading'
 import Link from 'next/link'
 
@@ -83,7 +84,7 @@ export default function FullLeaderboardPage() {
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
   const [teamsExpandedUsers, setTeamsExpandedUsers] = useState<Set<string>>(new Set())
   const [pickDetails, setPickDetails] = useState<Record<string, PickDetail[]>>({})
-  const [allGameweeks, setAllGameweeks] = useState<{ id: string; number: number; deadline: string }[]>([])
+  const [allGameweeks, setAllGameweeks] = useState<{ id: string; number: number; deadline: string; status: string }[]>([])
   const [matchEvents, setMatchEvents] = useState<any[]>([])
   const [potwUserId, setPotwUserId] = useState<string | null>(null)
   const [allTeams, setAllTeams] = useState<Team[]>([])
@@ -112,6 +113,18 @@ export default function FullLeaderboardPage() {
   const { popArt } = usePopArtTheme(user?.id)
 
   useEffect(() => { loadData() }, [])
+
+  // While any gameweek is genuinely live (deadline passed, not yet marked
+  // completed), re-run loadData every minute so this page updates the same
+  // way the main Leaderboard does, rather than only reflecting a fresh
+  // recompute on the next manual page load. Re-arms itself each time
+  // loadData() updates allGameweeks, and stops scheduling once nothing is
+  // live anymore.
+  useEffect(() => {
+    if (!allGameweeks.some(g => g.status === 'locked')) return
+    const interval = setInterval(() => { loadData() }, 60000)
+    return () => clearInterval(interval)
+  }, [allGameweeks])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -247,6 +260,13 @@ export default function FullLeaderboardPage() {
     type ProvisionalPick = { user_id: string; gameweek_id: string; team_id: number; player1_id: number; player2_id: number }
     let provisionalPicks: ProvisionalPick[] = []
 
+    // Bonus Card points only land in bonus_card_plays.points once a gameweek
+    // is actually completed/recalculated — without this, a card played in a
+    // still-live gameweek would show 0 here even though the preview below
+    // already knows its live value (mirrors the same fallback on the main
+    // Leaderboard page).
+    const bonusCardPreviewPoints: Record<string, number> = {}
+
     await Promise.all(previewGameweeks.map(async gw => {
       try {
         // /api/scoring/preview's own autopick derivation (for whoever
@@ -275,6 +295,9 @@ export default function FullLeaderboardPage() {
           } else {
             pointsByPickId[row.pick_id] = row
           }
+        })
+        ;(scoringData.bonusCardRows ?? []).forEach((row: any) => {
+          bonusCardPreviewPoints[row.user_id] = row.points
         })
       } catch {
         // ignore preview failures
@@ -397,10 +420,12 @@ export default function FullLeaderboardPage() {
 
     bonusCardPlays?.forEach(play => {
       const t = totals[play.user_id]
-      if (!t || play.points == null) return
-      t.bonus_card_points += play.points
-      t.total_points += play.points
-      t.points_without_banker += play.points
+      if (!t) return
+      const points = play.points ?? bonusCardPreviewPoints[play.user_id] ?? null
+      if (points == null) return
+      t.bonus_card_points += points
+      t.total_points += points
+      t.points_without_banker += points
     })
 
     Object.values(totals).forEach(t => {
@@ -556,6 +581,15 @@ export default function FullLeaderboardPage() {
         </Link>
         <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-1">Full Table</h1>
         <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name} — every stat, broken down</p>
+
+        {allGameweeks.some(g => g.status === 'locked') && (
+          <div className="pop-panel pop-panel--blue p-3 mb-4 flex items-center gap-2.5">
+            <span className="inline-block rounded-full shrink-0" style={{ width: 8, height: 8, background: 'var(--pop-blue)' }} />
+            <p className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.8)' }}>
+              <strong style={{ color: 'var(--pop-blue)' }}>GW{allGameweeks.filter(g => g.status === 'locked').map(g => g.number).join(', ')} live</strong> — points below update automatically as goals and assists are confirmed, and can go up or down if something gets corrected. Final once the gameweek's marked complete.
+            </p>
+          </div>
+        )}
 
         <div className="pop-panel" style={{ overflow: 'hidden' }}>
           <table className="w-full" style={{ fontSize: '11.5px', tableLayout: 'fixed' }}>
@@ -902,6 +936,21 @@ export default function FullLeaderboardPage() {
             <span className="px-1 rounded font-black inline-flex items-center gap-0.5" style={{ background: 'var(--pop-red)', color: 'var(--pop-white)' }}><CrossIcon size={9} color="var(--pop-white)" /> AoN</span> failed
           </span>
           <span>Click a row to expand</span>
+        </div>
+
+        <div className="pop-panel p-4 mt-4">
+          <p className="sec-label">How Ties Are Split</p>
+          <p className="mb-2" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+            When two or more players are level, these criteria are applied in order until the tie breaks.
+          </p>
+          <ol className="space-y-1" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}>
+            {RULES_TEXT.tiebreakers.map((criterion, i) => (
+              <li key={i} className="flex gap-2">
+                <span className="font-black shrink-0" style={{ color: 'var(--pop-green)' }}>{i + 1}.</span>
+                <span>{criterion}</span>
+              </li>
+            ))}
+          </ol>
         </div>
 
       </div>
