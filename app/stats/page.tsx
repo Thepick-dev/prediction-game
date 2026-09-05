@@ -11,6 +11,7 @@ import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import PopArtLoading from '../../components/PopArtLoading'
+import ShareableCard from '../../components/ShareableCard'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import { pastDeadlineGameweekIds } from '../lib/pastDeadlineGameweeks'
 
@@ -573,7 +574,7 @@ export default function StatsHubPage() {
 
           {tab === 'teams' && (
             <div>
-              <div className="pop-panel p-4 mb-4" style={{ height: 260 }}>
+              <ShareableCard filename="top-teams-by-points" className="pop-panel p-4 mb-4" style={{ height: 260 }}>
                 <p className="sec-label">Top Teams by Points (inc. Banker)</p>
                 <ResponsiveContainer width="100%" height="90%">
                   <BarChart data={teamStats.slice(0, 10).map(t => ({ name: teamDisplayName(t.team), points: t.totalPoints }))}>
@@ -584,7 +585,7 @@ export default function StatsHubPage() {
                     <Bar dataKey="points" fill={POP_ACCENT} radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
+              </ShareableCard>
 
               <input
                 type="text"
@@ -632,7 +633,7 @@ export default function StatsHubPage() {
 
           {tab === 'players' && (
             <div>
-              <div className="pop-panel p-4 mb-4" style={{ height: 260 }}>
+              <ShareableCard filename="top-players-by-points" className="pop-panel p-4 mb-4" style={{ height: 260 }}>
                 <p className="sec-label">Top Players by Points (inc. Banker)</p>
                 <ResponsiveContainer width="100%" height="90%">
                   <BarChart data={playerStats.slice(0, 12).map(p => ({ name: p.displayName, points: p.totalPickPoints }))}>
@@ -643,7 +644,7 @@ export default function StatsHubPage() {
                     <Bar dataKey="points" fill={POP_ACCENT} radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
+              </ShareableCard>
 
               <input
                 type="text"
@@ -698,7 +699,7 @@ export default function StatsHubPage() {
               ) : (
                 <>
                   <p className="sec-label">This Season</p>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
+                  <ShareableCard filename="my-best-and-worst-gameweek" className="grid grid-cols-2 gap-3 mb-4">
                     <div className="pop-panel p-3">
                       <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Best Gameweek</p>
                       <p className="text-xl font-black" style={{ color: 'var(--pop-green)' }}>GW{myBest?.gw} · {myBest?.points} pts</p>
@@ -707,10 +708,10 @@ export default function StatsHubPage() {
                       <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Worst Gameweek</p>
                       <p className="text-xl font-black" style={{ color: 'rgba(255,255,255,0.7)' }}>GW{myWorst?.gw} · {myWorst?.points} pts</p>
                     </div>
-                  </div>
+                  </ShareableCard>
 
                   <p className="sec-label">By Gameweek</p>
-                  <div className="pop-panel p-4 mb-4" style={{ height: 240 }}>
+                  <ShareableCard filename="my-points-by-gameweek" className="pop-panel p-4 mb-4" style={{ height: 240 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={myWeekly.map(w => ({ name: `GW${w.gw}`, points: w.points }))}>
                         <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
@@ -720,10 +721,10 @@ export default function StatsHubPage() {
                         <Bar dataKey="points" fill={POP_ACCENT} radius={[3, 3, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
-                  </div>
+                  </ShareableCard>
 
                   <p className="sec-label">Rank Over Time <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(lower = better)</span></p>
-                  <div className="pop-panel p-4" style={{ height: 240 }}>
+                  <ShareableCard filename="my-rank-over-time" className="pop-panel p-4" style={{ height: 240 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={myCumulative.map(c => ({ name: `GW${c.gw}`, rank: c.rank }))}>
                         <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
@@ -733,7 +734,7 @@ export default function StatsHubPage() {
                         <Line type="monotone" dataKey="rank" stroke="var(--pop-pink)" strokeWidth={2} dot={{ r: 3, fill: 'var(--pop-pink)' }} />
                       </LineChart>
                     </ResponsiveContainer>
-                  </div>
+                  </ShareableCard>
                 </>
               )}
             </div>
@@ -742,7 +743,7 @@ export default function StatsHubPage() {
           {tab === 'trends' && (
             <div>
               <p className="sec-label">Banker</p>
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <ShareableCard filename="banker-stats" className="grid grid-cols-2 gap-3 mb-4">
                 <div className="pop-panel p-3">
                   <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Banked Team</p>
                   <p className="text-base font-black" style={{ color: 'var(--pop-yellow)' }}>{mostBankedTeam ? `${mostBankedTeam.name} (${mostBankedTeam.count}x)` : '—'}</p>
@@ -759,10 +760,10 @@ export default function StatsHubPage() {
                   <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Best Bankered GW</p>
                   <p className="text-base font-black" style={{ color: 'var(--pop-yellow)' }}>{bestBankerGameweek ? `${bestBankerGameweek.name} — GW${bestBankerGameweek.gw} (${bestBankerGameweek.points})` : '—'}</p>
                 </div>
-              </div>
+              </ShareableCard>
 
               <p className="sec-label">All or Nothing</p>
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <ShareableCard filename="all-or-nothing-stats" className="grid grid-cols-2 gap-3 mb-4">
                 <div className="pop-panel p-3">
                   <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Success Rate</p>
                   <p className="text-base font-black" style={{ color: 'var(--pop-green)' }}>{aonSuccessRate ? `${aonSuccessRate.rate}% (${aonSuccessRate.success}/${aonSuccessRate.total})` : '—'}</p>
@@ -771,12 +772,12 @@ export default function StatsHubPage() {
                   <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Nominated</p>
                   <p className="text-base font-black" style={{ color: 'var(--pop-green)' }}>{mostNominatedAon ? `${mostNominatedAon.name} (${mostNominatedAon.count}x)` : '—'}</p>
                 </div>
-              </div>
+              </ShareableCard>
 
               {bonusCardName && (
                 <>
                   <p className="sec-label">{bonusCardName}</p>
-                  <div className="grid grid-cols-3 gap-3 mb-4">
+                  <ShareableCard filename={`${bonusCardName}-stats`} className="grid grid-cols-3 gap-3 mb-4">
                     <div className="pop-panel p-3">
                       <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Played</p>
                       <p className="text-base font-black" style={{ color: 'var(--pop-blue)' }}>{bonusCardUsage ? `${bonusCardUsage.used} / ${bonusCardUsage.total}` : '—'}</p>
@@ -789,14 +790,14 @@ export default function StatsHubPage() {
                       <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Best Play</p>
                       <p className="text-base font-black" style={{ color: 'var(--pop-blue)' }}>{bestBonusCardPlay ? `${bestBonusCardPlay.name} — GW${bestBonusCardPlay.gw} (${bestBonusCardPlay.points})` : '—'}</p>
                     </div>
-                  </div>
+                  </ShareableCard>
                 </>
               )}
 
               {allRanksChartData.length > 1 && rankedUserMeta.length > 0 && (
                 <>
                   <p className="sec-label">The Race</p>
-                  <div className="pop-panel p-4 mb-4" style={{ height: Math.max(260, rankedUserMeta.length * 26) }}>
+                  <ShareableCard filename="the-race-position-by-gameweek" className="pop-panel p-4 mb-4" style={{ height: Math.max(260, rankedUserMeta.length * 26) }}>
                     <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
                       Position by Gameweek <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(lower = better)</span>
                     </p>
@@ -832,12 +833,12 @@ export default function StatsHubPage() {
                         })}
                       </LineChart>
                     </ResponsiveContainer>
-                  </div>
+                  </ShareableCard>
                 </>
               )}
 
               <p className="sec-label">League-Wide</p>
-              <div className="pop-panel p-4 mb-4" style={{ height: 240 }}>
+              <ShareableCard filename="average-score-by-gameweek" className="pop-panel p-4 mb-4" style={{ height: 240 }}>
                 <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Average Score by Gameweek</p>
                 <ResponsiveContainer width="100%" height="85%">
                   <LineChart data={avgByGw.map(a => ({ name: `GW${a.gw}`, avg: a.avg }))}>
@@ -848,9 +849,9 @@ export default function StatsHubPage() {
                     <Line type="monotone" dataKey="avg" stroke={POP_ACCENT} strokeWidth={2} dot={{ r: 3, fill: POP_ACCENT }} />
                   </LineChart>
                 </ResponsiveContainer>
-              </div>
+              </ShareableCard>
 
-              <div className="pop-panel p-4 mb-4" style={{ height: 260 }}>
+              <ShareableCard filename="most-popular-teams" className="pop-panel p-4 mb-4" style={{ height: 260 }}>
                 <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Popular Teams</p>
                 <ResponsiveContainer width="100%" height="85%">
                   <BarChart data={teamPopularity}>
@@ -861,9 +862,9 @@ export default function StatsHubPage() {
                     <Bar dataKey="count" fill={POP_ACCENT} radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
+              </ShareableCard>
 
-              <div className="pop-panel p-4" style={{ height: 240 }}>
+              <ShareableCard filename="manual-vs-autopick" className="pop-panel p-4" style={{ height: 240 }}>
                 <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Manual vs Autopick</p>
                 <ResponsiveContainer width="100%" height="85%">
                   <BarChart data={pickMethod.map(m => ({ name: `GW${m.gw}`, Manual: m.manual, Autopick: m.autopick }))}>
@@ -876,7 +877,7 @@ export default function StatsHubPage() {
                     <Bar dataKey="Autopick" stackId="a" fill="rgba(255,255,255,0.25)" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
+              </ShareableCard>
             </div>
           )}
         </div>
