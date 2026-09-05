@@ -1,7 +1,19 @@
 import { createServerSupabaseClient } from '../lib/supabase-server'
 import { createAdminSupabaseClient } from '../lib/supabase-admin'
 import { pastDeadlineGameweekIds } from '../lib/pastDeadlineGameweeks'
+import { requireAdmin } from '../lib/require-admin'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
+
+// Every write below goes through this — Server Actions are reachable as
+// their own endpoint, not just "the button on a page only admins can see",
+// so the page layout's own admin check isn't a guarantee for these.
+async function requireAdminAction() {
+  const supabase = await createServerSupabaseClient()
+  const admin = await requireAdmin(supabase)
+  if (!admin) redirect('/')
+  return createAdminSupabaseClient()
+}
 
 // Same reasoning as the nav badge this feeds alongside — several of these
 // tables only let a regular session see its own pending row via RLS, not
@@ -33,11 +45,31 @@ async function loadPendingSummary() {
   ].filter(item => item.count > 0)
 }
 
+// Blank lines and surrounding whitespace are stripped so a stray Enter key
+// doesn't leave an empty gap sitting in the ticker forever. Storing it as
+// one newline-separated block (not a separate table) keeps this a single
+// textarea to edit, matching how little content this ever needs to hold —
+// a handful of short lines, rewritten every so often. Moved here from
+// /admin/competitions — that page is for rare season setup, not something
+// worth re-visiting weekly just to change a reminder.
+async function setFutzySaysText(formData: FormData) {
+  'use server'
+  const supabase = await requireAdminAction()
+  const competitionId = formData.get('competition_id') as string
+  const raw = (formData.get('text') as string) ?? ''
+  const cleaned = raw.split('\n').map(line => line.trim()).filter(Boolean).join('\n') || null
+  await supabase
+    .from('competitions')
+    .update({ futzy_says_text: cleaned })
+    .eq('id', competitionId)
+  redirect('/admin#futzy-says')
+}
+
 export default async function AdminPage() {
   const supabase = await createServerSupabaseClient()
 
   const [{ data: competition }, { data: gameweeks }, { data: entries }, pending] = await Promise.all([
-    supabase.from('competitions').select('id, name, status').eq('status', 'active').single(),
+    supabase.from('competitions').select('id, name, status, futzy_says_text').eq('status', 'active').single(),
     supabase.from('gameweeks').select('id, number, status, deadline').order('number', { ascending: false }).limit(5),
     supabase.from('competition_entries').select('id'),
     loadPendingSummary(),
@@ -64,6 +96,27 @@ export default async function AdminPage() {
               </Link>
             ))}
           </div>
+        </div>
+      )}
+
+      {competition && (
+        <div id="futzy-says" className="bg-white border rounded-lg p-6 mb-8">
+          <h2 className="font-bold mb-1">📢 Futzy Says (ticker)</h2>
+          <p className="text-xs text-gray-500 mb-3">
+            A scrolling ribbon shown across the top of the site. One line each — reminders, shout-outs, whatever you
+            like. Leave it empty to hide the ticker entirely.
+          </p>
+          <form action={setFutzySaysText}>
+            <input type="hidden" name="competition_id" value={competition.id} />
+            <textarea
+              name="text"
+              rows={3}
+              defaultValue={competition.futzy_says_text ?? ''}
+              placeholder={'Deadline reminder: GW6 locks Friday 6pm\nAdders on a 4-week hot streak'}
+              className="border rounded px-2 py-1 text-xs w-full mb-2"
+            />
+            <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Save ticker</button>
+          </form>
         </div>
       )}
 

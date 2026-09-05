@@ -12,6 +12,7 @@ import { CrownIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, BlockedIcon, FlameIco
 import { computeTopDog } from '../lib/topDog'
 import { computeAvgByGw, computeStreaks } from '../lib/leaderboardBadges'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
+import FutzyReplyButton from '../../components/FutzyReplyButton'
 
 type Post = {
   pick_id: string
@@ -597,6 +598,11 @@ export default function WallPage() {
                         />
                       </div>
                     )}
+                    {isAdmin && !isPending && (
+                      <div className="mt-1.5">
+                        <FutzyReplyButton targetType="comment" targetId={c.id} popArt={popArt} />
+                      </div>
+                    )}
 
                     {(commentRepliesByComment[c.id] ?? []).filter(r => !deletedIds.has(r.id)).length > 0 && (
                       <div className="mt-2 ml-4 space-y-1.5">
@@ -774,6 +780,11 @@ export default function WallPage() {
                               Delete
                             </button>
                           )}
+                        </div>
+                      )}
+                      {isAdmin && post.comments && !deletedIds.has(post.pick_id) && (
+                        <div className="mt-1.5">
+                          <FutzyReplyButton targetType="pick" targetId={post.pick_id} popArt={popArt} />
                         </div>
                       )}
                     </div>

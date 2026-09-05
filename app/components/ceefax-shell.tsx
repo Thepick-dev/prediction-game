@@ -248,13 +248,13 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
           <div className="overflow-hidden whitespace-nowrap" style={{ background: 'rgba(160,0,250,0.18)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             <div
               className="pop-ticker-track inline-flex items-center py-1 font-black uppercase"
-              style={{ fontSize: '11px', color: 'var(--pop-pink)', animationDuration: `${Math.max(15, futzySaysLines.join(' ').length * 0.2)}s` }}
+              style={{ fontSize: '11px', color: 'var(--pop-green)', animationDuration: `${Math.max(15, futzySaysLines.join(' ').length * 0.2)}s` }}
             >
               {[0, 1].map(dup => (
                 <span key={dup} className="inline-flex items-center shrink-0">
                   {futzySaysLines.map((line, i) => (
                     <span key={i} className="inline-flex items-center shrink-0">
-                      <span className="mx-4">🤖 Futzy says: {line}</span>
+                      <span className="mx-4">Futzy says: {line}</span>
                       <span style={{ color: 'rgba(255,255,255,0.3)' }}>•</span>
                     </span>
                   ))}
