@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend
@@ -125,8 +125,16 @@ export default function StatsHubPage() {
   const [weeklyByUser, setWeeklyByUser] = useState<Record<string, { gw: number; points: number }[]>>({})
   const [cumulativeByUser, setCumulativeByUser] = useState<Record<string, { gw: number; cumulative: number; rank: number }[]>>({})
   const [selectedPlayerId, setSelectedPlayerId] = useState('')
+  const [compareUserId, setCompareUserId] = useState('')
   const [teamsIncludeBanker, setTeamsIncludeBanker] = useState(true)
   const [playersIncludeBanker, setPlayersIncludeBanker] = useState(true)
+
+  // Who picked this team/player each gameweek, and for how many points —
+  // shown when a Teams/Players row is expanded.
+  const [teamPickDetail, setTeamPickDetail] = useState<Record<number, { gw: number; userName: string; points: number; isBanker: boolean }[]>>({})
+  const [playerPickDetail, setPlayerPickDetail] = useState<Record<number, { gw: number; userName: string; points: number; isBanker: boolean; role: 'player1' | 'player2' }[]>>({})
+  const [expandedTeamId, setExpandedTeamId] = useState<number | null>(null)
+  const [expandedPlayerId, setExpandedPlayerId] = useState<number | null>(null)
 
   // Everyone's rank each gameweek, for the League Trends "race" chart —
   // one row per gameweek, one numeric column per user id (their rank that
@@ -279,6 +287,7 @@ export default function StatsHubPage() {
       // for a banker pick), so the Teams tab's toggle can switch between
       // the two without a second query.
       const teamAgg: Record<number, { picked: number; banked: number; total: number; totalRaw: number }> = {}
+      const teamDetailMap: Record<number, { gw: number; userName: string; points: number; isBanker: boolean }[]> = {}
       points?.forEach(pt => {
         const pick = pickById[pt.pick_id]
         if (!pick) return
@@ -289,7 +298,20 @@ export default function StatsHubPage() {
         teamAgg[pick.team_id].total += teamPts
         teamAgg[pick.team_id].totalRaw += isBanker ? teamPts / 2 : teamPts
         if (isBanker) teamAgg[pick.team_id].banked += 1
+
+        const gwNum = gwMap[pick.gameweek_id]
+        if (gwNum) {
+          if (!teamDetailMap[pick.team_id]) teamDetailMap[pick.team_id] = []
+          teamDetailMap[pick.team_id].push({
+            gw: gwNum,
+            userName: profileMap[pick.user_id] ?? 'Unknown',
+            points: Math.round(teamPts),
+            isBanker
+          })
+        }
       })
+      Object.values(teamDetailMap).forEach(list => list.sort((a, b) => a.gw - b.gw))
+      setTeamPickDetail(teamDetailMap)
       const teamStatList: TeamStat[] = Object.entries(teamAgg)
         .filter(([teamId]) => tMap[Number(teamId)])
         .map(([teamId, agg]) => ({
@@ -317,17 +339,33 @@ export default function StatsHubPage() {
       // stripped-back raw score. totalRaw undoes the doubling, same as
       // teamAgg.totalRaw, for the Players tab's toggle.
       const playerPickAgg: Record<number, { picked: number; total: number; totalRaw: number }> = {}
+      const playerDetailMap: Record<number, { gw: number; userName: string; points: number; isBanker: boolean; role: 'player1' | 'player2' }[]> = {}
       points?.forEach(pt => {
         const pick = pickById[pt.pick_id]
         if (!pick) return
         const isBanker = (pt.breakdown as any)?.is_banker === true
-        ;[[pick.player1_id, pt.player1_points ?? 0], [pick.player2_id, pt.player2_points ?? 0]].forEach(([pid, val]) => {
-          const playerId = pid as number
-          const v = val as number
+        const gwNum = gwMap[pick.gameweek_id]
+        ;([
+          [pick.player1_id, pt.player1_points ?? 0, 'player1'],
+          [pick.player2_id, pt.player2_points ?? 0, 'player2'],
+        ] as [number, number, 'player1' | 'player2'][]).forEach(([pid, val, role]) => {
+          const playerId = pid
+          const v = val
           if (!playerPickAgg[playerId]) playerPickAgg[playerId] = { picked: 0, total: 0, totalRaw: 0 }
           playerPickAgg[playerId].picked += 1
           playerPickAgg[playerId].total += v
           playerPickAgg[playerId].totalRaw += isBanker ? v / 2 : v
+
+          if (gwNum) {
+            if (!playerDetailMap[playerId]) playerDetailMap[playerId] = []
+            playerDetailMap[playerId].push({
+              gw: gwNum,
+              userName: profileMap[pick.user_id] ?? 'Unknown',
+              points: Math.round(v),
+              isBanker,
+              role
+            })
+          }
         })
       })
 
@@ -356,6 +394,8 @@ export default function StatsHubPage() {
         })
         .sort((a, b) => b.totalPickPoints - a.totalPickPoints)
       setPlayerStats(playerStatList)
+      Object.values(playerDetailMap).forEach(list => list.sort((a, b) => a.gw - b.gw))
+      setPlayerPickDetail(playerDetailMap)
 
       // --- League trends ---
       const gwPointsByUser: Record<number, Record<string, number>> = {}
@@ -571,6 +611,33 @@ export default function StatsHubPage() {
   const selectedWorst = selectedWeekly.length > 0 ? [...selectedWeekly].sort((a, b) => b.points - a.points)[selectedWeekly.length - 1] : null
   const selectedPlayerName = playerMenuOptions.find(m => m.uid === effectiveSelectedPlayerId)?.name ?? displayName
 
+  // Head-to-head: overlay the selected player's weekly points against a
+  // second, optional "compare against" player, plus a simple gameweek-by-
+  // gameweek win tally between the two.
+  const compareWeekly = weeklyByUser[compareUserId] ?? []
+  const compareName = playerMenuOptions.find(m => m.uid === compareUserId)?.name ?? ''
+  const headToHeadChartData = useMemo(() => {
+    if (!compareUserId) return []
+    const gwNums = Array.from(new Set([...selectedWeekly.map(w => w.gw), ...compareWeekly.map(w => w.gw)])).sort((a, b) => a - b)
+    const selMap = Object.fromEntries(selectedWeekly.map(w => [w.gw, w.points]))
+    const cmpMap = Object.fromEntries(compareWeekly.map(w => [w.gw, w.points]))
+    return gwNums.map(gw => ({ name: `GW${gw}`, [effectiveSelectedPlayerId]: selMap[gw], [compareUserId]: cmpMap[gw] }))
+  }, [selectedWeekly, compareWeekly, compareUserId, effectiveSelectedPlayerId])
+  const headToHeadTally = useMemo(() => {
+    if (!compareUserId) return null
+    const selMap = Object.fromEntries(selectedWeekly.map(w => [w.gw, w.points]))
+    const cmpMap = Object.fromEntries(compareWeekly.map(w => [w.gw, w.points]))
+    let selWins = 0, cmpWins = 0, draws = 0
+    Object.keys(selMap).forEach(gwStr => {
+      const gw = Number(gwStr)
+      if (cmpMap[gw] === undefined) return
+      if (selMap[gw] > cmpMap[gw]) selWins++
+      else if (selMap[gw] < cmpMap[gw]) cmpWins++
+      else draws++
+    })
+    return { selWins, cmpWins, draws }
+  }, [selectedWeekly, compareWeekly, compareUserId])
+
   const tabs: { id: Tab; label: string }[] = [
     { id: 'teams', label: 'Teams' },
     { id: 'players', label: 'Players' },
@@ -687,18 +754,46 @@ export default function StatsHubPage() {
                   </thead>
                   <tbody>
                     {filteredTeamStats.map(t => (
-                      <tr key={t.team.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                        <td className="py-2 px-2 font-black uppercase">
-                          <div className="flex items-center gap-1.5">
-                            <TeamCrest teamId={t.team.id} teamName={t.team.name} size={16} />
-                            {teamDisplayName(t.team)}
-                          </div>
-                        </td>
-                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{t.timesPicked}</td>
-                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{t.timesBanked}</td>
-                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{teamsIncludeBanker ? t.totalPoints : t.totalPointsRaw}</td>
-                        <td className="py-2 px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{teamsIncludeBanker ? t.avgPoints : t.avgPointsRaw}</td>
-                      </tr>
+                      <React.Fragment key={t.team.id}>
+                        <tr
+                          onClick={() => setExpandedTeamId(expandedTeamId === t.team.id ? null : t.team.id)}
+                          className="cursor-pointer hover:bg-white/[0.04] transition-colors"
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                        >
+                          <td className="py-2 px-2 font-black uppercase">
+                            <div className="flex items-center gap-1.5">
+                              <TeamCrest teamId={t.team.id} teamName={t.team.name} size={16} />
+                              {teamDisplayName(t.team)}
+                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '8px' }}>{expandedTeamId === t.team.id ? '▲' : '▼'}</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{t.timesPicked}</td>
+                          <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{t.timesBanked}</td>
+                          <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{teamsIncludeBanker ? t.totalPoints : t.totalPointsRaw}</td>
+                          <td className="py-2 px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{teamsIncludeBanker ? t.avgPoints : t.avgPointsRaw}</td>
+                        </tr>
+                        {expandedTeamId === t.team.id && (
+                          <tr>
+                            <td colSpan={5} className="px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
+                              <p className="text-[10px] uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>Who picked {teamDisplayName(t.team)}</p>
+                              {(teamPickDetail[t.team.id] ?? []).length === 0 ? (
+                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>No scored picks yet.</p>
+                              ) : (
+                                <div className="flex flex-col gap-1.5">
+                                  {(teamPickDetail[t.team.id] ?? []).map((d, i) => (
+                                    <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                                      <span style={{ color: 'rgba(255,255,255,0.5)' }}>GW{d.gw}</span>
+                                      <span className="font-bold flex-1 truncate">{d.userName}</span>
+                                      {d.isBanker && <span className="pop-badge px-1 py-0.5 text-[8px] font-black" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span>}
+                                      <span className="font-black" style={{ color: 'var(--pop-green)' }}>{d.points} pts</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                     {filteredTeamStats.length === 0 && (
                       <tr><td colSpan={5} className="py-8 text-center uppercase tracking-wider" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>No data yet.</td></tr>
@@ -767,14 +862,46 @@ export default function StatsHubPage() {
                   </thead>
                   <tbody>
                     {filteredPlayerStats.slice(0, 100).map(p => (
-                      <tr key={p.player.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                        <td className="py-2 px-2 font-black uppercase">{p.displayName}</td>
-                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.timesPicked}</td>
-                        <td className="py-2 px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{playersIncludeBanker ? p.totalPickPoints : p.totalPickPointsRaw}</td>
-                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{playersIncludeBanker ? p.avgPickPoints : p.avgPickPointsRaw}</td>
-                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.goals}</td>
-                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.assists}</td>
-                      </tr>
+                      <React.Fragment key={p.player.id}>
+                        <tr
+                          onClick={() => setExpandedPlayerId(expandedPlayerId === p.player.id ? null : p.player.id)}
+                          className="cursor-pointer hover:bg-white/[0.04] transition-colors"
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                        >
+                          <td className="py-2 px-2 font-black uppercase">
+                            <div className="flex items-center gap-1.5">
+                              {p.displayName}
+                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '8px' }}>{expandedPlayerId === p.player.id ? '▲' : '▼'}</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.timesPicked}</td>
+                          <td className="py-2 px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{playersIncludeBanker ? p.totalPickPoints : p.totalPickPointsRaw}</td>
+                          <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{playersIncludeBanker ? p.avgPickPoints : p.avgPickPointsRaw}</td>
+                          <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.goals}</td>
+                          <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.assists}</td>
+                        </tr>
+                        {expandedPlayerId === p.player.id && (
+                          <tr>
+                            <td colSpan={6} className="px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
+                              <p className="text-[10px] uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>Who picked {p.displayName}</p>
+                              {(playerPickDetail[p.player.id] ?? []).length === 0 ? (
+                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>No scored picks yet.</p>
+                              ) : (
+                                <div className="flex flex-col gap-1.5">
+                                  {(playerPickDetail[p.player.id] ?? []).map((d, i) => (
+                                    <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                                      <span style={{ color: 'rgba(255,255,255,0.5)' }}>GW{d.gw}</span>
+                                      <span className="font-bold flex-1 truncate">{d.userName}</span>
+                                      {d.isBanker && <span className="pop-badge px-1 py-0.5 text-[8px] font-black" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span>}
+                                      <span className="font-black" style={{ color: 'var(--pop-green)' }}>{d.points} pts</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                     {filteredPlayerStats.length === 0 && (
                       <tr><td colSpan={6} className="py-8 text-center uppercase tracking-wider" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>No data yet.</td></tr>
@@ -846,6 +973,47 @@ export default function StatsHubPage() {
                           </LineChart>
                         </ResponsiveContainer>
                       </ShareableCard>
+
+                      <p className="sec-label">Head-to-Head</p>
+                      <select
+                        value={compareUserId}
+                        onChange={e => setCompareUserId(e.target.value)}
+                        className="pop-input w-full mb-4 px-3 py-2 text-sm font-bold"
+                      >
+                        <option value="">— Compare against —</option>
+                        {playerMenuOptions.filter(m => m.uid !== effectiveSelectedPlayerId).map(m => (
+                          <option key={m.uid} value={m.uid}>{m.name}</option>
+                        ))}
+                      </select>
+
+                      {compareUserId && headToHeadTally && (
+                        <>
+                          <div className="pop-panel p-3 mb-4 text-center">
+                            <p className="text-lg font-black">
+                              <span style={{ color: POP_ACCENT }}>{selectedPlayerName} {headToHeadTally.selWins}</span>
+                              <span style={{ color: 'rgba(255,255,255,0.4)' }}> — </span>
+                              <span style={{ color: '#A000FA' }}>{headToHeadTally.cmpWins} {compareName}</span>
+                            </p>
+                            <p className="text-[10px] uppercase tracking-wider font-black mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                              gameweeks won{headToHeadTally.draws > 0 ? ` · ${headToHeadTally.draws} drawn` : ''}
+                            </p>
+                          </div>
+
+                          <ShareableCard filename={`${selectedPlayerName}-vs-${compareName}`} className="pop-panel p-4" style={{ height: 260 }}>
+                            <ResponsiveContainer width="100%" height="90%">
+                              <LineChart data={headToHeadChartData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
+                                <XAxis dataKey="name" {...popAxisProps()} />
+                                <YAxis {...popAxisProps()} />
+                                <Tooltip {...popTooltipStyle()} />
+                                <Legend wrapperStyle={{ fontSize: 11, color: '#ffffff' }} />
+                                <Line type="monotone" dataKey={effectiveSelectedPlayerId} name={selectedPlayerName} stroke={POP_ACCENT} strokeWidth={2} dot={{ r: 3, fill: POP_ACCENT }} connectNulls />
+                                <Line type="monotone" dataKey={compareUserId} name={compareName} stroke="#A000FA" strokeWidth={2} dot={{ r: 3, fill: '#A000FA' }} connectNulls />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </ShareableCard>
+                        </>
+                      )}
                     </>
                   )}
                 </>
