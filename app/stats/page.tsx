@@ -26,6 +26,8 @@ type TeamStat = {
   timesBanked: number
   totalPoints: number
   avgPoints: number
+  totalPointsRaw: number
+  avgPointsRaw: number
 }
 
 type PlayerStat = {
@@ -36,6 +38,8 @@ type PlayerStat = {
   timesPicked: number
   totalPickPoints: number
   avgPickPoints: number
+  totalPickPointsRaw: number
+  avgPickPointsRaw: number
 }
 
 const GOLD = '#D9A441'
@@ -114,10 +118,15 @@ export default function StatsHubPage() {
   const [bonusCardAvgPoints, setBonusCardAvgPoints] = useState<number | null>(null)
   const [bestBonusCardPlay, setBestBonusCardPlay] = useState<{ name: string; gw: number; points: number } | null>(null)
 
-  const [myWeekly, setMyWeekly] = useState<{ gw: number; points: number }[]>([])
-  const [myCumulative, setMyCumulative] = useState<{ gw: number; cumulative: number; rank: number }[]>([])
-  const [myBest, setMyBest] = useState<{ gw: number; points: number } | null>(null)
-  const [myWorst, setMyWorst] = useState<{ gw: number; points: number } | null>(null)
+  // Every participant's weekly points and cumulative rank, keyed by user id
+  // — powers both the classic "my own performance" view (derived below,
+  // looked up by the logged-in user's own id) and the pop-art Player Stats
+  // tab's "pick anyone from a menu" view.
+  const [weeklyByUser, setWeeklyByUser] = useState<Record<string, { gw: number; points: number }[]>>({})
+  const [cumulativeByUser, setCumulativeByUser] = useState<Record<string, { gw: number; cumulative: number; rank: number }[]>>({})
+  const [selectedPlayerId, setSelectedPlayerId] = useState('')
+  const [teamsIncludeBanker, setTeamsIncludeBanker] = useState(true)
+  const [playersIncludeBanker, setPlayersIncludeBanker] = useState(true)
 
   // Everyone's rank each gameweek, for the League Trends "race" chart —
   // one row per gameweek, one numeric column per user id (their rank that
@@ -266,14 +275,19 @@ export default function StatsHubPage() {
       // Banker doubling included — not the pre-doubling raw score — so
       // this matches what everyone actually won, made explicit in the
       // column header below rather than silently stripped back out.
-      const teamAgg: Record<number, { picked: number; banked: number; total: number }> = {}
+      // totalRaw tracks the same thing with the doubling undone (halved
+      // for a banker pick), so the Teams tab's toggle can switch between
+      // the two without a second query.
+      const teamAgg: Record<number, { picked: number; banked: number; total: number; totalRaw: number }> = {}
       points?.forEach(pt => {
         const pick = pickById[pt.pick_id]
         if (!pick) return
         const isBanker = (pt.breakdown as any)?.is_banker === true
-        if (!teamAgg[pick.team_id]) teamAgg[pick.team_id] = { picked: 0, banked: 0, total: 0 }
+        if (!teamAgg[pick.team_id]) teamAgg[pick.team_id] = { picked: 0, banked: 0, total: 0, totalRaw: 0 }
+        const teamPts = pt.team_points ?? 0
         teamAgg[pick.team_id].picked += 1
-        teamAgg[pick.team_id].total += pt.team_points ?? 0
+        teamAgg[pick.team_id].total += teamPts
+        teamAgg[pick.team_id].totalRaw += isBanker ? teamPts / 2 : teamPts
         if (isBanker) teamAgg[pick.team_id].banked += 1
       })
       const teamStatList: TeamStat[] = Object.entries(teamAgg)
@@ -283,7 +297,9 @@ export default function StatsHubPage() {
           timesPicked: agg.picked,
           timesBanked: agg.banked,
           totalPoints: Math.round(agg.total),
-          avgPoints: agg.picked > 0 ? Math.round((agg.total / agg.picked) * 10) / 10 : 0
+          avgPoints: agg.picked > 0 ? Math.round((agg.total / agg.picked) * 10) / 10 : 0,
+          totalPointsRaw: Math.round(agg.totalRaw),
+          avgPointsRaw: agg.picked > 0 ? Math.round((agg.totalRaw / agg.picked) * 10) / 10 : 0
         }))
         .sort((a, b) => b.totalPoints - a.totalPoints)
       setTeamStats(teamStatList)
@@ -298,16 +314,20 @@ export default function StatsHubPage() {
 
       // Same reasoning as team totals above — the actual (Banker-doubled
       // where applicable) points a pick of this player earned, not the
-      // stripped-back raw score.
-      const playerPickAgg: Record<number, { picked: number; total: number }> = {}
+      // stripped-back raw score. totalRaw undoes the doubling, same as
+      // teamAgg.totalRaw, for the Players tab's toggle.
+      const playerPickAgg: Record<number, { picked: number; total: number; totalRaw: number }> = {}
       points?.forEach(pt => {
         const pick = pickById[pt.pick_id]
         if (!pick) return
+        const isBanker = (pt.breakdown as any)?.is_banker === true
         ;[[pick.player1_id, pt.player1_points ?? 0], [pick.player2_id, pt.player2_points ?? 0]].forEach(([pid, val]) => {
           const playerId = pid as number
-          if (!playerPickAgg[playerId]) playerPickAgg[playerId] = { picked: 0, total: 0 }
+          const v = val as number
+          if (!playerPickAgg[playerId]) playerPickAgg[playerId] = { picked: 0, total: 0, totalRaw: 0 }
           playerPickAgg[playerId].picked += 1
-          playerPickAgg[playerId].total += val as number
+          playerPickAgg[playerId].total += v
+          playerPickAgg[playerId].totalRaw += isBanker ? v / 2 : v
         })
       })
 
@@ -329,7 +349,9 @@ export default function StatsHubPage() {
             assists,
             timesPicked: pickAgg.picked,
             totalPickPoints: Math.round(pickAgg.total),
-            avgPickPoints: pickAgg.picked > 0 ? Math.round((pickAgg.total / pickAgg.picked) * 10) / 10 : 0
+            avgPickPoints: pickAgg.picked > 0 ? Math.round((pickAgg.total / pickAgg.picked) * 10) / 10 : 0,
+            totalPickPointsRaw: Math.round(pickAgg.totalRaw),
+            avgPickPointsRaw: pickAgg.picked > 0 ? Math.round((pickAgg.totalRaw / pickAgg.picked) * 10) / 10 : 0
           }
         })
         .sort((a, b) => b.totalPickPoints - a.totalPickPoints)
@@ -447,53 +469,49 @@ export default function StatsHubPage() {
           : null)
       }
 
-      // --- My performance ---
-      if (authUser) {
-        const weekly: { gw: number; points: number }[] = []
-        Object.entries(gwPointsByUser).forEach(([gw, byUser]) => {
-          if (byUser[authUser.id] !== undefined) weekly.push({ gw: Number(gw), points: byUser[authUser.id] })
+      // --- Every player's performance (weekly points + cumulative rank) ---
+      // Computed for every participant, not just the signed-in user, so the
+      // pop-art Player Stats tab can show anyone's page from a menu. The
+      // classic "my own performance" view just looks itself up by id out
+      // of these same maps (see the derived myWeekly/myBest/etc. below).
+      const allGwNumbers = Array.from(new Set(Object.keys(gwPointsByUser).map(Number))).sort((a, b) => a - b)
+      const userIds = Array.from(new Set(picks?.map(p => p.user_id) ?? entries?.map(e => e.user_id) ?? []))
+      const cumByUser: Record<string, number> = {}
+      const weeklyMap: Record<string, { gw: number; points: number }[]> = {}
+      const cumulativeMap: Record<string, { gw: number; cumulative: number; rank: number }[]> = {}
+      const rankChartRows: Record<string, number | string>[] = []
+      let lastRanked: { uid: string; total: number }[] = []
+      userIds.forEach(uid => { weeklyMap[uid] = []; cumulativeMap[uid] = [] })
+      allGwNumbers.forEach(gwNum => {
+        userIds.forEach(uid => {
+          cumByUser[uid] = (cumByUser[uid] ?? 0) + (gwPointsByUser[gwNum]?.[uid] ?? 0)
+          if (gwPointsByUser[gwNum]?.[uid] !== undefined) {
+            weeklyMap[uid].push({ gw: gwNum, points: gwPointsByUser[gwNum][uid] })
+          }
         })
-        weekly.sort((a, b) => a.gw - b.gw)
-        setMyWeekly(weekly)
+        const ranked = userIds
+          .map(uid => ({ uid, total: cumByUser[uid] ?? 0 }))
+          .sort((a, b) => b.total - a.total)
+        lastRanked = ranked
 
-        if (weekly.length > 0) {
-          const sortedByPts = [...weekly].sort((a, b) => b.points - a.points)
-          setMyBest(sortedByPts[0])
-          setMyWorst(sortedByPts[sortedByPts.length - 1])
-        }
-
-        const allGwNumbers = Array.from(new Set(Object.keys(gwPointsByUser).map(Number))).sort((a, b) => a - b)
-        const userIds = Array.from(new Set(picks?.map(p => p.user_id) ?? entries?.map(e => e.user_id) ?? []))
-        const cumByUser: Record<string, number> = {}
-        const cumulative: { gw: number; cumulative: number; rank: number }[] = []
-        const rankChartRows: Record<string, number | string>[] = []
-        let lastRanked: { uid: string; total: number }[] = []
-        allGwNumbers.forEach(gwNum => {
-          userIds.forEach(uid => {
-            cumByUser[uid] = (cumByUser[uid] ?? 0) + (gwPointsByUser[gwNum]?.[uid] ?? 0)
-          })
-          const ranked = userIds
-            .map(uid => ({ uid, total: cumByUser[uid] ?? 0 }))
-            .sort((a, b) => b.total - a.total)
-          lastRanked = ranked
-          const myRank = ranked.findIndex(r => r.uid === authUser.id) + 1
-          cumulative.push({ gw: gwNum, cumulative: Math.round(cumByUser[authUser.id] ?? 0), rank: myRank || ranked.length })
-
-          // Every user's rank this gameweek, for the League Trends chart —
-          // ranks are a strict ordering (each index+1 is unique even when
-          // two totals tie), so no two lines can ever land on the exact
-          // same value at the same gameweek, which is what keeps the
-          // end-of-line name labels from ever overlapping.
-          const row: Record<string, number | string> = { name: `GW${gwNum}` }
-          ranked.forEach((r, i) => { row[r.uid] = i + 1 })
-          rankChartRows.push(row)
+        // Every user's rank this gameweek, for the League Trends chart —
+        // ranks are a strict ordering (each index+1 is unique even when
+        // two totals tie), so no two lines can ever land on the exact
+        // same value at the same gameweek, which is what keeps the
+        // end-of-line name labels from ever overlapping.
+        const row: Record<string, number | string> = { name: `GW${gwNum}` }
+        ranked.forEach((r, i) => {
+          row[r.uid] = i + 1
+          cumulativeMap[r.uid].push({ gw: gwNum, cumulative: Math.round(cumByUser[r.uid] ?? 0), rank: i + 1 })
         })
-        setMyCumulative(cumulative)
-        setAllRanksChartData(rankChartRows)
-        setRankedUserMeta(
-          lastRanked.map((r, i) => ({ uid: r.uid, name: profileMap[r.uid] ?? 'Unknown', finalRank: i + 1 }))
-        )
-      }
+        rankChartRows.push(row)
+      })
+      setWeeklyByUser(weeklyMap)
+      setCumulativeByUser(cumulativeMap)
+      setAllRanksChartData(rankChartRows)
+      setRankedUserMeta(
+        lastRanked.map((r, i) => ({ uid: r.uid, name: profileMap[r.uid] ?? 'Unknown', finalRank: i + 1 }))
+      )
 
       setLoading(false)
     } catch (e: any) {
@@ -502,25 +520,61 @@ export default function StatsHubPage() {
     }
   }
 
+  // Re-ranked by the raw (non-Banker) total when the toggle is off, so
+  // "top 10" on the chart and the table's own sort still mean the same
+  // thing as whichever number is actually being displayed.
+  const sortedTeamStats = useMemo(() => {
+    if (teamsIncludeBanker) return teamStats
+    return [...teamStats].sort((a, b) => b.totalPointsRaw - a.totalPointsRaw)
+  }, [teamStats, teamsIncludeBanker])
+
+  const sortedPlayerStats = useMemo(() => {
+    if (playersIncludeBanker) return playerStats
+    return [...playerStats].sort((a, b) => b.totalPickPointsRaw - a.totalPickPointsRaw)
+  }, [playerStats, playersIncludeBanker])
+
   const filteredTeamStats = useMemo(() => {
-    if (!teamSearch.trim()) return teamStats
+    if (!teamSearch.trim()) return sortedTeamStats
     const q = teamSearch.toLowerCase()
-    return teamStats.filter(t => teamDisplayName(t.team).toLowerCase().includes(q))
-  }, [teamStats, teamSearch])
+    return sortedTeamStats.filter(t => teamDisplayName(t.team).toLowerCase().includes(q))
+  }, [sortedTeamStats, teamSearch])
 
   const filteredPlayerStats = useMemo(() => {
-    let list = playerStats
+    let list = sortedPlayerStats
     if (playerSearch.trim()) {
       const q = playerSearch.toLowerCase()
       list = list.filter(p => p.displayName.toLowerCase().includes(q))
     }
     return list
-  }, [playerStats, playerSearch])
+  }, [sortedPlayerStats, playerSearch])
+
+  // Classic theme's "my own performance" view is frozen/dead code (see
+  // usePopArtTheme — pop-art is the only reachable theme) but still has to
+  // compile, so it keeps reading these exact names — just derived from the
+  // signed-in user's own slice of weeklyByUser/cumulativeByUser now instead
+  // of being computed separately.
+  const myWeekly = weeklyByUser[user?.id ?? ''] ?? []
+  const myCumulative = cumulativeByUser[user?.id ?? ''] ?? []
+  const myBest = myWeekly.length > 0 ? [...myWeekly].sort((a, b) => b.points - a.points)[0] : null
+  const myWorst = myWeekly.length > 0 ? [...myWeekly].sort((a, b) => b.points - a.points)[myWeekly.length - 1] : null
+
+  // Pop-art Player Stats tab: pick anyone from a menu, defaulting to your
+  // own page. rankedUserMeta already has every participant's display name.
+  const playerMenuOptions = useMemo(
+    () => [...rankedUserMeta].sort((a, b) => a.name.localeCompare(b.name)),
+    [rankedUserMeta]
+  )
+  const effectiveSelectedPlayerId = selectedPlayerId || user?.id || ''
+  const selectedWeekly = weeklyByUser[effectiveSelectedPlayerId] ?? []
+  const selectedCumulative = cumulativeByUser[effectiveSelectedPlayerId] ?? []
+  const selectedBest = selectedWeekly.length > 0 ? [...selectedWeekly].sort((a, b) => b.points - a.points)[0] : null
+  const selectedWorst = selectedWeekly.length > 0 ? [...selectedWeekly].sort((a, b) => b.points - a.points)[selectedWeekly.length - 1] : null
+  const selectedPlayerName = playerMenuOptions.find(m => m.uid === effectiveSelectedPlayerId)?.name ?? displayName
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'teams', label: 'Teams' },
     { id: 'players', label: 'Players' },
-    { id: 'me', label: 'My Performance' },
+    { id: 'me', label: 'Player Stats' },
     { id: 'trends', label: 'League Trends' },
   ]
 
@@ -579,9 +633,9 @@ export default function StatsHubPage() {
           {tab === 'teams' && (
             <div>
               <ShareableCard filename="top-teams-by-points" className="pop-panel p-4 mb-4" style={{ height: 260 }}>
-                <p className="sec-label">Top Teams by Points (inc. Banker)</p>
+                <p className="sec-label">Top Teams by Points {teamsIncludeBanker ? '(inc. Banker)' : '(excl. Banker)'}</p>
                 <ResponsiveContainer width="100%" height="90%">
-                  <BarChart data={teamStats.slice(0, 10).map(t => ({ name: teamDisplayName(t.team), points: t.totalPoints }))}>
+                  <BarChart data={sortedTeamStats.slice(0, 10).map(t => ({ name: teamDisplayName(t.team), points: teamsIncludeBanker ? t.totalPoints : t.totalPointsRaw }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
                     <XAxis dataKey="name" {...popAxisProps()} interval={0} angle={-35} textAnchor="end" height={50} />
                     <YAxis {...popAxisProps()} />
@@ -591,6 +645,24 @@ export default function StatsHubPage() {
                 </ResponsiveContainer>
               </ShareableCard>
 
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] uppercase tracking-wider font-black" style={{ color: 'rgba(255,255,255,0.5)' }}>Banker</span>
+                <button
+                  onClick={() => setTeamsIncludeBanker(true)}
+                  className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full ${teamsIncludeBanker ? 'pop-button' : ''}`}
+                  style={!teamsIncludeBanker ? { color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.06)' } : undefined}
+                >
+                  Included
+                </button>
+                <button
+                  onClick={() => setTeamsIncludeBanker(false)}
+                  className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full ${!teamsIncludeBanker ? 'pop-button' : ''}`}
+                  style={teamsIncludeBanker ? { color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.06)' } : undefined}
+                >
+                  Excluded
+                </button>
+              </div>
+
               <input
                 type="text"
                 placeholder="Search teams..."
@@ -598,7 +670,9 @@ export default function StatsHubPage() {
                 onChange={e => setTeamSearch(e.target.value)}
                 className="pop-input w-full mb-3 px-3 py-2 text-sm font-bold"
               />
-              <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>Points below include any Banker doubling.</p>
+              <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {teamsIncludeBanker ? 'Points below include any Banker doubling.' : 'Banker doubling excluded — raw pick performance below.'}
+              </p>
 
               <div className="pop-panel" style={{ overflow: 'hidden', overflowX: 'auto' }}>
                 <table className="w-full" style={{ fontSize: '12px' }}>
@@ -622,8 +696,8 @@ export default function StatsHubPage() {
                         </td>
                         <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{t.timesPicked}</td>
                         <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{t.timesBanked}</td>
-                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{t.totalPoints}</td>
-                        <td className="py-2 px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{t.avgPoints}</td>
+                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{teamsIncludeBanker ? t.totalPoints : t.totalPointsRaw}</td>
+                        <td className="py-2 px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{teamsIncludeBanker ? t.avgPoints : t.avgPointsRaw}</td>
                       </tr>
                     ))}
                     {filteredTeamStats.length === 0 && (
@@ -638,9 +712,9 @@ export default function StatsHubPage() {
           {tab === 'players' && (
             <div>
               <ShareableCard filename="top-players-by-points" className="pop-panel p-4 mb-4" style={{ height: 260 }}>
-                <p className="sec-label">Top Players by Points (inc. Banker)</p>
+                <p className="sec-label">Top Players by Points {playersIncludeBanker ? '(inc. Banker)' : '(excl. Banker)'}</p>
                 <ResponsiveContainer width="100%" height="90%">
-                  <BarChart data={playerStats.slice(0, 12).map(p => ({ name: p.displayName, points: p.totalPickPoints }))}>
+                  <BarChart data={sortedPlayerStats.slice(0, 12).map(p => ({ name: p.displayName, points: playersIncludeBanker ? p.totalPickPoints : p.totalPickPointsRaw }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
                     <XAxis dataKey="name" {...popAxisProps()} interval={0} angle={-35} textAnchor="end" height={60} />
                     <YAxis {...popAxisProps()} />
@@ -650,6 +724,24 @@ export default function StatsHubPage() {
                 </ResponsiveContainer>
               </ShareableCard>
 
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] uppercase tracking-wider font-black" style={{ color: 'rgba(255,255,255,0.5)' }}>Banker</span>
+                <button
+                  onClick={() => setPlayersIncludeBanker(true)}
+                  className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full ${playersIncludeBanker ? 'pop-button' : ''}`}
+                  style={!playersIncludeBanker ? { color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.06)' } : undefined}
+                >
+                  Included
+                </button>
+                <button
+                  onClick={() => setPlayersIncludeBanker(false)}
+                  className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full ${!playersIncludeBanker ? 'pop-button' : ''}`}
+                  style={playersIncludeBanker ? { color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.06)' } : undefined}
+                >
+                  Excluded
+                </button>
+              </div>
+
               <input
                 type="text"
                 placeholder="Search players..."
@@ -657,7 +749,9 @@ export default function StatsHubPage() {
                 onChange={e => setPlayerSearch(e.target.value)}
                 className="pop-input w-full mb-3 px-3 py-2 text-sm font-bold"
               />
-              <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>Points below include any Banker doubling.</p>
+              <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {playersIncludeBanker ? 'Points below include any Banker doubling.' : 'Banker doubling excluded — raw pick performance below.'}
+              </p>
 
               <div className="pop-panel" style={{ overflow: 'hidden', overflowX: 'auto' }}>
                 <table className="w-full" style={{ fontSize: '12px' }}>
@@ -676,8 +770,8 @@ export default function StatsHubPage() {
                       <tr key={p.player.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                         <td className="py-2 px-2 font-black uppercase">{p.displayName}</td>
                         <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.timesPicked}</td>
-                        <td className="py-2 px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{p.totalPickPoints}</td>
-                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.avgPickPoints}</td>
+                        <td className="py-2 px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{playersIncludeBanker ? p.totalPickPoints : p.totalPickPointsRaw}</td>
+                        <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{playersIncludeBanker ? p.avgPickPoints : p.avgPickPointsRaw}</td>
                         <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.goals}</td>
                         <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.assists}</td>
                       </tr>
@@ -696,49 +790,64 @@ export default function StatsHubPage() {
 
           {tab === 'me' && (
             <div>
-              {!user ? (
-                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>Log in to see your personal performance.</p>
-              ) : myWeekly.length === 0 ? (
+              {playerMenuOptions.length === 0 ? (
                 <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No scored gameweeks yet — check back once results come in.</p>
               ) : (
                 <>
-                  <p className="sec-label">This Season</p>
-                  <ShareableCard filename="my-best-and-worst-gameweek" className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="pop-panel p-3">
-                      <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Best Gameweek</p>
-                      <p className="text-xl font-black" style={{ color: 'var(--pop-green)' }}>GW{myBest?.gw} · {myBest?.points} pts</p>
-                    </div>
-                    <div className="pop-panel p-3">
-                      <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Worst Gameweek</p>
-                      <p className="text-xl font-black" style={{ color: 'rgba(255,255,255,0.7)' }}>GW{myWorst?.gw} · {myWorst?.points} pts</p>
-                    </div>
-                  </ShareableCard>
+                  <p className="sec-label">Select a Player</p>
+                  <select
+                    value={effectiveSelectedPlayerId}
+                    onChange={e => setSelectedPlayerId(e.target.value)}
+                    className="pop-input w-full mb-4 px-3 py-2 text-sm font-bold"
+                  >
+                    {playerMenuOptions.map(m => (
+                      <option key={m.uid} value={m.uid}>{m.name}{m.uid === user?.id ? ' (You)' : ''}</option>
+                    ))}
+                  </select>
 
-                  <p className="sec-label">By Gameweek</p>
-                  <ShareableCard filename="my-points-by-gameweek" className="pop-panel p-4 mb-4" style={{ height: 240 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={myWeekly.map(w => ({ name: `GW${w.gw}`, points: w.points }))}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
-                        <XAxis dataKey="name" {...popAxisProps()} />
-                        <YAxis {...popAxisProps()} />
-                        <Tooltip {...popTooltipStyle()} />
-                        <Bar dataKey="points" fill={POP_ACCENT} radius={[3, 3, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ShareableCard>
+                  {selectedWeekly.length === 0 ? (
+                    <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No scored gameweeks yet for {selectedPlayerName}.</p>
+                  ) : (
+                    <>
+                      <p className="sec-label">This Season</p>
+                      <ShareableCard filename={`${selectedPlayerName}-best-and-worst-gameweek`} className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="pop-panel p-3">
+                          <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Best Gameweek</p>
+                          <p className="text-xl font-black" style={{ color: 'var(--pop-green)' }}>GW{selectedBest?.gw} · {selectedBest?.points} pts</p>
+                        </div>
+                        <div className="pop-panel p-3">
+                          <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Worst Gameweek</p>
+                          <p className="text-xl font-black" style={{ color: 'rgba(255,255,255,0.7)' }}>GW{selectedWorst?.gw} · {selectedWorst?.points} pts</p>
+                        </div>
+                      </ShareableCard>
 
-                  <p className="sec-label">Rank Over Time <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(lower = better)</span></p>
-                  <ShareableCard filename="my-rank-over-time" className="pop-panel p-4" style={{ height: 240 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={myCumulative.map(c => ({ name: `GW${c.gw}`, rank: c.rank }))}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
-                        <XAxis dataKey="name" {...popAxisProps()} />
-                        <YAxis {...popAxisProps()} reversed allowDecimals={false} />
-                        <Tooltip {...popTooltipStyle()} />
-                        <Line type="monotone" dataKey="rank" stroke="#A000FA" strokeWidth={2} dot={{ r: 3, fill: '#A000FA' }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </ShareableCard>
+                      <p className="sec-label">By Gameweek</p>
+                      <ShareableCard filename={`${selectedPlayerName}-points-by-gameweek`} className="pop-panel p-4 mb-4" style={{ height: 240 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={selectedWeekly.map(w => ({ name: `GW${w.gw}`, points: w.points }))}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
+                            <XAxis dataKey="name" {...popAxisProps()} />
+                            <YAxis {...popAxisProps()} />
+                            <Tooltip {...popTooltipStyle()} />
+                            <Bar dataKey="points" fill={POP_ACCENT} radius={[3, 3, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </ShareableCard>
+
+                      <p className="sec-label">Rank Over Time <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(lower = better)</span></p>
+                      <ShareableCard filename={`${selectedPlayerName}-rank-over-time`} className="pop-panel p-4" style={{ height: 240 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={selectedCumulative.map(c => ({ name: `GW${c.gw}`, rank: c.rank }))}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
+                            <XAxis dataKey="name" {...popAxisProps()} />
+                            <YAxis {...popAxisProps()} reversed allowDecimals={false} />
+                            <Tooltip {...popTooltipStyle()} />
+                            <Line type="monotone" dataKey="rank" stroke="#A000FA" strokeWidth={2} dot={{ r: 3, fill: '#A000FA' }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </ShareableCard>
+                    </>
+                  )}
                 </>
               )}
             </div>
