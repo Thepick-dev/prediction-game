@@ -266,29 +266,31 @@ export default function WrappedPage() {
 
         {stats && (
           <ShareableCard filename={`${displayName}-${isWrapped ? 'season-wrapped' : 'season-so-far'}`} className="pop-panel pop-panel--pink p-5" style={{}}>
-            <div className="text-center mb-5 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-              <p className="text-[10px] uppercase tracking-widest font-black mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>{displayName}</p>
+            <div className="text-center mb-5 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
+              <p className="text-[10px] uppercase tracking-widest font-black mb-1" style={{ color: 'rgba(255,255,255,0.55)' }}>{displayName}</p>
               <p className="pop-hero pop-hero--green text-6xl leading-none">{stats.totalPoints}</p>
-              <p className="text-[10px] uppercase tracking-widest font-black mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>points · rank {stats.rank} of {stats.totalEntrants}</p>
-              <p className="text-xs font-bold mt-2" style={{ color: stats.totalPoints >= stats.leagueAvg ? 'var(--pop-green)' : 'rgba(255,255,255,0.5)' }}>
+              <p className="text-[10px] uppercase tracking-widest font-black mt-1" style={{ color: 'rgba(255,255,255,0.55)' }}>points · rank {stats.rank} of {stats.totalEntrants}</p>
+              <p className="text-xs font-bold mt-2" style={{ color: stats.totalPoints >= stats.leagueAvg ? 'var(--pop-green)' : 'rgba(255,255,255,0.6)' }}>
                 {stats.totalPoints >= stats.leagueAvg
                   ? `+${Math.round((stats.totalPoints - stats.leagueAvg) * 10) / 10} above the league average`
                   : `${Math.round((stats.totalPoints - stats.leagueAvg) * 10) / 10} below the league average`}
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div className="pop-panel p-3">
-                <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Best Gameweek</p>
+            {/* Performance — orange family */}
+            <p className="text-[9px] uppercase tracking-widest font-black mb-2" style={{ color: 'var(--pop-orange)' }}>Performance</p>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="pop-panel pop-panel--orange p-3">
+                <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>Best Gameweek</p>
                 <p className="text-lg font-black" style={{ color: 'var(--pop-green)' }}>{stats.bestGw ? `GW${stats.bestGw.gw} · ${stats.bestGw.points} pts` : '—'}</p>
               </div>
-              <div className="pop-panel p-3">
-                <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Worst Gameweek</p>
-                <p className="text-lg font-black" style={{ color: 'rgba(255,255,255,0.7)' }}>{stats.worstGw ? `GW${stats.worstGw.gw} · ${stats.worstGw.points} pts` : '—'}</p>
+              <div className="pop-panel pop-panel--orange p-3">
+                <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>Worst Gameweek</p>
+                <p className="text-lg font-black" style={{ color: 'rgba(255,255,255,0.85)' }}>{stats.worstGw ? `GW${stats.worstGw.gw} · ${stats.worstGw.points} pts` : '—'}</p>
               </div>
-              <div className="pop-panel p-3">
-                <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Favourite Team</p>
-                <p className="text-lg font-black flex items-center gap-1.5" style={{ color: 'var(--pop-blue)' }}>
+              <div className="pop-panel pop-panel--orange p-3">
+                <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>Favourite Team</p>
+                <p className="text-lg font-black flex items-center gap-1.5" style={{ color: 'var(--pop-orange)' }}>
                   {stats.favouriteTeam ? (
                     <>
                       <TeamCrest teamId={stats.favouriteTeam.teamId} teamName={stats.favouriteTeam.name} size={18} />
@@ -297,29 +299,34 @@ export default function WrappedPage() {
                   ) : '—'}
                 </p>
               </div>
-              <div className="pop-panel p-3">
-                <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Goals & Assists</p>
-                <p className="text-lg font-black" style={{ color: 'var(--pop-blue)' }}>{stats.goals}G · {stats.assists}A</p>
+              <div className="pop-panel pop-panel--orange p-3">
+                <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>Goals & Assists</p>
+                <p className="text-lg font-black" style={{ color: 'var(--pop-orange)' }}>{stats.goals}G · {stats.assists}A</p>
               </div>
-              <div className="pop-panel p-3">
-                <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Banker</p>
+              <div className="pop-panel pop-panel--orange p-3 col-span-2">
+                <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>Home / Away Wins</p>
+                <p className="text-lg font-black" style={{ color: 'var(--pop-orange)' }}>{stats.homeWins}H · {stats.awayWins}A</p>
+              </div>
+            </div>
+
+            {/* Mechanics — each keeps its own established site colour */}
+            <p className="text-[9px] uppercase tracking-widest font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Mechanics</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="pop-panel pop-panel--yellow p-3">
+                <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>Banker</p>
                 <p className="text-lg font-black" style={{ color: 'var(--pop-yellow)' }}>{stats.bankerCount}x used{stats.bankerValueAdded !== 0 ? ` · +${stats.bankerValueAdded} pts` : ''}</p>
               </div>
-              <div className="pop-panel p-3">
-                <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Home / Away Wins</p>
-                <p className="text-lg font-black" style={{ color: 'rgba(255,255,255,0.8)' }}>{stats.homeWins}H · {stats.awayWins}A</p>
-              </div>
-              <div className="pop-panel p-3">
-                <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>All or Nothing</p>
+              <div className="pop-panel pop-panel--green p-3">
+                <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>All or Nothing</p>
                 <p className="text-lg font-black" style={{
-                  color: stats.aonOutcome === 'succeeded' ? 'var(--pop-green)' : stats.aonOutcome === 'failed' ? 'var(--pop-red)' : 'rgba(255,255,255,0.6)'
+                  color: stats.aonOutcome === 'succeeded' ? 'var(--pop-green)' : stats.aonOutcome === 'failed' ? 'var(--pop-red)' : 'rgba(255,255,255,0.7)'
                 }}>
                   {stats.aonOutcome === 'not played' ? 'Not played' : stats.aonOutcome === 'pending' ? 'Pending' : stats.aonOutcome === 'succeeded' ? 'Succeeded' : 'Failed'}
                 </p>
               </div>
               {stats.bonusCardOutcome && (
-                <div className="pop-panel p-3">
-                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>{stats.bonusCardName}</p>
+                <div className="pop-panel pop-panel--blue p-3 col-span-2">
+                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>{stats.bonusCardName}</p>
                   <p className="text-lg font-black" style={{ color: 'var(--pop-blue)' }}>
                     {stats.bonusCardOutcome.played ? (stats.bonusCardOutcome.points != null ? `${stats.bonusCardOutcome.points} pts` : 'Played') : 'Not played'}
                   </p>
@@ -327,7 +334,7 @@ export default function WrappedPage() {
               )}
             </div>
 
-            <p className="text-center mt-2" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>
+            <p className="text-center mt-4" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)' }}>
               {stats.gameweeksPlayed} gameweek{stats.gameweeksPlayed === 1 ? '' : 's'} played · {competition.name}
             </p>
           </ShareableCard>
