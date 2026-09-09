@@ -458,13 +458,19 @@ thead th {
    point since every frame in between still looks like "fading in
    normally", never like a wrong or unfinished pose. `forwards` holds the
    settled end state rather than snapping back once it finishes. */
-.pop-logo-pulse {
-  animation: pop-logo-fade-in 0.2s ease-out 1 forwards;
+.pop-logo-flash-in {
+  animation: pop-logo-flash-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
 }
 
-@keyframes pop-logo-fade-in {
-  0% { opacity: 0; transform: scale(0.94); }
-  100% { opacity: 1; transform: scale(1); }
+@keyframes pop-logo-flash-in {
+  0% { opacity: 0; transform: scale(0.55) rotate(-4deg); filter: brightness(3) saturate(1.4); }
+  45% { opacity: 1; transform: scale(1.1) rotate(2deg); filter: brightness(1.4) saturate(1.2); }
+  70% { transform: scale(0.96) rotate(-1deg); filter: brightness(1); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); filter: brightness(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pop-logo-flash-in { animation-duration: 0.01s; }
 }
 
 /* "Futzy Says" header ticker (see ceefax-shell.tsx) — content is rendered

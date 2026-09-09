@@ -66,13 +66,13 @@ function tooltipStyle() {
 // chart in an isolated context where CSS custom properties don't resolve —
 // an unresolved var() there silently drops the bar/line colour entirely.
 const POP_ACCENT = '#00F2FA'
-const POP_GRID = 'rgba(255,255,255,0.1)'
+const POP_GRID = 'rgba(255,255,255,0.15)'
 function popAxisProps() {
-  return { tick: { fill: '#ffffff', fontSize: 10, opacity: 0.6 }, stroke: 'rgba(255,255,255,0.2)' }
+  return { tick: { fill: '#ffffff', fontSize: 10, opacity: 0.75 }, stroke: 'rgba(255,255,255,0.3)' }
 }
 function popTooltipStyle() {
   return {
-    contentStyle: { background: '#1B1B1B', border: '1px solid rgba(0,242,250,0.4)', borderRadius: 10, fontSize: 12 },
+    contentStyle: { background: '#242424', border: '1px solid rgba(0,242,250,0.5)', borderRadius: 10, fontSize: 12 },
     labelStyle: { color: POP_ACCENT },
     itemStyle: { color: '#ffffff' }
   }
@@ -135,6 +135,13 @@ export default function StatsHubPage() {
   const [playerPickDetail, setPlayerPickDetail] = useState<Record<number, { gw: number; userName: string; points: number; isBanker: boolean; role: 'player1' | 'player2' }[]>>({})
   const [expandedTeamId, setExpandedTeamId] = useState<number | null>(null)
   const [expandedPlayerId, setExpandedPlayerId] = useState<number | null>(null)
+
+  type TeamSortKey = 'name' | 'picked' | 'banked' | 'total' | 'avg'
+  type PlayerSortKey = 'name' | 'picked' | 'total' | 'avg' | 'goals' | 'assists'
+  const [teamSortKey, setTeamSortKey] = useState<TeamSortKey>('total')
+  const [teamSortDir, setTeamSortDir] = useState<'asc' | 'desc'>('desc')
+  const [playerSortKey, setPlayerSortKey] = useState<PlayerSortKey>('total')
+  const [playerSortDir, setPlayerSortDir] = useState<'asc' | 'desc'>('desc')
 
   // Everyone's rank each gameweek, for the League Trends "race" chart —
   // one row per gameweek, one numeric column per user id (their rank that
@@ -588,6 +595,53 @@ export default function StatsHubPage() {
     return list
   }, [sortedPlayerStats, playerSearch])
 
+  // Column-header sort, applied on top of the search filter — independent
+  // of the chart's own fixed "top 10 by points" ordering above.
+  const displayTeamStats = useMemo(() => {
+    const list = [...filteredTeamStats]
+    const dir = teamSortDir === 'desc' ? -1 : 1
+    list.sort((a, b) => {
+      switch (teamSortKey) {
+        case 'name': return dir * teamDisplayName(a.team).localeCompare(teamDisplayName(b.team))
+        case 'picked': return dir * (a.timesPicked - b.timesPicked)
+        case 'banked': return dir * (a.timesBanked - b.timesBanked)
+        case 'avg': return dir * ((teamsIncludeBanker ? a.avgPoints : a.avgPointsRaw) - (teamsIncludeBanker ? b.avgPoints : b.avgPointsRaw))
+        default: return dir * ((teamsIncludeBanker ? a.totalPoints : a.totalPointsRaw) - (teamsIncludeBanker ? b.totalPoints : b.totalPointsRaw))
+      }
+    })
+    return list
+  }, [filteredTeamStats, teamSortKey, teamSortDir, teamsIncludeBanker])
+
+  const displayPlayerStats = useMemo(() => {
+    const list = [...filteredPlayerStats]
+    const dir = playerSortDir === 'desc' ? -1 : 1
+    list.sort((a, b) => {
+      switch (playerSortKey) {
+        case 'name': return dir * a.displayName.localeCompare(b.displayName)
+        case 'picked': return dir * (a.timesPicked - b.timesPicked)
+        case 'avg': return dir * ((playersIncludeBanker ? a.avgPickPoints : a.avgPickPointsRaw) - (playersIncludeBanker ? b.avgPickPoints : b.avgPickPointsRaw))
+        case 'goals': return dir * (a.goals - b.goals)
+        case 'assists': return dir * (a.assists - b.assists)
+        default: return dir * ((playersIncludeBanker ? a.totalPickPoints : a.totalPickPointsRaw) - (playersIncludeBanker ? b.totalPickPoints : b.totalPickPointsRaw))
+      }
+    })
+    return list
+  }, [filteredPlayerStats, playerSortKey, playerSortDir, playersIncludeBanker])
+
+  function toggleTeamSort(key: TeamSortKey) {
+    if (teamSortKey === key) setTeamSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setTeamSortKey(key); setTeamSortDir(key === 'name' ? 'asc' : 'desc') }
+  }
+  function togglePlayerSort(key: PlayerSortKey) {
+    if (playerSortKey === key) setPlayerSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setPlayerSortKey(key); setPlayerSortDir(key === 'name' ? 'asc' : 'desc') }
+  }
+
+  function sortArrow(active: boolean, dir: 'asc' | 'desc') {
+    if (!active) return ''
+    return dir === 'desc' ? ' ▼' : ' ▲'
+  }
+
   // Classic theme's "my own performance" view is frozen/dead code (see
   // usePopArtTheme — pop-art is the only reachable theme) but still has to
   // compile, so it keeps reading these exact names — just derived from the
@@ -641,7 +695,7 @@ export default function StatsHubPage() {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'teams', label: 'Teams' },
     { id: 'players', label: 'Players' },
-    { id: 'me', label: 'Player Stats' },
+    { id: 'me', label: 'Managers' },
     { id: 'trends', label: 'League Trends' },
   ]
 
@@ -681,7 +735,7 @@ export default function StatsHubPage() {
               🎁 Your Season
             </a>
           </div>
-          <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name} — every number the game has generated so far.</p>
+          <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.65)' }}>{competition.name} — every number the game has generated so far.</p>
 
           {error && (
             <div className="pop-panel pop-panel--pink px-4 py-3 mb-5 text-sm">
@@ -694,8 +748,8 @@ export default function StatsHubPage() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`px-3 py-2 text-xs font-black tracking-widest whitespace-nowrap uppercase rounded-lg transition-colors ${tab === t.id ? 'pop-button' : 'hover:bg-white/[0.04]'}`}
-                style={tab !== t.id ? { color: 'rgba(255,255,255,0.5)' } : undefined}
+                className={`px-3 py-2 text-xs font-black tracking-widest whitespace-nowrap uppercase rounded-lg transition-colors ${tab === t.id ? 'pop-button' : 'hover:bg-white/[0.08]'}`}
+                style={tab !== t.id ? { color: 'rgba(255,255,255,0.65)' } : undefined}
               >
                 {t.label}
               </button>
@@ -704,8 +758,8 @@ export default function StatsHubPage() {
 
           {tab === 'teams' && (
             <div>
-              <ShareableCard filename="top-teams-by-points" className="pop-panel p-4 mb-4" style={{ height: 260 }}>
-                <p className="sec-label">Top Teams by Points {teamsIncludeBanker ? '(inc. Banker)' : '(excl. Banker)'}</p>
+              <ShareableCard filename="top-teams-by-points" className="pop-panel pop-panel--blue p-4 mb-4" style={{ height: 260 }}>
+                <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>Top Teams by Points {teamsIncludeBanker ? '(inc. Banker)' : '(excl. Banker)'}</p>
                 <ResponsiveContainer width="100%" height="90%">
                   <BarChart data={sortedTeamStats.slice(0, 10).map(t => ({ name: teamDisplayName(t.team), points: teamsIncludeBanker ? t.totalPoints : t.totalPointsRaw }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
@@ -718,18 +772,18 @@ export default function StatsHubPage() {
               </ShareableCard>
 
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10px] uppercase tracking-wider font-black" style={{ color: 'rgba(255,255,255,0.5)' }}>Banker</span>
+                <span className="text-[10px] uppercase tracking-wider font-black" style={{ color: 'rgba(255,255,255,0.65)' }}>Banker</span>
                 <button
                   onClick={() => setTeamsIncludeBanker(true)}
                   className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full ${teamsIncludeBanker ? 'pop-button' : ''}`}
-                  style={!teamsIncludeBanker ? { color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.06)' } : undefined}
+                  style={!teamsIncludeBanker ? { color: 'rgba(255,255,255,0.55)', background: 'rgba(255,255,255,0.1)' } : undefined}
                 >
                   Included
                 </button>
                 <button
                   onClick={() => setTeamsIncludeBanker(false)}
                   className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full ${!teamsIncludeBanker ? 'pop-button' : ''}`}
-                  style={teamsIncludeBanker ? { color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.06)' } : undefined}
+                  style={teamsIncludeBanker ? { color: 'rgba(255,255,255,0.55)', background: 'rgba(255,255,255,0.1)' } : undefined}
                 >
                   Excluded
                 </button>
@@ -742,52 +796,59 @@ export default function StatsHubPage() {
                 onChange={e => setTeamSearch(e.target.value)}
                 className="pop-input w-full mb-3 px-3 py-2 text-sm font-bold"
               />
-              <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                {teamsIncludeBanker ? 'Points below include any Banker doubling.' : 'Banker doubling excluded — raw pick performance below.'}
+              <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                {teamsIncludeBanker ? 'Points below include any Banker doubling.' : 'Banker doubling excluded — raw pick performance below.'} Tap a column to sort, tap a row to see who picked them.
               </p>
 
-              <div className="pop-panel" style={{ overflow: 'hidden', overflowX: 'auto' }}>
-                <table className="w-full" style={{ fontSize: '12px' }}>
+              <div className="pop-panel pop-panel--blue" style={{ overflow: 'hidden' }}>
+                <table className="w-full" style={{ fontSize: '11px', tableLayout: 'fixed' }}>
+                  <colgroup>
+                    <col style={{ width: '34%' }} />
+                    <col style={{ width: '16%' }} />
+                    <col style={{ width: '16%' }} />
+                    <col style={{ width: '17%' }} />
+                    <col style={{ width: '17%' }} />
+                  </colgroup>
                   <thead>
-                    <tr className="text-left" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-                      <th className="py-2 px-2 uppercase tracking-wider">Team</th>
-                      <th className="py-2 px-2 text-right uppercase tracking-wider">Picked</th>
-                      <th className="py-2 px-2 text-right uppercase tracking-wider">Banked</th>
-                      <th className="py-2 px-2 text-right uppercase tracking-wider">Total Pts</th>
-                      <th className="py-2 px-2 text-right uppercase tracking-wider font-black">Avg / Pick</th>
+                    <tr className="text-left" style={{ fontSize: '9.5px', color: 'var(--pop-blue)', borderBottom: '1px solid rgba(0,242,250,0.3)' }}>
+                      <th className="py-2 pl-2 pr-1 uppercase tracking-wider cursor-pointer select-none" onClick={() => toggleTeamSort('name')}>Team{sortArrow(teamSortKey === 'name', teamSortDir)}</th>
+                      <th className="py-2 px-1 text-right uppercase tracking-wider cursor-pointer select-none" onClick={() => toggleTeamSort('picked')}>Pick{sortArrow(teamSortKey === 'picked', teamSortDir)}</th>
+                      <th className="py-2 px-1 text-right uppercase tracking-wider cursor-pointer select-none" onClick={() => toggleTeamSort('banked')}>Bank{sortArrow(teamSortKey === 'banked', teamSortDir)}</th>
+                      <th className="py-2 px-1 text-right uppercase tracking-wider cursor-pointer select-none" onClick={() => toggleTeamSort('total')}>Pts{sortArrow(teamSortKey === 'total', teamSortDir)}</th>
+                      <th className="py-2 pl-1 pr-2 text-right uppercase tracking-wider font-black cursor-pointer select-none" onClick={() => toggleTeamSort('avg')}>Avg{sortArrow(teamSortKey === 'avg', teamSortDir)}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTeamStats.map(t => (
+                    {displayTeamStats.map(t => (
                       <React.Fragment key={t.team.id}>
                         <tr
                           onClick={() => setExpandedTeamId(expandedTeamId === t.team.id ? null : t.team.id)}
-                          className="cursor-pointer hover:bg-white/[0.04] transition-colors"
-                          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                          className="cursor-pointer hover:bg-white/[0.06] transition-colors"
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
                         >
-                          <td className="py-2 px-2 font-black uppercase">
-                            <div className="flex items-center gap-1.5">
+                          <td className="py-2 pl-2 pr-1 font-black uppercase" style={{ overflow: 'hidden' }}>
+                            <div className="flex items-center gap-1.5 min-w-0">
                               <TeamCrest teamId={t.team.id} teamName={t.team.name} size={16} />
-                              {teamDisplayName(t.team)}
-                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '8px' }}>{expandedTeamId === t.team.id ? '▲' : '▼'}</span>
+                              <span className="truncate">{teamDisplayName(t.team)}</span>
+                              <span className="shrink-0" style={{ color: 'rgba(255,255,255,0.35)', fontSize: '8px' }}>{expandedTeamId === t.team.id ? '▲' : '▼'}</span>
                             </div>
                           </td>
-                          <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{t.timesPicked}</td>
-                          <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{t.timesBanked}</td>
-                          <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{teamsIncludeBanker ? t.totalPoints : t.totalPointsRaw}</td>
-                          <td className="py-2 px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{teamsIncludeBanker ? t.avgPoints : t.avgPointsRaw}</td>
+                          <td className="py-2 px-1 text-right" style={{ color: 'rgba(255,255,255,0.75)' }}>{t.timesPicked}</td>
+                          <td className="py-2 px-1 text-right" style={{ color: 'rgba(255,255,255,0.75)' }}>{t.timesBanked}</td>
+                          <td className="py-2 px-1 text-right" style={{ color: 'rgba(255,255,255,0.75)' }}>{teamsIncludeBanker ? t.totalPoints : t.totalPointsRaw}</td>
+                          <td className="py-2 pl-1 pr-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{teamsIncludeBanker ? t.avgPoints : t.avgPointsRaw}</td>
                         </tr>
                         {expandedTeamId === t.team.id && (
                           <tr>
-                            <td colSpan={5} className="px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
-                              <p className="text-[10px] uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>Who picked {teamDisplayName(t.team)}</p>
+                            <td colSpan={5} className="px-3 py-3" style={{ background: 'rgba(0,242,250,0.06)' }}>
+                              <p className="text-[10px] uppercase tracking-wider font-black mb-2" style={{ color: 'var(--pop-blue)' }}>Who picked {teamDisplayName(t.team)}</p>
                               {(teamPickDetail[t.team.id] ?? []).length === 0 ? (
-                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>No scored picks yet.</p>
+                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>No scored picks yet.</p>
                               ) : (
                                 <div className="flex flex-col gap-1.5">
                                   {(teamPickDetail[t.team.id] ?? []).map((d, i) => (
                                     <div key={i} className="flex items-center justify-between gap-2 text-xs">
-                                      <span style={{ color: 'rgba(255,255,255,0.5)' }}>GW{d.gw}</span>
+                                      <span style={{ color: 'rgba(255,255,255,0.6)' }}>GW{d.gw}</span>
                                       <span className="font-bold flex-1 truncate">{d.userName}</span>
                                       {d.isBanker && <span className="pop-badge px-1 py-0.5 text-[8px] font-black" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span>}
                                       <span className="font-black" style={{ color: 'var(--pop-green)' }}>{d.points} pts</span>
@@ -801,7 +862,7 @@ export default function StatsHubPage() {
                       </React.Fragment>
                     ))}
                     {filteredTeamStats.length === 0 && (
-                      <tr><td colSpan={5} className="py-8 text-center uppercase tracking-wider" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>No data yet.</td></tr>
+                      <tr><td colSpan={5} className="py-8 text-center uppercase tracking-wider" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>No data yet.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -811,8 +872,8 @@ export default function StatsHubPage() {
 
           {tab === 'players' && (
             <div>
-              <ShareableCard filename="top-players-by-points" className="pop-panel p-4 mb-4" style={{ height: 260 }}>
-                <p className="sec-label">Top Players by Points {playersIncludeBanker ? '(inc. Banker)' : '(excl. Banker)'}</p>
+              <ShareableCard filename="top-players-by-points" className="pop-panel pop-panel--blue p-4 mb-4" style={{ height: 260 }}>
+                <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>Top Players by Points {playersIncludeBanker ? '(inc. Banker)' : '(excl. Banker)'}</p>
                 <ResponsiveContainer width="100%" height="90%">
                   <BarChart data={sortedPlayerStats.slice(0, 12).map(p => ({ name: p.displayName, points: playersIncludeBanker ? p.totalPickPoints : p.totalPickPointsRaw }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
@@ -825,18 +886,18 @@ export default function StatsHubPage() {
               </ShareableCard>
 
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10px] uppercase tracking-wider font-black" style={{ color: 'rgba(255,255,255,0.5)' }}>Banker</span>
+                <span className="text-[10px] uppercase tracking-wider font-black" style={{ color: 'rgba(255,255,255,0.65)' }}>Banker</span>
                 <button
                   onClick={() => setPlayersIncludeBanker(true)}
                   className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full ${playersIncludeBanker ? 'pop-button' : ''}`}
-                  style={!playersIncludeBanker ? { color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.06)' } : undefined}
+                  style={!playersIncludeBanker ? { color: 'rgba(255,255,255,0.55)', background: 'rgba(255,255,255,0.1)' } : undefined}
                 >
                   Included
                 </button>
                 <button
                   onClick={() => setPlayersIncludeBanker(false)}
                   className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full ${!playersIncludeBanker ? 'pop-button' : ''}`}
-                  style={playersIncludeBanker ? { color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.06)' } : undefined}
+                  style={playersIncludeBanker ? { color: 'rgba(255,255,255,0.55)', background: 'rgba(255,255,255,0.1)' } : undefined}
                 >
                   Excluded
                 </button>
@@ -849,53 +910,61 @@ export default function StatsHubPage() {
                 onChange={e => setPlayerSearch(e.target.value)}
                 className="pop-input w-full mb-3 px-3 py-2 text-sm font-bold"
               />
-              <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                {playersIncludeBanker ? 'Points below include any Banker doubling.' : 'Banker doubling excluded — raw pick performance below.'}
+              <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                {playersIncludeBanker ? 'Points below include any Banker doubling.' : 'Banker doubling excluded — raw pick performance below.'} Tap a column to sort, tap a row to see who picked them.
               </p>
 
-              <div className="pop-panel" style={{ overflow: 'hidden', overflowX: 'auto' }}>
-                <table className="w-full" style={{ fontSize: '12px' }}>
+              <div className="pop-panel pop-panel--blue" style={{ overflow: 'hidden' }}>
+                <table className="w-full" style={{ fontSize: '11px', tableLayout: 'fixed' }}>
+                  <colgroup>
+                    <col style={{ width: '28%' }} />
+                    <col style={{ width: '12%' }} />
+                    <col style={{ width: '16%' }} />
+                    <col style={{ width: '16%' }} />
+                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '14%' }} />
+                  </colgroup>
                   <thead>
-                    <tr className="text-left" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-                      <th className="py-2 px-2 uppercase tracking-wider">Player</th>
-                      <th className="py-2 px-2 text-right uppercase tracking-wider">Picked</th>
-                      <th className="py-2 px-2 text-right uppercase tracking-wider font-black">Total Pts</th>
-                      <th className="py-2 px-2 text-right uppercase tracking-wider">Avg / Pick</th>
-                      <th className="py-2 px-2 text-right uppercase tracking-wider">Goals</th>
-                      <th className="py-2 px-2 text-right uppercase tracking-wider">Assists</th>
+                    <tr className="text-left" style={{ fontSize: '9.5px', color: 'var(--pop-blue)', borderBottom: '1px solid rgba(0,242,250,0.3)' }}>
+                      <th className="py-2 pl-2 pr-1 uppercase tracking-wider cursor-pointer select-none" onClick={() => togglePlayerSort('name')}>Player{sortArrow(playerSortKey === 'name', playerSortDir)}</th>
+                      <th className="py-2 px-1 text-right uppercase tracking-wider cursor-pointer select-none" onClick={() => togglePlayerSort('picked')}>Pick{sortArrow(playerSortKey === 'picked', playerSortDir)}</th>
+                      <th className="py-2 px-1 text-right uppercase tracking-wider font-black cursor-pointer select-none" onClick={() => togglePlayerSort('total')}>Pts{sortArrow(playerSortKey === 'total', playerSortDir)}</th>
+                      <th className="py-2 px-1 text-right uppercase tracking-wider cursor-pointer select-none" onClick={() => togglePlayerSort('avg')}>Avg{sortArrow(playerSortKey === 'avg', playerSortDir)}</th>
+                      <th className="py-2 px-1 text-right uppercase tracking-wider cursor-pointer select-none" onClick={() => togglePlayerSort('goals')}>G{sortArrow(playerSortKey === 'goals', playerSortDir)}</th>
+                      <th className="py-2 pl-1 pr-2 text-right uppercase tracking-wider cursor-pointer select-none" onClick={() => togglePlayerSort('assists')}>A{sortArrow(playerSortKey === 'assists', playerSortDir)}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredPlayerStats.slice(0, 100).map(p => (
+                    {displayPlayerStats.slice(0, 100).map(p => (
                       <React.Fragment key={p.player.id}>
                         <tr
                           onClick={() => setExpandedPlayerId(expandedPlayerId === p.player.id ? null : p.player.id)}
-                          className="cursor-pointer hover:bg-white/[0.04] transition-colors"
-                          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                          className="cursor-pointer hover:bg-white/[0.06] transition-colors"
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
                         >
-                          <td className="py-2 px-2 font-black uppercase">
-                            <div className="flex items-center gap-1.5">
-                              {p.displayName}
-                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '8px' }}>{expandedPlayerId === p.player.id ? '▲' : '▼'}</span>
+                          <td className="py-2 pl-2 pr-1 font-black uppercase" style={{ overflow: 'hidden' }}>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="truncate">{p.displayName}</span>
+                              <span className="shrink-0" style={{ color: 'rgba(255,255,255,0.35)', fontSize: '8px' }}>{expandedPlayerId === p.player.id ? '▲' : '▼'}</span>
                             </div>
                           </td>
-                          <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.timesPicked}</td>
-                          <td className="py-2 px-2 text-right font-black" style={{ color: 'var(--pop-green)' }}>{playersIncludeBanker ? p.totalPickPoints : p.totalPickPointsRaw}</td>
-                          <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{playersIncludeBanker ? p.avgPickPoints : p.avgPickPointsRaw}</td>
-                          <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.goals}</td>
-                          <td className="py-2 px-2 text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>{p.assists}</td>
+                          <td className="py-2 px-1 text-right" style={{ color: 'rgba(255,255,255,0.75)' }}>{p.timesPicked}</td>
+                          <td className="py-2 px-1 text-right font-black" style={{ color: 'var(--pop-green)' }}>{playersIncludeBanker ? p.totalPickPoints : p.totalPickPointsRaw}</td>
+                          <td className="py-2 px-1 text-right" style={{ color: 'rgba(255,255,255,0.75)' }}>{playersIncludeBanker ? p.avgPickPoints : p.avgPickPointsRaw}</td>
+                          <td className="py-2 px-1 text-right" style={{ color: 'rgba(255,255,255,0.75)' }}>{p.goals}</td>
+                          <td className="py-2 pl-1 pr-2 text-right" style={{ color: 'rgba(255,255,255,0.75)' }}>{p.assists}</td>
                         </tr>
                         {expandedPlayerId === p.player.id && (
                           <tr>
-                            <td colSpan={6} className="px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
-                              <p className="text-[10px] uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>Who picked {p.displayName}</p>
+                            <td colSpan={6} className="px-3 py-3" style={{ background: 'rgba(0,242,250,0.06)' }}>
+                              <p className="text-[10px] uppercase tracking-wider font-black mb-2" style={{ color: 'var(--pop-blue)' }}>Who picked {p.displayName}</p>
                               {(playerPickDetail[p.player.id] ?? []).length === 0 ? (
-                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>No scored picks yet.</p>
+                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>No scored picks yet.</p>
                               ) : (
                                 <div className="flex flex-col gap-1.5">
                                   {(playerPickDetail[p.player.id] ?? []).map((d, i) => (
                                     <div key={i} className="flex items-center justify-between gap-2 text-xs">
-                                      <span style={{ color: 'rgba(255,255,255,0.5)' }}>GW{d.gw}</span>
+                                      <span style={{ color: 'rgba(255,255,255,0.6)' }}>GW{d.gw}</span>
                                       <span className="font-bold flex-1 truncate">{d.userName}</span>
                                       {d.isBanker && <span className="pop-badge px-1 py-0.5 text-[8px] font-black" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span>}
                                       <span className="font-black" style={{ color: 'var(--pop-green)' }}>{d.points} pts</span>
@@ -909,12 +978,12 @@ export default function StatsHubPage() {
                       </React.Fragment>
                     ))}
                     {filteredPlayerStats.length === 0 && (
-                      <tr><td colSpan={6} className="py-8 text-center uppercase tracking-wider" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>No data yet.</td></tr>
+                      <tr><td colSpan={6} className="py-8 text-center uppercase tracking-wider" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>No data yet.</td></tr>
                     )}
                   </tbody>
                 </table>
                 {filteredPlayerStats.length > 100 && (
-                  <p className="px-2 py-2" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>Showing top 100 of {filteredPlayerStats.length} — narrow your search to see more specific players.</p>
+                  <p className="px-2 py-2" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Showing top 100 of {filteredPlayerStats.length} — narrow your search to see more specific players.</p>
                 )}
               </div>
             </div>
@@ -926,7 +995,7 @@ export default function StatsHubPage() {
                 <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No scored gameweeks yet — check back once results come in.</p>
               ) : (
                 <>
-                  <p className="sec-label">Select a Player</p>
+                  <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>Select a Manager</p>
                   <select
                     value={effectiveSelectedPlayerId}
                     onChange={e => setSelectedPlayerId(e.target.value)}
@@ -941,20 +1010,20 @@ export default function StatsHubPage() {
                     <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No scored gameweeks yet for {selectedPlayerName}.</p>
                   ) : (
                     <>
-                      <p className="sec-label">This Season</p>
+                      <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>This Season</p>
                       <ShareableCard filename={`${selectedPlayerName}-best-and-worst-gameweek`} className="grid grid-cols-2 gap-3 mb-4">
-                        <div className="pop-panel p-3">
-                          <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Best Gameweek</p>
+                        <div className="pop-panel pop-panel--green p-3">
+                          <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>Best Gameweek</p>
                           <p className="text-xl font-black" style={{ color: 'var(--pop-green)' }}>GW{selectedBest?.gw} · {selectedBest?.points} pts</p>
                         </div>
                         <div className="pop-panel p-3">
-                          <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Worst Gameweek</p>
-                          <p className="text-xl font-black" style={{ color: 'rgba(255,255,255,0.7)' }}>GW{selectedWorst?.gw} · {selectedWorst?.points} pts</p>
+                          <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>Worst Gameweek</p>
+                          <p className="text-xl font-black" style={{ color: 'rgba(255,255,255,0.8)' }}>GW{selectedWorst?.gw} · {selectedWorst?.points} pts</p>
                         </div>
                       </ShareableCard>
 
-                      <p className="sec-label">By Gameweek</p>
-                      <ShareableCard filename={`${selectedPlayerName}-points-by-gameweek`} className="pop-panel p-4 mb-4" style={{ height: 240 }}>
+                      <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>By Gameweek</p>
+                      <ShareableCard filename={`${selectedPlayerName}-points-by-gameweek`} className="pop-panel pop-panel--blue p-4 mb-4" style={{ height: 240 }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={selectedWeekly.map(w => ({ name: `GW${w.gw}`, points: w.points }))}>
                             <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
@@ -966,8 +1035,8 @@ export default function StatsHubPage() {
                         </ResponsiveContainer>
                       </ShareableCard>
 
-                      <p className="sec-label">Rank Over Time <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(lower = better)</span></p>
-                      <ShareableCard filename={`${selectedPlayerName}-rank-over-time`} className="pop-panel p-4" style={{ height: 240 }}>
+                      <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>Rank Over Time <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(lower = better)</span></p>
+                      <ShareableCard filename={`${selectedPlayerName}-rank-over-time`} className="pop-panel pop-panel--pink p-4" style={{ height: 240 }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={selectedCumulative.map(c => ({ name: `GW${c.gw}`, rank: c.rank }))}>
                             <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
@@ -979,7 +1048,7 @@ export default function StatsHubPage() {
                         </ResponsiveContainer>
                       </ShareableCard>
 
-                      <p className="sec-label">Head-to-Head</p>
+                      <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>Head-to-Head</p>
                       <select
                         value={compareUserId}
                         onChange={e => setCompareUserId(e.target.value)}
@@ -993,18 +1062,18 @@ export default function StatsHubPage() {
 
                       {compareUserId && headToHeadTally && (
                         <>
-                          <div className="pop-panel p-3 mb-4 text-center">
+                          <div className="pop-panel pop-panel--yellow p-3 mb-4 text-center">
                             <p className="text-lg font-black">
                               <span style={{ color: POP_ACCENT }}>{selectedPlayerName} {headToHeadTally.selWins}</span>
-                              <span style={{ color: 'rgba(255,255,255,0.4)' }}> — </span>
+                              <span style={{ color: 'rgba(255,255,255,0.5)' }}> — </span>
                               <span style={{ color: '#A000FA' }}>{headToHeadTally.cmpWins} {compareName}</span>
                             </p>
-                            <p className="text-[10px] uppercase tracking-wider font-black mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                            <p className="text-[10px] uppercase tracking-wider font-black mt-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
                               gameweeks won{headToHeadTally.draws > 0 ? ` · ${headToHeadTally.draws} drawn` : ''}
                             </p>
                           </div>
 
-                          <ShareableCard filename={`${selectedPlayerName}-vs-${compareName}`} className="pop-panel p-4" style={{ height: 260 }}>
+                          <ShareableCard filename={`${selectedPlayerName}-vs-${compareName}`} className="pop-panel pop-panel--yellow p-4" style={{ height: 260 }}>
                             <ResponsiveContainer width="100%" height="90%">
                               <LineChart data={headToHeadChartData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
@@ -1028,52 +1097,52 @@ export default function StatsHubPage() {
 
           {tab === 'trends' && (
             <div>
-              <p className="sec-label">Banker</p>
+              <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>Banker</p>
               <ShareableCard filename="banker-stats" className="grid grid-cols-2 gap-3 mb-4">
-                <div className="pop-panel p-3">
-                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Banked Team</p>
+                <div className="pop-panel pop-panel--yellow p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>Most Banked Team</p>
                   <p className="text-base font-black" style={{ color: 'var(--pop-yellow)' }}>{mostBankedTeam ? `${mostBankedTeam.name} (${mostBankedTeam.count}x)` : '—'}</p>
                 </div>
-                <div className="pop-panel p-3">
-                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Banked Player</p>
+                <div className="pop-panel pop-panel--yellow p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>Most Banked Player</p>
                   <p className="text-base font-black" style={{ color: 'var(--pop-yellow)' }}>{mostBankedPlayer ? `${mostBankedPlayer.name} (${mostBankedPlayer.count}x)` : '—'}</p>
                 </div>
-                <div className="pop-panel p-3">
-                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Value Added</p>
+                <div className="pop-panel pop-panel--yellow p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>Most Value Added</p>
                   <p className="text-base font-black" style={{ color: 'var(--pop-yellow)' }}>{bankerValueLeader ? `${bankerValueLeader.name} (+${bankerValueLeader.points})` : '—'}</p>
                 </div>
-                <div className="pop-panel p-3">
-                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Best Bankered GW</p>
+                <div className="pop-panel pop-panel--yellow p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>Best Bankered GW</p>
                   <p className="text-base font-black" style={{ color: 'var(--pop-yellow)' }}>{bestBankerGameweek ? `${bestBankerGameweek.name} — GW${bestBankerGameweek.gw} (${bestBankerGameweek.points})` : '—'}</p>
                 </div>
               </ShareableCard>
 
-              <p className="sec-label">All or Nothing</p>
+              <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>All or Nothing</p>
               <ShareableCard filename="all-or-nothing-stats" className="grid grid-cols-2 gap-3 mb-4">
-                <div className="pop-panel p-3">
-                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Success Rate</p>
+                <div className="pop-panel pop-panel--green p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>Success Rate</p>
                   <p className="text-base font-black" style={{ color: 'var(--pop-green)' }}>{aonSuccessRate ? `${aonSuccessRate.rate}% (${aonSuccessRate.success}/${aonSuccessRate.total})` : '—'}</p>
                 </div>
-                <div className="pop-panel p-3">
-                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Nominated</p>
+                <div className="pop-panel pop-panel--green p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>Most Nominated</p>
                   <p className="text-base font-black" style={{ color: 'var(--pop-green)' }}>{mostNominatedAon ? `${mostNominatedAon.name} (${mostNominatedAon.count}x)` : '—'}</p>
                 </div>
               </ShareableCard>
 
               {bonusCardName && (
                 <>
-                  <p className="sec-label">{bonusCardName}</p>
+                  <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>{bonusCardName}</p>
                   <ShareableCard filename={`${bonusCardName}-stats`} className="grid grid-cols-3 gap-3 mb-4">
-                    <div className="pop-panel p-3">
-                      <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Played</p>
+                    <div className="pop-panel pop-panel--blue p-3">
+                      <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>Played</p>
                       <p className="text-base font-black" style={{ color: 'var(--pop-blue)' }}>{bonusCardUsage ? `${bonusCardUsage.used} / ${bonusCardUsage.total}` : '—'}</p>
                     </div>
-                    <div className="pop-panel p-3">
-                      <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Avg When Played</p>
+                    <div className="pop-panel pop-panel--blue p-3">
+                      <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>Avg When Played</p>
                       <p className="text-base font-black" style={{ color: 'var(--pop-blue)' }}>{bonusCardAvgPoints != null ? `${bonusCardAvgPoints} pts` : '—'}</p>
                     </div>
-                    <div className="pop-panel p-3">
-                      <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Best Play</p>
+                    <div className="pop-panel pop-panel--blue p-3">
+                      <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>Best Play</p>
                       <p className="text-base font-black" style={{ color: 'var(--pop-blue)' }}>{bestBonusCardPlay ? `${bestBonusCardPlay.name} — GW${bestBonusCardPlay.gw} (${bestBonusCardPlay.points})` : '—'}</p>
                     </div>
                   </ShareableCard>
@@ -1082,9 +1151,9 @@ export default function StatsHubPage() {
 
               {allRanksChartData.length > 1 && rankedUserMeta.length > 0 && (
                 <>
-                  <p className="sec-label">The Race</p>
-                  <ShareableCard filename="the-race-position-by-gameweek" className="pop-panel p-4 mb-4" style={{ height: Math.max(260, rankedUserMeta.length * 26) }}>
-                    <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>The Race</p>
+                  <ShareableCard filename="the-race-position-by-gameweek" className="pop-panel pop-panel--pink p-4 mb-4" style={{ height: Math.max(260, rankedUserMeta.length * 26) }}>
+                    <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
                       Position by Gameweek <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(lower = better)</span>
                     </p>
                     <ResponsiveContainer width="100%" height="88%">
@@ -1123,9 +1192,9 @@ export default function StatsHubPage() {
                 </>
               )}
 
-              <p className="sec-label">League-Wide</p>
-              <ShareableCard filename="average-score-by-gameweek" className="pop-panel p-4 mb-4" style={{ height: 240 }}>
-                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Average Score by Gameweek</p>
+              <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>League-Wide</p>
+              <ShareableCard filename="average-score-by-gameweek" className="pop-panel pop-panel--blue p-4 mb-4" style={{ height: 240 }}>
+                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>Average Score by Gameweek</p>
                 <ResponsiveContainer width="100%" height="85%">
                   <LineChart data={avgByGw.map(a => ({ name: `GW${a.gw}`, avg: a.avg }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
@@ -1137,8 +1206,8 @@ export default function StatsHubPage() {
                 </ResponsiveContainer>
               </ShareableCard>
 
-              <ShareableCard filename="most-popular-teams" className="pop-panel p-4 mb-4" style={{ height: 260 }}>
-                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Most Popular Teams</p>
+              <ShareableCard filename="most-popular-teams" className="pop-panel pop-panel--blue p-4 mb-4" style={{ height: 260 }}>
+                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>Most Popular Teams</p>
                 <ResponsiveContainer width="100%" height="85%">
                   <BarChart data={teamPopularity}>
                     <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
@@ -1150,8 +1219,8 @@ export default function StatsHubPage() {
                 </ResponsiveContainer>
               </ShareableCard>
 
-              <ShareableCard filename="manual-vs-autopick" className="pop-panel p-4" style={{ height: 240 }}>
-                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Manual vs Autopick</p>
+              <ShareableCard filename="manual-vs-autopick" className="pop-panel pop-panel--blue p-4" style={{ height: 240 }}>
+                <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>Manual vs Autopick</p>
                 <ResponsiveContainer width="100%" height="85%">
                   <BarChart data={pickMethod.map(m => ({ name: `GW${m.gw}`, Manual: m.manual, Autopick: m.autopick }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
@@ -1160,7 +1229,7 @@ export default function StatsHubPage() {
                     <Tooltip {...popTooltipStyle()} />
                     <Legend wrapperStyle={{ fontSize: 11, color: '#ffffff' }} />
                     <Bar dataKey="Manual" stackId="a" fill={POP_ACCENT} radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="Autopick" stackId="a" fill="rgba(255,255,255,0.25)" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Autopick" stackId="a" fill="rgba(255,255,255,0.3)" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </ShareableCard>
