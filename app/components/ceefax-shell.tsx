@@ -7,6 +7,7 @@ import KitBadge from '../../components/KitBadge'
 import KitEditor from '../../components/KitEditor'
 import LiveMatchAlerts from '../../components/LiveMatchAlerts'
 import SiteThemeEffects from '../../components/SiteThemeEffects'
+import InstallPrompt from '../../components/InstallPrompt'
 import { useCountdown } from '../lib/useCountdown'
 
 const KIT_POPUP_WIDTH = 288
@@ -241,6 +242,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
     <div className={`min-h-screen ${isPopArt ? 'pop-art-theme' : ''}`}>
       {isPopArt && <LiveMatchAlerts />}
       {isPopArt && <SiteThemeEffects />}
+      {isPopArt && <InstallPrompt />}
       <header
         className={isPopArt ? 'sticky top-0 z-50' : 'bg-[#2A1F17] border-b-4 border-[#D9A441] sticky top-0 z-50'}
         style={isPopArt ? { borderBottom: '2px solid rgba(255,255,255,0.15)' } : undefined}

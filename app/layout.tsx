@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Bebas_Neue } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
@@ -40,7 +40,19 @@ export const metadata: Metadata = {
   description: 'The Premier League Prediction Game',
   icons: {
     icon: '/logo.svg',
+    apple: '/icons/apple-touch-icon.png',
   },
+  // iOS Safari never reads the web manifest for "Add to Home Screen" — it
+  // needs its own separate meta tags, which this generates automatically.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'LMS All-Stars',
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#0A0A0A',
 }
 
 export default function RootLayout({
