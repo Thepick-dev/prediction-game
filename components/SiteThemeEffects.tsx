@@ -6,7 +6,7 @@ import { computeCompletedCompetitionPodium, type PodiumEntry } from '../app/lib/
 
 export type ActiveTheme =
   | 'default' | 'christmas' | 'easter' | 'halloween' | 'chanukah' | 'diwali' | 'eid'
-  | 'newseason' | 'bonfire' | 'aprilfools' | 'celebration'
+  | 'newseason' | 'bonfire' | 'aprilfools' | 'valentines' | 'stpatricks' | 'celebration'
 
 const MEDAL_EMOJI = ['🥇', '🥈', '🥉']
 const CONFETTI_COLOURS = ['#FA6100', '#CCFA00', '#00F2FA', '#A000FA', '#FA003C', '#FFD700']
@@ -21,6 +21,8 @@ const FLOAT_CONFIG: Partial<Record<ActiveTheme, string[]>> = {
   diwali: ['🪔', '✨', '🎇'],
   eid: ['🌙', '⭐', '✨'],
   aprilfools: ['🤡', '🙃', '🎉', '🃏'],
+  valentines: ['💕', '💖', '🌹', '💘'],
+  stpatricks: ['🍀', '☘️', '🌈'],
 }
 
 // "Festival of lights" themes get the same twinkling strip as Christmas,

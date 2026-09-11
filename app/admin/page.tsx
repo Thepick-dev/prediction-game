@@ -179,6 +179,8 @@ export default async function AdminPage() {
               { value: 'newseason', label: '⚽ New Season' },
               { value: 'bonfire', label: '🎆 Bonfire Night' },
               { value: 'aprilfools', label: '🤡 April Fools' },
+              { value: 'valentines', label: '💘 Valentine\'s' },
+              { value: 'stpatricks', label: '🍀 St Patrick\'s' },
               { value: 'celebration', label: '🏆 Celebration' },
             ].map(opt => (
               <label key={opt.value} className="flex items-center gap-1.5">
