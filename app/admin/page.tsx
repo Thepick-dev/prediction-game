@@ -162,9 +162,10 @@ export default async function AdminPage() {
       <div id="site-theme" className="bg-white border rounded-lg p-6 mb-8">
         <h2 className="font-bold mb-1">🎨 Site Theme</h2>
         <p className="text-xs text-gray-500 mb-3">
-          Dresses up the whole site for everyone. Christmas adds a snow effect and festive title colours.
-          Celebration adds confetti and a banner announcing a completed competition&apos;s top 3 — pick which one
-          below (nothing shows until you choose one).
+          Dresses up the whole site for everyone. Christmas adds twinkling lights and gentle snow plus festive
+          title colours. Easter adds floating eggs/flowers and pastel title colours. Celebration adds confetti
+          and a banner announcing a completed competition&apos;s top 3 — pick which one below (nothing shows
+          until you choose one).
         </p>
         <form action={setSiteTheme} className="space-y-3">
           <div className="flex flex-wrap gap-4 text-sm">
@@ -175,6 +176,10 @@ export default async function AdminPage() {
             <label className="flex items-center gap-1.5">
               <input type="radio" name="active_theme" value="christmas" defaultChecked={siteTheme?.active_theme === 'christmas'} />
               🎄 Christmas
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input type="radio" name="active_theme" value="easter" defaultChecked={siteTheme?.active_theme === 'easter'} />
+              🐣 Easter
             </label>
             <label className="flex items-center gap-1.5">
               <input type="radio" name="active_theme" value="celebration" defaultChecked={siteTheme?.active_theme === 'celebration'} />

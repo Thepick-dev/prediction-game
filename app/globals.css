@@ -495,14 +495,47 @@ thead th {
 /* Site-wide seasonal theming (see SiteThemeEffects.tsx) — [data-site-theme]
    lives on <html>, so this reaches every page's existing .pop-hero titles
    without any of them needing to know a theme system exists. Alternates
-   red/green by whichever glow colour a title already had, so different
-   page titles don't all turn identical. */
+   colour by whichever glow a title already had, so different page titles
+   don't all turn identical. */
 [data-site-theme="christmas"] .pop-hero--blue,
 [data-site-theme="christmas"] .pop-hero--green {
   text-shadow: 0 0 6px #C8102E, 0 0 22px #C8102E;
 }
 [data-site-theme="christmas"] .pop-hero--pink {
   text-shadow: 0 0 6px #0F8A5F, 0 0 22px #0F8A5F;
+}
+[data-site-theme="easter"] .pop-hero--blue {
+  text-shadow: 0 0 6px #FFB6D9, 0 0 22px #FFB6D9;
+}
+[data-site-theme="easter"] .pop-hero--green {
+  text-shadow: 0 0 6px #FFE066, 0 0 22px #FFE066;
+}
+[data-site-theme="easter"] .pop-hero--pink {
+  text-shadow: 0 0 6px #C9A6FF, 0 0 22px #C9A6FF;
+}
+
+/* A thin strip of fairy lights along the very top edge, twinkling
+   independently — cheap (a handful of tiny spans, no image) but reads as
+   a real decorative commitment rather than just "recoloured text". */
+.site-christmas-lights {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 10px;
+  z-index: 251;
+  pointer-events: none;
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+}
+.site-christmas-light {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: site-light-twinkle 1.8s ease-in-out infinite;
+}
+@keyframes site-light-twinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.15); }
 }
 
 .site-snowfall, .site-confetti {
@@ -517,13 +550,21 @@ thead th {
   top: -10%;
   color: rgba(255, 255, 255, 0.85);
   animation-name: site-snow-fall;
-  animation-timing-function: linear;
+  animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
 }
+/* Drifts to +drift at the midpoint then back past centre — a gentle sway
+   rather than a straight diagonal line, closer to how snow actually
+   falls. --drift is set per-flake from JS so they don't all sway in
+   lockstep. */
 @keyframes site-snow-fall {
-  0% { transform: translateY(-10vh) translateX(0); opacity: 0.9; }
-  100% { transform: translateY(110vh) translateX(24px); opacity: 0.5; }
+  0% { transform: translate(0, -10vh) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.85; }
+  50% { transform: translate(var(--drift), 50vh) rotate(180deg); }
+  90% { opacity: 0.7; }
+  100% { transform: translate(calc(var(--drift) * -0.4), 110vh) rotate(360deg); opacity: 0; }
 }
+
 .site-confetti-piece {
   position: absolute;
   top: -10%;
@@ -538,8 +579,32 @@ thead th {
   0% { transform: translateY(-10vh) translateX(0) rotate(0deg); }
   100% { transform: translateY(110vh) translateX(50px) rotate(360deg); }
 }
+
+/* Easter pieces don't fall — they sit scattered across the viewport
+   (randomised top/left from JS) and gently bob/sway in place, a softer,
+   more ambient motion than snow or confetti's precipitation. */
+.site-easter-float {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 250;
+  overflow: hidden;
+}
+.site-easter-piece {
+  position: absolute;
+  animation-name: site-easter-bob;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  opacity: 0.8;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.4));
+}
+@keyframes site-easter-bob {
+  0%, 100% { transform: translate(0, 0) rotate(-6deg); }
+  50% { transform: translate(18px, -14px) rotate(6deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .site-snowflake, .site-confetti-piece { animation: none; display: none; }
+  .site-snowflake, .site-confetti-piece, .site-easter-piece, .site-christmas-light { animation: none; display: none; }
 }
 
 /* Penalty shootout aim marker — sweeps the width of the track and back.
