@@ -76,11 +76,13 @@ async function setSiteTheme(formData: FormData) {
   const supabase = await requireAdminAction()
   const activeTheme = formData.get('active_theme') as string
   const celebrationCompId = (formData.get('celebration_competition_id') as string) || null
+  const bonusCardUserId = (formData.get('bonus_card_user_id') as string) || null
   await supabase
     .from('site_theme')
     .update({
       active_theme: activeTheme,
       celebration_competition_id: activeTheme === 'celebration' ? celebrationCompId : null,
+      bonus_card_user_id: activeTheme === 'bonuscard' ? bonusCardUserId : null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', 'singleton')
@@ -100,11 +102,11 @@ export default async function AdminPage() {
   // Isolated on purpose — site_theme is a brand new table, not created
   // until the handed-off SQL is run. A missing table shouldn't take the
   // whole dashboard down; the section below just falls back to "Default".
-  let siteTheme: { active_theme: string; celebration_competition_id: string | null } | null = null
+  let siteTheme: { active_theme: string; celebration_competition_id: string | null; bonus_card_user_id: string | null } | null = null
   let completedCompetitions: { id: string; name: string; season: string }[] = []
   try {
     const [{ data: themeRow }, { data: compsData }] = await Promise.all([
-      supabase.from('site_theme').select('active_theme, celebration_competition_id').eq('id', 'singleton').maybeSingle(),
+      supabase.from('site_theme').select('active_theme, celebration_competition_id, bonus_card_user_id').eq('id', 'singleton').maybeSingle(),
       supabase.from('competitions').select('id, name, season').in('status', ['completed', 'archived']).order('start_date', { ascending: false }),
     ])
     siteTheme = themeRow
@@ -112,6 +114,33 @@ export default async function AdminPage() {
   } catch {
     // site_theme migration not run yet, or a transient error — the form
     // below just renders with "Default" pre-selected either way.
+  }
+
+  // Same isolation reasoning — only needed to populate the Bonus Card
+  // theme's "which manager" dropdown, so a problem here shouldn't affect
+  // anything else on the dashboard either.
+  let entrantOptions: { id: string; name: string }[] = []
+  if (competition) {
+    try {
+      const { data: compEntries } = await supabase
+        .from('competition_entries')
+        .select('user_id')
+        .eq('competition_id', competition.id)
+        .eq('removed', false)
+      const userIds = (compEntries ?? []).map(e => e.user_id)
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, display_name, is_bot')
+          .in('id', userIds)
+        entrantOptions = (profiles ?? [])
+          .filter(p => !p.is_bot)
+          .map(p => ({ id: p.id, name: p.display_name }))
+          .sort((a, b) => a.name.localeCompare(b.name))
+      }
+    } catch {
+      // Non-critical — the dropdown just renders empty.
+    }
   }
 
   return (
@@ -181,6 +210,7 @@ export default async function AdminPage() {
               { value: 'aprilfools', label: '🤡 April Fools' },
               { value: 'valentines', label: '💘 Valentine\'s' },
               { value: 'stpatricks', label: '🍀 St Patrick\'s' },
+              { value: 'bonuscard', label: '🃏 Bonus Card' },
               { value: 'celebration', label: '🏆 Celebration' },
             ].map(opt => (
               <label key={opt.value} className="flex items-center gap-1.5">
@@ -204,6 +234,19 @@ export default async function AdminPage() {
               <option value="">— none —</option>
               {completedCompetitions.map(c => (
                 <option key={c.id} value={c.id}>{c.name} ({c.season})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Bonus Card scored for which manager? (only used when Bonus Card is selected above — their little photo confetti scatters across the site)</label>
+            <select
+              name="bonus_card_user_id"
+              defaultValue={siteTheme?.bonus_card_user_id ?? ''}
+              className="border rounded px-2 py-1 text-xs w-full max-w-sm"
+            >
+              <option value="">— none —</option>
+              {entrantOptions.map(e => (
+                <option key={e.id} value={e.id}>{e.name}</option>
               ))}
             </select>
           </div>

@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '../app/lib/supabase'
 import { computeCompletedCompetitionPodium, type PodiumEntry } from '../app/lib/podium'
+import { bonusCardDisplayName } from '../app/lib/players'
 
 export type ActiveTheme =
   | 'default' | 'christmas' | 'easter' | 'halloween' | 'chanukah' | 'diwali' | 'eid'
-  | 'newseason' | 'bonfire' | 'aprilfools' | 'valentines' | 'stpatricks' | 'celebration'
+  | 'newseason' | 'bonfire' | 'aprilfools' | 'valentines' | 'stpatricks' | 'bonuscard' | 'celebration'
 
 const MEDAL_EMOJI = ['🥇', '🥈', '🥉']
 const CONFETTI_COLOURS = ['#FA6100', '#CCFA00', '#00F2FA', '#A000FA', '#FA003C', '#FFD700']
@@ -62,6 +63,7 @@ function range(n: number) {
 export default function SiteThemeEffects() {
   const [theme, setTheme] = useState<ActiveTheme | null>(null)
   const [celebration, setCelebration] = useState<{ competitionName: string; podium: PodiumEntry[] } | null>(null)
+  const [bonusCardCelebration, setBonusCardCelebration] = useState<{ userName: string; cardLabel: string } | null>(null)
   const [dismissed, setDismissed] = useState(false)
   const supabase = createClient()
 
@@ -69,7 +71,7 @@ export default function SiteThemeEffects() {
     let cancelled = false
     ;(async () => {
       try {
-        const { data } = await supabase.from('site_theme').select('active_theme, celebration_competition_id').eq('id', 'singleton').maybeSingle()
+        const { data } = await supabase.from('site_theme').select('active_theme, celebration_competition_id, bonus_card_user_id').eq('id', 'singleton').maybeSingle()
         if (cancelled || !data) return
         setTheme(data.active_theme as ActiveTheme)
         if (data.active_theme === 'celebration' && data.celebration_competition_id) {
@@ -78,6 +80,23 @@ export default function SiteThemeEffects() {
             computeCompletedCompetitionPodium(supabase, data.celebration_competition_id),
           ])
           if (!cancelled) setCelebration({ competitionName: comp?.name ?? 'Competition', podium })
+        }
+        if (data.active_theme === 'bonuscard' && data.bonus_card_user_id) {
+          const [{ data: profile }, { data: comp }] = await Promise.all([
+            supabase.from('profiles').select('display_name').eq('id', data.bonus_card_user_id).maybeSingle(),
+            supabase.from('competitions').select('bonus_card_name, bonus_card_player_id').eq('status', 'active').maybeSingle(),
+          ])
+          let playerName: string | null = null
+          if (comp?.bonus_card_player_id) {
+            const { data: player } = await supabase.from('players').select('name').eq('id', comp.bonus_card_player_id).maybeSingle()
+            playerName = player?.name ?? null
+          }
+          if (!cancelled) {
+            setBonusCardCelebration({
+              userName: profile?.display_name ?? 'Someone',
+              cardLabel: bonusCardDisplayName(comp?.bonus_card_name, playerName),
+            })
+          }
         }
       } catch {
         // No theme table yet, or a network hiccup — the site just runs
@@ -149,6 +168,20 @@ export default function SiteThemeEffects() {
       left: Math.random() * 100,
       colour: CONFETTI_COLOURS[i % CONFETTI_COLOURS.length],
       duration: 4 + Math.random() * 5,
+      delay: Math.random() * -5,
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme])
+
+  // Same falling-confetti motion as Celebration, but small photo thumbnails
+  // of the current Bonus Card player instead of coloured rectangles — the
+  // same public/bonus-card-player.png admin already keeps up to date for
+  // the Bonus Card feature itself elsewhere on the site.
+  const photoConfettiPieces = useMemo(() => {
+    if (theme !== 'bonuscard') return []
+    return range(30).map(() => ({
+      left: Math.random() * 100,
+      duration: 4.5 + Math.random() * 5,
       delay: Math.random() * -5,
     }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -273,6 +306,56 @@ export default function SiteThemeEffects() {
                     <span className="font-bold" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)' }}>{p.points} pts</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {theme === 'bonuscard' && (
+        <>
+          <div className="site-confetti" aria-hidden="true">
+            {photoConfettiPieces.map((c, i) => (
+              <img
+                key={i}
+                src="/bonus-card-player.png"
+                alt=""
+                className="site-photo-confetti-piece"
+                style={{
+                  left: `${c.left}%`,
+                  animationDuration: `${c.duration}s`,
+                  animationDelay: `${c.delay}s`,
+                }}
+              />
+            ))}
+          </div>
+
+          {bonusCardCelebration && !dismissed && (
+            <div
+              className="fixed left-1/2 z-[260] px-5 py-3 rounded-2xl text-center"
+              style={{
+                top: 8,
+                transform: 'translateX(-50%)',
+                width: 'min(92vw, 380px)',
+                background: 'var(--pop-surface)',
+                border: '2px solid var(--pop-orange)',
+                boxShadow: '0 0 22px rgba(250,97,0,0.5), 0 4px 18px rgba(0,0,0,0.5)',
+              }}
+            >
+              <button
+                onClick={() => setDismissed(true)}
+                aria-label="Dismiss"
+                className="absolute top-1.5 right-2.5 text-xs font-black"
+                style={{ color: 'rgba(255,255,255,0.5)' }}
+              >
+                ✕
+              </button>
+              <div className="flex items-center justify-center gap-3">
+                <img src="/bonus-card-player.png" alt="" style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: '50%', border: '2px solid var(--pop-orange)' }} />
+                <div className="text-left">
+                  <p className="text-[10px] uppercase tracking-widest font-black" style={{ color: 'rgba(255,255,255,0.65)' }}>🃏 {bonusCardCelebration.cardLabel} Strikes!</p>
+                  <p className="font-black text-sm" style={{ color: 'var(--pop-white)' }}>{bonusCardCelebration.userName}&apos;s Bonus Card came up big!</p>
+                </div>
               </div>
             </div>
           )}

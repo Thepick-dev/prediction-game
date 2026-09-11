@@ -619,6 +619,23 @@ thead th {
   100% { transform: translateY(110vh) translateX(50px) rotate(360deg); }
 }
 
+/* Bonus Card theme: little photos of the nominated player fall like
+   confetti, reusing the same fall/rotate animation as the paper pieces
+   above but as small circular framed portraits instead of rectangles. */
+.site-photo-confetti-piece {
+  position: absolute;
+  top: -10%;
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid var(--pop-orange);
+  opacity: 0.9;
+  animation-name: site-confetti-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
 /* Shared by Easter/Halloween/Chanukah/Diwali/Eid/April Fools — pieces
    don't fall, they sit scattered across the viewport (randomised
    top/left from JS) and gently bob/sway in place, a softer, more ambient
@@ -662,7 +679,7 @@ thead th {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .site-snowflake, .site-confetti-piece, .site-float-piece, .site-light, .site-firework-particle { animation: none; display: none; }
+  .site-snowflake, .site-confetti-piece, .site-photo-confetti-piece, .site-float-piece, .site-light, .site-firework-particle { animation: none; display: none; }
   [data-site-theme="aprilfools"] .pop-hero { animation: none; }
 }
 
