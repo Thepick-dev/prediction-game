@@ -4,12 +4,38 @@ import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '../app/lib/supabase'
 import { computeCompletedCompetitionPodium, type PodiumEntry } from '../app/lib/podium'
 
-type ActiveTheme = 'default' | 'christmas' | 'easter' | 'celebration'
+export type ActiveTheme =
+  | 'default' | 'christmas' | 'easter' | 'halloween' | 'chanukah' | 'diwali' | 'eid'
+  | 'newseason' | 'bonfire' | 'aprilfools' | 'celebration'
 
 const MEDAL_EMOJI = ['🥇', '🥈', '🥉']
 const CONFETTI_COLOURS = ['#FA6100', '#CCFA00', '#00F2FA', '#A000FA', '#FA003C', '#FFD700']
-const LIGHT_COLOURS = ['#FA003C', '#0F8A5F', '#FFD700', '#FA003C', '#0F8A5F']
-const EASTER_EMOJI = ['🥚', '🌸', '🐰', '🦋', '🐣']
+
+// Ambient scattered emoji, gently bobbing in place — shared mechanism
+// across every theme in this family; what makes each one actually feel
+// distinct is the icon set and colour, not a bespoke animation per theme.
+const FLOAT_CONFIG: Partial<Record<ActiveTheme, string[]>> = {
+  easter: ['🥚', '🌸', '🐰', '🦋', '🐣'],
+  halloween: ['🦇', '🎃', '👻', '🕷️'],
+  chanukah: ['🕎', '✨', '🔷'],
+  diwali: ['🪔', '✨', '🎇'],
+  eid: ['🌙', '⭐', '✨'],
+  aprilfools: ['🤡', '🙃', '🎉', '🃏'],
+}
+
+// "Festival of lights" themes get the same twinkling strip as Christmas,
+// just recoloured — genuinely fitting for Chanukah/Diwali specifically,
+// not just a reused effect for its own sake.
+const LIGHTS_CONFIG: Partial<Record<ActiveTheme, string[]>> = {
+  christmas: ['#FA003C', '#0F8A5F', '#FFD700'],
+  chanukah: ['#4A90D9', '#C0C0C0', '#FFFFFF'],
+  diwali: ['#FFB800', '#D9284B', '#FF7A00'],
+}
+
+const FIREWORK_CONFIG: Partial<Record<ActiveTheme, string[]>> = {
+  newseason: ['#00F2FA', '#CCFA00', '#FA6100', '#A000FA'],
+  bonfire: ['#D9284B', '#B8860B', '#FA6100', '#7B2FF7'],
+}
 
 function range(n: number) {
   return Array.from({ length: n }, (_, i) => i)
@@ -21,18 +47,16 @@ function range(n: number) {
 // globals.css can reskin things like the hero title glow everywhere at
 // once — no other page needs to know this exists.
 //
-// Every randomised layout (snowflake positions, confetti colours, egg
-// placement) is generated exactly once via useMemo with an empty
-// dependency array, NOT inline in the JSX. Shell re-renders often — its
-// own countdown ticks every second — and this component isn't memoized
+// Every randomised layout is generated via useMemo keyed on `theme` (not
+// inline in JSX, and not on every render) — Shell re-renders often (its
+// own countdown ticks every second) and this component isn't memoised
 // against that, so generating "random" values directly in the render body
-// was re-rolling every flake's position on every parent tick, making the
-// whole effect visibly jump around. useMemo freezes the layout at first
-// mount; only the CSS animation moves after that.
+// re-rolled every particle's position on every parent tick, making the
+// whole effect visibly jump. useMemo freezes the layout once theme
+// settles; only the CSS animation moves after that.
 //
 // Isolated from the rest of the app on purpose: a failure here (missing
-// table before the migration's been run, a network hiccup) must never
-// take any real page down with it.
+// table, a network hiccup) must never take any real page down with it.
 export default function SiteThemeEffects() {
   const [theme, setTheme] = useState<ActiveTheme | null>(null)
   const [celebration, setCelebration] = useState<{ competitionName: string; podium: PodiumEntry[] } | null>(null)
@@ -67,77 +91,103 @@ export default function SiteThemeEffects() {
     return () => { delete document.documentElement.dataset.siteTheme }
   }, [theme])
 
-  // Fewer, larger, slower flakes read as calm snowfall; the old 40-flake
-  // fast fall was the other half of "annoying" (independent of the jump
-  // bug above) — this is a deliberately gentler pass, not just a bugfix.
-  const snowflakes = useMemo(() => range(20).map(() => ({
-    left: Math.random() * 100,
-    size: 10 + Math.random() * 16,
-    duration: 14 + Math.random() * 12,
-    delay: Math.random() * -24,
-    drift: 20 + Math.random() * 40,
-  })), [])
+  const snowflakes = useMemo(() => {
+    if (theme !== 'christmas') return []
+    return range(20).map(() => ({
+      left: Math.random() * 100,
+      size: 10 + Math.random() * 16,
+      duration: 14 + Math.random() * 12,
+      delay: Math.random() * -24,
+      drift: 20 + Math.random() * 40,
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme])
 
-  const lights = useMemo(() => range(18).map((_, i) => ({
-    colour: LIGHT_COLOURS[i % LIGHT_COLOURS.length],
-    delay: Math.random() * -3,
-  })), [])
+  const floatEmoji = theme ? FLOAT_CONFIG[theme] : undefined
+  const floatPieces = useMemo(() => {
+    if (!floatEmoji) return []
+    return range(20).map((_, i) => ({
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      emoji: floatEmoji[i % floatEmoji.length],
+      size: 14 + Math.random() * 14,
+      duration: 7 + Math.random() * 6,
+      delay: Math.random() * -10,
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme])
 
-  const confettiPieces = useMemo(() => range(50).map((_, i) => ({
-    left: Math.random() * 100,
-    colour: CONFETTI_COLOURS[i % CONFETTI_COLOURS.length],
-    duration: 4 + Math.random() * 5,
-    delay: Math.random() * -5,
-  })), [])
+  const lightColours = theme ? LIGHTS_CONFIG[theme] : undefined
+  const lights = useMemo(() => {
+    if (!lightColours) return []
+    return range(18).map((_, i) => ({ colour: lightColours[i % lightColours.length], delay: Math.random() * -3 }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme])
 
-  const easterPieces = useMemo(() => range(20).map((_, i) => ({
-    left: Math.random() * 100,
-    top: Math.random() * 100,
-    emoji: EASTER_EMOJI[i % EASTER_EMOJI.length],
-    size: 14 + Math.random() * 14,
-    duration: 7 + Math.random() * 6,
-    delay: Math.random() * -10,
-  })), [])
+  const fireworkColours = theme ? FIREWORK_CONFIG[theme] : undefined
+  const fireworkBursts = useMemo(() => {
+    if (!fireworkColours) return []
+    return range(6).map((_, gi) => ({
+      originX: 10 + Math.random() * 80,
+      originY: 12 + Math.random() * 45,
+      colour: fireworkColours[gi % fireworkColours.length],
+      delay: -(gi * 1.3 + Math.random()),
+      particles: range(12).map(() => {
+        const angle = Math.random() * Math.PI * 2
+        const distance = 36 + Math.random() * 46
+        return { dx: Math.cos(angle) * distance, dy: Math.sin(angle) * distance }
+      }),
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme])
+
+  const confettiPieces = useMemo(() => {
+    if (theme !== 'celebration') return []
+    return range(50).map((_, i) => ({
+      left: Math.random() * 100,
+      colour: CONFETTI_COLOURS[i % CONFETTI_COLOURS.length],
+      duration: 4 + Math.random() * 5,
+      delay: Math.random() * -5,
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme])
 
   if (!theme || theme === 'default') return null
 
   return (
     <>
-      {theme === 'christmas' && (
-        <>
-          <div className="site-christmas-lights" aria-hidden="true">
-            {lights.map((l, i) => (
-              <span
-                key={i}
-                className="site-christmas-light"
-                style={{ background: l.colour, boxShadow: `0 0 6px ${l.colour}`, animationDelay: `${l.delay}s` }}
-              />
-            ))}
-          </div>
-          <div className="site-snowfall" aria-hidden="true">
-            {snowflakes.map((f, i) => (
-              <span
-                key={i}
-                className="site-snowflake"
-                style={{
-                  left: `${f.left}%`,
-                  fontSize: `${f.size}px`,
-                  animationDuration: `${f.duration}s`,
-                  animationDelay: `${f.delay}s`,
-                  ['--drift' as string]: `${f.drift}px`,
-                }}
-              >❄</span>
-            ))}
-          </div>
-        </>
+      {lights.length > 0 && (
+        <div className="site-lights" aria-hidden="true">
+          {lights.map((l, i) => (
+            <span key={i} className="site-light" style={{ background: l.colour, boxShadow: `0 0 6px ${l.colour}`, animationDelay: `${l.delay}s` }} />
+          ))}
+        </div>
       )}
 
-      {theme === 'easter' && (
-        <div className="site-easter-float" aria-hidden="true">
-          {easterPieces.map((p, i) => (
+      {theme === 'christmas' && (
+        <div className="site-snowfall" aria-hidden="true">
+          {snowflakes.map((f, i) => (
             <span
               key={i}
-              className="site-easter-piece"
+              className="site-snowflake"
+              style={{
+                left: `${f.left}%`,
+                fontSize: `${f.size}px`,
+                animationDuration: `${f.duration}s`,
+                animationDelay: `${f.delay}s`,
+                ['--drift' as string]: `${f.drift}px`,
+              }}
+            >❄</span>
+          ))}
+        </div>
+      )}
+
+      {floatPieces.length > 0 && (
+        <div className="site-float-layer" aria-hidden="true">
+          {floatPieces.map((p, i) => (
+            <span
+              key={i}
+              className="site-float-piece"
               style={{
                 left: `${p.left}%`,
                 top: `${p.top}%`,
@@ -146,6 +196,29 @@ export default function SiteThemeEffects() {
                 animationDelay: `${p.delay}s`,
               }}
             >{p.emoji}</span>
+          ))}
+        </div>
+      )}
+
+      {fireworkBursts.length > 0 && (
+        <div className="site-firework-layer" aria-hidden="true">
+          {fireworkBursts.map((burst, gi) => (
+            <div key={gi} className="site-firework-group" style={{ left: `${burst.originX}%`, top: `${burst.originY}%` }}>
+              {burst.particles.map((pt, pi) => (
+                <span
+                  key={pi}
+                  className="site-firework-particle"
+                  style={{
+                    background: burst.colour,
+                    boxShadow: `0 0 4px ${burst.colour}`,
+                    animationDuration: '6.5s',
+                    animationDelay: `${burst.delay}s`,
+                    ['--dx' as string]: `${pt.dx}px`,
+                    ['--dy' as string]: `${pt.dy}px`,
+                  }}
+                />
+              ))}
+            </div>
           ))}
         </div>
       )}

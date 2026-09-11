@@ -498,26 +498,57 @@ thead th {
    colour by whichever glow a title already had, so different page titles
    don't all turn identical. */
 [data-site-theme="christmas"] .pop-hero--blue,
-[data-site-theme="christmas"] .pop-hero--green {
-  text-shadow: 0 0 6px #C8102E, 0 0 22px #C8102E;
+[data-site-theme="christmas"] .pop-hero--green { text-shadow: 0 0 6px #C8102E, 0 0 22px #C8102E; }
+[data-site-theme="christmas"] .pop-hero--pink { text-shadow: 0 0 6px #0F8A5F, 0 0 22px #0F8A5F; }
+
+[data-site-theme="easter"] .pop-hero--blue { text-shadow: 0 0 6px #FFB6D9, 0 0 22px #FFB6D9; }
+[data-site-theme="easter"] .pop-hero--green { text-shadow: 0 0 6px #FFE066, 0 0 22px #FFE066; }
+[data-site-theme="easter"] .pop-hero--pink { text-shadow: 0 0 6px #C9A6FF, 0 0 22px #C9A6FF; }
+
+[data-site-theme="halloween"] .pop-hero--blue,
+[data-site-theme="halloween"] .pop-hero--green { text-shadow: 0 0 6px #FF7A00, 0 0 22px #FF7A00; }
+[data-site-theme="halloween"] .pop-hero--pink { text-shadow: 0 0 6px #7B2FF7, 0 0 22px #7B2FF7; }
+
+[data-site-theme="chanukah"] .pop-hero--blue,
+[data-site-theme="chanukah"] .pop-hero--green { text-shadow: 0 0 6px #4A90D9, 0 0 22px #4A90D9; }
+[data-site-theme="chanukah"] .pop-hero--pink { text-shadow: 0 0 6px #C0C0C0, 0 0 22px #C0C0C0; }
+
+[data-site-theme="diwali"] .pop-hero--blue,
+[data-site-theme="diwali"] .pop-hero--green { text-shadow: 0 0 6px #FFB800, 0 0 22px #FFB800; }
+[data-site-theme="diwali"] .pop-hero--pink { text-shadow: 0 0 6px #D9284B, 0 0 22px #D9284B; }
+
+[data-site-theme="eid"] .pop-hero--blue,
+[data-site-theme="eid"] .pop-hero--green { text-shadow: 0 0 6px #1FA34A, 0 0 22px #1FA34A; }
+[data-site-theme="eid"] .pop-hero--pink { text-shadow: 0 0 6px #D4AF37, 0 0 22px #D4AF37; }
+
+[data-site-theme="newseason"] .pop-hero--blue,
+[data-site-theme="newseason"] .pop-hero--pink { text-shadow: 0 0 6px #CCFA00, 0 0 22px #CCFA00; }
+[data-site-theme="newseason"] .pop-hero--green { text-shadow: 0 0 6px #00F2FA, 0 0 22px #00F2FA; }
+
+[data-site-theme="bonfire"] .pop-hero--blue,
+[data-site-theme="bonfire"] .pop-hero--green { text-shadow: 0 0 6px #D9284B, 0 0 22px #D9284B; }
+[data-site-theme="bonfire"] .pop-hero--pink { text-shadow: 0 0 6px #FFA500, 0 0 22px #FFA500; }
+
+[data-site-theme="aprilfools"] .pop-hero--blue,
+[data-site-theme="aprilfools"] .pop-hero--green { text-shadow: 0 0 6px #FA003C, 0 0 22px #FA003C; }
+[data-site-theme="aprilfools"] .pop-hero--pink { text-shadow: 0 0 6px #CCFA00, 0 0 22px #CCFA00; }
+/* The one theme that isn't just colour + particles — hero titles get a
+   playful wobble, since the whole point of this one is to look a bit
+   daft for a day. */
+[data-site-theme="aprilfools"] .pop-hero {
+  display: inline-block;
+  animation: site-wobble 2.4s ease-in-out infinite;
 }
-[data-site-theme="christmas"] .pop-hero--pink {
-  text-shadow: 0 0 6px #0F8A5F, 0 0 22px #0F8A5F;
-}
-[data-site-theme="easter"] .pop-hero--blue {
-  text-shadow: 0 0 6px #FFB6D9, 0 0 22px #FFB6D9;
-}
-[data-site-theme="easter"] .pop-hero--green {
-  text-shadow: 0 0 6px #FFE066, 0 0 22px #FFE066;
-}
-[data-site-theme="easter"] .pop-hero--pink {
-  text-shadow: 0 0 6px #C9A6FF, 0 0 22px #C9A6FF;
+@keyframes site-wobble {
+  0%, 100% { transform: rotate(-2.5deg); }
+  50% { transform: rotate(2.5deg); }
 }
 
 /* A thin strip of fairy lights along the very top edge, twinkling
-   independently — cheap (a handful of tiny spans, no image) but reads as
-   a real decorative commitment rather than just "recoloured text". */
-.site-christmas-lights {
+   independently — used by Christmas and, genuinely fittingly rather than
+   just reused for its own sake, the two other "festival of lights"
+   themes (Chanukah, Diwali), recoloured per theme from JS. */
+.site-lights {
   position: fixed;
   inset: 0 0 auto 0;
   height: 10px;
@@ -527,7 +558,7 @@ thead th {
   justify-content: space-evenly;
   align-items: center;
 }
-.site-christmas-light {
+.site-light {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -538,7 +569,7 @@ thead th {
   50% { opacity: 1; transform: scale(1.15); }
 }
 
-.site-snowfall, .site-confetti {
+.site-snowfall, .site-confetti, .site-float-layer, .site-firework-layer {
   position: fixed;
   inset: 0;
   pointer-events: none;
@@ -580,31 +611,51 @@ thead th {
   100% { transform: translateY(110vh) translateX(50px) rotate(360deg); }
 }
 
-/* Easter pieces don't fall — they sit scattered across the viewport
-   (randomised top/left from JS) and gently bob/sway in place, a softer,
-   more ambient motion than snow or confetti's precipitation. */
-.site-easter-float {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 250;
-  overflow: hidden;
-}
-.site-easter-piece {
+/* Shared by Easter/Halloween/Chanukah/Diwali/Eid/April Fools — pieces
+   don't fall, they sit scattered across the viewport (randomised
+   top/left from JS) and gently bob/sway in place, a softer, more ambient
+   motion than snow or confetti's precipitation. What makes each theme
+   feel distinct is the emoji set and hero-glow colour above, not this
+   motion itself. */
+.site-float-piece {
   position: absolute;
-  animation-name: site-easter-bob;
+  animation-name: site-float-bob;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
   opacity: 0.8;
   filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.4));
 }
-@keyframes site-easter-bob {
+@keyframes site-float-bob {
   0%, 100% { transform: translate(0, 0) rotate(-6deg); }
   50% { transform: translate(18px, -14px) rotate(6deg); }
 }
 
+/* Fireworks (New Season Kickoff, Bonfire Night): each "burst" is a group
+   of particles sharing one origin point and one delay, sitting invisible
+   at scale 0 until a shared moment in the loop, then popping out radially
+   along a per-particle --dx/--dy and fading — repeats on a long loop with
+   each of the 6 groups offset so they don't all fire in sync. */
+.site-firework-group {
+  position: absolute;
+}
+.site-firework-particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  animation-name: site-firework-particle;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+@keyframes site-firework-particle {
+  0%, 60% { transform: translate(0, 0) scale(0); opacity: 0; }
+  63% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0.2); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .site-snowflake, .site-confetti-piece, .site-easter-piece, .site-christmas-light { animation: none; display: none; }
+  .site-snowflake, .site-confetti-piece, .site-float-piece, .site-light, .site-firework-particle { animation: none; display: none; }
+  [data-site-theme="aprilfools"] .pop-hero { animation: none; }
 }
 
 /* Penalty shootout aim marker — sweeps the width of the track and back.

@@ -162,29 +162,35 @@ export default async function AdminPage() {
       <div id="site-theme" className="bg-white border rounded-lg p-6 mb-8">
         <h2 className="font-bold mb-1">🎨 Site Theme</h2>
         <p className="text-xs text-gray-500 mb-3">
-          Dresses up the whole site for everyone. Christmas adds twinkling lights and gentle snow plus festive
-          title colours. Easter adds floating eggs/flowers and pastel title colours. Celebration adds confetti
-          and a banner announcing a completed competition&apos;s top 3 — pick which one below (nothing shows
-          until you choose one).
+          Dresses up the whole site for everyone — snow, lights, floating icons, fireworks or confetti depending
+          on which, plus matching festive title colours. Celebration also adds a banner announcing a completed
+          competition&apos;s top 3 — pick which one below (nothing shows until you choose one).
         </p>
         <form action={setSiteTheme} className="space-y-3">
-          <div className="flex flex-wrap gap-4 text-sm">
-            <label className="flex items-center gap-1.5">
-              <input type="radio" name="active_theme" value="default" defaultChecked={!siteTheme || siteTheme.active_theme === 'default'} />
-              Default
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input type="radio" name="active_theme" value="christmas" defaultChecked={siteTheme?.active_theme === 'christmas'} />
-              🎄 Christmas
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input type="radio" name="active_theme" value="easter" defaultChecked={siteTheme?.active_theme === 'easter'} />
-              🐣 Easter
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input type="radio" name="active_theme" value="celebration" defaultChecked={siteTheme?.active_theme === 'celebration'} />
-              🏆 Celebration
-            </label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
+            {[
+              { value: 'default', label: 'Default' },
+              { value: 'christmas', label: '🎄 Christmas' },
+              { value: 'easter', label: '🐣 Easter' },
+              { value: 'halloween', label: '🎃 Halloween' },
+              { value: 'chanukah', label: '🕎 Chanukah' },
+              { value: 'diwali', label: '🪔 Diwali' },
+              { value: 'eid', label: '🌙 Eid' },
+              { value: 'newseason', label: '⚽ New Season' },
+              { value: 'bonfire', label: '🎆 Bonfire Night' },
+              { value: 'aprilfools', label: '🤡 April Fools' },
+              { value: 'celebration', label: '🏆 Celebration' },
+            ].map(opt => (
+              <label key={opt.value} className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  name="active_theme"
+                  value={opt.value}
+                  defaultChecked={opt.value === 'default' ? (!siteTheme || siteTheme.active_theme === 'default') : siteTheme?.active_theme === opt.value}
+                />
+                {opt.label}
+              </label>
+            ))}
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Celebrate which competition? (only used when Celebration is selected above)</label>
