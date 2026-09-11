@@ -7,6 +7,7 @@ import HeroPage from '../../components/HeroPage'
 import KitEditor from '../../components/KitEditor'
 import PasswordInput from '../../components/PasswordInput'
 import PopArtLoading from '../../components/PopArtLoading'
+import { SHOW_INSTALL_PROMPT_EVENT } from '../../components/InstallPrompt'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import { isValidUsername, USERNAME_MAX_LENGTH, USERNAME_RULES_MESSAGE } from '../lib/username'
 
@@ -251,6 +252,20 @@ export default function SettingsPage() {
                   </a>
                 </>
               )}
+            </div>
+
+            <div className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-1">📲 Install App</h2>
+              <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Add LMS All-Stars to your home screen for quick access, like a real app. If you dismissed the
+                install prompt, this brings it back.
+              </p>
+              <button
+                onClick={() => window.dispatchEvent(new Event(SHOW_INSTALL_PROMPT_EVENT))}
+                className="pop-button pop-button--yellow w-full py-2.5 text-sm"
+              >
+                Show Install Prompt
+              </button>
             </div>
 
             <div className="pop-panel p-5">

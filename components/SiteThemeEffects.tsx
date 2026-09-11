@@ -248,7 +248,7 @@ export default function SiteThemeEffects() {
               style={{
                 top: 8,
                 transform: 'translateX(-50%)',
-                maxWidth: 'min(92vw, 420px)',
+                width: 'min(92vw, 420px)',
                 background: 'var(--pop-surface)',
                 border: '2px solid var(--pop-pink)',
                 boxShadow: '0 0 22px rgba(160,0,250,0.5), 0 4px 18px rgba(0,0,0,0.5)',
