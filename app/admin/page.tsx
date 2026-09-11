@@ -77,7 +77,7 @@ async function setSiteTheme(formData: FormData) {
   const activeTheme = formData.get('active_theme') as string
   const celebrationCompId = (formData.get('celebration_competition_id') as string) || null
   const bonusCardUserId = (formData.get('bonus_card_user_id') as string) || null
-  await supabase
+  const { error } = await supabase
     .from('site_theme')
     .update({
       active_theme: activeTheme,
@@ -86,10 +86,14 @@ async function setSiteTheme(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', 'singleton')
+  if (error) {
+    redirect(`/admin?themeError=${encodeURIComponent(error.message)}#site-theme`)
+  }
   redirect('/admin#site-theme')
 }
 
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ themeError?: string }> }) {
+  const { themeError } = await searchParams
   const supabase = await createServerSupabaseClient()
 
   const [{ data: competition }, { data: gameweeks }, { data: entries }, pending] = await Promise.all([
@@ -195,6 +199,11 @@ export default async function AdminPage() {
           on which, plus matching festive title colours. Celebration also adds a banner announcing a completed
           competition&apos;s top 3 — pick which one below (nothing shows until you choose one).
         </p>
+        {themeError && (
+          <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5 mb-3">
+            Couldn&apos;t save: {themeError}
+          </p>
+        )}
         <form action={setSiteTheme} className="space-y-3">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
             {[
