@@ -65,6 +65,28 @@ async function setFutzySaysText(formData: FormData) {
   redirect('/admin#futzy-says')
 }
 
+// Dresses up the whole site for everyone — see SiteThemeEffects.tsx for
+// where this actually gets read and rendered. Celebration always needs an
+// explicit competition (confirmed with the owner: no auto-picking "most
+// recent" — admin chooses, so an old season can be revisited deliberately
+// too), so switching away from Celebration clears it rather than leaving a
+// stale id sitting around unused.
+async function setSiteTheme(formData: FormData) {
+  'use server'
+  const supabase = await requireAdminAction()
+  const activeTheme = formData.get('active_theme') as string
+  const celebrationCompId = (formData.get('celebration_competition_id') as string) || null
+  await supabase
+    .from('site_theme')
+    .update({
+      active_theme: activeTheme,
+      celebration_competition_id: activeTheme === 'celebration' ? celebrationCompId : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 'singleton')
+  redirect('/admin#site-theme')
+}
+
 export default async function AdminPage() {
   const supabase = await createServerSupabaseClient()
 
@@ -74,6 +96,23 @@ export default async function AdminPage() {
     supabase.from('competition_entries').select('id'),
     loadPendingSummary(),
   ])
+
+  // Isolated on purpose — site_theme is a brand new table, not created
+  // until the handed-off SQL is run. A missing table shouldn't take the
+  // whole dashboard down; the section below just falls back to "Default".
+  let siteTheme: { active_theme: string; celebration_competition_id: string | null } | null = null
+  let completedCompetitions: { id: string; name: string; season: string }[] = []
+  try {
+    const [{ data: themeRow }, { data: compsData }] = await Promise.all([
+      supabase.from('site_theme').select('active_theme, celebration_competition_id').eq('id', 'singleton').maybeSingle(),
+      supabase.from('competitions').select('id, name, season').in('status', ['completed', 'archived']).order('start_date', { ascending: false }),
+    ])
+    siteTheme = themeRow
+    completedCompetitions = compsData ?? []
+  } catch {
+    // site_theme migration not run yet, or a transient error — the form
+    // below just renders with "Default" pre-selected either way.
+  }
 
   return (
     <div>
@@ -119,6 +158,45 @@ export default async function AdminPage() {
           </form>
         </div>
       )}
+
+      <div id="site-theme" className="bg-white border rounded-lg p-6 mb-8">
+        <h2 className="font-bold mb-1">🎨 Site Theme</h2>
+        <p className="text-xs text-gray-500 mb-3">
+          Dresses up the whole site for everyone. Christmas adds a snow effect and festive title colours.
+          Celebration adds confetti and a banner announcing a completed competition&apos;s top 3 — pick which one
+          below (nothing shows until you choose one).
+        </p>
+        <form action={setSiteTheme} className="space-y-3">
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-1.5">
+              <input type="radio" name="active_theme" value="default" defaultChecked={!siteTheme || siteTheme.active_theme === 'default'} />
+              Default
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input type="radio" name="active_theme" value="christmas" defaultChecked={siteTheme?.active_theme === 'christmas'} />
+              🎄 Christmas
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input type="radio" name="active_theme" value="celebration" defaultChecked={siteTheme?.active_theme === 'celebration'} />
+              🏆 Celebration
+            </label>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Celebrate which competition? (only used when Celebration is selected above)</label>
+            <select
+              name="celebration_competition_id"
+              defaultValue={siteTheme?.celebration_competition_id ?? ''}
+              className="border rounded px-2 py-1 text-xs w-full max-w-sm"
+            >
+              <option value="">— none —</option>
+              {completedCompetitions.map(c => (
+                <option key={c.id} value={c.id}>{c.name} ({c.season})</option>
+              ))}
+            </select>
+          </div>
+          <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Save theme</button>
+        </form>
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white border rounded-lg p-4">

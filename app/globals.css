@@ -492,6 +492,56 @@ thead th {
   .pop-ticker-track { animation: none; }
 }
 
+/* Site-wide seasonal theming (see SiteThemeEffects.tsx) — [data-site-theme]
+   lives on <html>, so this reaches every page's existing .pop-hero titles
+   without any of them needing to know a theme system exists. Alternates
+   red/green by whichever glow colour a title already had, so different
+   page titles don't all turn identical. */
+[data-site-theme="christmas"] .pop-hero--blue,
+[data-site-theme="christmas"] .pop-hero--green {
+  text-shadow: 0 0 6px #C8102E, 0 0 22px #C8102E;
+}
+[data-site-theme="christmas"] .pop-hero--pink {
+  text-shadow: 0 0 6px #0F8A5F, 0 0 22px #0F8A5F;
+}
+
+.site-snowfall, .site-confetti {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 250;
+  overflow: hidden;
+}
+.site-snowflake {
+  position: absolute;
+  top: -10%;
+  color: rgba(255, 255, 255, 0.85);
+  animation-name: site-snow-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes site-snow-fall {
+  0% { transform: translateY(-10vh) translateX(0); opacity: 0.9; }
+  100% { transform: translateY(110vh) translateX(24px); opacity: 0.5; }
+}
+.site-confetti-piece {
+  position: absolute;
+  top: -10%;
+  width: 7px;
+  height: 13px;
+  opacity: 0.9;
+  animation-name: site-confetti-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes site-confetti-fall {
+  0% { transform: translateY(-10vh) translateX(0) rotate(0deg); }
+  100% { transform: translateY(110vh) translateX(50px) rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-snowflake, .site-confetti-piece { animation: none; display: none; }
+}
+
 /* Penalty shootout aim marker — sweeps the width of the track and back.
    Duration is set inline per-shot (it gets faster as the streak grows),
    so this only defines the path, not the speed. */
