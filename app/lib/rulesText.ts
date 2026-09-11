@@ -25,6 +25,7 @@ export const RULES_TEXT = {
   autopick: [
     "Miss the deadline and the site picks for you automatically: the lowest-placed available team in the league table, and two players who haven't already been used twice.",
     'Players are drawn from those valued at £5.5m or more on Fantasy Premier League — a deliberately recognisable pool of well-known names, not a random pick from the entire player list.',
+    "The site also avoids picking anyone injured, suspended, or otherwise unlikely to play, using the same fitness data Fantasy Premier League itself publishes — though this isn't a guarantee: a player can still pick up an injury after the autopick is made, right up to kick-off.",
     'Autopicks are marked clearly wherever they appear, and a banker is never applied to one.',
     "If an autopicked team or player has a double gameweek, the pick defaults to whichever of the two matches is against the higher-placed opponent — the tougher game, in keeping with the rest of the scoring rewarding an upset. This only applies to autopick: if you pick a double-gameweek team or player yourself, you choose the match it's for.",
   ],
