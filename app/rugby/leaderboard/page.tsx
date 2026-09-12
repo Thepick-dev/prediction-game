@@ -4,7 +4,11 @@ import RugbyKitPreview from '../../../components/RugbyKitPreview'
 type Competition = { id: string; name: string; season: string }
 type Entry = { user_id: string }
 type Profile = { id: string; display_name: string }
-type Kit = { user_id: string; pattern: string; colour1: string; colour2: string; colour3: string | null }
+type Kit = {
+  user_id: string; pattern: string; colour1: string; colour2: string; colour3: string | null
+  back_text: string | null; back_shape: 'circle' | 'square'; back_shape_colour: string; back_text_colour: string
+  shorts_colour: string | null; socks_colour: string | null; socks_hooped: boolean; socks_colour2: string | null
+}
 type Round = { id: string; number: number }
 type SquadPointsRow = { user_id: string; round_id: string; total_points: number }
 type MatchPointsRow = { user_id: string; round_id: string; total_points: number }
@@ -33,7 +37,7 @@ export default async function RugbyLeaderboardPage() {
 
   const [{ data: profiles }, { data: kits }, { data: squadPoints }, { data: matchPoints }, { data: seasonPoints }] = await Promise.all([
     userIds.length ? supabase.from('profiles').select('id, display_name').in('id', userIds) as unknown as Promise<{ data: Profile[] | null }> : Promise.resolve({ data: [] as Profile[] }),
-    userIds.length ? supabase.schema('rugby').from('player_kits').select('user_id, pattern, colour1, colour2, colour3').in('user_id', userIds) as unknown as Promise<{ data: Kit[] | null }> : Promise.resolve({ data: [] as Kit[] }),
+    userIds.length ? supabase.schema('rugby').from('player_kits').select('user_id, pattern, colour1, colour2, colour3, back_text, back_shape, back_shape_colour, back_text_colour, shorts_colour, socks_colour, socks_hooped, socks_colour2').in('user_id', userIds) as unknown as Promise<{ data: Kit[] | null }> : Promise.resolve({ data: [] as Kit[] }),
     userIds.length && roundIds.length ? supabase.schema('rugby').from('season_squad_points').select('user_id, round_id, total_points').in('user_id', userIds).in('round_id', roundIds) as unknown as Promise<{ data: SquadPointsRow[] | null }> : Promise.resolve({ data: [] as SquadPointsRow[] }),
     userIds.length && roundIds.length ? supabase.schema('rugby').from('match_prediction_points').select('user_id, round_id, total_points').in('user_id', userIds).in('round_id', roundIds) as unknown as Promise<{ data: MatchPointsRow[] | null }> : Promise.resolve({ data: [] as MatchPointsRow[] }),
     userIds.length ? supabase.schema('rugby').from('season_prediction_points').select('user_id, points').eq('competition_id', competition.id).in('user_id', userIds) as unknown as Promise<{ data: SeasonPointsRow[] | null }> : Promise.resolve({ data: [] as SeasonPointsRow[] }),
@@ -110,7 +114,12 @@ export default async function RugbyLeaderboardPage() {
                       <td className="py-2 px-1">
                         <div className="flex items-center gap-2">
                           {kit ? (
-                            <RugbyKitPreview pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} colour3={kit.colour3} size={24} />
+                            <RugbyKitPreview
+                              pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} colour3={kit.colour3}
+                              shortsColour={kit.shorts_colour} socksColour={kit.socks_colour} socksHooped={kit.socks_hooped} socksColour2={kit.socks_colour2}
+                              backText={kit.back_text} backShape={kit.back_shape} backShapeColour={kit.back_shape_colour} backTextColour={kit.back_text_colour}
+                              view="back" size={24}
+                            />
                           ) : (
                             <div style={{ width: 24 }} />
                           )}

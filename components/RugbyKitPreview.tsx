@@ -3,7 +3,11 @@
 // collar (classic rugby shirt detail football shirts don't have) — plus a
 // curated pattern set of only the designs that actually read as rugby kit
 // styles (hoops, halves, quarters, sash, a contrast collar) rather than
-// porting every football pattern across.
+// porting every football pattern across. Shorts and socks have their own
+// independent colours (socks can be hooped), and a `view` prop switches
+// between the front (plain shirt) and back (shirt + a number/letter in a
+// circle or square) — the same single flat illustration redrawn from
+// each side rather than two truly distinct silhouettes.
 
 export const RUGBY_KIT_PATTERNS = [
   { value: 'solid', label: 'Solid' },
@@ -23,10 +27,24 @@ interface RugbyKitPreviewProps {
   colour1: string
   colour2: string
   colour3?: string | null // collar/trim colour
+  shortsColour?: string | null
+  socksColour?: string | null
+  socksHooped?: boolean
+  socksColour2?: string | null
+  backText?: string | null
+  backShape?: 'circle' | 'square' | null
+  backShapeColour?: string | null
+  backTextColour?: string | null
+  view?: 'front' | 'back'
   size?: number
 }
 
-export default function RugbyKitPreview({ pattern, colour1, colour2, colour3, size = 120 }: RugbyKitPreviewProps) {
+export default function RugbyKitPreview({
+  pattern, colour1, colour2, colour3,
+  shortsColour, socksColour, socksHooped, socksColour2,
+  backText, backShape, backShapeColour, backTextColour,
+  view = 'front', size = 120,
+}: RugbyKitPreviewProps) {
   // Boxier silhouette than a football shirt, round neckline (no deep V),
   // short sleeves set slightly lower/wider.
   const shirtPath = "M7 6 L10 4 L18 4 L21 6 L26 10 L22 14 L20 12 L20 26 L8 26 L8 12 L6 14 L2 10 Z"
@@ -40,7 +58,11 @@ export default function RugbyKitPreview({ pattern, colour1, colour2, colour3, si
   const collarRightPath = "M18 4 L21 6 L18.5 8.5 L15 6.5 Z"
 
   const clipId = `rugby-kit-${pattern}-${colour1.replace('#', '')}-${colour2.replace('#', '')}`
+  const socksClipId = `${clipId}-socks`
   const collarColour = colour3 || colour1
+  const finalShortsColour = shortsColour || colour2
+  const finalSocksColour = socksColour || colour1
+  const finalSocksColour2 = socksColour2 || colour2
 
   function renderFill() {
     switch (pattern) {
@@ -127,20 +149,68 @@ export default function RugbyKitPreview({ pattern, colour1, colour2, colour3, si
     }
   }
 
+  function renderSocks() {
+    if (!socksHooped) {
+      return (
+        <>
+          <path d={leftSockPath} fill={finalSocksColour} stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
+          <path d={rightSockPath} fill={finalSocksColour} stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
+        </>
+      )
+    }
+    // Three alternating hoop bands per sock, clipped to each sock's shape.
+    const bandHeight = 10 / 3
+    return (
+      <>
+        <g clipPath={`url(#${socksClipId}-l)`}>
+          <rect x="9" y="36" width="4" height={bandHeight} fill={finalSocksColour} />
+          <rect x="9" y={36 + bandHeight} width="4" height={bandHeight} fill={finalSocksColour2} />
+          <rect x="9" y={36 + bandHeight * 2} width="4" height={bandHeight} fill={finalSocksColour} />
+        </g>
+        <g clipPath={`url(#${socksClipId}-r)`}>
+          <rect x="15" y="36" width="4" height={bandHeight} fill={finalSocksColour} />
+          <rect x="15" y={36 + bandHeight} width="4" height={bandHeight} fill={finalSocksColour2} />
+          <rect x="15" y={36 + bandHeight * 2} width="4" height={bandHeight} fill={finalSocksColour} />
+        </g>
+        <path d={leftSockPath} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
+        <path d={rightSockPath} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
+      </>
+    )
+  }
+
+  const showBackDetail = view === 'back' && backText
+
   return (
     <svg width={size} height={size} viewBox="0 0 28 48" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <clipPath id={clipId}>
           <path d={shirtPath} />
         </clipPath>
+        {socksHooped && (
+          <>
+            <clipPath id={`${socksClipId}-l`}><path d={leftSockPath} /></clipPath>
+            <clipPath id={`${socksClipId}-r`}><path d={rightSockPath} /></clipPath>
+          </>
+        )}
       </defs>
       {renderFill()}
       <path d={collarLeftPath} fill={collarColour} stroke="rgba(0,0,0,0.25)" strokeWidth="0.4" strokeLinejoin="round" />
       <path d={collarRightPath} fill={collarColour} stroke="rgba(0,0,0,0.25)" strokeWidth="0.4" strokeLinejoin="round" />
       <path d={shirtPath} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
-      <path d={shortsPath} fill={colour2} stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
-      <path d={leftSockPath} fill={colour1} stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
-      <path d={rightSockPath} fill={colour1} stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
+      {showBackDetail && (
+        backShape === 'square' ? (
+          <rect x="9.5" y="10.5" width="9" height="9" fill={backShapeColour || '#FFFFFF'} stroke="rgba(0,0,0,0.25)" strokeWidth="0.3" />
+        ) : (
+          <circle cx="14" cy="15" r="5" fill={backShapeColour || '#FFFFFF'} stroke="rgba(0,0,0,0.25)" strokeWidth="0.3" />
+        )
+      )}
+      {showBackDetail && (
+        <text x="14" y="17.5" textAnchor="middle" fontSize="6" fontWeight="700" fill={backTextColour || '#000000'} fontFamily="Arial, sans-serif">
+          {backText!.slice(0, 2)}
+        </text>
+      )}
+      <path d={shortsPath} fill={finalShortsColour} stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
+      {renderSocks()}
     </svg>
   )
 }

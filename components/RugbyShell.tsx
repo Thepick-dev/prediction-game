@@ -36,7 +36,11 @@ const navItems = [
 // Same rotation football's Shell uses for the nav underline accent.
 const popNavAccents = ['var(--pop-pink)', 'var(--pop-blue)', 'var(--pop-green)', 'var(--pop-orange)']
 
-type Kit = { pattern: string; colour1: string; colour2: string; colour3: string | null }
+type Kit = {
+  pattern: string; colour1: string; colour2: string; colour3: string | null
+  back_text: string | null; back_shape: 'circle' | 'square'; back_shape_colour: string; back_text_colour: string
+  shorts_colour: string | null; socks_colour: string | null; socks_hooped: boolean; socks_colour2: string | null
+}
 
 export default function RugbyShell({
   children,
@@ -106,8 +110,10 @@ export default function RugbyShell({
   useEffect(() => {
     if (!userId) return
     const supabase = createClient()
-    supabase.schema('rugby').from('player_kits').select('pattern, colour1, colour2, colour3').eq('user_id', userId).maybeSingle()
-      .then(({ data }) => { if (data) setKit(data) })
+    supabase.schema('rugby').from('player_kits')
+      .select('pattern, colour1, colour2, colour3, back_text, back_shape, back_shape_colour, back_text_colour, shorts_colour, socks_colour, socks_hooped, socks_colour2')
+      .eq('user_id', userId).maybeSingle()
+      .then(({ data }) => { if (data) setKit(data as Kit) })
   }, [userId])
 
   useEffect(() => {
@@ -154,6 +160,15 @@ export default function RugbyShell({
                     colour1={kit?.colour1 ?? '#004225'}
                     colour2={kit?.colour2 ?? '#FFFFFF'}
                     colour3={kit?.colour3 ?? null}
+                    shortsColour={kit?.shorts_colour}
+                    socksColour={kit?.socks_colour}
+                    socksHooped={kit?.socks_hooped}
+                    socksColour2={kit?.socks_colour2}
+                    backText={kit?.back_text}
+                    backShape={kit?.back_shape}
+                    backShapeColour={kit?.back_shape_colour}
+                    backTextColour={kit?.back_text_colour}
+                    view="back"
                     size={40}
                   />
                 </button>
@@ -289,7 +304,11 @@ export default function RugbyShell({
           <RugbyKitEditor
             userId={userId}
             onSaved={newKit => {
-              setKit(newKit)
+              setKit({
+                pattern: newKit.pattern, colour1: newKit.colour1, colour2: newKit.colour2, colour3: newKit.colour3,
+                back_text: newKit.backText, back_shape: newKit.backShape, back_shape_colour: newKit.backShapeColour, back_text_colour: newKit.backTextColour,
+                shorts_colour: newKit.shortsColour, socks_colour: newKit.socksColour, socks_hooped: newKit.socksHooped, socks_colour2: newKit.socksColour2,
+              })
               setTimeout(() => setKitPopupOpen(false), 900)
             }}
           />
