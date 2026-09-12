@@ -1,35 +1,37 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
-import { DEFAULT_RUGBY_SCORING_RULES } from '../../lib/rugbyScoring'
-import RugbySquadDraftForm from './_components/RugbySquadDraftForm'
-import RugbySquadManager from './_components/RugbySquadManager'
+import { rugbyTeamColours } from '../../lib/rugbyTeamColours'
+import DreamTeamUserSelector from './_components/DreamTeamUserSelector'
+import BrowseAllPlayers from './_components/BrowseAllPlayers'
 import Link from 'next/link'
 
 type Team = { id: number; name: string }
 type Player = { id: number; team_id: number; name: string }
 type Competition = { id: string; name: string }
 type Round = { id: string; number: number; deadline: string }
-type SquadPick = { id: string; player_id: number; is_kicker: boolean; active: boolean; is_initial_pick: boolean }
+type Entry = { user_id: string }
+type Profile = { id: string; display_name: string }
+type SquadPick = {
+  id: string; player_id: number; is_kicker: boolean; active: boolean
+  round_acquired: number; round_removed: number | null
+}
+type PointsRow = { season_squad_pick_id: string; round_id: string; total_points: number }
 
-export default async function RugbySquadPage() {
+export default async function RugbyDreamTeamPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ user?: string }>
+}) {
+  const { user: userParam } = await searchParams
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   const { data: competition } = await supabase.schema('rugby').from('competitions').select('id, name').eq('status', 'active').maybeSingle() as unknown as { data: Competition | null }
 
   if (!competition) {
-    return (
-      <div className="max-w-2xl mx-auto p-6">
-        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>No active competition yet.</p>
-      </div>
-    )
+    return <div className="max-w-2xl mx-auto p-6"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>No active competition yet.</p></div>
   }
-
   if (!user) {
-    return (
-      <div className="max-w-2xl mx-auto p-6">
-        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>Please log in.</p>
-      </div>
-    )
+    return <div className="max-w-2xl mx-auto p-6"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>Please log in.</p></div>
   }
 
   const { data: entry } = await supabase.schema('rugby').from('competition_entries').select('id').eq('competition_id', competition.id).eq('user_id', user.id).maybeSingle()
@@ -38,7 +40,7 @@ export default async function RugbySquadPage() {
       <div className="max-w-2xl mx-auto p-6">
         <div className="pop-panel pop-panel--orange p-5">
           <p className="text-sm" style={{ color: 'var(--pop-white)' }}>
-            You need to join {competition.name} before picking your Dream Team.
+            You need to join {competition.name} before you can see any Dream Teams.
           </p>
           <Link href="/rugby/picks" className="pop-button pop-button--orange inline-block mt-3">Go join</Link>
         </div>
@@ -46,94 +48,170 @@ export default async function RugbySquadPage() {
     )
   }
 
-  const [{ data: teams }, { data: players }, { data: rounds }, { data: myPicks }, { data: rulesRows }] = await Promise.all([
+  const [{ data: teams }, { data: players }, { data: rounds }, { data: entries }] = await Promise.all([
     supabase.schema('rugby').from('teams').select('id, name').eq('active', true).order('name') as unknown as Promise<{ data: Team[] | null }>,
     supabase.schema('rugby').from('players').select('id, team_id, name').order('name') as unknown as Promise<{ data: Player[] | null }>,
     supabase.schema('rugby').from('rounds').select('id, number, deadline').eq('competition_id', competition.id).order('number') as unknown as Promise<{ data: Round[] | null }>,
-    supabase.schema('rugby').from('season_squad_picks').select('id, player_id, is_kicker, active, is_initial_pick').eq('competition_id', competition.id).eq('user_id', user.id) as unknown as Promise<{ data: SquadPick[] | null }>,
-    supabase.schema('rugby').from('scoring_rules').select('rule_key, points').eq('competition_id', competition.id),
+    supabase.schema('rugby').from('competition_entries').select('user_id').eq('competition_id', competition.id) as unknown as Promise<{ data: Entry[] | null }>,
   ])
 
   const teamsList = teams ?? []
   const playersList = players ?? []
   const roundsList = rounds ?? []
-  const picksList = myPicks ?? []
-  const maxFreeSubs = rulesRows?.find(r => r.rule_key === 'max_free_subs')?.points ?? DEFAULT_RUGBY_SCORING_RULES.max_free_subs
+  const entriesList = entries ?? []
 
   const playersByTeam: Record<number, Player[]> = {}
   playersList.forEach(p => {
     if (!playersByTeam[p.team_id]) playersByTeam[p.team_id] = []
     playersByTeam[p.team_id].push(p)
   })
+  const playerById = new Map(playersList.map(p => [p.id, p]))
+  const teamById = new Map(teamsList.map(t => [t.id, t]))
+  const roundNumberById = new Map(roundsList.map(r => [r.id, r.number]))
 
   const round1 = roundsList.find(r => r.number === 1)
   const round1DeadlinePassed = round1 ? new Date(round1.deadline) < new Date() : false
-  const hasSquad = picksList.length > 0
-  const activePicks = picksList.filter(p => p.active)
-  const subsUsed = picksList.filter(p => !p.is_initial_pick).length
-  const canSub = roundsList.some(r => new Date(r.deadline) > new Date())
 
-  const playerById = new Map<number, Player>()
-  playersList.forEach(p => playerById.set(p.id, p))
-  const teamById = new Map<number, Team>()
-  teamsList.forEach(t => teamById.set(t.id, t))
+  // Same hard privacy rule as every other pick on this site: another
+  // user's Dream Team is only browsable once Round 1's deadline has
+  // passed — before that, drafting a squad is itself still a hidden
+  // pick, so you can only ever see your own.
+  const requestedUserId = userParam && round1DeadlinePassed ? userParam : user.id
+  const isOwnTeam = requestedUserId === user.id
 
-  const slots = activePicks.map(pick => {
+  const { data: userIds } = { data: entriesList.map(e => e.user_id) }
+  const { data: profiles } = userIds.length
+    ? await supabase.from('profiles').select('id, display_name').in('id', userIds) as unknown as { data: Profile[] | null }
+    : { data: [] as Profile[] }
+  const nameById = new Map((profiles ?? []).map(p => [p.id, p.display_name]))
+  const entrants = entriesList
+    .map(e => ({ userId: e.user_id, name: e.user_id === user.id ? `${nameById.get(e.user_id) ?? 'Unknown'} (you)` : (nameById.get(e.user_id) ?? 'Unknown') }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  const { data: picks } = await supabase.schema('rugby').from('season_squad_picks')
+    .select('id, player_id, is_kicker, active, round_acquired, round_removed')
+    .eq('competition_id', competition.id).eq('user_id', requestedUserId) as unknown as { data: SquadPick[] | null }
+  const picksList = picks ?? []
+
+  const pickIds = picksList.map(p => p.id)
+  const { data: pointsRows } = pickIds.length
+    ? await supabase.schema('rugby').from('season_squad_points').select('season_squad_pick_id, round_id, total_points').in('season_squad_pick_id', pickIds) as unknown as { data: PointsRow[] | null }
+    : { data: [] as PointsRow[] }
+  const pointsByPick = new Map<string, { roundNumber: number; points: number }[]>()
+  ;(pointsRows ?? []).forEach(r => {
+    const roundNumber = roundNumberById.get(r.round_id)
+    if (roundNumber == null) return
+    if (!pointsByPick.has(r.season_squad_pick_id)) pointsByPick.set(r.season_squad_pick_id, [])
+    pointsByPick.get(r.season_squad_pick_id)!.push({ roundNumber, points: r.total_points })
+  })
+
+  function buildCard(pick: SquadPick) {
     const player = playerById.get(pick.player_id)
     const team = player ? teamById.get(player.team_id) : undefined
+    const rounds = (pointsByPick.get(pick.id) ?? []).sort((a, b) => a.roundNumber - b.roundNumber)
+    const total = rounds.reduce((s, r) => s + r.points, 0)
     return {
-      teamId: team?.id ?? 0,
-      teamName: team?.name ?? '?',
-      playerId: pick.player_id,
+      pickId: pick.id,
       playerName: player?.name ?? '?',
+      teamName: team?.name ?? '?',
       isKicker: pick.is_kicker,
+      roundAcquired: pick.round_acquired,
+      roundRemoved: pick.round_removed,
+      rounds,
+      total,
     }
-  }).sort((a, b) => a.teamName.localeCompare(b.teamName))
+  }
 
-  return (
-    <div className="max-w-2xl mx-auto p-4 md:p-6">
-      <h1 className="pop-hero pop-hero--green text-2xl md:text-3xl mb-4">🏉 Your Dream Team</h1>
+  const activeCards = picksList.filter(p => p.active).map(buildCard).sort((a, b) => a.teamName.localeCompare(b.teamName))
+  const subbedOutCards = picksList.filter(p => !p.active).map(buildCard).sort((a, b) => a.roundRemoved! - b.roundRemoved!)
 
-      <div className="pop-panel pop-panel--blue p-5">
-        {!hasSquad && !round1DeadlinePassed && (
-          <RugbySquadDraftForm competitionId={competition.id} teams={teamsList} playersByTeam={playersByTeam} />
-        )}
-        {!hasSquad && round1DeadlinePassed && (
-          <p className="text-sm" style={{ color: 'var(--pop-red)' }}>
-            Round 1&apos;s deadline has passed — Dream Teams can no longer be drafted for this competition.
+  function PlayerCard({ card, dimmed }: { card: ReturnType<typeof buildCard>; dimmed: boolean }) {
+    const colours = rugbyTeamColours(card.teamName)
+    return (
+      <div
+        className="rounded-xl p-4"
+        style={{
+          background: dimmed ? 'rgba(255,255,255,0.03)' : colours.fill,
+          border: `2px solid ${dimmed ? 'rgba(255,255,255,0.12)' : colours.fill}`,
+          opacity: dimmed ? 0.75 : 1,
+        }}
+      >
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+          <p className="pop-name text-lg" style={{ color: dimmed ? 'rgba(255,255,255,0.7)' : colours.text }}>
+            {card.playerName}
+            {card.isKicker && <span className="pop-badge pop-badge--orange ml-2 align-middle" style={{ fontSize: '10px', padding: '2px 8px' }}>KICKER</span>}
           </p>
-        )}
-        {hasSquad && (
-          <RugbySquadManager
-            competitionId={competition.id}
-            slots={slots}
-            playersByTeam={playersByTeam}
-            subsUsed={subsUsed}
-            maxFreeSubs={maxFreeSubs}
-            canSub={canSub}
-          />
-        )}
-      </div>
-
-      <div className="pop-panel pop-panel--pink p-5 mt-6">
-        <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>Browse All Players</h2>
-        {teamsList.length === 0 ? (
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>No squads synced yet.</p>
+          {dimmed && <span className="pop-badge pop-badge--red text-[10px]">SUBBED OUT</span>}
+        </div>
+        <p className="text-xs uppercase tracking-wide mb-3" style={{ color: dimmed ? 'rgba(255,255,255,0.5)' : `${colours.text}cc` }}>
+          {card.teamName} {dimmed ? `· Rounds ${card.roundAcquired}–${(card.roundRemoved ?? card.roundAcquired) - 1}` : `· Since Round ${card.roundAcquired}`}
+        </p>
+        {card.rounds.length === 0 ? (
+          <p className="text-xs" style={{ color: dimmed ? 'rgba(255,255,255,0.4)' : `${colours.text}99` }}>No rounds scored yet.</p>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-            {teamsList.map(team => (
-              <div key={team.id}>
-                <h3 className="pop-name text-sm mb-2" style={{ color: 'var(--pop-pink)' }}>{team.name} ({(playersByTeam[team.id] ?? []).length})</h3>
-                <ul className="text-xs space-y-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                  {(playersByTeam[team.id] ?? []).map(p => (
-                    <li key={p.id} className="pop-name" style={{ letterSpacing: '0.01em' }}>{p.name}</li>
-                  ))}
-                </ul>
-              </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {card.rounds.map(r => (
+              <span
+                key={r.roundNumber}
+                className="text-xs font-bold px-2 py-1 rounded"
+                style={{ background: dimmed ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.18)', color: dimmed ? 'rgba(255,255,255,0.7)' : colours.text }}
+              >
+                R{r.roundNumber}: {r.points}{card.isKicker && <sup>K</sup>}
+              </span>
             ))}
+            <span
+              className="text-xs font-black px-2 py-1 rounded ml-1"
+              style={{ background: dimmed ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.3)', color: dimmed ? 'rgba(255,255,255,0.85)' : colours.text }}
+            >
+              TOTAL: {card.total}
+            </span>
           </div>
         )}
       </div>
+    )
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto p-4 md:p-6">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
+        <h1 className="pop-hero pop-hero--green text-2xl md:text-3xl">🏉 Dream Team</h1>
+        {round1DeadlinePassed ? (
+          <DreamTeamUserSelector entrants={entrants} selectedUserId={requestedUserId} />
+        ) : (
+          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Other Dream Teams appear once Round 1 starts</span>
+        )}
+      </div>
+
+      {!isOwnTeam && (
+        <p className="text-sm mb-4 pop-name" style={{ color: 'var(--pop-blue)' }}>
+          Viewing {nameById.get(requestedUserId) ?? 'Unknown'}&apos;s Dream Team
+        </p>
+      )}
+
+      {activeCards.length === 0 && subbedOutCards.length === 0 ? (
+        <div className="pop-panel pop-panel--orange p-5">
+          <p className="text-sm" style={{ color: 'var(--pop-white)' }}>
+            {isOwnTeam ? <>No Dream Team drafted yet — head to <Link href="/rugby/picks" className="underline">Picks</Link> to build yours.</> : 'No Dream Team drafted yet.'}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-3">
+            {activeCards.map(card => <PlayerCard key={card.pickId} card={card} dimmed={false} />)}
+          </div>
+
+          {subbedOutCards.length > 0 && (
+            <div className="mt-6">
+              <h2 className="pop-headline text-sm mb-3" style={{ color: 'rgba(255,255,255,0.6)' }}>Subbed Out</h2>
+              <div className="space-y-3">
+                {subbedOutCards.map(card => <PlayerCard key={card.pickId} card={card} dimmed={true} />)}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      <BrowseAllPlayers teams={teamsList} playersByTeam={playersByTeam} />
     </div>
   )
 }

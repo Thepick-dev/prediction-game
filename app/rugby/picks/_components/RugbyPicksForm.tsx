@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { rugbyTeamColours as teamColours, rugbyLabelColour, DRAW_COLOURS } from '../../../lib/rugbyTeamColours'
 
 type QuestionType = { type_key: string; label: string; answer_type: string }
 type Team = { id: number; name: string }
@@ -26,29 +27,11 @@ type MatchRowState = {
   awayTryBonus: boolean | null
 }
 
-// Each nation's own real shirt colours — a selected team button lights up
-// as itself, not as one generic "selected" colour, so picking Ireland
-// looks and feels different from picking Wales.
-const TEAM_COLOURS: Record<string, { fill: string; text: string }> = {
-  England: { fill: '#FFFFFF', text: '#C8102E' },
-  Ireland: { fill: '#169B62', text: '#FFFFFF' },
-  Wales: { fill: '#C8102E', text: '#FFFFFF' },
-  Scotland: { fill: '#0C1E3C', text: '#FFFFFF' },
-  France: { fill: '#0055A4', text: '#FFFFFF' },
-  Italy: { fill: '#0088CE', text: '#FFFFFF' },
-}
-const DEFAULT_COLOURS = { fill: 'var(--pop-blue)', text: 'var(--pop-black)' }
-const DRAW_COLOURS = { fill: 'var(--pop-pink)', text: 'var(--pop-white)' }
-
-function teamColours(name: string) {
-  return TEAM_COLOURS[name] ?? DEFAULT_COLOURS
-}
-
 // Toggle button used everywhere in this form for a binary/ternary choice —
 // bold, filled when active, plenty of touch target, no small print. The
-// one shared visual language behind winner picks, try-bonus calls, and
-// the confidence pick, so the whole page reads as one game, not three
-// different forms bolted together.
+// one shared visual language behind winner picks, try-bonus calls, the
+// confidence pick, and the kicker choice, so the whole page reads as one
+// game, not several forms bolted together.
 function ChoiceButton({ label, active, fill, text, onClick }: { label: string; active: boolean; fill: string; text: string; onClick: () => void }) {
   return (
     <button
@@ -68,6 +51,43 @@ function ChoiceButton({ label, active, fill, text, onClick }: { label: string; a
   )
 }
 
+function PlayerSearchPicker({
+  team, players, selectedId, onSelect, onClear,
+}: {
+  team: Team; players: Player[]; selectedId: number | ''; onSelect: (id: number) => void; onClear: () => void
+}) {
+  const [search, setSearch] = useState('')
+  const selected = players.find(p => p.id === selectedId)
+  const matches = search.trim().length >= 1 ? players.filter(p => p.name.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 8) : []
+  const colours = teamColours(team.name)
+
+  return (
+    <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+      <p className="pop-name text-sm mb-2" style={{ color: rugbyLabelColour(team.name) }}>{team.name}</p>
+      {selected ? (
+        <div className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: `${colours.fill}22`, border: `1.5px solid ${colours.fill}` }}>
+          <span className="pop-name text-base" style={{ color: 'var(--pop-white)' }}>{selected.name}</span>
+          <button type="button" onClick={onClear} className="text-sm shrink-0 ml-2" style={{ color: 'var(--pop-red)' }}>✕</button>
+        </div>
+      ) : (
+        <>
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Type a player's name..." className="pop-input px-3 py-2 text-sm w-full" />
+          {matches.length > 0 && (
+            <div className="mt-1 rounded overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.15)' }}>
+              {matches.map(p => (
+                <button key={p.id} type="button" onClick={() => { onSelect(p.id); setSearch('') }}
+                  className="pop-name block w-full text-left px-3 py-2 text-sm hover:opacity-80" style={{ background: 'var(--pop-surface)', color: 'var(--pop-white)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function RugbyPicksForm({
   competitionId,
   showSeasonPredictions,
@@ -81,6 +101,10 @@ export default function RugbyPicksForm({
   roundNumber,
   fixtures,
   existingMatchPreds,
+  showSquadDraft,
+  playersByTeam,
+  existingSquadSelections,
+  existingSquadKickerId,
 }: {
   competitionId: string
   showSeasonPredictions: boolean
@@ -94,10 +118,15 @@ export default function RugbyPicksForm({
   roundNumber: number | null
   fixtures: FixtureInfo[]
   existingMatchPreds: ExistingMatchPred[]
+  showSquadDraft: boolean
+  playersByTeam: Record<number, Player[]>
+  existingSquadSelections?: Record<number, number>
+  existingSquadKickerId?: number
 }) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [justSubmitted, setJustSubmitted] = useState(false)
 
   // --- Season predictions state ---
   const existingByKey = new Map(existingAnswers.map(a => [a.type_key, a]))
@@ -134,6 +163,63 @@ export default function RugbyPicksForm({
     setRows(prev => ({ ...prev, [fixtureId]: { ...prev[fixtureId], ...patch } }))
   }
 
+  // --- Squad draft state ---
+  const [squadSelections, setSquadSelections] = useState<Record<number, number | ''>>(existingSquadSelections ?? {})
+  const [kickerPlayerId, setKickerPlayerId] = useState<number | ''>(existingSquadKickerId ?? '')
+
+  function selectSquadPlayer(teamId: number, playerId: number) {
+    const next = { ...squadSelections, [teamId]: playerId }
+    setSquadSelections(next)
+    advanceFrom(`squad-${teamId}`, { squadSelections: next })
+  }
+  function clearSquadPlayer(teamId: number) {
+    const clearedPlayerId = squadSelections[teamId]
+    setSquadSelections(prev => ({ ...prev, [teamId]: '' as const }))
+    if (kickerPlayerId && kickerPlayerId === clearedPlayerId) setKickerPlayerId('')
+  }
+
+  // --- "Slide along" auto-advance: completing one item smoothly scrolls
+  // to the next thing left to do, in page order (season questions, then
+  // match fixtures, then squad teams). Each handler below computes
+  // completeness from the NEW value directly (state hasn't re-rendered
+  // yet at the point the handler runs), so this never lags a step behind.
+  const stepRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  function registerStep(key: string) {
+    return (el: HTMLDivElement | null) => { stepRefs.current[key] = el }
+  }
+  function orderedStepKeys(): string[] {
+    const keys: string[] = []
+    if (showSeasonPredictions) questions.forEach(q => keys.push(`season-${q.type_key}`))
+    if (showMatchPredictions) fixtures.forEach(f => keys.push(`match-${f.id}`))
+    if (showSquadDraft) teams.forEach(t => keys.push(`squad-${t.id}`))
+    return keys
+  }
+  function isStepDone(key: string, next: { answers?: typeof answers; rows?: typeof rows; squadSelections?: typeof squadSelections }): boolean {
+    const a = next.answers ?? answers
+    const r = next.rows ?? rows
+    const s = next.squadSelections ?? squadSelections
+    if (key.startsWith('season-')) return a[key.slice(7)] != null
+    if (key.startsWith('match-')) {
+      const row = r[Number(key.slice(6))]
+      if (!row || row.winner === '') return false
+      if (row.winner !== 'draw' && (row.margin === '' || Number(row.margin) < 1)) return false
+      return row.homeTryBonus !== null && row.awayTryBonus !== null
+    }
+    if (key.startsWith('squad-')) return !!s[Number(key.slice(6))]
+    return true
+  }
+  function advanceFrom(key: string, next: { answers?: typeof answers; rows?: typeof rows; squadSelections?: typeof squadSelections }) {
+    if (!isStepDone(key, next)) return // this step itself isn't finished yet — stay put
+    const keys = orderedStepKeys()
+    const idx = keys.indexOf(key)
+    for (let i = idx + 1; i < keys.length; i++) {
+      if (!isStepDone(keys[i], next)) {
+        requestAnimationFrame(() => stepRefs.current[keys[i]]?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+        return
+      }
+    }
+  }
+
   const seasonValid = !showSeasonPredictions || questions.every(q => answers[q.type_key] != null)
   const matchValid = !showMatchPredictions || (
     fixtures.every(f => {
@@ -143,11 +229,13 @@ export default function RugbyPicksForm({
       return r.homeTryBonus !== null && r.awayTryBonus !== null
     }) && confidenceFixtureId != null
   )
-  const allValid = seasonValid && matchValid
+  const squadValid = !showSquadDraft || (teams.every(t => squadSelections[t.id]) && !!kickerPlayerId)
+  const allValid = seasonValid && matchValid && squadValid
 
   const hasExistingSeason = showSeasonPredictions && existingAnswers.length > 0
   const hasExistingMatch = showMatchPredictions && existingMatchPreds.length > 0
-  const isUpdate = hasExistingSeason || hasExistingMatch
+  const hasExistingSquad = showSquadDraft && !!existingSquadSelections && Object.keys(existingSquadSelections).length > 0
+  const isUpdate = hasExistingSeason || hasExistingMatch || hasExistingSquad
 
   async function submit() {
     if (!allValid) return
@@ -193,6 +281,19 @@ export default function RugbyPicksForm({
       )
     }
 
+    if (showSquadDraft) {
+      calls.push(
+        fetch('/api/rugby/squad', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            competition_id: competitionId,
+            picks: teams.map(t => ({ player_id: squadSelections[t.id] })),
+            kicker_player_id: kickerPlayerId,
+          }),
+        }).then(r => r.json())
+      )
+    }
+
     const results = await Promise.all(calls)
     const errors = results.map(r => r.error).filter(Boolean) as string[]
     setSaving(false)
@@ -200,7 +301,8 @@ export default function RugbyPicksForm({
       setMessage(errors.join(' — '))
       return
     }
-    setMessage(isUpdate ? 'Updated!' : 'Confirmed!')
+    setJustSubmitted(true)
+    setTimeout(() => setJustSubmitted(false), 1600)
     router.refresh()
   }
 
@@ -211,7 +313,7 @@ export default function RugbyPicksForm({
           <h2 className="pop-headline text-sm mb-4" style={{ color: 'var(--pop-white)' }}>Tournament Predictions</h2>
           <div className="space-y-4">
             {questions.map(q => (
-              <div key={q.type_key}>
+              <div key={q.type_key} ref={registerStep(`season-${q.type_key}`)}>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--pop-blue)' }}>{q.label}</label>
                 {q.answer_type === 'team' && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
@@ -224,20 +326,32 @@ export default function RugbyPicksForm({
                           active={answers[q.type_key] === t.id}
                           fill={c.fill}
                           text={c.text}
-                          onClick={() => setAnswers(prev => ({ ...prev, [q.type_key]: t.id }))}
+                          onClick={() => {
+                            const next = { ...answers, [q.type_key]: t.id }
+                            setAnswers(next)
+                            advanceFrom(`season-${q.type_key}`, { answers: next })
+                          }}
                         />
                       )
                     })}
                   </div>
                 )}
                 {q.answer_type === 'fixture' && (
-                  <select className="pop-input px-3 py-2 text-sm w-full" value={answers[q.type_key] ?? ''} onChange={e => setAnswers(prev => ({ ...prev, [q.type_key]: e.target.value ? Number(e.target.value) : null }))}>
+                  <select className="pop-input px-3 py-2 text-sm w-full" value={answers[q.type_key] ?? ''} onChange={e => {
+                    const next = { ...answers, [q.type_key]: e.target.value ? Number(e.target.value) : null }
+                    setAnswers(next)
+                    advanceFrom(`season-${q.type_key}`, { answers: next })
+                  }}>
                     <option value="">Select...</option>
                     {fixtureLabels.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
                   </select>
                 )}
                 {q.answer_type === 'numeric' && (
-                  <input type="number" className="pop-input px-3 py-2 text-sm w-full max-w-[140px]" value={answers[q.type_key] ?? ''} onChange={e => setAnswers(prev => ({ ...prev, [q.type_key]: e.target.value ? Number(e.target.value) : null }))} />
+                  <input type="number" className="pop-input px-3 py-2 text-sm w-full max-w-[140px]" value={answers[q.type_key] ?? ''} onChange={e => {
+                    const next = { ...answers, [q.type_key]: e.target.value ? Number(e.target.value) : null }
+                    setAnswers(next)
+                    if (e.target.value) advanceFrom(`season-${q.type_key}`, { answers: next })
+                  }} />
                 )}
                 {q.answer_type === 'player' && (
                   (() => {
@@ -261,7 +375,12 @@ export default function RugbyPicksForm({
                         {matches.length > 0 && (
                           <div className="mt-1 rounded overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.15)' }}>
                             {matches.map(p => (
-                              <button key={p.id} type="button" onClick={() => { setAnswers(prev => ({ ...prev, [q.type_key]: p.id })); setPlayerSearches(prev => ({ ...prev, [q.type_key]: '' })) }}
+                              <button key={p.id} type="button" onClick={() => {
+                                const next = { ...answers, [q.type_key]: p.id }
+                                setAnswers(next)
+                                setPlayerSearches(prev => ({ ...prev, [q.type_key]: '' }))
+                                advanceFrom(`season-${q.type_key}`, { answers: next })
+                              }}
                                 className="pop-name block w-full text-left px-3 py-1.5 text-sm hover:opacity-80" style={{ background: 'var(--pop-surface)', color: 'var(--pop-white)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                 {p.name}
                               </button>
@@ -285,11 +404,23 @@ export default function RugbyPicksForm({
             {fixtures.map(f => {
               const r = rows[f.id]
               return (
-                <div key={f.id} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div key={f.id} ref={registerStep(`match-${f.id}`)} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
                   <div className="grid grid-cols-3 gap-1.5 mb-3">
-                    <ChoiceButton label={f.homeTeam} active={r.winner === 'home'} fill={teamColours(f.homeTeam).fill} text={teamColours(f.homeTeam).text} onClick={() => updateRow(f.id, { winner: 'home', margin: r.margin })} />
-                    <ChoiceButton label="Draw" active={r.winner === 'draw'} fill={DRAW_COLOURS.fill} text={DRAW_COLOURS.text} onClick={() => updateRow(f.id, { winner: 'draw', margin: '' })} />
-                    <ChoiceButton label={f.awayTeam} active={r.winner === 'away'} fill={teamColours(f.awayTeam).fill} text={teamColours(f.awayTeam).text} onClick={() => updateRow(f.id, { winner: 'away', margin: r.margin })} />
+                    <ChoiceButton label={f.homeTeam} active={r.winner === 'home'} fill={teamColours(f.homeTeam).fill} text={teamColours(f.homeTeam).text} onClick={() => {
+                      const nextRow = { ...r, winner: 'home' as Winner, margin: r.margin }
+                      updateRow(f.id, nextRow)
+                      advanceFrom(`match-${f.id}`, { rows: { ...rows, [f.id]: nextRow } })
+                    }} />
+                    <ChoiceButton label="Draw" active={r.winner === 'draw'} fill={DRAW_COLOURS.fill} text={DRAW_COLOURS.text} onClick={() => {
+                      const nextRow = { ...r, winner: 'draw' as Winner, margin: '' }
+                      updateRow(f.id, nextRow)
+                      advanceFrom(`match-${f.id}`, { rows: { ...rows, [f.id]: nextRow } })
+                    }} />
+                    <ChoiceButton label={f.awayTeam} active={r.winner === 'away'} fill={teamColours(f.awayTeam).fill} text={teamColours(f.awayTeam).text} onClick={() => {
+                      const nextRow = { ...r, winner: 'away' as Winner, margin: r.margin }
+                      updateRow(f.id, nextRow)
+                      advanceFrom(`match-${f.id}`, { rows: { ...rows, [f.id]: nextRow } })
+                    }} />
                   </div>
 
                   {r.winner !== '' && r.winner !== 'draw' && (
@@ -298,7 +429,11 @@ export default function RugbyPicksForm({
                       <input
                         type="number" min="1" placeholder="pts"
                         value={r.margin}
-                        onChange={e => updateRow(f.id, { margin: e.target.value })}
+                        onChange={e => {
+                          const nextRow = { ...r, margin: e.target.value }
+                          updateRow(f.id, nextRow)
+                          if (e.target.value) advanceFrom(`match-${f.id}`, { rows: { ...rows, [f.id]: nextRow } })
+                        }}
                         className="pop-input px-2 py-1.5 text-sm w-20 text-center"
                       />
                     </div>
@@ -308,15 +443,31 @@ export default function RugbyPicksForm({
                     <div>
                       <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>🏉 {f.homeTeam} try bonus</p>
                       <div className="flex gap-1.5">
-                        <ChoiceButton label="Yes" active={r.homeTryBonus === true} fill="var(--pop-green)" text="var(--pop-black)" onClick={() => updateRow(f.id, { homeTryBonus: true })} />
-                        <ChoiceButton label="No" active={r.homeTryBonus === false} fill="var(--pop-red)" text="var(--pop-white)" onClick={() => updateRow(f.id, { homeTryBonus: false })} />
+                        <ChoiceButton label="Yes" active={r.homeTryBonus === true} fill="var(--pop-green)" text="var(--pop-black)" onClick={() => {
+                          const nextRow = { ...r, homeTryBonus: true }
+                          updateRow(f.id, nextRow)
+                          advanceFrom(`match-${f.id}`, { rows: { ...rows, [f.id]: nextRow } })
+                        }} />
+                        <ChoiceButton label="No" active={r.homeTryBonus === false} fill="var(--pop-red)" text="var(--pop-white)" onClick={() => {
+                          const nextRow = { ...r, homeTryBonus: false }
+                          updateRow(f.id, nextRow)
+                          advanceFrom(`match-${f.id}`, { rows: { ...rows, [f.id]: nextRow } })
+                        }} />
                       </div>
                     </div>
                     <div>
                       <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>🏉 {f.awayTeam} try bonus</p>
                       <div className="flex gap-1.5">
-                        <ChoiceButton label="Yes" active={r.awayTryBonus === true} fill="var(--pop-green)" text="var(--pop-black)" onClick={() => updateRow(f.id, { awayTryBonus: true })} />
-                        <ChoiceButton label="No" active={r.awayTryBonus === false} fill="var(--pop-red)" text="var(--pop-white)" onClick={() => updateRow(f.id, { awayTryBonus: false })} />
+                        <ChoiceButton label="Yes" active={r.awayTryBonus === true} fill="var(--pop-green)" text="var(--pop-black)" onClick={() => {
+                          const nextRow = { ...r, awayTryBonus: true }
+                          updateRow(f.id, nextRow)
+                          advanceFrom(`match-${f.id}`, { rows: { ...rows, [f.id]: nextRow } })
+                        }} />
+                        <ChoiceButton label="No" active={r.awayTryBonus === false} fill="var(--pop-red)" text="var(--pop-white)" onClick={() => {
+                          const nextRow = { ...r, awayTryBonus: false }
+                          updateRow(f.id, nextRow)
+                          advanceFrom(`match-${f.id}`, { rows: { ...rows, [f.id]: nextRow } })
+                        }} />
                       </div>
                     </div>
                   </div>
@@ -342,12 +493,61 @@ export default function RugbyPicksForm({
         </div>
       )}
 
-      {message && (
-        <p className="text-sm text-center" style={{ color: message === 'Confirmed!' || message === 'Updated!' ? 'var(--pop-green)' : 'var(--pop-red)' }}>{message}</p>
+      {showSquadDraft && (
+        <div className="pop-panel pop-panel--orange p-5">
+          <h2 className="pop-headline text-sm mb-2" style={{ color: 'var(--pop-white)' }}>Your Dream Team</h2>
+          <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.75)' }}>
+            Pick one player from each team — six in total — then mark one as your kicker.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            {teams.map(team => (
+              <div key={team.id} ref={registerStep(`squad-${team.id}`)}>
+                <PlayerSearchPicker
+                  team={team}
+                  players={playersByTeam[team.id] ?? []}
+                  selectedId={squadSelections[team.id] ?? ''}
+                  onSelect={pid => selectSquadPlayer(team.id, pid)}
+                  onClear={() => clearSquadPlayer(team.id)}
+                />
+              </div>
+            ))}
+          </div>
+          {teams.every(t => squadSelections[t.id]) && (
+            <div>
+              <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: 'var(--pop-orange)' }}>Pick your kicker</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {teams.map(t => {
+                  const pid = squadSelections[t.id]
+                  if (!pid) return null
+                  const player = (playersByTeam[t.id] ?? []).find(p => p.id === pid)
+                  if (!player) return null
+                  return (
+                    <ChoiceButton
+                      key={pid}
+                      label={player.name}
+                      active={kickerPlayerId === pid}
+                      fill="var(--pop-orange)"
+                      text="var(--pop-black)"
+                      onClick={() => setKickerPlayerId(pid)}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
-      <button onClick={submit} disabled={!allValid || saving} className="pop-button pop-button--green w-full py-3 text-base">
-        {saving ? 'Saving…' : isUpdate ? 'Update My Picks' : 'Confirm My Picks'}
+      {message && (
+        <p className="text-sm text-center" style={{ color: 'var(--pop-red)' }}>{message}</p>
+      )}
+
+      <button
+        onClick={submit}
+        disabled={!allValid || saving}
+        className={`pop-button w-full py-3 text-base ${justSubmitted ? 'pop-button--green pop-celebrate' : 'pop-button--green'}`}
+      >
+        {saving ? 'Saving…' : justSubmitted ? '✓ Submitted!' : isUpdate ? 'Update My Picks' : 'Confirm My Picks'}
       </button>
     </div>
   )

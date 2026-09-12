@@ -2,7 +2,6 @@ import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { DEFAULT_RUGBY_SCORING_RULES } from '../../lib/rugbyScoring'
 import RugbyKitEditor from '../../../components/RugbyKitEditor'
 import RugbyPicksForm from './_components/RugbyPicksForm'
-import RugbySquadDraftForm from '../dream-team/_components/RugbySquadDraftForm'
 import RugbySquadManager from '../dream-team/_components/RugbySquadManager'
 import RugbyCountdownClock from '../../../components/RugbyCountdownClock'
 import { redirect } from 'next/navigation'
@@ -151,11 +150,22 @@ export default async function RugbyPicksPage() {
 
   const nothingToDo = !showSeasonPredictions && !showMatchPredictions && !showSquadDraft && !showSquadManager
 
+  const seasonComplete = !showSeasonPredictions || hasAllSeasonAnswers
+  const matchComplete = !showMatchPredictions || (hasAllCurrentRoundPreds && currentRoundMatchPreds.some(p => p.is_confidence_pick))
+  const squadComplete = !showSquadDraft || (teamsList.every(t => squadSelections[t.id]) && squadKickerId != null)
+  const picksRequired = !nothingToDo && (!seasonComplete || !matchComplete || !squadComplete)
+
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
       <RoundHeading text={headingText} deadline={currentRound?.deadline ?? null} />
 
-      {(showSeasonPredictions || showMatchPredictions) && (
+      {picksRequired && (
+        <div className="pop-panel pop-panel--pulse pop-panel--red p-3 mb-5 text-center">
+          <p className="pop-name text-sm" style={{ color: 'var(--pop-white)' }}>⚠️ Picks Required — scroll down and complete everything below</p>
+        </div>
+      )}
+
+      {(showSeasonPredictions || showMatchPredictions || showSquadDraft) && (
         <div className="mb-6">
           <RugbyPicksForm
             competitionId={competition.id}
@@ -170,22 +180,10 @@ export default async function RugbyPicksPage() {
             roundNumber={currentRound?.number ?? null}
             fixtures={currentRoundFixtures.map(f => ({ id: f.id, homeTeam: teamName(f.home_team_id), awayTeam: teamName(f.away_team_id) }))}
             existingMatchPreds={currentRoundMatchPreds}
-          />
-        </div>
-      )}
-
-      {showSquadDraft && (
-        <div className="pop-panel pop-panel--orange p-5 mb-6">
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-            <h2 className="pop-headline text-base" style={{ color: 'var(--pop-white)' }}>Your Dream Team</h2>
-            {hasSquad && <span className="pop-badge pop-badge--green text-xs">✓ Saved</span>}
-          </div>
-          <RugbySquadDraftForm
-            competitionId={competition.id}
-            teams={teamsList}
+            showSquadDraft={showSquadDraft}
             playersByTeam={playersByTeam}
-            existingSelections={hasSquad ? squadSelections : undefined}
-            existingKickerPlayerId={squadKickerId}
+            existingSquadSelections={hasSquad ? squadSelections : undefined}
+            existingSquadKickerId={squadKickerId}
           />
         </div>
       )}
