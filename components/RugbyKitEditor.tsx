@@ -76,21 +76,30 @@ export default function RugbyKitEditor({
   async function loadKit() {
     setLoading(true)
     const { data } = await supabase.schema('rugby').from('player_kits')
-      .select('pattern, colour1, colour2, colour3, back_text, back_shape, back_shape_colour, back_text_colour, shorts_colour, socks_colour, socks_hooped, socks_colour2')
-      .eq('user_id', userId).maybeSingle()
+      .select('pattern, colour1, colour2, colour3').eq('user_id', userId).maybeSingle()
     if (data) {
       setPattern(data.pattern)
       setColour1(data.colour1)
       setColour2(data.colour2)
       setColour3(data.colour3)
-      setBackText(data.back_text ?? null)
-      setBackShape((data.back_shape as 'circle' | 'square') ?? 'circle')
-      setBackShapeColour(data.back_shape_colour ?? '#FFFFFF')
-      setBackTextColour(data.back_text_colour ?? '#000000')
-      setShortsColour(data.shorts_colour ?? null)
-      setSocksColour(data.socks_colour ?? null)
-      setSocksHooped(!!data.socks_hooped)
-      setSocksColour2(data.socks_colour2 ?? null)
+    }
+    // Its own separate query, deliberately not bundled with the one above:
+    // these columns are newer than pattern/colour1/colour2/colour3, so if
+    // they don't exist yet in the database this must only mean the new
+    // fields stay at their defaults — it must never break loading the
+    // kit's already-established pattern/colours too.
+    const { data: extras } = await supabase.schema('rugby').from('player_kits')
+      .select('back_text, back_shape, back_shape_colour, back_text_colour, shorts_colour, socks_colour, socks_hooped, socks_colour2')
+      .eq('user_id', userId).maybeSingle()
+    if (extras) {
+      setBackText(extras.back_text ?? null)
+      setBackShape((extras.back_shape as 'circle' | 'square') ?? 'circle')
+      setBackShapeColour(extras.back_shape_colour ?? '#FFFFFF')
+      setBackTextColour(extras.back_text_colour ?? '#000000')
+      setShortsColour(extras.shorts_colour ?? null)
+      setSocksColour(extras.socks_colour ?? null)
+      setSocksHooped(!!extras.socks_hooped)
+      setSocksColour2(extras.socks_colour2 ?? null)
     }
     setLoading(false)
   }
@@ -99,14 +108,24 @@ export default function RugbyKitEditor({
     setSaving(true)
     setMessage('')
     const { error } = await supabase.schema('rugby').from('player_kits').upsert({
-      user_id: userId, pattern, colour1, colour2, colour3,
+      user_id: userId, pattern, colour1, colour2, colour3, updated_at: new Date().toISOString(),
+    })
+    if (error) {
+      setSaving(false)
+      setMessage(error.message)
+      return
+    }
+    // Saved as its own update, deliberately separate from the one above:
+    // these are newer, optional columns, so if they aren't there yet in
+    // the database this shouldn't block saving pattern/colour changes,
+    // which have worked here all along.
+    const { error: extrasError } = await supabase.schema('rugby').from('player_kits').update({
       back_text: backText, back_shape: backShape, back_shape_colour: backShapeColour, back_text_colour: backTextColour,
       shorts_colour: shortsColour, socks_colour: socksColour, socks_hooped: socksHooped, socks_colour2: socksColour2,
-      updated_at: new Date().toISOString(),
-    })
+    }).eq('user_id', userId)
     setSaving(false)
-    setMessage(error ? error.message : 'Kit saved')
-    if (!error) {
+    setMessage(extrasError ? 'Kit saved (number/shorts/socks not saved — ask the admin to check the database)' : 'Kit saved')
+    if (!extrasError) {
       setJustSaved(true)
       setTimeout(() => setJustSaved(false), 1400)
       onSaved?.({ pattern, colour1, colour2, colour3, backText, backShape, backShapeColour, backTextColour, shortsColour, socksColour, socksHooped, socksColour2 })

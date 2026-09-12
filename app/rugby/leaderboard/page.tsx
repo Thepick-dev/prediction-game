@@ -35,18 +35,48 @@ export default async function RugbyLeaderboardPage() {
   const roundsList = rounds ?? []
   const roundIds = roundsList.map(r => r.id)
 
+  type KitExtras = {
+    user_id: string
+    back_text: string | null; back_shape: 'circle' | 'square'; back_shape_colour: string; back_text_colour: string
+    shorts_colour: string | null; socks_colour: string | null; socks_hooped: boolean; socks_colour2: string | null
+  }
+
   const [{ data: profiles }, { data: kits }, { data: squadPoints }, { data: matchPoints }, { data: seasonPoints }] = await Promise.all([
     userIds.length ? supabase.from('profiles').select('id, display_name').in('id', userIds) as unknown as Promise<{ data: Profile[] | null }> : Promise.resolve({ data: [] as Profile[] }),
-    userIds.length ? supabase.schema('rugby').from('player_kits').select('user_id, pattern, colour1, colour2, colour3, back_text, back_shape, back_shape_colour, back_text_colour, shorts_colour, socks_colour, socks_hooped, socks_colour2').in('user_id', userIds) as unknown as Promise<{ data: Kit[] | null }> : Promise.resolve({ data: [] as Kit[] }),
+    userIds.length ? supabase.schema('rugby').from('player_kits').select('user_id, pattern, colour1, colour2, colour3').in('user_id', userIds) as unknown as Promise<{ data: Omit<Kit, 'back_text' | 'back_shape' | 'back_shape_colour' | 'back_text_colour' | 'shorts_colour' | 'socks_colour' | 'socks_hooped' | 'socks_colour2'>[] | null }> : Promise.resolve({ data: [] as any[] }),
     userIds.length && roundIds.length ? supabase.schema('rugby').from('season_squad_points').select('user_id, round_id, total_points').in('user_id', userIds).in('round_id', roundIds) as unknown as Promise<{ data: SquadPointsRow[] | null }> : Promise.resolve({ data: [] as SquadPointsRow[] }),
     userIds.length && roundIds.length ? supabase.schema('rugby').from('match_prediction_points').select('user_id, round_id, total_points').in('user_id', userIds).in('round_id', roundIds) as unknown as Promise<{ data: MatchPointsRow[] | null }> : Promise.resolve({ data: [] as MatchPointsRow[] }),
     userIds.length ? supabase.schema('rugby').from('season_prediction_points').select('user_id, points').eq('competition_id', competition.id).in('user_id', userIds) as unknown as Promise<{ data: SeasonPointsRow[] | null }> : Promise.resolve({ data: [] as SeasonPointsRow[] }),
   ])
 
+  // Its own separate query, deliberately not bundled with the one above:
+  // these columns are newer than pattern/colour1/colour2/colour3, so a
+  // problem reading them must only mean badges fall back to solid
+  // defaults for the number/shorts/socks, never that every badge on the
+  // leaderboard disappears.
+  const { data: kitExtras } = userIds.length
+    ? await supabase.schema('rugby').from('player_kits').select('user_id, back_text, back_shape, back_shape_colour, back_text_colour, shorts_colour, socks_colour, socks_hooped, socks_colour2').in('user_id', userIds) as unknown as { data: KitExtras[] | null }
+    : { data: [] as KitExtras[] }
+  const extrasByUser = new Map<string, KitExtras>()
+  kitExtras?.forEach(e => extrasByUser.set(e.user_id, e))
+
   const nameById = new Map<string, string>()
   profiles?.forEach(p => nameById.set(p.id, p.display_name))
   const kitById = new Map<string, Kit>()
-  kits?.forEach(k => kitById.set(k.user_id, k))
+  kits?.forEach(k => {
+    const extras = extrasByUser.get(k.user_id)
+    kitById.set(k.user_id, {
+      ...k,
+      back_text: extras?.back_text ?? null,
+      back_shape: extras?.back_shape ?? 'circle',
+      back_shape_colour: extras?.back_shape_colour ?? '#FFFFFF',
+      back_text_colour: extras?.back_text_colour ?? '#000000',
+      shorts_colour: extras?.shorts_colour ?? null,
+      socks_colour: extras?.socks_colour ?? null,
+      socks_hooped: !!extras?.socks_hooped,
+      socks_colour2: extras?.socks_colour2 ?? null,
+    })
+  })
 
   // Per-round combined total (squad + match predictions — season predictions
   // are one-off tournament calls, not tied to any single round, so they get

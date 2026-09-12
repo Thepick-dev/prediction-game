@@ -110,10 +110,30 @@ export default function RugbyShell({
   useEffect(() => {
     if (!userId) return
     const supabase = createClient()
-    supabase.schema('rugby').from('player_kits')
-      .select('pattern, colour1, colour2, colour3, back_text, back_shape, back_shape_colour, back_text_colour, shorts_colour, socks_colour, socks_hooped, socks_colour2')
-      .eq('user_id', userId).maybeSingle()
-      .then(({ data }) => { if (data) setKit(data as Kit) })
+    ;(async () => {
+      const { data: base } = await supabase.schema('rugby').from('player_kits')
+        .select('pattern, colour1, colour2, colour3').eq('user_id', userId).maybeSingle()
+      if (!base) return
+      // Its own separate query, deliberately not bundled with the one
+      // above: these columns are newer than pattern/colour1/colour2/
+      // colour3, so a problem reading them must only mean the badge falls
+      // back to solid defaults for them, never that the badge disappears
+      // entirely.
+      const { data: extras } = await supabase.schema('rugby').from('player_kits')
+        .select('back_text, back_shape, back_shape_colour, back_text_colour, shorts_colour, socks_colour, socks_hooped, socks_colour2')
+        .eq('user_id', userId).maybeSingle()
+      setKit({
+        ...base,
+        back_text: extras?.back_text ?? null,
+        back_shape: (extras?.back_shape as 'circle' | 'square') ?? 'circle',
+        back_shape_colour: extras?.back_shape_colour ?? '#FFFFFF',
+        back_text_colour: extras?.back_text_colour ?? '#000000',
+        shorts_colour: extras?.shorts_colour ?? null,
+        socks_colour: extras?.socks_colour ?? null,
+        socks_hooped: !!extras?.socks_hooped,
+        socks_colour2: extras?.socks_colour2 ?? null,
+      })
+    })()
   }, [userId])
 
   useEffect(() => {
