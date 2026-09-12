@@ -27,7 +27,7 @@ function PlayerSearchPicker({
 
   return (
     <div>
-      <label className="block text-xs font-medium mb-1" style={{ color: 'var(--pop-blue)' }}>{team.name}</label>
+      <label className="block text-xs pop-name mb-1" style={{ color: 'var(--pop-blue)' }}>{team.name}</label>
       {selected ? (
         <div className="pop-input flex items-center justify-between px-3 py-2 text-sm">
           <span>{selected.name}</span>
@@ -67,13 +67,17 @@ export default function RugbySquadDraftForm({
   competitionId,
   teams,
   playersByTeam,
+  existingSelections,
+  existingKickerPlayerId,
 }: {
   competitionId: string
   teams: Team[]
   playersByTeam: Record<number, Player[]>
+  existingSelections?: Record<number, number>
+  existingKickerPlayerId?: number
 }) {
-  const [selections, setSelections] = useState<Record<number, number | ''>>({})
-  const [kickerPlayerId, setKickerPlayerId] = useState<number | ''>('')
+  const [selections, setSelections] = useState<Record<number, number | ''>>(existingSelections ?? {})
+  const [kickerPlayerId, setKickerPlayerId] = useState<number | ''>(existingKickerPlayerId ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()

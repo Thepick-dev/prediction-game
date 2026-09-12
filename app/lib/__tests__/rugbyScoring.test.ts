@@ -4,6 +4,7 @@ import {
   computeSubPenalties,
   computeMatchPredictionScores,
   computeMatchSideDistribution,
+  computeTryBonusActuals,
   computeSeasonPredictionScores,
   DEFAULT_RUGBY_SCORING_RULES,
   type SeasonSquadPick,
@@ -12,6 +13,7 @@ import {
   type RugbyMatchEvent,
   type MatchPrediction,
   type FinishedFixture,
+  type RugbyFixtureTeams,
   type SeasonPrediction,
   type SeasonPredictionResult,
   type SeasonPredictionType,
@@ -89,24 +91,29 @@ describe('computeSeasonSquadRoundPoints', () => {
     expect(rows[0].total_points).toBe(-rules.squad_red_card_penalty)
   })
 
-  it('applies the contrarian bonus only in the exact round the player was acquired, never in later rounds', () => {
-    const lowPct = rules.contrarian_threshold_pct - 1
-    const pick = makePick({ player_id: 1, round_acquired: 2, contrarian_pct_at_pick: lowPct })
+  it('multiplies try+kicking points (not a flat add) for a rarely-held player, only in the acquisition round', () => {
+    const lowPct = rules.player_ownership_threshold_pct - 1
+    const pick = makePick({ player_id: 2, is_kicker: true, round_acquired: 2, contrarian_pct_at_pick: lowPct })
     const roundsFixtures: RugbyFixtureRef[] = [
       { id: 100, round_id: 'round-1', home_team_id: 1, away_team_id: 2 },
       { id: 200, round_id: 'round-2', home_team_id: 1, away_team_id: 2 },
       { id: 300, round_id: 'round-3', home_team_id: 1, away_team_id: 2 },
     ]
-    // Round 2 (acquisition round) — bonus applies.
-    const round2Rows = computeSeasonSquadRoundPoints([pick], 2, 'round-2', roundsFixtures, players, [], rules, {})
-    expect(round2Rows[0].contrarian_bonus).toBe(rules.squad_contrarian_bonus)
-    // Round 3 (later) — no repeat bonus.
+    const events: RugbyMatchEvent[] = [{ player_id: 2, event_type: 'try', fixture_id: 200 }]
+    // Round 2 (acquisition round) — try_points stay raw; the multiplier's
+    // extra shows up as contrarian_bonus, and total_points reflects it.
+    const round2Rows = computeSeasonSquadRoundPoints([pick], 2, 'round-2', roundsFixtures, players, events, rules, {})
+    const expectedBonus = Math.round(rules.squad_try_points * (rules.player_ownership_multiplier - 1))
+    expect(round2Rows[0].try_points).toBe(rules.squad_try_points)
+    expect(round2Rows[0].contrarian_bonus).toBe(expectedBonus)
+    expect(round2Rows[0].total_points).toBe(rules.squad_try_points + expectedBonus)
+    // Round 3 (later, same events wouldn't recur, but even hypothetically) — no repeat bonus.
     const round3Rows = computeSeasonSquadRoundPoints([pick], 3, 'round-3', roundsFixtures, players, [], rules, {})
     expect(round3Rows[0].contrarian_bonus).toBe(0)
   })
 
-  it('does NOT apply the contrarian bonus when the pick was widely held (at/above threshold)', () => {
-    const pick = makePick({ player_id: 1, round_acquired: 1, contrarian_pct_at_pick: rules.contrarian_threshold_pct })
+  it('does NOT apply the ownership multiplier when the pick was widely held (at/above threshold)', () => {
+    const pick = makePick({ player_id: 1, round_acquired: 1, contrarian_pct_at_pick: rules.player_ownership_threshold_pct })
     const rows = computeSeasonSquadRoundPoints([pick], 1, 'round-1', fixtures, players, [], rules, {})
     expect(rows[0].contrarian_bonus).toBe(0)
   })
@@ -172,64 +179,137 @@ describe('computeSubPenalties', () => {
   })
 })
 
+describe('computeTryBonusActuals', () => {
+  const fixtureTeams: RugbyFixtureTeams[] = [{ id: 1, home_team_id: 10, away_team_id: 20 }]
+  const teamPlayers: RugbyPlayerRef[] = [{ id: 1, team_id: 10 }, { id: 2, team_id: 20 }]
+
+  it('is true for a side with 4 or more try events, false otherwise', () => {
+    const events: RugbyMatchEvent[] = [
+      { fixture_id: 1, event_type: 'try', player_id: 1 },
+      { fixture_id: 1, event_type: 'try', player_id: 1 },
+      { fixture_id: 1, event_type: 'try', player_id: 1 },
+      { fixture_id: 1, event_type: 'try', player_id: 1 },
+      { fixture_id: 1, event_type: 'try', player_id: 2 },
+      { fixture_id: 1, event_type: 'conversion', player_id: 2 }, // not a try, ignored
+    ]
+    const result = computeTryBonusActuals(fixtureTeams, teamPlayers, events)
+    expect(result[1].home).toBe(true) // 4 tries
+    expect(result[1].away).toBe(false) // 1 try
+  })
+})
+
 describe('computeMatchPredictionScores', () => {
   const fixture: FinishedFixture = { id: 1, home_score: 20, away_score: 10 } // home won by 10
 
   function makePred(overrides: Partial<MatchPrediction> = {}): MatchPrediction {
-    return { id: 'p1', user_id: 'u1', round_id: 'r1', fixture_id: 1, predicted_home_score: 20, predicted_away_score: 10, confidence: 1, ...overrides }
+    return {
+      id: 'p1', user_id: 'u1', round_id: 'r1', fixture_id: 1,
+      predicted_winner: 'home', predicted_margin: 10, is_confidence_pick: false,
+      predicted_home_try_bonus: null, predicted_away_try_bonus: null,
+      ...overrides,
+    }
   }
 
-  it('stacks winner + margin + exact bonuses for a spot-on prediction, multiplied by confidence', () => {
-    const pred = makePred({ confidence: 2 })
-    const rows = computeMatchPredictionScores([pred], [fixture], {}, rules)
-    const expectedBase = rules.winner_bonus + rules.margin_bonus_max + rules.exact_score_bonus
-    expect(rows[0].base_points).toBe(expectedBase)
-    expect(rows[0].total_points).toBe(expectedBase * 2)
+  it('scores the win base minus the margin error for a correct, spot-on margin', () => {
+    const pred = makePred({ predicted_margin: 10 })
+    const rows = computeMatchPredictionScores([pred], [fixture], {}, {}, rules)
+    expect(rows[0].is_correct).toBe(true)
+    expect(rows[0].match_points).toBe(rules.match_win_base)
+    expect(rows[0].total_points).toBe(rules.match_win_base)
   })
 
-  it('gives partial margin credit for the right winner but the wrong margin, no exact bonus', () => {
-    // Predicted home win by 15 (25-10), actual was by 10 — margin off by 5.
-    const pred = makePred({ predicted_home_score: 25, predicted_away_score: 10, confidence: 1 })
-    const rows = computeMatchPredictionScores([pred], [fixture], {}, rules)
-    const expectedMargin = Math.max(0, rules.margin_bonus_max - 5)
-    expect(rows[0].base_points).toBe(rules.winner_bonus + expectedMargin)
-    expect(rows[0].total_points).toBe(rules.winner_bonus + expectedMargin)
+  it('diminishes the win base by exactly the margin error, per the worked example (50 base, 10 out -> 40)', () => {
+    // Predicted home by 10, actual was by 20 -> off by 10.
+    const pred = makePred({ predicted_winner: 'home', predicted_margin: 10 })
+    const wideFixture: FinishedFixture = { id: 1, home_score: 30, away_score: 10 } // by 20
+    const rows = computeMatchPredictionScores([pred], [wideFixture], {}, {}, rules)
+    expect(rows[0].match_points).toBe(rules.match_win_base - 10)
   })
 
-  it('a wrong winner scores a straight negative penalty, never a partial margin credit — even a narrow miss', () => {
-    // Predicted a draw, actual was a home win — wrong side entirely.
-    const pred = makePred({ predicted_home_score: 10, predicted_away_score: 10, confidence: 3 })
-    const rows = computeMatchPredictionScores([pred], [fixture], {}, rules)
+  it('never goes below zero even with a huge margin error', () => {
+    const pred = makePred({ predicted_winner: 'home', predicted_margin: 1 })
+    const wideFixture: FinishedFixture = { id: 1, home_score: 100, away_score: 0 } // by 100
+    const rows = computeMatchPredictionScores([pred], [wideFixture], {}, {}, rules)
+    expect(rows[0].match_points).toBe(0)
+  })
+
+  it('scores the flat draw base for a correctly predicted draw, no margin involved', () => {
+    const drawFixture: FinishedFixture = { id: 1, home_score: 15, away_score: 15 }
+    const pred = makePred({ predicted_winner: 'draw', predicted_margin: null })
+    const rows = computeMatchPredictionScores([pred], [drawFixture], {}, {}, rules)
+    expect(rows[0].is_correct).toBe(true)
+    expect(rows[0].match_points).toBe(rules.match_draw_base)
+  })
+
+  it('scores zero — never negative — for a wrong winner call, regardless of confidence', () => {
+    const pred = makePred({ predicted_winner: 'away', predicted_margin: 5, is_confidence_pick: true })
+    const rows = computeMatchPredictionScores([pred], [fixture], {}, {}, rules)
     expect(rows[0].is_correct).toBe(false)
-    expect(rows[0].base_points).toBe(0)
-    expect(rows[0].total_points).toBe(-(3 * rules.wrong_pick_penalty_constant))
+    expect(rows[0].match_points).toBe(0)
+    expect(rows[0].total_points).toBe(0)
   })
 
-  it('applies the underdog/contrarian bonus only when the side pct is below threshold, and only on a correct pick', () => {
-    const pred = makePred({ confidence: 1 })
-    const lowPct = { 1: rules.contrarian_threshold_pct - 1 }
-    const highPct = { 1: rules.contrarian_threshold_pct }
-    const lowRows = computeMatchPredictionScores([pred], [fixture], lowPct, rules)
-    const highRows = computeMatchPredictionScores([pred], [fixture], highPct, rules)
-    expect(lowRows[0].base_points).toBe(rules.winner_bonus + rules.margin_bonus_max + rules.exact_score_bonus + rules.match_contrarian_bonus)
-    expect(highRows[0].base_points).toBe(rules.winner_bonus + rules.margin_bonus_max + rules.exact_score_bonus)
+  it('applies the confidence multiplier on top of the base for a correct pick', () => {
+    const pred = makePred({ predicted_margin: 10, is_confidence_pick: true })
+    const rows = computeMatchPredictionScores([pred], [fixture], {}, {}, rules)
+    expect(rows[0].match_points).toBe(Math.round(rules.match_win_base * rules.match_confidence_multiplier))
+  })
+
+  it('applies the underdog multiplier only when the picked side was rare enough', () => {
+    const pred = makePred({ predicted_margin: 10 })
+    const lowPct = { 1: rules.match_underdog_threshold_pct - 1 }
+    const highPct = { 1: rules.match_underdog_threshold_pct }
+    const lowRows = computeMatchPredictionScores([pred], [fixture], lowPct, {}, rules)
+    const highRows = computeMatchPredictionScores([pred], [fixture], highPct, {}, rules)
+    expect(lowRows[0].match_points).toBe(Math.round(rules.match_win_base * rules.match_underdog_multiplier))
+    expect(highRows[0].match_points).toBe(rules.match_win_base)
+  })
+
+  it('combines confidence and underdog additively (1.5x + 1.5x = 2x, not 2.25x), matching the worked example (50 win base -> 100, 75 draw base -> 150)', () => {
+    const drawFixture: FinishedFixture = { id: 1, home_score: 15, away_score: 15 }
+    const winPred = makePred({ predicted_winner: 'home', predicted_margin: 10, is_confidence_pick: true })
+    const drawPred = makePred({ predicted_winner: 'draw', predicted_margin: null, is_confidence_pick: true })
+    const lowPct = { 1: rules.match_underdog_threshold_pct - 1 }
+    const winRows = computeMatchPredictionScores([winPred], [fixture], lowPct, {}, rules)
+    const drawRows = computeMatchPredictionScores([drawPred], [drawFixture], lowPct, {}, rules)
+    expect(winRows[0].match_points).toBe(100)
+    expect(drawRows[0].match_points).toBe(150)
+  })
+
+  it('scores each team\'s try-bonus call independently, sharing the match\'s own multiplier', () => {
+    const pred = makePred({ predicted_margin: 10, is_confidence_pick: true, predicted_home_try_bonus: true, predicted_away_try_bonus: false })
+    const tryActuals = { 1: { home: true, away: false } } // both calls correct
+    const rows = computeMatchPredictionScores([pred], [fixture], {}, tryActuals, rules)
+    const expectedTryPoints = Math.round(rules.try_bonus_points * rules.match_confidence_multiplier)
+    expect(rows[0].home_try_bonus_points).toBe(expectedTryPoints)
+    expect(rows[0].away_try_bonus_points).toBe(expectedTryPoints)
+    expect(rows[0].total_points).toBe(rows[0].match_points + expectedTryPoints * 2)
+  })
+
+  it('scores zero try-bonus points for an incorrect try-bonus call', () => {
+    const pred = makePred({ predicted_home_try_bonus: false, predicted_away_try_bonus: true })
+    const tryActuals = { 1: { home: true, away: false } } // both calls wrong
+    const rows = computeMatchPredictionScores([pred], [fixture], {}, tryActuals, rules)
+    expect(rows[0].home_try_bonus_points).toBe(0)
+    expect(rows[0].away_try_bonus_points).toBe(0)
   })
 
   it('skips a fixture with no final score yet', () => {
     const unfinished: FinishedFixture = { id: 2, home_score: null, away_score: null }
     const pred = makePred({ fixture_id: 2 })
-    expect(computeMatchPredictionScores([pred], [unfinished], {}, rules)).toHaveLength(0)
+    expect(computeMatchPredictionScores([pred], [unfinished], {}, {}, rules)).toHaveLength(0)
   })
 })
 
 describe('computeMatchSideDistribution', () => {
   it('computes the % of the field that picked the actual winning side', () => {
     const fixture: FinishedFixture = { id: 1, home_score: 20, away_score: 10 }
+    const base = { round_id: 'r1', fixture_id: 1, predicted_margin: 5, is_confidence_pick: false, predicted_home_try_bonus: null, predicted_away_try_bonus: null }
     const predictions: MatchPrediction[] = [
-      { id: 'a', user_id: 'u1', round_id: 'r1', fixture_id: 1, predicted_home_score: 15, predicted_away_score: 10, confidence: 1 }, // home win, correct side
-      { id: 'b', user_id: 'u2', round_id: 'r1', fixture_id: 1, predicted_home_score: 10, predicted_away_score: 15, confidence: 1 }, // away win, wrong side
-      { id: 'c', user_id: 'u3', round_id: 'r1', fixture_id: 1, predicted_home_score: 22, predicted_away_score: 12, confidence: 1 }, // home win, correct side
-      { id: 'd', user_id: 'u4', round_id: 'r1', fixture_id: 1, predicted_home_score: 12, predicted_away_score: 22, confidence: 1 }, // away win, wrong side
+      { id: 'a', user_id: 'u1', predicted_winner: 'home', ...base },
+      { id: 'b', user_id: 'u2', predicted_winner: 'away', ...base },
+      { id: 'c', user_id: 'u3', predicted_winner: 'home', ...base },
+      { id: 'd', user_id: 'u4', predicted_winner: 'away', ...base },
     ]
     const result = computeMatchSideDistribution(predictions, [fixture])
     expect(result[1]).toBe(50)
@@ -246,7 +326,7 @@ describe('computeSeasonPredictionScores', () => {
     { type_key: 'total_tries', result_team_id: null, result_player_id: null, result_numeric: 100, result_fixture_id: null },
   ]
 
-  it('awards the flat points for an exact team match, no bonus when widely picked', () => {
+  it('awards the flat points for an exact team match, no multiplier when widely picked', () => {
     const predictions: SeasonPrediction[] = [
       { id: 'p1', user_id: 'u1', type_key: 'winner', answer_team_id: 1, answer_player_id: null, answer_numeric: null, answer_fixture_id: null },
       { id: 'p2', user_id: 'u2', type_key: 'winner', answer_team_id: 1, answer_player_id: null, answer_numeric: null, answer_fixture_id: null },
@@ -256,7 +336,7 @@ describe('computeSeasonPredictionScores', () => {
     expect(rows.find(r => r.user_id === 'u1')?.contrarian_bonus_applied).toBe(false)
   })
 
-  it('adds the underdog bonus when the correct answer was rare among predictions', () => {
+  it('multiplies the question\'s own points when the correct answer was rare among predictions', () => {
     // 1 of 5 correct = 20%, strictly below the 25% threshold.
     const predictions: SeasonPrediction[] = [
       { id: 'p1', user_id: 'u1', type_key: 'winner', answer_team_id: 1, answer_player_id: null, answer_numeric: null, answer_fixture_id: null }, // correct, rare
@@ -269,7 +349,7 @@ describe('computeSeasonPredictionScores', () => {
     const u1Row = rows.find(r => r.user_id === 'u1')
     expect(u1Row?.is_correct).toBe(true)
     expect(u1Row?.contrarian_bonus_applied).toBe(true)
-    expect(u1Row?.points).toBe(20 + rules.season_contrarian_bonus)
+    expect(u1Row?.points).toBe(Math.round(20 * rules.season_underdog_multiplier))
   })
 
   it('accepts a numeric answer within tolerance as correct, and rejects one outside it', () => {

@@ -20,18 +20,29 @@ export const DEFAULT_RUGBY_SCORING_RULES: RugbyScoringRules = {
   squad_penalty_points: 3,
   squad_dropgoal_points: 5,
   squad_red_card_penalty: 15,
-  squad_contrarian_bonus: 10,
-  contrarian_threshold_pct: 25,
   max_free_subs: 6,
   extra_sub_penalty: 10,
-  // Weekly match-score prediction layer
-  winner_bonus: 10,
-  margin_bonus_max: 15,
-  exact_score_bonus: 10,
-  match_contrarian_bonus: 10,
-  wrong_pick_penalty_constant: 5,
-  // Season-long prop-bet layer
-  season_contrarian_bonus: 15,
+  // A player picked by few managers earns a multiplier on their try+kicking
+  // points for the round they were acquired — e.g. a threshold of 25 and a
+  // multiplier of 1.5 means anyone picked by under 25% of the field that
+  // round has those points multiplied by 1.5.
+  player_ownership_threshold_pct: 25,
+  player_ownership_multiplier: 1.5,
+  // Weekly match predictions: winner + margin (not exact score), a single
+  // admin-tunable base per outcome, one confidence pick per round, and an
+  // underdog multiplier for a widely-missed correct winner call.
+  match_win_base: 50,
+  match_draw_base: 75,
+  match_confidence_multiplier: 1.5,
+  match_underdog_threshold_pct: 25,
+  match_underdog_multiplier: 1.5,
+  // Per-team try-bonus (4+ tries) call, one for each side per fixture —
+  // shares the match's own confidence/underdog multiplier state.
+  try_bonus_points: 20,
+  // Season-long prop-bet layer — same underdog-multiplier principle,
+  // applied to that question's own admin-set points value.
+  season_underdog_threshold_pct: 25,
+  season_underdog_multiplier: 1.5,
 }
 
 export function rulesWithDefaults(rows: { rule_key: string; points: number }[]): RugbyScoringRules {
@@ -154,10 +165,15 @@ export function computeSeasonSquadRoundPoints(
     const redCardPenalty = hasRedCard ? rules.squad_red_card_penalty : 0
 
     // Both one-off charges/bonuses only ever apply in the specific round
-    // the pick was acquired — never repeated on later rounds' recalcs.
+    // the pick was acquired — never repeated on later rounds' recalcs. A
+    // rarely-held player multiplies their try+kicking points rather than
+    // adding a flat bonus; contrarian_bonus is kept as the EXTRA amount
+    // that multiplier contributes, so try_points/kicking_points stay their
+    // raw, unmultiplied values for anything reading them directly.
     const isAcquisitionRound = roundNumber === pick.round_acquired
-    const contrarianBonus = isAcquisitionRound && pick.contrarian_pct_at_pick != null && pick.contrarian_pct_at_pick < rules.contrarian_threshold_pct
-      ? rules.squad_contrarian_bonus
+    const isUnderdogPick = isAcquisitionRound && pick.contrarian_pct_at_pick != null && pick.contrarian_pct_at_pick < rules.player_ownership_threshold_pct
+    const contrarianBonus = isUnderdogPick
+      ? Math.round((tryPoints + kickingPoints) * (rules.player_ownership_multiplier - 1))
       : 0
     const subPenalty = isAcquisitionRound ? (subPenaltyByPickId[pick.id] ?? 0) : 0
 
@@ -220,8 +236,10 @@ export async function calculateSeasonSquadRoundScoring(
 }
 
 // ============================================================
-// Weekly match-score predictions (winner + margin + exact-score bonus,
-// a confidence multiplier, and a differential/contrarian bonus)
+// Weekly match predictions: winner + margin (not an exact score), one
+// admin-tunable base per outcome, one confidence pick per round, an
+// underdog multiplier for a widely-missed correct winner call, and a
+// per-team try-bonus (4+ tries) call sharing that same multiplier state.
 // ============================================================
 
 export type MatchPrediction = {
@@ -229,12 +247,39 @@ export type MatchPrediction = {
   user_id: string
   round_id: string
   fixture_id: number
-  predicted_home_score: number
-  predicted_away_score: number
-  confidence: 1 | 2 | 3
+  predicted_winner: 'home' | 'away' | 'draw'
+  predicted_margin: number | null // null when predicted_winner is 'draw'
+  is_confidence_pick: boolean
+  predicted_home_try_bonus: boolean | null
+  predicted_away_try_bonus: boolean | null
 }
 
 export type FinishedFixture = { id: number; home_score: number | null; away_score: number | null }
+
+export type RugbyFixtureTeams = { id: number; home_team_id: number; away_team_id: number }
+
+// Whether each side actually scored a try bonus (4+ tries) — derived from
+// match_events, never a separate admin input, so there's nothing extra to
+// enter beyond the scorer events already logged for the squad-picks layer.
+export function computeTryBonusActuals(
+  fixtures: RugbyFixtureTeams[],
+  players: RugbyPlayerRef[],
+  matchEvents: RugbyMatchEvent[]
+): Record<number, { home: boolean; away: boolean }> {
+  const teamByPlayerId = new Map(players.map(p => [p.id, p.team_id]))
+  const result: Record<number, { home: boolean; away: boolean }> = {}
+  for (const fixture of fixtures) {
+    let homeTries = 0
+    let awayTries = 0
+    matchEvents.filter(e => e.fixture_id === fixture.id && e.event_type === 'try').forEach(e => {
+      const teamId = e.player_id != null ? teamByPlayerId.get(e.player_id) : undefined
+      if (teamId === fixture.home_team_id) homeTries += 1
+      else if (teamId === fixture.away_team_id) awayTries += 1
+    })
+    result[fixture.id] = { home: homeTries >= 4, away: awayTries >= 4 }
+  }
+  return result
+}
 
 export type MatchPredictionPointsRow = {
   match_prediction_id: string
@@ -242,8 +287,10 @@ export type MatchPredictionPointsRow = {
   round_id: string
   fixture_id: number
   is_correct: boolean
-  confidence: number
-  base_points: number
+  multiplier: number
+  match_points: number
+  home_try_bonus_points: number
+  away_try_bonus_points: number
   total_points: number
 }
 
@@ -258,16 +305,12 @@ export function computeMatchSideDistribution(
   const result: Record<number, number> = {}
   for (const fixture of fixtures) {
     if (fixture.home_score == null || fixture.away_score == null) continue
-    const actualMargin = fixture.home_score - fixture.away_score
-    const actualSide = actualMargin > 0 ? 'home' : actualMargin < 0 ? 'away' : 'draw'
+    const diff = fixture.home_score - fixture.away_score
+    const actualSide = diff > 0 ? 'home' : diff < 0 ? 'away' : 'draw'
     const fixturePredictions = predictions.filter(p => p.fixture_id === fixture.id)
     if (fixturePredictions.length === 0) continue
-    const winningSideCount = fixturePredictions.filter(p => {
-      const predictedMargin = p.predicted_home_score - p.predicted_away_score
-      const predictedSide = predictedMargin > 0 ? 'home' : predictedMargin < 0 ? 'away' : 'draw'
-      return predictedSide === actualSide
-    }).length
-    result[fixture.id] = (winningSideCount / fixturePredictions.length) * 100
+    const correctCount = fixturePredictions.filter(p => p.predicted_winner === actualSide).length
+    result[fixture.id] = (correctCount / fixturePredictions.length) * 100
   }
   return result
 }
@@ -276,6 +319,7 @@ export function computeMatchPredictionScores(
   predictions: MatchPrediction[],
   fixtures: FinishedFixture[],
   sidePctByFixtureId: Record<number, number>,
+  tryBonusActualsByFixtureId: Record<number, { home: boolean; away: boolean }>,
   rules: RugbyScoringRules
 ): MatchPredictionPointsRow[] {
   const fixtureById = new Map(fixtures.map(f => [f.id, f]))
@@ -285,30 +329,52 @@ export function computeMatchPredictionScores(
     const fixture = fixtureById.get(pred.fixture_id)
     if (!fixture || fixture.home_score == null || fixture.away_score == null) continue
 
-    const actualMargin = fixture.home_score - fixture.away_score
-    const predictedMargin = pred.predicted_home_score - pred.predicted_away_score
-    const actualSide = actualMargin > 0 ? 'home' : actualMargin < 0 ? 'away' : 'draw'
-    const predictedSide = predictedMargin > 0 ? 'home' : predictedMargin < 0 ? 'away' : 'draw'
-    const isCorrect = actualSide === predictedSide
+    const diff = fixture.home_score - fixture.away_score
+    const actualSide = diff > 0 ? 'home' : diff < 0 ? 'away' : 'draw'
+    const actualMargin = Math.abs(diff)
+    const isCorrect = pred.predicted_winner === actualSide
 
-    let basePoints: number
-    let totalPoints: number
-    if (!isCorrect) {
-      basePoints = 0
-      totalPoints = -(pred.confidence * rules.wrong_pick_penalty_constant)
-    } else {
-      const winnerPoints = rules.winner_bonus
-      const marginPoints = Math.max(0, rules.margin_bonus_max - Math.abs(predictedMargin - actualMargin))
-      const exactBonus = (pred.predicted_home_score === fixture.home_score && pred.predicted_away_score === fixture.away_score) ? rules.exact_score_bonus : 0
-      const sidePct = sidePctByFixtureId[pred.fixture_id]
-      const contrarianBonus = (sidePct != null && sidePct < rules.contrarian_threshold_pct) ? rules.match_contrarian_bonus : 0
-      basePoints = winnerPoints + marginPoints + exactBonus + contrarianBonus
-      totalPoints = basePoints * pred.confidence
+    // Never negative — a wrong winner call (including a missed draw, or a
+    // wrongly-called draw) simply scores zero, no penalty.
+    let base = 0
+    if (isCorrect) {
+      if (actualSide === 'draw') {
+        base = rules.match_draw_base
+      } else {
+        const marginError = Math.abs((pred.predicted_margin ?? 0) - actualMargin)
+        base = Math.max(0, rules.match_win_base - marginError)
+      }
+    }
+
+    const sidePct = sidePctByFixtureId[pred.fixture_id]
+    const isUnderdog = sidePct != null && sidePct < rules.match_underdog_threshold_pct
+    // Confidence and underdog each contribute their own "extra" fraction on
+    // top of 1x, additively — e.g. two 1.5x bonuses combine to 2x overall,
+    // not 2.25x. Applies identically to the win/margin points and both
+    // try-bonus calls for this same match.
+    const multiplier = 1
+      + (pred.is_confidence_pick ? rules.match_confidence_multiplier - 1 : 0)
+      + (isUnderdog ? rules.match_underdog_multiplier - 1 : 0)
+
+    const matchPoints = Math.round(base * multiplier)
+
+    const tryActuals = tryBonusActualsByFixtureId[pred.fixture_id]
+    let homeTryBonusPoints = 0
+    let awayTryBonusPoints = 0
+    if (tryActuals) {
+      if (pred.predicted_home_try_bonus != null && pred.predicted_home_try_bonus === tryActuals.home) {
+        homeTryBonusPoints = Math.round(rules.try_bonus_points * multiplier)
+      }
+      if (pred.predicted_away_try_bonus != null && pred.predicted_away_try_bonus === tryActuals.away) {
+        awayTryBonusPoints = Math.round(rules.try_bonus_points * multiplier)
+      }
     }
 
     rows.push({
       match_prediction_id: pred.id, user_id: pred.user_id, round_id: pred.round_id, fixture_id: pred.fixture_id,
-      is_correct: isCorrect, confidence: pred.confidence, base_points: basePoints, total_points: totalPoints,
+      is_correct: isCorrect, multiplier, match_points: matchPoints,
+      home_try_bonus_points: homeTryBonusPoints, away_try_bonus_points: awayTryBonusPoints,
+      total_points: matchPoints + homeTryBonusPoints + awayTryBonusPoints,
     })
   }
   return rows
@@ -321,18 +387,26 @@ export async function calculateMatchPredictionRoundScoring(
   const { data: round } = await supabase.schema('rugby').from('rounds').select('id, competition_id').eq('id', roundId).single()
   if (!round) return { error: 'Round not found' }
 
-  const [{ data: rulesRows }, { data: predictions }, { data: fixtures }] = await Promise.all([
+  const [{ data: rulesRows }, { data: predictions }, { data: fixtures }, { data: players }] = await Promise.all([
     supabase.schema('rugby').from('scoring_rules').select('rule_key, points').eq('competition_id', round.competition_id),
     supabase.schema('rugby').from('match_predictions').select('*').eq('round_id', roundId),
-    supabase.schema('rugby').from('fixtures').select('id, home_score, away_score').eq('round_id', roundId),
+    supabase.schema('rugby').from('fixtures').select('id, home_team_id, away_team_id, home_score, away_score').eq('round_id', roundId),
+    supabase.schema('rugby').from('players').select('id, team_id'),
   ])
 
   const rules = rulesWithDefaults(rulesRows ?? [])
   const predictionsList = (predictions ?? []) as MatchPrediction[]
-  const fixturesList = (fixtures ?? []) as FinishedFixture[]
+  const fixturesList = (fixtures ?? []) as (FinishedFixture & RugbyFixtureTeams)[]
+  const playersList = (players ?? []) as RugbyPlayerRef[]
+
+  const fixtureIds = fixturesList.map(f => f.id)
+  const { data: matchEvents } = fixtureIds.length
+    ? await supabase.schema('rugby').from('match_events').select('player_id, event_type, fixture_id').in('fixture_id', fixtureIds)
+    : { data: [] as RugbyMatchEvent[] }
 
   const sidePctByFixtureId = computeMatchSideDistribution(predictionsList, fixturesList)
-  const rows = computeMatchPredictionScores(predictionsList, fixturesList, sidePctByFixtureId, rules)
+  const tryBonusActualsByFixtureId = computeTryBonusActuals(fixturesList, playersList, (matchEvents ?? []) as RugbyMatchEvent[])
+  const rows = computeMatchPredictionScores(predictionsList, fixturesList, sidePctByFixtureId, tryBonusActualsByFixtureId, rules)
 
   if (rows.length === 0) return { success: true, rows: 0 }
 
@@ -409,8 +483,8 @@ export function computeSeasonPredictionScores(
     const total = totalCountByType.get(pred.type_key) ?? 0
     const correct = correctCountByType.get(pred.type_key) ?? 0
     const correctPct = total > 0 ? (correct / total) * 100 : 0
-    const contrarianApplies = correctPct < rules.contrarian_threshold_pct
-    const points = type.points + (contrarianApplies ? rules.season_contrarian_bonus : 0)
+    const contrarianApplies = correctPct < rules.season_underdog_threshold_pct
+    const points = Math.round(type.points * (contrarianApplies ? rules.season_underdog_multiplier : 1))
 
     rows.push({ user_id: pred.user_id, type_key: pred.type_key, is_correct: true, points, contrarian_bonus_applied: contrarianApplies })
   }

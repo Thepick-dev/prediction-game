@@ -123,10 +123,10 @@ export default async function RugbySquadPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
             {teamsList.map(team => (
               <div key={team.id}>
-                <h3 className="pop-headline text-xs mb-2" style={{ color: 'var(--pop-pink)' }}>{team.name} ({(playersByTeam[team.id] ?? []).length})</h3>
+                <h3 className="pop-name text-sm mb-2" style={{ color: 'var(--pop-pink)' }}>{team.name} ({(playersByTeam[team.id] ?? []).length})</h3>
                 <ul className="text-xs space-y-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
                   {(playersByTeam[team.id] ?? []).map(p => (
-                    <li key={p.id}>{p.name}</li>
+                    <li key={p.id} className="pop-name" style={{ letterSpacing: '0.01em' }}>{p.name}</li>
                   ))}
                 </ul>
               </div>

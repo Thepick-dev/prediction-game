@@ -20,31 +20,28 @@ const RULE_GROUPS: { heading: string; rules: Record<string, string> }[] = [
       squad_penalty_points: 'Points per penalty goal (kicker only)',
       squad_dropgoal_points: 'Points per drop goal (kicker only)',
       squad_red_card_penalty: 'Points lost if one of your 6 gets a red card',
-      squad_contrarian_bonus: 'Underdog bonus for picking a player few others have',
       max_free_subs: 'Free substitutions per competition',
       extra_sub_penalty: 'Points lost per substitution beyond the free limit',
+      player_ownership_threshold_pct: 'Below this % of managers owning a player, their points get multiplied',
+      player_ownership_multiplier: 'The multiplier applied to that rarely-owned player\'s try + kicking points',
     },
   },
   {
     heading: 'Weekly Match Predictions',
     rules: {
-      winner_bonus: 'Points for picking the correct winner',
-      margin_bonus_max: 'Extra points for a spot-on margin (scales down the further off you are)',
-      exact_score_bonus: 'Bonus for the exact score',
-      match_contrarian_bonus: 'Underdog bonus for backing the side fewer people picked',
-      wrong_pick_penalty_constant: 'Points lost per confidence point on a wrong pick',
+      match_win_base: 'Points for correctly picking the winner (before margin is deducted)',
+      match_draw_base: 'Points for correctly picking a draw (flat — no margin to be off by)',
+      match_confidence_multiplier: 'Multiplier for your one confidence pick each round',
+      match_underdog_threshold_pct: 'Below this % of players picking the actual winning side, it counts as an underdog call',
+      match_underdog_multiplier: 'Multiplier applied when your correct winner call was an underdog call',
+      try_bonus_points: 'Points for correctly calling a team\'s try bonus (4+ tries), per team',
     },
   },
   {
     heading: 'Season Predictions',
     rules: {
-      season_contrarian_bonus: 'Underdog bonus for a correct answer few others gave',
-    },
-  },
-  {
-    heading: 'Shared',
-    rules: {
-      contrarian_threshold_pct: 'Below this % of the field agreeing counts as an underdog pick, anywhere in the game',
+      season_underdog_threshold_pct: 'Below this % of players answering correctly, it counts as an underdog answer',
+      season_underdog_multiplier: 'Multiplier applied to that question\'s own points for a correct underdog answer',
     },
   },
 ]

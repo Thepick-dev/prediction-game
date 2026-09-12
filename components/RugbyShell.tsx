@@ -132,8 +132,17 @@ export default function RugbyShell({
     <div className="pop-art-theme min-h-screen">
       <header className="sticky top-0 z-50" style={{ borderBottom: '2px solid rgba(255,255,255,0.15)' }}>
         {tickerText && (
-          <div className="px-4 py-1.5 text-xs text-center" style={{ background: 'var(--pop-orange)', color: 'var(--pop-black)', fontWeight: 600 }}>
-            📢 {tickerText}
+          <div className="overflow-hidden whitespace-nowrap" style={{ background: 'var(--pop-orange)' }}>
+            <div
+              className="pop-ticker-track inline-flex items-center py-1.5 font-bold"
+              style={{ fontSize: '12px', color: 'var(--pop-black)', animationDuration: `${Math.max(15, tickerText.length * 0.3)}s` }}
+            >
+              {[0, 1].map(dup => (
+                <span key={dup} className="inline-flex items-center shrink-0">
+                  <span className="mx-6">📢 {tickerText}</span>
+                </span>
+              ))}
+            </div>
           </div>
         )}
         <div className="max-w-4xl mx-auto px-4">

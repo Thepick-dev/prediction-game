@@ -51,7 +51,7 @@ export default async function RugbyWinnersPage() {
                 {podium.map((row, i) => (
                   <div key={i} className="flex items-center gap-3 text-sm" style={{ color: 'var(--pop-white)' }}>
                     <span className="text-lg">{medals[i]}</span>
-                    <span className="flex-1">{row.name}</span>
+                    <span className="flex-1 pop-name">{row.name}</span>
                     <span className="pop-headline" style={{ color: 'var(--pop-blue)' }}>{row.points}</span>
                   </div>
                 ))}

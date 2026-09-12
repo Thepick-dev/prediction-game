@@ -166,6 +166,17 @@ thead th {
 .pop-hero--blue { text-shadow: 0 0 6px var(--pop-blue), 0 0 22px var(--pop-blue); }
 .pop-hero--green { text-shadow: 0 0 6px var(--pop-green), 0 0 22px var(--pop-green); }
 
+/* The same condensed poster face as .pop-hero, without its neon glow —
+   for team and player names specifically (rugby's leaderboard, squad,
+   results, stats lists), where a name appears dozens of times per page
+   and a full hero glow on every one would be overwhelming, but plain
+   body text reads as flat. */
+.pop-name {
+  font-family: var(--font-display), sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 /* Base card — dark surface, thin neutral border, soft ordinary shadow
    for depth. No hard offset "comic" shadow, no coloured fill: colour
    only ever shows up here as a border + glow (the --accent-* variants

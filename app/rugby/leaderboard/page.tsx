@@ -114,7 +114,7 @@ export default async function RugbyLeaderboardPage() {
                           ) : (
                             <div style={{ width: 24 }} />
                           )}
-                          <span style={{ color: 'var(--pop-white)' }}>{row.name}</span>
+                          <span className="pop-name text-sm" style={{ color: 'var(--pop-white)' }}>{row.name}</span>
                         </div>
                       </td>
                       {roundsList.map(r => {

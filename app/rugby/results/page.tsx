@@ -80,7 +80,7 @@ export default async function RugbyResultsPage() {
               <div className="space-y-1 mb-3">
                 {roundFixtures.map(f => (
                   <div key={f.id} className="flex items-center justify-between text-sm py-1" style={{ color: 'var(--pop-white)' }}>
-                    <span>{teamName(f.home_team_id)} v {teamName(f.away_team_id)}</span>
+                    <span className="pop-name">{teamName(f.home_team_id)} v {teamName(f.away_team_id)}</span>
                     <span style={{ color: 'rgba(255,255,255,0.6)' }}>
                       {f.status === 'finished'
                         ? `${f.home_score} - ${f.away_score}`

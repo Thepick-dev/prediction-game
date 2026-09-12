@@ -4,7 +4,22 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 type FixtureInfo = { id: number; homeTeam: string; awayTeam: string }
-type Existing = { fixture_id: number; predicted_home_score: number; predicted_away_score: number; confidence: number }
+type Winner = 'home' | 'away' | 'draw'
+type Existing = {
+  fixture_id: number
+  predicted_winner: Winner
+  predicted_margin: number | null
+  is_confidence_pick: boolean
+  predicted_home_try_bonus: boolean | null
+  predicted_away_try_bonus: boolean | null
+}
+
+type RowState = {
+  winner: Winner | ''
+  margin: string
+  homeTryBonus: boolean | null
+  awayTryBonus: boolean | null
+}
 
 export default function MatchPredictionsForm({
   roundId,
@@ -18,51 +33,54 @@ export default function MatchPredictionsForm({
   existing: Existing[]
 }) {
   const existingByFixture = new Map(existing.map(e => [e.fixture_id, e]))
-  const [scores, setScores] = useState<Record<number, { home: string; away: string }>>(() => {
-    const initial: Record<number, { home: string; away: string }> = {}
+
+  const [rows, setRows] = useState<Record<number, RowState>>(() => {
+    const initial: Record<number, RowState> = {}
     fixtures.forEach(f => {
       const e = existingByFixture.get(f.id)
-      initial[f.id] = { home: e ? String(e.predicted_home_score) : '', away: e ? String(e.predicted_away_score) : '' }
+      initial[f.id] = {
+        winner: e?.predicted_winner ?? '',
+        margin: e?.predicted_margin != null ? String(e.predicted_margin) : '',
+        homeTryBonus: e?.predicted_home_try_bonus ?? null,
+        awayTryBonus: e?.predicted_away_try_bonus ?? null,
+      }
     })
     return initial
   })
-  const [confidences, setConfidences] = useState<Record<number, number | ''>>(() => {
-    const initial: Record<number, number | ''> = {}
-    fixtures.forEach(f => { initial[f.id] = existingByFixture.get(f.id)?.confidence ?? '' })
-    return initial
-  })
+  const [confidenceFixtureId, setConfidenceFixtureId] = useState<number | null>(
+    existing.find(e => e.is_confidence_pick)?.fixture_id ?? null
+  )
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const router = useRouter()
 
-  const allScoresFilled = fixtures.every(f => scores[f.id]?.home !== '' && scores[f.id]?.away !== '')
-  const usedConfidences = fixtures.map(f => confidences[f.id]).filter(c => c !== '')
-  const confidenceValid = usedConfidences.length === 3 && new Set(usedConfidences).size === 3
-
-  function setConfidence(fixtureId: number, value: number) {
-    setConfidences(prev => {
-      const next = { ...prev }
-      // Swap: if another fixture already has this confidence value, give
-      // it whatever this fixture is giving up.
-      const currentForThis = prev[fixtureId]
-      for (const f of fixtures) {
-        if (f.id !== fixtureId && next[f.id] === value) next[f.id] = currentForThis
-      }
-      next[fixtureId] = value
-      return next
-    })
+  function updateRow(fixtureId: number, patch: Partial<RowState>) {
+    setRows(prev => ({ ...prev, [fixtureId]: { ...prev[fixtureId], ...patch } }))
   }
 
+  const allValid = fixtures.every(f => {
+    const r = rows[f.id]
+    if (!r || r.winner === '') return false
+    if (r.winner !== 'draw' && (r.margin === '' || Number(r.margin) < 1)) return false
+    if (r.homeTryBonus === null || r.awayTryBonus === null) return false
+    return true
+  }) && confidenceFixtureId != null
+
   async function submit() {
-    if (!allScoresFilled || !confidenceValid) return
+    if (!allValid) return
     setSaving(true)
     setMessage('')
-    const predictions = fixtures.map(f => ({
-      fixture_id: f.id,
-      predicted_home_score: Number(scores[f.id].home),
-      predicted_away_score: Number(scores[f.id].away),
-      confidence: confidences[f.id],
-    }))
+    const predictions = fixtures.map(f => {
+      const r = rows[f.id]
+      return {
+        fixture_id: f.id,
+        predicted_winner: r.winner,
+        predicted_margin: r.winner === 'draw' ? null : Number(r.margin),
+        is_confidence_pick: f.id === confidenceFixtureId,
+        predicted_home_try_bonus: r.homeTryBonus,
+        predicted_away_try_bonus: r.awayTryBonus,
+      }
+    })
     const res = await fetch('/api/rugby/match-predictions', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ round_id: roundId, predictions }),
@@ -73,47 +91,93 @@ export default function MatchPredictionsForm({
       setSaving(false)
       return
     }
+    setMessage('Saved — you can keep changing this until the deadline')
+    setSaving(false)
     router.refresh()
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
-        Predict each score, then rank your three picks by confidence (1st = most confident). A wrong pick at high
-        confidence costs you more, so rank honestly.
+        Pick the winner (or a draw) and the margin for each match, say whether each team scores a try bonus
+        (4+ tries), and choose ONE match as your confidence pick. You can keep changing all of this until the
+        round&apos;s deadline.
       </p>
-      {fixtures.map(f => (
-        <div key={f.id} className="flex items-center gap-3 flex-wrap py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <span className="text-sm flex-1 min-w-[140px]" style={{ color: 'var(--pop-white)' }}>{f.homeTeam} v {f.awayTeam}</span>
-          <input
-            type="number" min="0" placeholder="H"
-            value={scores[f.id]?.home ?? ''}
-            onChange={e => setScores(prev => ({ ...prev, [f.id]: { ...prev[f.id], home: e.target.value } }))}
-            className="pop-input px-2 py-1 text-sm w-14 text-center"
-          />
-          <span style={{ color: 'rgba(255,255,255,0.4)' }}>-</span>
-          <input
-            type="number" min="0" placeholder="A"
-            value={scores[f.id]?.away ?? ''}
-            onChange={e => setScores(prev => ({ ...prev, [f.id]: { ...prev[f.id], away: e.target.value } }))}
-            className="pop-input px-2 py-1 text-sm w-14 text-center"
-          />
-          <select
-            className="pop-input px-2 py-1 text-xs"
-            value={confidences[f.id]}
-            onChange={e => setConfidence(f.id, Number(e.target.value))}
-          >
-            <option value="">Confidence...</option>
-            <option value={1}>1st (most confident)</option>
-            <option value={2}>2nd</option>
-            <option value={3}>3rd</option>
-          </select>
-        </div>
-      ))}
+      {fixtures.map(f => {
+        const r = rows[f.id]
+        return (
+          <div key={f.id} className="pop-panel pop-panel--blue p-4">
+            <p className="text-base pop-name mb-3" style={{ color: 'var(--pop-white)' }}>{f.homeTeam} v {f.awayTeam}</p>
 
-      {message && <p className="text-sm" style={{ color: 'var(--pop-red)' }}>{message}</p>}
+            <div className="flex items-center gap-2 flex-wrap mb-3">
+              {(['home', 'draw', 'away'] as Winner[]).map(w => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => updateRow(f.id, { winner: w, margin: w === 'draw' ? '' : r.margin })}
+                  className="text-xs pop-name px-3 py-1.5 rounded"
+                  style={{
+                    background: r.winner === w ? 'var(--pop-blue)' : 'rgba(255,255,255,0.08)',
+                    color: r.winner === w ? 'var(--pop-black)' : 'rgba(255,255,255,0.7)',
+                    fontWeight: r.winner === w ? 700 : 400,
+                  }}
+                >
+                  {w === 'home' ? f.homeTeam : w === 'away' ? f.awayTeam : 'Draw'}
+                </button>
+              ))}
+              {r.winner !== '' && r.winner !== 'draw' && (
+                <span className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                  by
+                  <input
+                    type="number" min="1" placeholder="pts"
+                    value={r.margin}
+                    onChange={e => updateRow(f.id, { margin: e.target.value })}
+                    className="pop-input px-2 py-1 text-sm w-16 text-center"
+                  />
+                </span>
+              )}
+            </div>
 
-      <button onClick={submit} disabled={!allScoresFilled || !confidenceValid || saving} className="pop-button pop-button--green">
+            <div className="flex items-center gap-4 flex-wrap mb-3 text-xs">
+              <span style={{ color: 'rgba(255,255,255,0.5)' }}>Try bonus:</span>
+              {([{ label: f.homeTeam, key: 'homeTryBonus' as const }, { label: f.awayTeam, key: 'awayTryBonus' as const }]).map(({ label, key }) => (
+                <span key={key} className="flex items-center gap-1.5">
+                  <span style={{ color: 'rgba(255,255,255,0.6)' }}>{label}</span>
+                  {[true, false].map(val => (
+                    <button
+                      key={String(val)}
+                      type="button"
+                      onClick={() => updateRow(f.id, { [key]: val } as Partial<RowState>)}
+                      className="px-2 py-0.5 rounded"
+                      style={{
+                        background: r[key] === val ? 'var(--pop-green)' : 'rgba(255,255,255,0.08)',
+                        color: r[key] === val ? 'var(--pop-black)' : 'rgba(255,255,255,0.6)',
+                        fontWeight: r[key] === val ? 700 : 400,
+                      }}
+                    >
+                      {val ? 'Yes' : 'No'}
+                    </button>
+                  ))}
+                </span>
+              ))}
+            </div>
+
+            <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: confidenceFixtureId === f.id ? 'var(--pop-orange)' : 'rgba(255,255,255,0.5)' }}>
+              <input
+                type="radio"
+                name="confidence-pick"
+                checked={confidenceFixtureId === f.id}
+                onChange={() => setConfidenceFixtureId(f.id)}
+              />
+              Make this my confidence pick this round
+            </label>
+          </div>
+        )
+      })}
+
+      {message && <p className="text-sm" style={{ color: message.startsWith('Saved') ? 'var(--pop-green)' : 'var(--pop-red)' }}>{message}</p>}
+
+      <button onClick={submit} disabled={!allValid || saving} className="pop-button pop-button--green">
         {saving ? 'Saving…' : `Confirm Round ${roundNumber} Predictions`}
       </button>
     </div>

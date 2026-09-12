@@ -70,7 +70,7 @@ export default function RugbySquadManager({
       <div className="space-y-2">
         {slots.map(slot => (
           <div key={slot.teamId} className="flex items-center justify-between flex-wrap gap-2 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-            <div className="text-sm" style={{ color: 'var(--pop-white)' }}>
+            <div className="text-sm pop-name" style={{ color: 'var(--pop-white)' }}>
               <span style={{ color: 'var(--pop-blue)' }}>{slot.teamName}</span> — {slot.playerName}
               {slot.isKicker && <span className="pop-badge pop-badge--orange ml-2" style={{ fontSize: '10px', padding: '2px 8px' }}>KICKER</span>}
             </div>

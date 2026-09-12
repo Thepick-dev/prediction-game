@@ -21,8 +21,12 @@ export default async function RugbyRulesPage() {
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
       <h1 className="pop-hero pop-hero--blue text-2xl md:text-3xl mb-1">📖 Rules</h1>
-      <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
+      <p className="text-sm mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
         {competition ? `${competition.name} — always the real, current numbers` : 'No active competition yet'}
+      </p>
+      <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
+        Every pick here — your squad, tournament predictions, and each round&apos;s match predictions — can be
+        freely changed as many times as you like right up until its own deadline. Nothing locks in early.
       </p>
 
       <div className="space-y-4">
@@ -63,14 +67,21 @@ export default async function RugbyRulesPage() {
         </section>
 
         <section className="pop-panel pop-panel--pink p-5">
-          <h2 className="pop-headline text-sm mb-2" style={{ color: 'var(--pop-white)' }}>Underdog Bonus</h2>
+          <h2 className="pop-headline text-sm mb-2" style={{ color: 'var(--pop-white)' }}>Underdog Multipliers</h2>
+          <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+            Picking rarely-picked options is rewarded everywhere in this game, always the same way — your points
+            for that pick get multiplied, they&apos;re never just topped up with a flat bonus.
+          </p>
           <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
-            If fewer than <strong>{rules.contrarian_threshold_pct}%</strong> of the field also has a player you
-            pick, you get a <strong>{rules.squad_contrarian_bonus}-point bonus</strong> — worked out the moment
-            they join your squad (draft or substitute), and it sticks regardless of what happens to their
-            popularity afterwards. The same idea applies to weekly match predictions (a{' '}
-            <strong>{rules.match_contrarian_bonus}-point bonus</strong>) and tournament predictions (a{' '}
-            <strong>{rules.season_contrarian_bonus}-point bonus</strong>).
+            Squad: if fewer than <strong>{rules.player_ownership_threshold_pct}%</strong> of managers also hold a
+            player you pick, their try + kicking points that round are multiplied by{' '}
+            <strong>{rules.player_ownership_multiplier}x</strong> — worked out the moment they join your squad
+            (draft or substitute), and it sticks regardless of their popularity afterwards. Match predictions: if
+            fewer than <strong>{rules.match_underdog_threshold_pct}%</strong> of players picked the winning side you
+            backed, your points for that match are multiplied by <strong>{rules.match_underdog_multiplier}x</strong>.
+            Tournament predictions: a correct answer fewer than{' '}
+            <strong>{rules.season_underdog_threshold_pct}%</strong> of players also got right is multiplied by{' '}
+            <strong>{rules.season_underdog_multiplier}x</strong>.
           </p>
         </section>
 
@@ -94,16 +105,24 @@ export default async function RugbyRulesPage() {
         <section className="pop-panel pop-panel--yellow p-5">
           <h2 className="pop-headline text-sm mb-2" style={{ color: 'var(--pop-white)' }}>Weekly Match Predictions</h2>
           <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-            Each round, predict the score of all three matches before that round&apos;s deadline. You get{' '}
-            <strong>{rules.winner_bonus} points</strong> for the right winner, up to{' '}
-            <strong>{rules.margin_bonus_max} more</strong> the closer your margin, and{' '}
-            <strong>{rules.exact_score_bonus} extra</strong> for the exact score.
+            Each round, predict the winner (or a draw) and the margin of victory — not the exact score — for all
+            three matches before that round&apos;s deadline. A correct winner call scores{' '}
+            <strong>{rules.match_win_base} points</strong>, minus 1 point for every point your margin is out by. A
+            correctly predicted draw is a flat <strong>{rules.match_draw_base} points</strong> — there&apos;s no
+            margin to be off by. Get the winner wrong (including a missed or wrongly-called draw) and you score{' '}
+            <strong>zero</strong> for that match — never negative.
+          </p>
+          <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+            You also pick ONE match each round as your confidence pick, worth{' '}
+            <strong>{rules.match_confidence_multiplier}x</strong> on everything you score for it. Combined with the
+            underdog multiplier above, the two stack additively rather than multiplying — e.g. both at{' '}
+            {rules.match_confidence_multiplier}x combine to {(1 + (rules.match_confidence_multiplier - 1) + (rules.match_underdog_multiplier - 1)).toFixed(2)}x
+            overall, not {(rules.match_confidence_multiplier * rules.match_underdog_multiplier).toFixed(2)}x.
           </p>
           <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
-            You also rank your three predictions by confidence (1st/2nd/3rd, no repeats) — a correct pick is
-            multiplied by how confident you were, but a wrong pick costs you{' '}
-            <strong>{rules.wrong_pick_penalty_constant} points per confidence level</strong> staked. This is the one
-            part of the game where a bad call can genuinely cost you, not just miss out.
+            For every match you also call whether EACH team will get a try bonus (4+ tries) — worth{' '}
+            <strong>{rules.try_bonus_points} points</strong> per correct call, and it shares that match&apos;s own
+            confidence/underdog multiplier.
           </p>
         </section>
 

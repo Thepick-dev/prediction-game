@@ -33,10 +33,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Round 1's deadline has passed — squads can no longer be drafted" }, { status: 400 })
   }
 
-  const { data: existing } = await db.schema('rugby').from('season_squad_picks').select('id').eq('competition_id', competition_id).eq('user_id', user.id).limit(1)
-  if (existing && existing.length > 0) {
-    return NextResponse.json({ error: 'You already have a squad for this competition' }, { status: 400 })
-  }
+  // Before Round 1's deadline, a full redraft simply replaces the squad —
+  // it hasn't started scoring anything yet, so there's no history to
+  // protect and no reason to make someone spend a "sub" just to fix a
+  // pick made minutes ago. The deadline check above is what actually
+  // locks this once the season starts; the old squad's rows are deleted
+  // outright rather than treated as subs.
+  const { error: deleteExistingError } = await db.schema('rugby').from('season_squad_picks').delete().eq('competition_id', competition_id).eq('user_id', user.id)
+  if (deleteExistingError) return NextResponse.json({ error: deleteExistingError.message }, { status: 500 })
 
   const { data: teams } = await db.schema('rugby').from('teams').select('id').eq('active', true)
   const teamIds = new Set((teams ?? []).map(t => t.id))

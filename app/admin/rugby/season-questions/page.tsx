@@ -50,6 +50,24 @@ async function toggleQuestion(formData: FormData) {
   redirect('/admin/rugby/season-questions')
 }
 
+// type_key is deliberately not editable here — it's the join key every
+// prediction/result row is keyed on, so changing it would orphan existing
+// answers. Everything else about a question (wording, points, tolerance,
+// even its answer type before anyone's answered it) can be corrected any
+// time, not just at creation.
+async function updateQuestion(formData: FormData) {
+  'use server'
+  const supabase = await requireAdminAction()
+  const id = formData.get('id') as string
+  await supabase.schema('rugby').from('season_prediction_types').update({
+    label: formData.get('label') as string,
+    answer_type: formData.get('answer_type') as string,
+    points: Number(formData.get('points')),
+    tolerance: formData.get('tolerance') ? Number(formData.get('tolerance')) : null,
+  }).eq('id', id)
+  redirect('/admin/rugby/season-questions')
+}
+
 async function saveResult(formData: FormData) {
   'use server'
   const supabase = await requireAdminAction()
@@ -162,40 +180,33 @@ export default async function AdminRugbySeasonQuestionsPage({
       </div>
 
       <div className="bg-white border rounded-lg p-6 mb-8">
-        <h2 className="font-bold mb-4">Active questions</h2>
+        <h2 className="font-bold mb-1">Questions</h2>
+        <p className="text-xs text-gray-500 mb-4">Everything here — wording, points, tolerance, answer type — can be corrected any time, not just when you first add it. The question key itself stays fixed once created.</p>
         {questionsList.length === 0 ? (
           <p className="text-gray-400 text-sm">None yet — add one above.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-500 border-b">
-                <th className="pb-2">Label</th>
-                <th className="pb-2">Type</th>
-                <th className="pb-2">Points</th>
-                <th className="pb-2">Status</th>
-                <th className="pb-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {questionsList.map(q => (
-                <tr key={q.id} className="border-b last:border-0">
-                  <td className="py-2 font-medium">{q.label}</td>
-                  <td className="py-2 text-gray-500">{q.answer_type}{q.tolerance != null ? ` (±${q.tolerance})` : ''}</td>
-                  <td className="py-2">{q.points}</td>
-                  <td className="py-2">
-                    <span className={`text-xs px-2 py-0.5 rounded ${q.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{q.active ? 'active' : 'inactive'}</span>
-                  </td>
-                  <td className="py-2">
-                    <form action={toggleQuestion}>
-                      <input type="hidden" name="id" value={q.id} />
-                      <input type="hidden" name="next_active" value={(!q.active).toString()} />
-                      <button type="submit" className="text-xs underline">{q.active ? 'Deactivate' : 'Activate'}</button>
-                    </form>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="space-y-3">
+            {questionsList.map(q => (
+              <form key={q.id} action={updateQuestion} className="border rounded-lg p-3 flex items-center gap-2 flex-wrap">
+                <input type="hidden" name="id" value={q.id} />
+                <span className={`text-xs px-2 py-0.5 rounded shrink-0 ${q.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{q.active ? 'active' : 'inactive'}</span>
+                <span className="text-xs text-gray-400 shrink-0" title="Question key (fixed)">{q.type_key}</span>
+                <input type="text" name="label" defaultValue={q.label} className="border rounded px-2 py-1 text-sm flex-1 min-w-[140px]" />
+                <select name="answer_type" defaultValue={q.answer_type} className="border rounded px-2 py-1 text-sm">
+                  <option value="team">A team</option>
+                  <option value="player">A player</option>
+                  <option value="numeric">A number</option>
+                  <option value="fixture">A match</option>
+                </select>
+                <input type="number" name="points" defaultValue={q.points} title="Points if correct" className="border rounded px-2 py-1 text-sm w-20" />
+                <input type="number" name="tolerance" defaultValue={q.tolerance ?? ''} placeholder="±tolerance" title="Tolerance (numeric only)" className="border rounded px-2 py-1 text-sm w-24" />
+                <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Save</button>
+                <button type="submit" formAction={toggleQuestion} name="next_active" value={(!q.active).toString()} className="text-xs underline text-gray-500">
+                  {q.active ? 'Deactivate' : 'Activate'}
+                </button>
+              </form>
+            ))}
+          </div>
         )}
       </div>
 

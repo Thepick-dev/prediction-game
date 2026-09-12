@@ -123,7 +123,7 @@ function SquadsTab({ teamsList, playersList, squadPicksList, squadPointsList, pl
           <div className="space-y-2">
             {teamRepRows.map(({ team, count }) => (
               <div key={team.id} className="flex items-center gap-3">
-                <span className="text-xs w-24 shrink-0" style={{ color: 'var(--pop-white)' }}>{team.name}</span>
+                <span className="text-xs pop-name w-24 shrink-0" style={{ color: 'var(--pop-white)' }}>{team.name}</span>
                 <div className="flex-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)', height: 10 }}>
                   <div style={{ width: `${(count / maxRep) * 100}%`, height: '100%', background: 'var(--pop-pink)' }} />
                 </div>
@@ -142,7 +142,7 @@ function SquadsTab({ teamsList, playersList, squadPicksList, squadPointsList, pl
           <div className="space-y-1.5">
             {topPlayers.map((row, i) => (
               <div key={row.player!.id} className="flex items-center justify-between text-sm py-1" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                <span style={{ color: 'var(--pop-white)' }}>{i + 1}. {row.player!.name} <span style={{ color: 'rgba(255,255,255,0.4)' }}>({teamById.get(row.player!.team_id)?.name ?? '?'})</span></span>
+                <span className="pop-name" style={{ color: 'var(--pop-white)' }}>{i + 1}. {row.player!.name} <span style={{ color: 'rgba(255,255,255,0.4)' }}>({teamById.get(row.player!.team_id)?.name ?? '?'})</span></span>
                 <span className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>{row.tries} try · {row.kicking} kick = <strong style={{ color: 'var(--pop-blue)' }}>{row.total}</strong></span>
               </div>
             ))}
@@ -201,7 +201,7 @@ function ManagersTab({ userIds, nameById, roundsList, squadPointsList, matchPoin
             <tbody>
               {rows.map(row => (
                 <tr key={row.userId} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                  <td className="py-2 px-1" style={{ color: 'var(--pop-white)' }}>{row.name}</td>
+                  <td className="py-2 px-1 pop-name" style={{ color: 'var(--pop-white)' }}>{row.name}</td>
                   <td className="text-right py-2 px-1.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{row.best ?? '—'}</td>
                   <td className="text-right py-2 px-1.5" style={{ color: (row.worst ?? 0) < 0 ? 'var(--pop-red)' : 'rgba(255,255,255,0.7)' }}>{row.worst ?? '—'}</td>
                   <td className="text-right py-2 px-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>{row.roundsPlayed}</td>

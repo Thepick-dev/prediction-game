@@ -27,15 +27,23 @@ type Round = { id: string; number: number; deadline: string }
 type Fixture = { id: number; round_id: string; home_team_id: number; away_team_id: number }
 type QuestionType = { type_key: string; label: string; answer_type: string }
 type SeasonAnswer = { type_key: string; answer_team_id: number | null; answer_player_id: number | null; answer_numeric: number | null; answer_fixture_id: number | null }
-type MatchPred = { fixture_id: number; predicted_home_score: number; predicted_away_score: number; confidence: number }
+type MatchPred = {
+  fixture_id: number
+  predicted_winner: 'home' | 'away' | 'draw'
+  predicted_margin: number | null
+  is_confidence_pick: boolean
+  predicted_home_try_bonus: boolean | null
+  predicted_away_try_bonus: boolean | null
+}
 type SquadPick = { id: string; player_id: number; is_kicker: boolean; active: boolean; is_initial_pick: boolean }
 
-function StepPanel({ step, title, children }: { step: number; title: string; children: React.ReactNode }) {
+function SectionPanel({ title, done, children }: { title: string; done: boolean; children: React.ReactNode }) {
   return (
     <div className="pop-panel pop-panel--orange p-5 mb-6">
-      <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>
-        <span style={{ color: 'var(--pop-orange)' }}>Step {step}:</span> {title}
-      </h2>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <h2 className="pop-headline text-base" style={{ color: 'var(--pop-white)' }}>{title}</h2>
+        {done && <span className="pop-badge pop-badge--green text-xs">✓ Saved</span>}
+      </div>
       {children}
     </div>
   )
@@ -95,12 +103,18 @@ export default async function RugbyPicksPage() {
 
   let currentRoundMatchPreds: MatchPred[] = []
   if (currentRound) {
-    const { data } = await supabase.schema('rugby').from('match_predictions').select('fixture_id, predicted_home_score, predicted_away_score, confidence').eq('round_id', currentRound.id).eq('user_id', user.id) as unknown as { data: MatchPred[] | null }
+    const { data } = await supabase.schema('rugby').from('match_predictions')
+      .select('fixture_id, predicted_winner, predicted_margin, is_confidence_pick, predicted_home_try_bonus, predicted_away_try_bonus')
+      .eq('round_id', currentRound.id).eq('user_id', user.id) as unknown as { data: MatchPred[] | null }
     currentRoundMatchPreds = data ?? []
   }
 
   const hasKit = !!kit
-  const hasAllSeasonAnswers = questionsList.length > 0 && questionsList.every(q => seasonAnswersList.some(a => a.type_key === q.type_key))
+  // Vacuously true when there are no active tournament questions yet (no
+  // admin-defined season_prediction_types) — an earlier `length > 0 &&`
+  // guard here inverted that, permanently blocking the entire rest of the
+  // wizard (match predictions, squad draft) whenever no questions existed.
+  const hasAllSeasonAnswers = questionsList.every(q => seasonAnswersList.some(a => a.type_key === q.type_key))
   const currentRoundFixtures = currentRound ? fixturesList.filter(f => f.round_id === currentRound.id) : []
   const hasAllCurrentRoundPreds = currentRoundFixtures.length > 0 && currentRoundFixtures.every(f => currentRoundMatchPreds.some(p => p.fixture_id === f.id))
   const hasSquad = squadPicksList.length > 0
@@ -108,91 +122,97 @@ export default async function RugbyPicksPage() {
   const playersByTeam: Record<number, Player[]> = {}
   playersList.forEach(p => { if (!playersByTeam[p.team_id]) playersByTeam[p.team_id] = []; playersByTeam[p.team_id].push(p) })
 
-  // Everything still needed, in the confirmed order: kit, tournament
-  // predictions, this round's match predictions, squad — all gated at
-  // Round 1's deadline for the one-off steps; the round-predictions step
-  // repeats every week for whichever round is currently open.
-  const steps: { key: string; render: () => React.ReactNode }[] = []
-
+  // Nothing below stays hidden just because it's already been answered —
+  // every section here can be freely changed until its own deadline (Round
+  // 1's for tournament predictions and the squad, that round's for match
+  // predictions). Only the kit step is a true one-time gate, since it has
+  // no deadline of its own and blocks nothing by staying set.
   if (!hasKit) {
-    steps.push({ key: 'kit', render: () => (
-      <StepPanel step={1} title="Pick Your Kit">
-        <RugbyKitEditor userId={user.id} />
-        <p className="text-xs mt-3" style={{ color: 'rgba(255,255,255,0.4)' }}>Once you&apos;ve saved a kit, refresh this page to move on.</p>
-      </StepPanel>
-    ) })
+    return (
+      <div className="max-w-2xl mx-auto p-4 md:p-6">
+        <RugbyHero title={competition.name} subtitle={currentRound ? `Round ${currentRound.number}` : competition.season} />
+        <SectionPanel title="Pick Your Kit" done={false}>
+          <RugbyKitEditor userId={user.id} />
+        </SectionPanel>
+      </div>
+    )
   }
 
-  if (hasKit && !hasAllSeasonAnswers && !round1DeadlinePassed) {
-    steps.push({ key: 'season', render: () => (
-      <StepPanel step={2} title="Tournament Predictions">
-        <SeasonPredictionsForm
-          competitionId={competition.id}
-          questions={questionsList}
-          teams={teamsList}
-          players={playersList}
-          fixtures={fixturesList.map(f => ({ id: f.id, label: `Round ${roundsList.find(r => r.id === f.round_id)?.number} — ${teamName(f.home_team_id)} v ${teamName(f.away_team_id)}` }))}
-          existingAnswers={seasonAnswersList}
-        />
-      </StepPanel>
-    ) })
-  }
+  const showSeasonPredictions = questionsList.length > 0 && !round1DeadlinePassed
+  const showMatchPredictions = !!currentRound
+  const showSquadDraft = !round1DeadlinePassed
+  const showSquadManager = hasSquad && round1DeadlinePassed
 
-  if (hasKit && (hasAllSeasonAnswers || round1DeadlinePassed) && currentRound && !hasAllCurrentRoundPreds) {
-    steps.push({ key: 'match', render: () => (
-      <StepPanel step={3} title={`Round ${currentRound.number} Predictions`}>
-        <MatchPredictionsForm
-          roundId={currentRound.id}
-          roundNumber={currentRound.number}
-          fixtures={currentRoundFixtures.map(f => ({ id: f.id, homeTeam: teamName(f.home_team_id), awayTeam: teamName(f.away_team_id) }))}
-          existing={currentRoundMatchPreds}
-        />
-      </StepPanel>
-    ) })
-  }
-
-  if (hasKit && hasAllCurrentRoundPreds && !hasSquad && !round1DeadlinePassed) {
-    steps.push({ key: 'squad', render: () => (
-      <StepPanel step={4} title="Pick Your Squad">
-        <RugbySquadDraftForm competitionId={competition.id} teams={teamsList} playersByTeam={playersByTeam} />
-      </StepPanel>
-    ) })
-  }
-
-  const allDone = steps.length === 0
+  const squadSelections: Record<number, number> = {}
+  let squadKickerId: number | undefined
+  squadPicksList.filter(p => p.active).forEach(pick => {
+    const player = playersList.find(p => p.id === pick.player_id)
+    if (player) squadSelections[player.team_id] = pick.player_id
+    if (pick.is_kicker) squadKickerId = pick.player_id
+  })
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
       <RugbyHero title={competition.name} subtitle={currentRound ? `Round ${currentRound.number}` : competition.season} />
 
-      {steps.length > 0 ? steps[0].render() : null}
+      {showSeasonPredictions && (
+        <SectionPanel title="Tournament Predictions" done={hasAllSeasonAnswers}>
+          <SeasonPredictionsForm
+            competitionId={competition.id}
+            questions={questionsList}
+            teams={teamsList}
+            players={playersList}
+            fixtures={fixturesList.map(f => ({ id: f.id, label: `Round ${roundsList.find(r => r.id === f.round_id)?.number} — ${teamName(f.home_team_id)} v ${teamName(f.away_team_id)}` }))}
+            existingAnswers={seasonAnswersList}
+          />
+        </SectionPanel>
+      )}
 
-      {allDone && (
-        <>
-          <div className="pop-panel pop-panel--green p-5 mb-6">
-            <p className="pop-badge pop-badge--green">
-              {currentRound ? `You're all set for Round ${currentRound.number}` : "You're all set — no more rounds open right now"}
-            </p>
-          </div>
+      {showMatchPredictions && currentRound && (
+        <SectionPanel title={`Round ${currentRound.number} Match Predictions`} done={hasAllCurrentRoundPreds}>
+          <MatchPredictionsForm
+            roundId={currentRound.id}
+            roundNumber={currentRound.number}
+            fixtures={currentRoundFixtures.map(f => ({ id: f.id, homeTeam: teamName(f.home_team_id), awayTeam: teamName(f.away_team_id) }))}
+            existing={currentRoundMatchPreds}
+          />
+        </SectionPanel>
+      )}
 
-          {hasSquad && (
-            <div className="pop-panel pop-panel--pink p-5">
-              <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>Manage Your Squad</h2>
-              <RugbySquadManager
-                competitionId={competition.id}
-                slots={squadPicksList.filter(p => p.active).map(pick => {
-                  const player = playersList.find(p => p.id === pick.player_id)
-                  const team = player ? teamsList.find(t => t.id === player.team_id) : undefined
-                  return { teamId: team?.id ?? 0, teamName: team?.name ?? '?', playerId: pick.player_id, playerName: player?.name ?? '?', isKicker: pick.is_kicker }
-                }).sort((a, b) => a.teamName.localeCompare(b.teamName))}
-                playersByTeam={playersByTeam}
-                subsUsed={squadPicksList.filter(p => !p.is_initial_pick).length}
-                maxFreeSubs={maxFreeSubs}
-                canSub={!!currentRound}
-              />
-            </div>
-          )}
-        </>
+      {showSquadDraft && (
+        <SectionPanel title="Your Squad" done={hasSquad}>
+          <RugbySquadDraftForm
+            competitionId={competition.id}
+            teams={teamsList}
+            playersByTeam={playersByTeam}
+            existingSelections={hasSquad ? squadSelections : undefined}
+            existingKickerPlayerId={squadKickerId}
+          />
+        </SectionPanel>
+      )}
+
+      {showSquadManager && (
+        <div className="pop-panel pop-panel--pink p-5 mb-6">
+          <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>Manage Your Squad</h2>
+          <RugbySquadManager
+            competitionId={competition.id}
+            slots={squadPicksList.filter(p => p.active).map(pick => {
+              const player = playersList.find(p => p.id === pick.player_id)
+              const team = player ? teamsList.find(t => t.id === player.team_id) : undefined
+              return { teamId: team?.id ?? 0, teamName: team?.name ?? '?', playerId: pick.player_id, playerName: player?.name ?? '?', isKicker: pick.is_kicker }
+            }).sort((a, b) => a.teamName.localeCompare(b.teamName))}
+            playersByTeam={playersByTeam}
+            subsUsed={squadPicksList.filter(p => !p.is_initial_pick).length}
+            maxFreeSubs={maxFreeSubs}
+            canSub={!!currentRound}
+          />
+        </div>
+      )}
+
+      {!showSeasonPredictions && !showMatchPredictions && !showSquadDraft && !showSquadManager && (
+        <div className="pop-panel pop-panel--green p-5">
+          <p className="pop-badge pop-badge--green">Nothing open to pick right now — check back once the next round is set.</p>
+        </div>
       )}
     </div>
   )
