@@ -40,15 +40,18 @@ export default function RugbySyncButton() {
       <button
         onClick={sync}
         disabled={status === 'syncing'}
-        className="bg-black text-white rounded px-3 py-2 text-sm font-bold disabled:opacity-50"
+        className="pop-button pop-button--yellow"
       >
         {status === 'syncing' ? 'Syncing…' : '🔄 Sync from spreadsheet'}
       </button>
       {message && (
-        <p className={`text-xs mt-2 ${status === 'error' ? 'text-red-600' : 'text-gray-600'}`}>{message}</p>
+        <p className="text-xs mt-2" style={{ color: status === 'error' ? 'var(--pop-red)' : 'rgba(255,255,255,0.6)' }}>{message}</p>
       )}
       {warnings.length > 0 && (
-        <ul className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded mt-2 p-2 space-y-0.5 max-h-40 overflow-y-auto">
+        <ul
+          className="text-xs rounded mt-2 p-2 space-y-0.5 max-h-40 overflow-y-auto"
+          style={{ color: 'var(--pop-orange)', background: 'rgba(250,97,0,0.08)', border: '1px solid rgba(250,97,0,0.3)' }}
+        >
           {warnings.map((w, i) => <li key={i}>⚠ {w}</li>)}
         </ul>
       )}

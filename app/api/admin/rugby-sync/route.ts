@@ -43,22 +43,16 @@ export async function POST() {
     return teamIdByName[name] ?? null
   }
 
-  // ---------- Competition (find-or-create the one active competition) ----------
-  const { data: existingComp } = await db.schema('rugby').from('competitions').select('id').order('created_at', { ascending: false }).limit(1).maybeSingle()
-  let competitionId = existingComp?.id as string | undefined
-  if (!competitionId) {
-    const kickoffs = parsed.fixtures.map(f => f.kickoff).filter((d): d is Date => d != null)
-    const startDate = kickoffs.length ? new Date(Math.min(...kickoffs.map(d => d.getTime()))).toISOString().slice(0, 10) : null
-    const endDate = kickoffs.length ? new Date(Math.max(...kickoffs.map(d => d.getTime()))).toISOString().slice(0, 10) : null
-    const { data: created, error } = await db.schema('rugby').from('competitions').insert({
-      name: "Men's Six Nations", season: startDate?.slice(0, 4) ?? 'TBC', status: 'active',
-      start_date: startDate, end_date: endDate,
-    }).select('id').single()
-    if (error || !created) {
-      return NextResponse.json({ error: 'Could not create competition: ' + (error?.message ?? 'unknown error') }, { status: 500 })
-    }
-    competitionId = created.id
+  // ---------- Competition (must already exist and be active) ----------
+  // Deliberately does NOT auto-create one — /admin/rugby is the one place
+  // a new season actually starts (create, then Activate there), so the
+  // sync always writes into whichever competition an admin explicitly
+  // made active, never a silently-invented one.
+  const { data: activeComp } = await db.schema('rugby').from('competitions').select('id').eq('status', 'active').maybeSingle()
+  if (!activeComp) {
+    return NextResponse.json({ error: 'No active rugby competition — create and activate one in /admin/rugby first' }, { status: 400 })
   }
+  const competitionId = activeComp.id as string
 
   // ---------- Players (add-only by team+name, never delete or overwrite) ----------
   const { data: existingPlayers } = await db.schema('rugby').from('players').select('id, team_id, name')

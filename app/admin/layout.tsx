@@ -143,6 +143,10 @@ export default async function AdminLayout({
                 <a href="/admin/dispatch" className="block hover:text-white">News</a>
                 <a href="/admin/archive" className="block hover:text-white">Archive</a>
                 <a href="/admin/futzy" className="block hover:text-white">🤖 Futzy</a>
+                <a href="/admin/rugby" className="block hover:text-white">🏉 Rugby Competitions</a>
+                <a href="/admin/rugby/players" className="block hover:text-white">🏉 Rugby Players</a>
+                <a href="/admin/rugby/results" className="block hover:text-white">🏉 Rugby Results</a>
+                <a href="/admin/rugby/scoring-rules" className="block hover:text-white">🏉 Rugby Scoring Rules</a>
               </div>
             </div>
 
@@ -157,6 +161,7 @@ export default async function AdminLayout({
                 <a href="/admin/help/pause-game" className="block hover:text-white">Pausing The Game</a>
                 <a href="/admin/help/futzy" className="block hover:text-white">Futzy</a>
                 <a href="/admin/help/snapshots" className="block hover:text-white">Snapshots</a>
+                <a href="/admin/help/rugby-new-season" className="block hover:text-white">Rugby New Season</a>
               </div>
             </div>
 

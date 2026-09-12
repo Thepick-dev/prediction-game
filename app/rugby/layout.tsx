@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '../lib/supabase-server'
 import { requireAdmin } from '../lib/require-admin'
+import Link from 'next/link'
 
 const COOKIE_NAME = 'rugby_preview_ok'
 
@@ -31,18 +32,19 @@ export default async function RugbyLayout({ children }: { children: React.ReactN
 
   if (!unlocked) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <form action={unlockRugby} className="bg-white border rounded-lg p-6 w-full max-w-xs space-y-3">
-          <h1 className="font-bold text-lg">🏉 Rugby — locked</h1>
-          <p className="text-xs text-gray-500">This is still being built. Enter the temporary password to preview it.</p>
+      <div className="pop-art-theme min-h-screen flex items-center justify-center p-4">
+        <form action={unlockRugby} className="pop-panel pop-panel--orange p-6 w-full max-w-xs space-y-3">
+          <h1 className="pop-headline text-lg" style={{ color: 'var(--pop-white)' }}>🏉 Rugby — Locked</h1>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>This is still being built. Enter the temporary password to preview it.</p>
           <input
             type="password"
             name="password"
             placeholder="Password"
             autoFocus
-            className="border rounded px-3 py-2 text-sm w-full"
+            className="rounded px-3 py-2 text-sm w-full"
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: 'var(--pop-white)' }}
           />
-          <button type="submit" className="bg-black text-white rounded px-3 py-2 text-sm font-bold w-full">
+          <button type="submit" className="pop-button pop-button--yellow w-full">
             Unlock
           </button>
         </form>
@@ -50,5 +52,17 @@ export default async function RugbyLayout({ children }: { children: React.ReactN
     )
   }
 
-  return <>{children}</>
+  return (
+    <div className="pop-art-theme min-h-screen">
+      <header className="px-4 py-3 flex items-center justify-between flex-wrap gap-2" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)' }}>
+        <Link href="/rugby" className="pop-headline text-lg" style={{ color: 'var(--pop-white)' }}>🏉 SIX NATIONS</Link>
+        <nav className="flex items-center gap-4 text-xs">
+          <Link href="/rugby" className="nav-link hover:opacity-80" style={{ color: 'rgba(255,255,255,0.7)' }}>Home</Link>
+          <Link href="/rugby/squad" className="nav-link hover:opacity-80" style={{ color: 'rgba(255,255,255,0.7)' }}>My Squad</Link>
+          <Link href="/picks" className="nav-link hover:opacity-80" style={{ color: 'rgba(255,255,255,0.5)' }}>⚽ Football</Link>
+        </nav>
+      </header>
+      <main>{children}</main>
+    </div>
+  )
 }

@@ -1,8 +1,9 @@
 import { createServerSupabaseClient } from '../lib/supabase-server'
 import RugbySyncButton from './_components/RugbySyncButton'
+import { redirect } from 'next/navigation'
 
 type Team = { id: number; name: string; short_code: string | null }
-type Player = { id: number; team_id: number; name: string; position: string | null }
+type Player = { id: number; team_id: number; name: string }
 type Competition = { id: string; name: string; season: string }
 type Round = { id: string; number: number; deadline: string }
 type Fixture = {
@@ -11,20 +12,40 @@ type Fixture = {
 }
 type MatchEvent = { fixture_id: number; player_id: number | null; event_type: string; minute: number | null }
 
+// Any logged-in user can join themselves — RLS on rugby.competition_entries
+// already restricts the insert to `user_id = auth.uid()`, so this needs no
+// admin/service-role client at all, unlike every other write in this
+// feature so far.
+async function joinRugbyCompetition(formData: FormData) {
+  'use server'
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+  const competitionId = formData.get('competition_id') as string
+  await supabase.schema('rugby').from('competition_entries').insert({ competition_id: competitionId, user_id: user.id })
+  redirect('/rugby')
+}
+
 export default async function RugbyPage() {
   const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const [{ data: teams }, { data: players }, { data: competition }] = await Promise.all([
     supabase.schema('rugby').from('teams').select('id, name, short_code').order('name') as unknown as Promise<{ data: Team[] | null }>,
-    supabase.schema('rugby').from('players').select('id, team_id, name, position').order('name') as unknown as Promise<{ data: Player[] | null }>,
-    supabase.schema('rugby').from('competitions').select('id, name, season').order('created_at', { ascending: false }).limit(1).maybeSingle() as unknown as Promise<{ data: Competition | null }>,
+    supabase.schema('rugby').from('players').select('id, team_id, name').order('name') as unknown as Promise<{ data: Player[] | null }>,
+    supabase.schema('rugby').from('competitions').select('id, name, season').eq('status', 'active').maybeSingle() as unknown as Promise<{ data: Competition | null }>,
   ])
 
   let rounds: Round[] = []
   let fixtures: Fixture[] = []
   let events: MatchEvent[] = []
+  let alreadyJoined = false
 
   if (competition) {
+    if (user) {
+      const { data: entry } = await supabase.schema('rugby').from('competition_entries').select('id').eq('competition_id', competition.id).eq('user_id', user.id).maybeSingle() as unknown as { data: { id: string } | null }
+      alreadyJoined = !!entry
+    }
     const [{ data: roundsData }, { data: fixturesData }] = await Promise.all([
       supabase.schema('rugby').from('rounds').select('id, number, deadline').eq('competition_id', competition.id).order('number') as unknown as Promise<{ data: Round[] | null }>,
       supabase.schema('rugby').from('fixtures').select('id, round_id, home_team_id, away_team_id, kickoff_time, home_score, away_score, status') as unknown as Promise<{ data: Fixture[] | null }>,
@@ -58,27 +79,43 @@ export default async function RugbyPage() {
   })
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-1">🏉 {competition?.name ?? 'Six Nations'}</h1>
-      <p className="text-sm text-gray-500 mb-4">{competition?.season ?? 'Not synced yet'} — admin preview, not live to players</p>
+    <div className="max-w-4xl mx-auto p-4 md:p-6">
+      <h1 className="pop-hero pop-hero--blue text-3xl md:text-4xl mb-1">🏉 {competition?.name ?? 'Six Nations'}</h1>
+      <p className="text-sm mb-5" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition?.season ?? 'Not synced yet'} — admin preview, not live to players</p>
+
+      {competition && (
+        <div className="pop-panel pop-panel--green p-4 mb-6 flex items-center justify-between flex-wrap gap-3">
+          {alreadyJoined ? (
+            <p className="pop-badge pop-badge--green">✓ You&apos;re entered in {competition.name}</p>
+          ) : (
+            <>
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>Not entered in {competition.name} yet.</p>
+              <form action={joinRugbyCompetition}>
+                <input type="hidden" name="competition_id" value={competition.id} />
+                <button type="submit" className="pop-button pop-button--green">Join</button>
+              </form>
+            </>
+          )}
+        </div>
+      )}
 
       <RugbySyncButton />
 
-      <div className="bg-white border rounded-lg p-6 mb-8">
-        <h2 className="font-bold mb-4">Fixtures &amp; Results</h2>
+      <div className="pop-panel pop-panel--blue p-5 mb-6">
+        <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>Fixtures &amp; Results</h2>
         {rounds.length === 0 && (
-          <p className="text-gray-400 text-sm">No fixtures synced yet — click &quot;Sync from spreadsheet&quot; above.</p>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>No fixtures synced yet — click &quot;Sync from spreadsheet&quot; above.</p>
         )}
         {rounds.map(round => {
           const roundFixtures = fixtures.filter(f => f.round_id === round.id)
           return (
             <div key={round.id} className="mb-5 last:mb-0">
-              <h3 className="font-semibold text-sm mb-2">Round {round.number}</h3>
+              <h3 className="pop-headline text-xs mb-2" style={{ color: 'var(--pop-blue)' }}>Round {round.number}</h3>
               <div className="space-y-1">
                 {roundFixtures.map(f => (
-                  <div key={f.id} className="flex items-center justify-between text-sm border-b py-1.5">
+                  <div key={f.id} className="flex items-center justify-between text-sm py-1.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'var(--pop-white)' }}>
                     <span>{teamName(f.home_team_id)} v {teamName(f.away_team_id)}</span>
-                    <span className="text-gray-500">
+                    <span style={{ color: 'rgba(255,255,255,0.5)' }}>
                       {f.status === 'finished'
                         ? `${f.home_score} - ${f.away_score}`
                         : f.kickoff_time
@@ -89,7 +126,7 @@ export default async function RugbyPage() {
                 ))}
               </div>
               {roundFixtures.some(f => (eventsByFixture.get(f.id)?.length ?? 0) > 0) && (
-                <div className="mt-2 text-xs text-gray-500 space-y-0.5">
+                <div className="mt-2 text-xs space-y-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
                   {roundFixtures.flatMap(f => (eventsByFixture.get(f.id) ?? []).map((e, i) => (
                     <p key={`${f.id}-${i}`}>{teamName(f.home_team_id)} v {teamName(f.away_team_id)}: {playerName(e.player_id)} — {e.event_type}{e.minute ? ` (${e.minute}')` : ''}</p>
                   )))}
@@ -100,18 +137,18 @@ export default async function RugbyPage() {
         })}
       </div>
 
-      <div className="bg-white border rounded-lg p-6">
-        <h2 className="font-bold mb-4">Squads</h2>
+      <div className="pop-panel pop-panel--pink p-5">
+        <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>Squads</h2>
         {teamsList.length === 0 ? (
-          <p className="text-gray-400 text-sm">No squads synced yet.</p>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>No squads synced yet.</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
             {teamsList.map(team => (
               <div key={team.id}>
-                <h3 className="font-semibold text-sm mb-2">{team.name} ({(playersByTeam.get(team.id) ?? []).length})</h3>
-                <ul className="text-xs text-gray-600 space-y-0.5">
+                <h3 className="pop-headline text-xs mb-2" style={{ color: 'var(--pop-pink)' }}>{team.name} ({(playersByTeam.get(team.id) ?? []).length})</h3>
+                <ul className="text-xs space-y-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
                   {(playersByTeam.get(team.id) ?? []).map(p => (
-                    <li key={p.id}>{p.name} <span className="text-gray-400">— {p.position}</span></li>
+                    <li key={p.id}>{p.name}</li>
                   ))}
                 </ul>
               </div>
