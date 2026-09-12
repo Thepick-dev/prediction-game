@@ -24,7 +24,7 @@ const KIT_POPUP_MARGIN = 8
 
 const navItems = [
   { label: 'Picks', href: '/rugby/picks' },
-  { label: 'My Squad', href: '/rugby/squad' },
+  { label: 'My Dream Team', href: '/rugby/dream-team' },
   { label: 'Leaderboard', href: '/rugby/leaderboard' },
   { label: 'Results', href: '/rugby/results' },
   { label: 'Stats Hub', href: '/rugby/stats' },
@@ -132,16 +132,12 @@ export default function RugbyShell({
     <div className="pop-art-theme min-h-screen">
       <header className="sticky top-0 z-50" style={{ borderBottom: '2px solid rgba(255,255,255,0.15)' }}>
         {tickerText && (
-          <div className="overflow-hidden whitespace-nowrap" style={{ background: 'var(--pop-orange)' }}>
+          <div className="overflow-hidden whitespace-nowrap" style={{ background: 'var(--pop-orange)', height: 28 }}>
             <div
-              className="pop-ticker-track inline-flex items-center py-1.5 font-bold"
-              style={{ fontSize: '12px', color: 'var(--pop-black)', animationDuration: `${Math.max(15, tickerText.length * 0.3)}s` }}
+              className="pop-ticker-single pop-name inline-block py-1.5"
+              style={{ fontSize: '14px', color: 'var(--pop-black)', animationDuration: `${Math.max(5, tickerText.length * 0.12)}s` }}
             >
-              {[0, 1].map(dup => (
-                <span key={dup} className="inline-flex items-center shrink-0">
-                  <span className="mx-6">📢 {tickerText}</span>
-                </span>
-              ))}
+              📢 {tickerText}
             </div>
           </div>
         )}

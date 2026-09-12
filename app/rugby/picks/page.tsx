@@ -4,8 +4,8 @@ import RugbyKitEditor from '../../../components/RugbyKitEditor'
 import RugbyHero from '../../../components/RugbyHero'
 import SeasonPredictionsForm from './_components/SeasonPredictionsForm'
 import MatchPredictionsForm from './_components/MatchPredictionsForm'
-import RugbySquadDraftForm from '../squad/_components/RugbySquadDraftForm'
-import RugbySquadManager from '../squad/_components/RugbySquadManager'
+import RugbySquadDraftForm from '../dream-team/_components/RugbySquadDraftForm'
+import RugbySquadManager from '../dream-team/_components/RugbySquadManager'
 import { redirect } from 'next/navigation'
 
 // Any logged-in user can join themselves — RLS on rugby.competition_entries
@@ -154,6 +154,9 @@ export default async function RugbyPicksPage() {
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
       <RugbyHero title={competition.name} subtitle={currentRound ? `Round ${currentRound.number}` : competition.season} />
+      <p className="text-xs text-center mb-5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+        Everything below can be changed as many times as you like until its own deadline.
+      </p>
 
       {showSeasonPredictions && (
         <SectionPanel title="Tournament Predictions" done={hasAllSeasonAnswers}>
@@ -180,7 +183,7 @@ export default async function RugbyPicksPage() {
       )}
 
       {showSquadDraft && (
-        <SectionPanel title="Your Squad" done={hasSquad}>
+        <SectionPanel title="Your Dream Team" done={hasSquad}>
           <RugbySquadDraftForm
             competitionId={competition.id}
             teams={teamsList}
@@ -193,7 +196,7 @@ export default async function RugbyPicksPage() {
 
       {showSquadManager && (
         <div className="pop-panel pop-panel--pink p-5 mb-6">
-          <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>Manage Your Squad</h2>
+          <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>Manage Your Dream Team</h2>
           <RugbySquadManager
             competitionId={competition.id}
             slots={squadPicksList.filter(p => p.active).map(pick => {

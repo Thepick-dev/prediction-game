@@ -111,7 +111,7 @@ export default function RugbySquadDraftForm({
     })
     const data = await res.json()
     if (!res.ok || data.error) {
-      setError(data.error ?? 'Could not save your squad')
+      setError(data.error ?? 'Could not save your Dream Team')
       setSaving(false)
       return
     }
@@ -163,7 +163,7 @@ export default function RugbySquadDraftForm({
         disabled={!allPicked || !kickerPlayerId || saving}
         className="pop-button pop-button--green"
       >
-        {saving ? 'Saving…' : 'Confirm Squad'}
+        {saving ? 'Saving…' : 'Confirm Dream Team'}
       </button>
     </div>
   )

@@ -38,7 +38,7 @@ export default async function RugbySquadPage() {
       <div className="max-w-2xl mx-auto p-6">
         <div className="pop-panel pop-panel--orange p-5">
           <p className="text-sm" style={{ color: 'var(--pop-white)' }}>
-            You need to join {competition.name} before picking your squad.
+            You need to join {competition.name} before picking your Dream Team.
           </p>
           <Link href="/rugby/picks" className="pop-button pop-button--orange inline-block mt-3">Go join</Link>
         </div>
@@ -92,7 +92,7 @@ export default async function RugbySquadPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
-      <h1 className="pop-hero pop-hero--green text-2xl md:text-3xl mb-4">🏉 Your Squad</h1>
+      <h1 className="pop-hero pop-hero--green text-2xl md:text-3xl mb-4">🏉 Your Dream Team</h1>
 
       <div className="pop-panel pop-panel--blue p-5">
         {!hasSquad && !round1DeadlinePassed && (
@@ -100,7 +100,7 @@ export default async function RugbySquadPage() {
         )}
         {!hasSquad && round1DeadlinePassed && (
           <p className="text-sm" style={{ color: 'var(--pop-red)' }}>
-            Round 1&apos;s deadline has passed — squads can no longer be drafted for this competition.
+            Round 1&apos;s deadline has passed — Dream Teams can no longer be drafted for this competition.
           </p>
         )}
         {hasSquad && (
@@ -116,7 +116,7 @@ export default async function RugbySquadPage() {
       </div>
 
       <div className="pop-panel pop-panel--pink p-5 mt-6">
-        <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>Browse All Squads</h2>
+        <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>Browse All Players</h2>
         {teamsList.length === 0 ? (
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>No squads synced yet.</p>
         ) : (

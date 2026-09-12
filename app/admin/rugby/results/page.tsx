@@ -132,7 +132,7 @@ export default async function AdminRugbyResultsPage({
 
       {(calculated || calcError) && (
         <div className={`rounded-lg p-3 mb-6 text-sm ${calcError ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-          {calcError ? `Error: ${calcError}` : `Calculated points for ${calculated} squad pick(s) and ${calculatedMatch ?? 0} match prediction(s) this round.`}
+          {calcError ? `Error: ${calcError}` : `Calculated points for ${calculated} Dream Team pick(s) and ${calculatedMatch ?? 0} match prediction(s) this round.`}
         </div>
       )}
 
@@ -170,18 +170,22 @@ export default async function AdminRugbyResultsPage({
             {fixtures.map(f => (
               <div key={f.id} className={`border rounded-lg p-4 ${selectedFixtureId === f.id ? 'border-black bg-gray-50' : ''}`}>
                 <div className="flex items-center justify-between flex-wrap gap-3">
-                  <Link href={`/admin/rugby/results?round=${selectedRoundId}&fixture=${f.id}`} className="font-medium text-sm hover:underline">
-                    {teamName(f.home_team_id)} v {teamName(f.away_team_id)}
-                  </Link>
+                  <span className="font-medium text-sm">{teamName(f.home_team_id)} v {teamName(f.away_team_id)}</span>
                   <form action={saveScore} className="flex items-center gap-1.5">
                     <input type="hidden" name="fixture_id" value={f.id} />
                     <input type="hidden" name="round" value={selectedRoundId} />
                     <input type="number" name="home_score" min="0" defaultValue={f.home_score ?? ''} placeholder="H" className="w-12 border rounded px-1 py-1 text-xs text-center" />
                     <span className="text-xs">-</span>
                     <input type="number" name="away_score" min="0" defaultValue={f.away_score ?? ''} placeholder="A" className="w-12 border rounded px-1 py-1 text-xs text-center" />
-                    <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Save</button>
+                    <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Save Score</button>
                   </form>
                   <span className={`text-xs px-2 py-0.5 rounded ${f.status === 'finished' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>{f.status}</span>
+                  <Link
+                    href={`/admin/rugby/results?round=${selectedRoundId}&fixture=${f.id}#events`}
+                    className={`text-xs rounded px-3 py-1.5 font-bold ${selectedFixtureId === f.id ? 'bg-black text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                  >
+                    📝 {selectedFixtureId === f.id ? 'Editing events' : 'Add/edit events'}
+                  </Link>
                 </div>
               </div>
             ))}
@@ -190,7 +194,7 @@ export default async function AdminRugbyResultsPage({
       )}
 
       {selectedFixture && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div id="events" className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white border rounded-lg p-6">
             <h2 className="font-bold mb-2">Add Scorer Event</h2>
             <p className="text-sm text-gray-500 mb-4">{teamName(selectedFixture.home_team_id)} v {teamName(selectedFixture.away_team_id)}</p>

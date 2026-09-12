@@ -503,6 +503,23 @@ thead th {
   .pop-ticker-track { animation: none; }
 }
 
+/* Rugby's ticker banner — a SINGLE pass, not the duplicated-content loop
+   above: starts off-screen right, slides fully across, ends off-screen
+   left, leaving a clean gap before it repeats. One message shown once at
+   a time, never two overlapping copies of the same text. */
+.pop-ticker-single {
+  animation-name: pop-ticker-scroll-single;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes pop-ticker-scroll-single {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pop-ticker-single { animation: none; }
+}
+
 /* Site-wide seasonal theming (see SiteThemeEffects.tsx) — [data-site-theme]
    lives on <html>, so this reaches every page's existing .pop-hero titles
    without any of them needing to know a theme system exists. Alternates

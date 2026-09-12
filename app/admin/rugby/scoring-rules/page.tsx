@@ -13,7 +13,7 @@ async function requireAdminAction() {
 
 const RULE_GROUPS: { heading: string; rules: Record<string, string> }[] = [
   {
-    heading: 'Your Squad',
+    heading: 'Dream Team',
     rules: {
       squad_try_points: 'Points per try (any of your 6)',
       squad_conversion_points: 'Points per conversion (kicker only)',

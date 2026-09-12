@@ -95,7 +95,7 @@ export default async function RugbyLeaderboardPage() {
                   {roundsList.map(r => (
                     <th key={r.id} className="text-right py-2 px-1.5 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.4)' }}>R{r.number}</th>
                   ))}
-                  <th className="text-right py-2 px-1.5 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.4)' }}>Squad</th>
+                  <th className="text-right py-2 px-1.5 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.4)' }}>Dream Team</th>
                   <th className="text-right py-2 px-1.5 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.4)' }}>Matches</th>
                   <th className="text-right py-2 px-1.5 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.4)' }}>Tournament</th>
                   <th className="text-right py-2 px-1" style={{ color: 'var(--pop-green)' }}>Total</th>

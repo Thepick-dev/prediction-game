@@ -100,7 +100,7 @@ export default async function RugbyResultsPage() {
               )}
               {hasAnyResult && user && (squadPts != null || matchPts != null) && (
                 <div className="text-xs pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
-                  Your points this round — Squad: <strong style={{ color: (squadPts ?? 0) < 0 ? 'var(--pop-red)' : 'var(--pop-white)' }}>{squadPts ?? 0}</strong>
+                  Your points this round — Dream Team: <strong style={{ color: (squadPts ?? 0) < 0 ? 'var(--pop-red)' : 'var(--pop-white)' }}>{squadPts ?? 0}</strong>
                   {matchPts != null && <> · Match Predictions: <strong style={{ color: matchPts < 0 ? 'var(--pop-red)' : 'var(--pop-white)' }}>{matchPts}</strong></>}
                 </div>
               )}

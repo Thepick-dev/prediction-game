@@ -13,7 +13,7 @@ type MatchPointsRow = { user_id: string; round_id: string; fixture_id: number; i
 type SeasonPointsRow = { user_id: string; type_key: string; is_correct: boolean; points: number; contrarian_bonus_applied: boolean }
 
 const TABS = [
-  { key: 'squads', label: 'Squads & Players' },
+  { key: 'squads', label: 'Dream Teams & Players' },
   { key: 'managers', label: 'Managers' },
   { key: 'trends', label: 'Trends' },
 ] as const

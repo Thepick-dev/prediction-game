@@ -44,7 +44,7 @@ export default function RugbyAdminGuidePage() {
           <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
             <li>Go to <a href="/admin/rugby/results" className="underline">Admin → Rugby Results</a>, pick the round, and enter each fixture&apos;s final score.</li>
             <li>Click into each fixture and add every try/conversion/penalty/drop goal/card, with who scored it.</li>
-            <li>Click <strong>Calculate Points for this Round</strong> — this scores everyone&apos;s squad picks AND their match-score predictions for that round in one go. Safe to click again any time you correct something; it always recalculates cleanly rather than double-counting.</li>
+            <li>Click <strong>Calculate Points for this Round</strong> — this scores everyone&apos;s Dream Team picks AND their match-score predictions for that round in one go. Safe to click again any time you correct something; it always recalculates cleanly rather than double-counting.</li>
           </ul>
           <p className="text-xs text-gray-500 mt-3">Alternatively, all of the above (scores, scorers, even squads) can still be updated in bulk via the same Excel workbook and &quot;Sync from spreadsheet&quot; — the admin pages are for quick one-off weekly updates so you&apos;re not re-uploading a whole file for a single score.</p>
         </div>
