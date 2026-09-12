@@ -61,11 +61,22 @@ async function finalizeRugbyCompetition(formData: FormData) {
   redirect('/admin/rugby')
 }
 
+async function saveTicker(formData: FormData) {
+  'use server'
+  const supabase = await requireAdminAction()
+  const id = formData.get('competition_id') as string
+  const raw = (formData.get('ticker_text') as string) ?? ''
+  const cleaned = raw.trim() || null
+  await supabase.schema('rugby').from('competitions').update({ ticker_text: cleaned }).eq('id', id)
+  redirect('/admin/rugby#ticker')
+}
+
 export default async function AdminRugbyPage() {
   const supabase = await createServerSupabaseClient()
   const { data: competitions } = await supabase.schema('rugby').from('competitions').select('*').order('created_at', { ascending: false }) as unknown as { data: RugbyCompetition[] | null }
 
   const list = competitions ?? []
+  const activeComp = list.find(c => c.status === 'active')
 
   return (
     <div>
@@ -74,6 +85,18 @@ export default async function AdminRugbyPage() {
         Only ONE competition can be active at a time — that's the one the spreadsheet sync writes into, and the
         one players see and join. Starting a new season archives whichever one is currently active first.
       </p>
+
+      {activeComp && (
+        <div id="ticker" className="bg-white border rounded-lg p-6 mb-8 max-w-md">
+          <h2 className="font-bold mb-1">📢 Ticker Banner</h2>
+          <p className="text-xs text-gray-500 mb-3">Shown across the top of every rugby page. Leave empty to hide it.</p>
+          <form action={saveTicker} className="space-y-2">
+            <input type="hidden" name="competition_id" value={activeComp.id} />
+            <textarea name="ticker_text" rows={2} defaultValue={(activeComp as unknown as { ticker_text?: string }).ticker_text ?? ''} className="border rounded px-3 py-2 text-sm w-full" placeholder="e.g. Round 2 deadline: Friday 6pm" />
+            <button type="submit" className="bg-black text-white rounded px-3 py-1.5 text-sm font-bold">Save ticker</button>
+          </form>
+        </div>
+      )}
 
       <div className="bg-white border rounded-lg p-6 mb-8 max-w-md">
         <h2 className="font-bold mb-4">Create a new competition</h2>

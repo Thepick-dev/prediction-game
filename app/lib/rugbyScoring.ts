@@ -24,6 +24,14 @@ export const DEFAULT_RUGBY_SCORING_RULES: RugbyScoringRules = {
   contrarian_threshold_pct: 25,
   max_free_subs: 6,
   extra_sub_penalty: 10,
+  // Weekly match-score prediction layer
+  winner_bonus: 10,
+  margin_bonus_max: 15,
+  exact_score_bonus: 10,
+  match_contrarian_bonus: 10,
+  wrong_pick_penalty_constant: 5,
+  // Season-long prop-bet layer
+  season_contrarian_bonus: 15,
 }
 
 export function rulesWithDefaults(rows: { rule_key: string; points: number }[]): RugbyScoringRules {
@@ -206,6 +214,233 @@ export async function calculateSeasonSquadRoundScoring(
   if (rows.length === 0) return { success: true, rows: 0 }
 
   const { error } = await supabase.schema('rugby').from('season_squad_points').upsert(rows, { onConflict: 'season_squad_pick_id,round_id' })
+  if (error) return { error: error.message }
+
+  return { success: true, rows: rows.length }
+}
+
+// ============================================================
+// Weekly match-score predictions (winner + margin + exact-score bonus,
+// a confidence multiplier, and a differential/contrarian bonus)
+// ============================================================
+
+export type MatchPrediction = {
+  id: string
+  user_id: string
+  round_id: string
+  fixture_id: number
+  predicted_home_score: number
+  predicted_away_score: number
+  confidence: 1 | 2 | 3
+}
+
+export type FinishedFixture = { id: number; home_score: number | null; away_score: number | null }
+
+export type MatchPredictionPointsRow = {
+  match_prediction_id: string
+  user_id: string
+  round_id: string
+  fixture_id: number
+  is_correct: boolean
+  confidence: number
+  base_points: number
+  total_points: number
+}
+
+// Percentage of submitted predictions (for a given fixture) that picked
+// the side that actually won — only meaningful once the fixture has a
+// final score. Pure and side-effect free so it can be unit tested without
+// a real field of players.
+export function computeMatchSideDistribution(
+  predictions: MatchPrediction[],
+  fixtures: FinishedFixture[]
+): Record<number, number> {
+  const result: Record<number, number> = {}
+  for (const fixture of fixtures) {
+    if (fixture.home_score == null || fixture.away_score == null) continue
+    const actualMargin = fixture.home_score - fixture.away_score
+    const actualSide = actualMargin > 0 ? 'home' : actualMargin < 0 ? 'away' : 'draw'
+    const fixturePredictions = predictions.filter(p => p.fixture_id === fixture.id)
+    if (fixturePredictions.length === 0) continue
+    const winningSideCount = fixturePredictions.filter(p => {
+      const predictedMargin = p.predicted_home_score - p.predicted_away_score
+      const predictedSide = predictedMargin > 0 ? 'home' : predictedMargin < 0 ? 'away' : 'draw'
+      return predictedSide === actualSide
+    }).length
+    result[fixture.id] = (winningSideCount / fixturePredictions.length) * 100
+  }
+  return result
+}
+
+export function computeMatchPredictionScores(
+  predictions: MatchPrediction[],
+  fixtures: FinishedFixture[],
+  sidePctByFixtureId: Record<number, number>,
+  rules: RugbyScoringRules
+): MatchPredictionPointsRow[] {
+  const fixtureById = new Map(fixtures.map(f => [f.id, f]))
+  const rows: MatchPredictionPointsRow[] = []
+
+  for (const pred of predictions) {
+    const fixture = fixtureById.get(pred.fixture_id)
+    if (!fixture || fixture.home_score == null || fixture.away_score == null) continue
+
+    const actualMargin = fixture.home_score - fixture.away_score
+    const predictedMargin = pred.predicted_home_score - pred.predicted_away_score
+    const actualSide = actualMargin > 0 ? 'home' : actualMargin < 0 ? 'away' : 'draw'
+    const predictedSide = predictedMargin > 0 ? 'home' : predictedMargin < 0 ? 'away' : 'draw'
+    const isCorrect = actualSide === predictedSide
+
+    let basePoints: number
+    let totalPoints: number
+    if (!isCorrect) {
+      basePoints = 0
+      totalPoints = -(pred.confidence * rules.wrong_pick_penalty_constant)
+    } else {
+      const winnerPoints = rules.winner_bonus
+      const marginPoints = Math.max(0, rules.margin_bonus_max - Math.abs(predictedMargin - actualMargin))
+      const exactBonus = (pred.predicted_home_score === fixture.home_score && pred.predicted_away_score === fixture.away_score) ? rules.exact_score_bonus : 0
+      const sidePct = sidePctByFixtureId[pred.fixture_id]
+      const contrarianBonus = (sidePct != null && sidePct < rules.contrarian_threshold_pct) ? rules.match_contrarian_bonus : 0
+      basePoints = winnerPoints + marginPoints + exactBonus + contrarianBonus
+      totalPoints = basePoints * pred.confidence
+    }
+
+    rows.push({
+      match_prediction_id: pred.id, user_id: pred.user_id, round_id: pred.round_id, fixture_id: pred.fixture_id,
+      is_correct: isCorrect, confidence: pred.confidence, base_points: basePoints, total_points: totalPoints,
+    })
+  }
+  return rows
+}
+
+export async function calculateMatchPredictionRoundScoring(
+  supabase: SupabaseClient,
+  roundId: string
+): Promise<{ success: true; rows: number } | { error: string }> {
+  const { data: round } = await supabase.schema('rugby').from('rounds').select('id, competition_id').eq('id', roundId).single()
+  if (!round) return { error: 'Round not found' }
+
+  const [{ data: rulesRows }, { data: predictions }, { data: fixtures }] = await Promise.all([
+    supabase.schema('rugby').from('scoring_rules').select('rule_key, points').eq('competition_id', round.competition_id),
+    supabase.schema('rugby').from('match_predictions').select('*').eq('round_id', roundId),
+    supabase.schema('rugby').from('fixtures').select('id, home_score, away_score').eq('round_id', roundId),
+  ])
+
+  const rules = rulesWithDefaults(rulesRows ?? [])
+  const predictionsList = (predictions ?? []) as MatchPrediction[]
+  const fixturesList = (fixtures ?? []) as FinishedFixture[]
+
+  const sidePctByFixtureId = computeMatchSideDistribution(predictionsList, fixturesList)
+  const rows = computeMatchPredictionScores(predictionsList, fixturesList, sidePctByFixtureId, rules)
+
+  if (rows.length === 0) return { success: true, rows: 0 }
+
+  const { error } = await supabase.schema('rugby').from('match_prediction_points').upsert(rows, { onConflict: 'match_prediction_id' })
+  if (error) return { error: error.message }
+
+  return { success: true, rows: rows.length }
+}
+
+// ============================================================
+// Season-long prop-bet predictions
+// ============================================================
+
+export type SeasonPredictionType = { type_key: string; points: number; tolerance: number | null; answer_type: string }
+export type SeasonPrediction = {
+  id: string; user_id: string; type_key: string
+  answer_team_id: number | null; answer_player_id: number | null; answer_numeric: number | null; answer_fixture_id: number | null
+}
+export type SeasonPredictionResult = {
+  type_key: string
+  result_team_id: number | null; result_player_id: number | null; result_numeric: number | null; result_fixture_id: number | null
+}
+export type SeasonPredictionPointsRow = { user_id: string; type_key: string; is_correct: boolean; points: number; contrarian_bonus_applied: boolean }
+
+function isSeasonPredictionCorrect(pred: SeasonPrediction, result: SeasonPredictionResult, type: SeasonPredictionType): boolean {
+  switch (type.answer_type) {
+    case 'team': return pred.answer_team_id === result.result_team_id
+    case 'player': return pred.answer_player_id === result.result_player_id
+    case 'fixture': return pred.answer_fixture_id === result.result_fixture_id
+    case 'numeric': {
+      if (pred.answer_numeric == null || result.result_numeric == null) return false
+      const tolerance = type.tolerance ?? 0
+      return Math.abs(pred.answer_numeric - result.result_numeric) <= tolerance
+    }
+    default: return false
+  }
+}
+
+export function computeSeasonPredictionScores(
+  predictions: SeasonPrediction[],
+  results: SeasonPredictionResult[],
+  types: SeasonPredictionType[],
+  rules: RugbyScoringRules
+): SeasonPredictionPointsRow[] {
+  const typeByKey = new Map(types.map(t => [t.type_key, t]))
+  const resultByKey = new Map(results.map(r => [r.type_key, r]))
+  const rows: SeasonPredictionPointsRow[] = []
+
+  // Contrarian %: among everyone who predicted a given question, what
+  // share landed on the answer that turned out correct.
+  const correctCountByType = new Map<string, number>()
+  const totalCountByType = new Map<string, number>()
+  predictions.forEach(pred => {
+    const type = typeByKey.get(pred.type_key)
+    const result = resultByKey.get(pred.type_key)
+    if (!type || !result) return
+    totalCountByType.set(pred.type_key, (totalCountByType.get(pred.type_key) ?? 0) + 1)
+    if (isSeasonPredictionCorrect(pred, result, type)) {
+      correctCountByType.set(pred.type_key, (correctCountByType.get(pred.type_key) ?? 0) + 1)
+    }
+  })
+
+  for (const pred of predictions) {
+    const type = typeByKey.get(pred.type_key)
+    const result = resultByKey.get(pred.type_key)
+    if (!type || !result) continue
+
+    const isCorrect = isSeasonPredictionCorrect(pred, result, type)
+    if (!isCorrect) {
+      rows.push({ user_id: pred.user_id, type_key: pred.type_key, is_correct: false, points: 0, contrarian_bonus_applied: false })
+      continue
+    }
+
+    const total = totalCountByType.get(pred.type_key) ?? 0
+    const correct = correctCountByType.get(pred.type_key) ?? 0
+    const correctPct = total > 0 ? (correct / total) * 100 : 0
+    const contrarianApplies = correctPct < rules.contrarian_threshold_pct
+    const points = type.points + (contrarianApplies ? rules.season_contrarian_bonus : 0)
+
+    rows.push({ user_id: pred.user_id, type_key: pred.type_key, is_correct: true, points, contrarian_bonus_applied: contrarianApplies })
+  }
+
+  return rows
+}
+
+export async function finalizeSeasonPredictionScoring(
+  supabase: SupabaseClient,
+  competitionId: string
+): Promise<{ success: true; rows: number } | { error: string }> {
+  const [{ data: rulesRows }, { data: types }, { data: predictions }, { data: results }] = await Promise.all([
+    supabase.schema('rugby').from('scoring_rules').select('rule_key, points').eq('competition_id', competitionId),
+    supabase.schema('rugby').from('season_prediction_types').select('type_key, points, tolerance, answer_type').eq('competition_id', competitionId),
+    supabase.schema('rugby').from('season_predictions').select('*').eq('competition_id', competitionId),
+    supabase.schema('rugby').from('season_prediction_results').select('*').eq('competition_id', competitionId),
+  ])
+
+  const rules = rulesWithDefaults(rulesRows ?? [])
+  const rows = computeSeasonPredictionScores(
+    (predictions ?? []) as SeasonPrediction[],
+    (results ?? []) as SeasonPredictionResult[],
+    (types ?? []) as SeasonPredictionType[],
+    rules
+  )
+
+  if (rows.length === 0) return { success: true, rows: 0 }
+
+  const withCompetition = rows.map(r => ({ ...r, competition_id: competitionId }))
+  const { error } = await supabase.schema('rugby').from('season_prediction_points').upsert(withCompetition, { onConflict: 'competition_id,user_id,type_key' })
   if (error) return { error: error.message }
 
   return { success: true, rows: rows.length }

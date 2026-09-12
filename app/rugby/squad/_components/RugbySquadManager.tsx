@@ -22,6 +22,7 @@ export default function RugbySquadManager({
 }) {
   const [subbingTeamId, setSubbingTeamId] = useState<number | null>(null)
   const [replacementId, setReplacementId] = useState<number | ''>('')
+  const [replacementSearch, setReplacementSearch] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const router = useRouter()
@@ -80,23 +81,56 @@ export default function RugbySquadManager({
                 </button>
               )}
               {canSub && subbingTeamId !== slot.teamId && (
-                <button onClick={() => { setSubbingTeamId(slot.teamId); setReplacementId('') }} className="text-xs pop-button pop-button--blue" style={{ padding: '4px 10px' }}>
+                <button onClick={() => { setSubbingTeamId(slot.teamId); setReplacementId(''); setReplacementSearch('') }} className="text-xs pop-button pop-button--blue" style={{ padding: '4px 10px' }}>
                   Substitute
                 </button>
               )}
             </div>
             {subbingTeamId === slot.teamId && (
-              <div className="w-full flex items-center gap-2 mt-1">
-                <select className="pop-input px-2 py-1 text-xs flex-1" value={replacementId} onChange={e => setReplacementId(e.target.value ? Number(e.target.value) : '')}>
-                  <option value="">Select replacement...</option>
-                  {(playersByTeam[slot.teamId] ?? []).filter(p => p.id !== slot.playerId).map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-                <button onClick={() => confirmSub(slot.playerId)} disabled={!replacementId || busy} className="pop-button pop-button--green text-xs" style={{ padding: '4px 10px' }}>
-                  Confirm
-                </button>
-                <button onClick={() => setSubbingTeamId(null)} className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Cancel</button>
+              <div className="w-full mt-1">
+                {replacementId ? (
+                  <div className="flex items-center gap-2">
+                    <span className="pop-input px-2 py-1 text-xs flex-1" style={{ display: 'inline-block' }}>
+                      {(playersByTeam[slot.teamId] ?? []).find(p => p.id === replacementId)?.name}
+                    </span>
+                    <button onClick={() => setReplacementId('')} className="text-xs" style={{ color: 'var(--pop-red)' }}>✕</button>
+                    <button onClick={() => confirmSub(slot.playerId)} disabled={busy} className="pop-button pop-button--green text-xs" style={{ padding: '4px 10px' }}>
+                      Confirm
+                    </button>
+                    <button onClick={() => setSubbingTeamId(null)} className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Cancel</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={replacementSearch}
+                        onChange={e => setReplacementSearch(e.target.value)}
+                        placeholder="Type a replacement's name..."
+                        className="pop-input px-2 py-1 text-xs w-full"
+                      />
+                      {replacementSearch.trim().length >= 1 && (
+                        <div className="mt-1 rounded overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.15)' }}>
+                          {(playersByTeam[slot.teamId] ?? [])
+                            .filter(p => p.id !== slot.playerId && p.name.toLowerCase().includes(replacementSearch.trim().toLowerCase()))
+                            .slice(0, 8)
+                            .map(p => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => { setReplacementId(p.id); setReplacementSearch('') }}
+                                className="block w-full text-left px-2 py-1 text-xs hover:opacity-80"
+                                style={{ background: 'var(--pop-surface)', color: 'var(--pop-white)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+                              >
+                                {p.name}
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => setSubbingTeamId(null)} className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Cancel</button>
+                  </div>
+                )}
               </div>
             )}
           </div>

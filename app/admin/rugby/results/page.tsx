@@ -3,7 +3,7 @@ import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { requireAdmin } from '../../../lib/require-admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { calculateSeasonSquadRoundScoring } from '../../../lib/rugbyScoring'
+import { calculateSeasonSquadRoundScoring, calculateMatchPredictionRoundScoring } from '../../../lib/rugbyScoring'
 
 async function requireAdminAction() {
   const supabase = await createServerSupabaseClient()
@@ -63,17 +63,25 @@ async function calculatePoints(formData: FormData) {
   'use server'
   const supabase = await requireAdminAction()
   const roundId = formData.get('round_id') as string
-  const result = await calculateSeasonSquadRoundScoring(supabase, roundId)
-  const message = 'error' in result ? `error=${encodeURIComponent(result.error)}` : `calculated=${result.rows}`
-  redirect(`/admin/rugby/results?round=${roundId}&${message}`)
+  const [squadResult, matchResult] = await Promise.all([
+    calculateSeasonSquadRoundScoring(supabase, roundId),
+    calculateMatchPredictionRoundScoring(supabase, roundId),
+  ])
+  if ('error' in squadResult) {
+    redirect(`/admin/rugby/results?round=${roundId}&error=${encodeURIComponent(squadResult.error)}`)
+  }
+  if ('error' in matchResult) {
+    redirect(`/admin/rugby/results?round=${roundId}&error=${encodeURIComponent(matchResult.error)}`)
+  }
+  redirect(`/admin/rugby/results?round=${roundId}&calculated=${squadResult.rows}&calculatedMatch=${matchResult.rows}`)
 }
 
 export default async function AdminRugbyResultsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ round?: string; fixture?: string; calculated?: string; error?: string }>
+  searchParams: Promise<{ round?: string; fixture?: string; calculated?: string; calculatedMatch?: string; error?: string }>
 }) {
-  const { round: roundParam, fixture: fixtureParam, calculated, error: calcError } = await searchParams
+  const { round: roundParam, fixture: fixtureParam, calculated, calculatedMatch, error: calcError } = await searchParams
   const supabase = await createServerSupabaseClient()
 
   const { data: competition } = await supabase.schema('rugby').from('competitions').select('id, name').eq('status', 'active').maybeSingle() as unknown as { data: { id: string; name: string } | null }
@@ -124,7 +132,7 @@ export default async function AdminRugbyResultsPage({
 
       {(calculated || calcError) && (
         <div className={`rounded-lg p-3 mb-6 text-sm ${calcError ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-          {calcError ? `Error: ${calcError}` : `Calculated points for ${calculated} squad pick(s) this round.`}
+          {calcError ? `Error: ${calcError}` : `Calculated points for ${calculated} squad pick(s) and ${calculatedMatch ?? 0} match prediction(s) this round.`}
         </div>
       )}
 

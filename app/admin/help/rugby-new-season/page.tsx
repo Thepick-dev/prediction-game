@@ -1,55 +1,78 @@
-export default function RugbyNewSeasonHelpPage() {
+export default function RugbyAdminGuidePage() {
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-2">How-To: Starting A New Rugby Season</h1>
-      <p className="text-gray-500 text-sm mb-8">Re-running the Six Nations (or any future rugby competition) for a new year.</p>
+      <h1 className="text-2xl font-bold mb-2">How-To: Running The Rugby Game</h1>
+      <p className="text-gray-500 text-sm mb-8">Everything needed to run a Six Nations (or any future rugby competition) from the site — no code changes required.</p>
 
       <div className="space-y-6 max-w-2xl">
         <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-2">1. Update the spreadsheet</h2>
+          <h2 className="font-bold mb-2">1. Set up a new competition</h2>
           <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
-            <li>Open your rugby data workbook and clear out (or overwrite) the <strong>Fixtures</strong> tab — last season&rsquo;s rounds, results, and scorers shouldn&rsquo;t carry into the new one.</li>
-            <li>Add the new season&rsquo;s fixtures: Round, Home Team, Away Team, Kickoff for each match. Leave Home Score/Away Score/Scorer/Event/Minute blank until matches are actually played.</li>
-            <li>Check the <strong>Squads</strong> tab — players don&rsquo;t get removed automatically, so if anyone&rsquo;s retired or been dropped, delete their row yourself. New call-ups just get added as new rows, same as always.</li>
-            <li>Save the file, ready to upload once the new competition is active (next step).</li>
+            <li>Go to <a href="/admin/rugby" className="underline">Admin → Rugby Competitions</a>, create the new competition (name, season, dates).</li>
+            <li>Click <strong>Activate</strong> — this archives whichever competition was active before and makes the new one live. The spreadsheet sync and every player-facing page always use whichever one is active.</li>
           </ul>
         </div>
 
         <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-2">2. Create and activate the new competition</h2>
+          <h2 className="font-bold mb-2">2. Import squads and fixtures</h2>
           <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
-            <li>Go to <a href="/admin/rugby" className="underline">Admin → Rugby</a> and create the new competition (name, season, dates).</li>
-            <li>Click <strong>Activate</strong> on it. This automatically archives whichever competition was active before — its data is kept forever, just no longer the live one.</li>
-            <li>
-              This step matters: the spreadsheet sync only ever writes into whichever competition is currently
-              active. Skipping it means new results would silently land in last year&rsquo;s (now archived) competition
-              instead of the new one.
-            </li>
+            <li>Fill in the Excel workbook (Squads tab: Team, Player Name; Fixtures tab: Round, Home Team, Away Team, Kickoff).</li>
+            <li>Upload it to the site&apos;s <code className="bg-gray-100 px-1 rounded">public</code> folder via GitHub, replacing <code className="bg-gray-100 px-1 rounded">rugby-data.xlsx</code>.</li>
+            <li>Go to <a href="/rugby" className="underline">the Rugby page</a> and click <strong>Sync from spreadsheet</strong>. Squads only ever grow (a name removed from the sheet stays on the site — remove it yourself in <a href="/admin/rugby/players" className="underline">Rugby Players</a> if truly needed); rounds and fixtures are created fresh for whichever competition is currently active.</li>
           </ul>
         </div>
 
         <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-2">3. Upload and sync</h2>
+          <h2 className="font-bold mb-2">3. Set up the tournament questions</h2>
           <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
-            <li>Upload the updated workbook to the site&rsquo;s <code className="bg-gray-100 px-1 rounded">public</code> folder via GitHub&rsquo;s web interface, replacing <code className="bg-gray-100 px-1 rounded">rugby-data.xlsx</code> — the same way you already swap other files like the Bonus Card photo.</li>
-            <li>Go to <a href="/rugby" className="underline">the Rugby page</a> and click <strong>Sync from spreadsheet</strong>. Rounds and fixtures are created fresh under the newly active competition; squads simply gain whatever&rsquo;s new since last time.</li>
+            <li>Go to <a href="/admin/rugby/season-questions" className="underline">Admin → Rugby Season Questions</a> and add whichever one-off tournament predictions you want players to make (winner, wooden spoon, top try scorer, or anything else you think of) — pick an answer type (team/player/number/match) and how many points it&apos;s worth for each.</li>
+            <li>These appear automatically on the player-facing Rules page and in their Picks flow — nothing else to wire up.</li>
+            <li>Once the tournament is over and you know the real answers, come back to this same page, fill in the answer for each question under &quot;Enter the answers&quot;, then click <strong>Calculate Season Prediction Points</strong>.</li>
           </ul>
         </div>
 
         <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-2">What carries over automatically vs. what starts fresh</h2>
+          <h2 className="font-bold mb-2">4. Set the scoring rules</h2>
           <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
-            <li><strong>Carries over:</strong> player squads — they&rsquo;re not tied to any one competition, so last season&rsquo;s names are still there unless you remove them yourself in the spreadsheet.</li>
-            <li><strong>Starts fresh:</strong> rounds, fixtures, results, scorers, and everyone&rsquo;s predictions and points — all scoped to whichever competition they belong to, so activating a new one gives you a clean slate for all of that automatically.</li>
+            <li>Go to <a href="/admin/rugby/scoring-rules" className="underline">Admin → Rugby Scoring Rules</a> to set every point value in the game — try/kicking points, the red card penalty, substitution limits and penalties, the underdog bonus and its threshold, and the weekly match-prediction point values.</li>
+            <li>Change these any time — the Rules page shown to players always reflects whatever&apos;s set here, automatically. A &quot;Calculate Points&quot; run always uses the current values, so correcting a number retroactively re-scores fairly if you recalculate afterwards.</li>
           </ul>
         </div>
 
         <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-2">If you ever need to undo an Activate</h2>
+          <h2 className="font-bold mb-2">5. The weekly routine, once a round&apos;s matches are played</h2>
+          <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
+            <li>Go to <a href="/admin/rugby/results" className="underline">Admin → Rugby Results</a>, pick the round, and enter each fixture&apos;s final score.</li>
+            <li>Click into each fixture and add every try/conversion/penalty/drop goal/card, with who scored it.</li>
+            <li>Click <strong>Calculate Points for this Round</strong> — this scores everyone&apos;s squad picks AND their match-score predictions for that round in one go. Safe to click again any time you correct something; it always recalculates cleanly rather than double-counting.</li>
+          </ul>
+          <p className="text-xs text-gray-500 mt-3">Alternatively, all of the above (scores, scorers, even squads) can still be updated in bulk via the same Excel workbook and &quot;Sync from spreadsheet&quot; — the admin pages are for quick one-off weekly updates so you&apos;re not re-uploading a whole file for a single score.</p>
+        </div>
+
+        <div className="bg-white border rounded-lg p-6">
+          <h2 className="font-bold mb-2">6. Managing players between rounds</h2>
+          <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
+            <li><a href="/admin/rugby/players" className="underline">Admin → Rugby Players</a> lets you add a one-off call-up or remove someone without touching the spreadsheet.</li>
+            <li>The ticker banner at the top of every rugby page (deadline reminders, shout-outs) is editable from <a href="/admin/rugby" className="underline">Admin → Rugby Competitions</a> — leave it empty to hide it.</li>
+          </ul>
+        </div>
+
+        <div className="bg-white border rounded-lg p-6">
+          <h2 className="font-bold mb-2">7. Ending a season and starting the next one</h2>
+          <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
+            <li>Once the tournament&apos;s over, finish entering season-question answers (step 3) and calculate those points.</li>
+            <li>Click <strong>Mark completed</strong> on the competition at <a href="/admin/rugby" className="underline">Admin → Rugby Competitions</a> — this is what makes it show up on the public <a href="/rugby/winners" className="underline">Winners</a> page.</li>
+            <li>For a new season: update the spreadsheet (clear last season&apos;s fixtures, keep or edit squads), create and activate a new competition (step 1), then re-import (step 2). Rounds/fixtures/predictions/points all start fresh per competition automatically; squads carry over unless you edit them.</li>
+          </ul>
+        </div>
+
+        <div className="bg-white border rounded-lg p-6">
+          <h2 className="font-bold mb-2">If you ever need to undo something</h2>
           <p className="text-sm text-gray-700">
-            Go back to <a href="/admin/rugby" className="underline">Admin → Rugby</a> and click <strong>Activate</strong> on
-            the one you want live instead — it archives whichever is currently active and reactivates your choice.
-            Nothing is ever deleted by this, only relabelled.
+            Activating a different competition, deactivating a season question, or re-running &quot;Calculate Points&quot;
+            are all safe to do repeatedly — nothing here is destructive. The one thing to be careful with is removing
+            a player from <a href="/admin/rugby/players" className="underline">Rugby Players</a> if they&apos;ve already
+            been picked by someone&apos;s squad or predictions — check first.
           </p>
         </div>
       </div>
