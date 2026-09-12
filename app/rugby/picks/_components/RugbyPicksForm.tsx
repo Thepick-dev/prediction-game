@@ -26,22 +26,40 @@ type MatchRowState = {
   awayTryBonus: boolean | null
 }
 
+// Each nation's own real shirt colours — a selected team button lights up
+// as itself, not as one generic "selected" colour, so picking Ireland
+// looks and feels different from picking Wales.
+const TEAM_COLOURS: Record<string, { fill: string; text: string }> = {
+  England: { fill: '#FFFFFF', text: '#C8102E' },
+  Ireland: { fill: '#169B62', text: '#FFFFFF' },
+  Wales: { fill: '#C8102E', text: '#FFFFFF' },
+  Scotland: { fill: '#0C1E3C', text: '#FFFFFF' },
+  France: { fill: '#0055A4', text: '#FFFFFF' },
+  Italy: { fill: '#0088CE', text: '#FFFFFF' },
+}
+const DEFAULT_COLOURS = { fill: 'var(--pop-blue)', text: 'var(--pop-black)' }
+const DRAW_COLOURS = { fill: 'var(--pop-pink)', text: 'var(--pop-white)' }
+
+function teamColours(name: string) {
+  return TEAM_COLOURS[name] ?? DEFAULT_COLOURS
+}
+
 // Toggle button used everywhere in this form for a binary/ternary choice —
 // bold, filled when active, plenty of touch target, no small print. The
 // one shared visual language behind winner picks, try-bonus calls, and
 // the confidence pick, so the whole page reads as one game, not three
 // different forms bolted together.
-function ChoiceButton({ label, active, colour, onClick }: { label: string; active: boolean; colour: string; onClick: () => void }) {
+function ChoiceButton({ label, active, fill, text, onClick }: { label: string; active: boolean; fill: string; text: string; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="pop-name flex-1 py-3 px-2 rounded-lg text-sm text-center"
+      className="pop-name w-full py-3 px-2 rounded-lg text-sm text-center"
       style={{
-        background: active ? colour : 'rgba(255,255,255,0.06)',
-        color: active ? 'var(--pop-black)' : 'rgba(255,255,255,0.65)',
-        border: active ? `2px solid ${colour}` : '2px solid rgba(255,255,255,0.12)',
-        boxShadow: active ? `0 0 16px ${colour}66` : 'none',
+        background: active ? fill : 'rgba(255,255,255,0.06)',
+        color: active ? text : 'rgba(255,255,255,0.8)',
+        border: active ? `2px solid ${fill}` : '2px solid rgba(255,255,255,0.15)',
+        boxShadow: active ? `0 0 16px ${fill}80` : 'none',
         fontWeight: active ? 900 : 700,
       }}
     >
@@ -196,16 +214,20 @@ export default function RugbyPicksForm({
               <div key={q.type_key}>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--pop-blue)' }}>{q.label}</label>
                 {q.answer_type === 'team' && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {teams.map(t => (
-                      <ChoiceButton
-                        key={t.id}
-                        label={t.name}
-                        active={answers[q.type_key] === t.id}
-                        colour="var(--pop-blue)"
-                        onClick={() => setAnswers(prev => ({ ...prev, [q.type_key]: t.id }))}
-                      />
-                    ))}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    {teams.map(t => {
+                      const c = teamColours(t.name)
+                      return (
+                        <ChoiceButton
+                          key={t.id}
+                          label={t.name}
+                          active={answers[q.type_key] === t.id}
+                          fill={c.fill}
+                          text={c.text}
+                          onClick={() => setAnswers(prev => ({ ...prev, [q.type_key]: t.id }))}
+                        />
+                      )
+                    })}
                   </div>
                 )}
                 {q.answer_type === 'fixture' && (
@@ -264,15 +286,15 @@ export default function RugbyPicksForm({
               const r = rows[f.id]
               return (
                 <div key={f.id} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <div className="flex gap-1.5 mb-3">
-                    <ChoiceButton label={f.homeTeam} active={r.winner === 'home'} colour="var(--pop-blue)" onClick={() => updateRow(f.id, { winner: 'home', margin: r.margin })} />
-                    <ChoiceButton label="Draw" active={r.winner === 'draw'} colour="var(--pop-pink)" onClick={() => updateRow(f.id, { winner: 'draw', margin: '' })} />
-                    <ChoiceButton label={f.awayTeam} active={r.winner === 'away'} colour="var(--pop-blue)" onClick={() => updateRow(f.id, { winner: 'away', margin: r.margin })} />
+                  <div className="grid grid-cols-3 gap-1.5 mb-3">
+                    <ChoiceButton label={f.homeTeam} active={r.winner === 'home'} fill={teamColours(f.homeTeam).fill} text={teamColours(f.homeTeam).text} onClick={() => updateRow(f.id, { winner: 'home', margin: r.margin })} />
+                    <ChoiceButton label="Draw" active={r.winner === 'draw'} fill={DRAW_COLOURS.fill} text={DRAW_COLOURS.text} onClick={() => updateRow(f.id, { winner: 'draw', margin: '' })} />
+                    <ChoiceButton label={f.awayTeam} active={r.winner === 'away'} fill={teamColours(f.awayTeam).fill} text={teamColours(f.awayTeam).text} onClick={() => updateRow(f.id, { winner: 'away', margin: r.margin })} />
                   </div>
 
                   {r.winner !== '' && r.winner !== 'draw' && (
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Winning margin</span>
+                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>Winning margin</span>
                       <input
                         type="number" min="1" placeholder="pts"
                         value={r.margin}
@@ -284,17 +306,17 @@ export default function RugbyPicksForm({
 
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <div>
-                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>🏉 {f.homeTeam} try bonus</p>
+                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>🏉 {f.homeTeam} try bonus</p>
                       <div className="flex gap-1.5">
-                        <ChoiceButton label="Yes" active={r.homeTryBonus === true} colour="var(--pop-green)" onClick={() => updateRow(f.id, { homeTryBonus: true })} />
-                        <ChoiceButton label="No" active={r.homeTryBonus === false} colour="var(--pop-red)" onClick={() => updateRow(f.id, { homeTryBonus: false })} />
+                        <ChoiceButton label="Yes" active={r.homeTryBonus === true} fill="var(--pop-green)" text="var(--pop-black)" onClick={() => updateRow(f.id, { homeTryBonus: true })} />
+                        <ChoiceButton label="No" active={r.homeTryBonus === false} fill="var(--pop-red)" text="var(--pop-white)" onClick={() => updateRow(f.id, { homeTryBonus: false })} />
                       </div>
                     </div>
                     <div>
-                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>🏉 {f.awayTeam} try bonus</p>
+                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>🏉 {f.awayTeam} try bonus</p>
                       <div className="flex gap-1.5">
-                        <ChoiceButton label="Yes" active={r.awayTryBonus === true} colour="var(--pop-green)" onClick={() => updateRow(f.id, { awayTryBonus: true })} />
-                        <ChoiceButton label="No" active={r.awayTryBonus === false} colour="var(--pop-red)" onClick={() => updateRow(f.id, { awayTryBonus: false })} />
+                        <ChoiceButton label="Yes" active={r.awayTryBonus === true} fill="var(--pop-green)" text="var(--pop-black)" onClick={() => updateRow(f.id, { awayTryBonus: true })} />
+                        <ChoiceButton label="No" active={r.awayTryBonus === false} fill="var(--pop-red)" text="var(--pop-white)" onClick={() => updateRow(f.id, { awayTryBonus: false })} />
                       </div>
                     </div>
                   </div>
@@ -305,7 +327,7 @@ export default function RugbyPicksForm({
                     className="pop-name w-full py-2.5 rounded-lg text-xs"
                     style={{
                       background: confidenceFixtureId === f.id ? 'var(--pop-orange)' : 'rgba(255,255,255,0.06)',
-                      color: confidenceFixtureId === f.id ? 'var(--pop-black)' : 'rgba(255,255,255,0.5)',
+                      color: confidenceFixtureId === f.id ? 'var(--pop-black)' : 'rgba(255,255,255,0.8)',
                       border: confidenceFixtureId === f.id ? '2px solid var(--pop-orange)' : '2px solid rgba(255,255,255,0.12)',
                       boxShadow: confidenceFixtureId === f.id ? '0 0 16px rgba(250,97,0,0.5)' : 'none',
                       fontWeight: 900,

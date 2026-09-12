@@ -161,7 +161,7 @@ export default function RugbyShell({
           <div className="overflow-hidden whitespace-nowrap" style={{ background: 'var(--pop-orange)', height: 28 }}>
             <div
               className="pop-ticker-single pop-name inline-block py-1.5"
-              style={{ fontSize: '14px', color: 'var(--pop-black)', animationDuration: `${Math.max(5, tickerText.length * 0.12)}s` }}
+              style={{ fontSize: '14px', color: 'var(--pop-black)', animationDuration: `${Math.max(2.5, tickerText.length * 0.06)}s` }}
             >
               📢 {tickerText}
             </div>

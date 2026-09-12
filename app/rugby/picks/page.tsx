@@ -4,6 +4,7 @@ import RugbyKitEditor from '../../../components/RugbyKitEditor'
 import RugbyPicksForm from './_components/RugbyPicksForm'
 import RugbySquadDraftForm from '../dream-team/_components/RugbySquadDraftForm'
 import RugbySquadManager from '../dream-team/_components/RugbySquadManager'
+import RugbyCountdownClock from '../../../components/RugbyCountdownClock'
 import { redirect } from 'next/navigation'
 
 // Any logged-in user can join themselves — RLS on rugby.competition_entries
@@ -35,8 +36,13 @@ type MatchPred = {
 }
 type SquadPick = { id: string; player_id: number; is_kicker: boolean; active: boolean; is_initial_pick: boolean }
 
-function RoundHeading({ text }: { text: string }) {
-  return <h1 className="pop-headline text-lg mb-5" style={{ color: 'var(--pop-white)' }}>{text}</h1>
+function RoundHeading({ text, deadline }: { text: string; deadline?: string | null }) {
+  return (
+    <div className="pop-panel pop-panel--pulse pop-panel--yellow p-3 sm:p-4 mb-5 flex items-center justify-between gap-3 flex-wrap">
+      <h1 className="pop-headline text-xl sm:text-2xl" style={{ color: 'var(--pop-white)' }}>{text}</h1>
+      {deadline && <RugbyCountdownClock deadline={deadline} />}
+    </div>
+  )
 }
 
 export default async function RugbyPicksPage() {
@@ -121,7 +127,7 @@ export default async function RugbyPicksPage() {
   if (!hasKit) {
     return (
       <div className="max-w-2xl mx-auto p-4 md:p-6">
-        <RoundHeading text={headingText} />
+        <RoundHeading text={headingText} deadline={currentRound?.deadline ?? null} />
         <div className="pop-panel pop-panel--orange p-5">
           <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>Pick Your Kit</h2>
           <RugbyKitEditor userId={user.id} />
@@ -147,7 +153,7 @@ export default async function RugbyPicksPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
-      <RoundHeading text={headingText} />
+      <RoundHeading text={headingText} deadline={currentRound?.deadline ?? null} />
 
       {(showSeasonPredictions || showMatchPredictions) && (
         <div className="mb-6">
