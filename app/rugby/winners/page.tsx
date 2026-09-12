@@ -1,10 +1,9 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import { computeRugbyGrandTotals } from '../../lib/rugbyLeaderboard'
 
 type Competition = { id: string; name: string; season: string }
 type Entry = { user_id: string }
 type Profile = { id: string; display_name: string }
-type PointsRow = { user_id: string; total_points: number }
-type SeasonPointsRow = { user_id: string; points: number }
 
 async function podiumFor(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>, competition: Competition) {
   const { data: entries } = await supabase.schema('rugby').from('competition_entries').select('user_id').eq('competition_id', competition.id) as unknown as { data: Entry[] | null }
@@ -12,19 +11,14 @@ async function podiumFor(supabase: Awaited<ReturnType<typeof createServerSupabas
   const userIds = entriesList.map(e => e.user_id)
   if (userIds.length === 0) return []
 
-  const [{ data: profiles }, { data: squadPoints }, { data: seasonPoints }] = await Promise.all([
+  const [{ data: profiles }, grandTotals] = await Promise.all([
     supabase.from('profiles').select('id, display_name').in('id', userIds) as unknown as Promise<{ data: Profile[] | null }>,
-    supabase.schema('rugby').from('season_squad_points').select('user_id, total_points') as unknown as Promise<{ data: PointsRow[] | null }>,
-    supabase.schema('rugby').from('season_prediction_points').select('user_id, points').eq('competition_id', competition.id) as unknown as Promise<{ data: SeasonPointsRow[] | null }>,
+    computeRugbyGrandTotals(supabase, competition.id, userIds),
   ])
   const nameById = new Map((profiles ?? []).map(p => [p.id, p.display_name]))
-  const totals = new Map<string, number>()
-  entriesList.forEach(e => totals.set(e.user_id, 0))
-  ;(squadPoints ?? []).forEach(r => { if (totals.has(r.user_id)) totals.set(r.user_id, (totals.get(r.user_id) ?? 0) + r.total_points) })
-  ;(seasonPoints ?? []).forEach(r => { if (totals.has(r.user_id)) totals.set(r.user_id, (totals.get(r.user_id) ?? 0) + r.points) })
 
-  return Array.from(totals.entries())
-    .map(([userId, points]) => ({ name: nameById.get(userId) ?? 'Unknown', points }))
+  return Array.from(grandTotals.values())
+    .map(row => ({ name: nameById.get(row.userId) ?? 'Unknown', points: row.total }))
     .sort((a, b) => b.points - a.points)
     .slice(0, 3)
 }

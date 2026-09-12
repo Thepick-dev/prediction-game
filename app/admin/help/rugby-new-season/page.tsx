@@ -18,7 +18,7 @@ export default function RugbyAdminGuidePage() {
           <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
             <li>Fill in the Excel workbook (Squads tab: Team, Player Name; Fixtures tab: Round, Home Team, Away Team, Kickoff).</li>
             <li>Upload it to the site&apos;s <code className="bg-gray-100 px-1 rounded">public</code> folder via GitHub, replacing <code className="bg-gray-100 px-1 rounded">rugby-data.xlsx</code>.</li>
-            <li>Go to <a href="/rugby" className="underline">the Rugby page</a> and click <strong>Sync from spreadsheet</strong>. Squads only ever grow (a name removed from the sheet stays on the site — remove it yourself in <a href="/admin/rugby/players" className="underline">Rugby Players</a> if truly needed); rounds and fixtures are created fresh for whichever competition is currently active.</li>
+            <li>Go to <a href="/admin/rugby" className="underline">Admin → Rugby Competitions</a> and click <strong>Sync from spreadsheet</strong>. Squads only ever grow (a name removed from the sheet stays on the site — remove it yourself in <a href="/admin/rugby/players" className="underline">Rugby Players</a> if truly needed); rounds and fixtures are created fresh for whichever competition is currently active.</li>
           </ul>
         </div>
 

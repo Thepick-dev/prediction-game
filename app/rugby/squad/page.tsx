@@ -40,7 +40,7 @@ export default async function RugbySquadPage() {
           <p className="text-sm" style={{ color: 'var(--pop-white)' }}>
             You need to join {competition.name} before picking your squad.
           </p>
-          <Link href="/rugby" className="pop-button pop-button--orange inline-block mt-3">Go join</Link>
+          <Link href="/rugby/picks" className="pop-button pop-button--orange inline-block mt-3">Go join</Link>
         </div>
       </div>
     )
@@ -112,6 +112,26 @@ export default async function RugbySquadPage() {
             maxFreeSubs={maxFreeSubs}
             canSub={canSub}
           />
+        )}
+      </div>
+
+      <div className="pop-panel pop-panel--pink p-5 mt-6">
+        <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>Browse All Squads</h2>
+        {teamsList.length === 0 ? (
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>No squads synced yet.</p>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            {teamsList.map(team => (
+              <div key={team.id}>
+                <h3 className="pop-headline text-xs mb-2" style={{ color: 'var(--pop-pink)' }}>{team.name} ({(playersByTeam[team.id] ?? []).length})</h3>
+                <ul className="text-xs space-y-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                  {(playersByTeam[team.id] ?? []).map(p => (
+                    <li key={p.id}>{p.name}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

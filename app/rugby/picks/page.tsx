@@ -1,13 +1,26 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { DEFAULT_RUGBY_SCORING_RULES } from '../../lib/rugbyScoring'
 import RugbyKitEditor from '../../../components/RugbyKitEditor'
+import RugbyHero from '../../../components/RugbyHero'
 import SeasonPredictionsForm from './_components/SeasonPredictionsForm'
 import MatchPredictionsForm from './_components/MatchPredictionsForm'
 import RugbySquadDraftForm from '../squad/_components/RugbySquadDraftForm'
 import RugbySquadManager from '../squad/_components/RugbySquadManager'
-import Link from 'next/link'
+import { redirect } from 'next/navigation'
 
-type Competition = { id: string; name: string }
+// Any logged-in user can join themselves — RLS on rugby.competition_entries
+// already restricts the insert to `user_id = auth.uid()`.
+async function joinRugbyCompetition(formData: FormData) {
+  'use server'
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+  const competitionId = formData.get('competition_id') as string
+  await supabase.schema('rugby').from('competition_entries').insert({ competition_id: competitionId, user_id: user.id })
+  redirect('/rugby/picks')
+}
+
+type Competition = { id: string; name: string; season: string }
 type Team = { id: number; name: string }
 type Player = { id: number; team_id: number; name: string }
 type Round = { id: string; number: number; deadline: string }
@@ -32,7 +45,7 @@ export default async function RugbyPicksPage() {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: competition } = await supabase.schema('rugby').from('competitions').select('id, name').eq('status', 'active').maybeSingle() as unknown as { data: Competition | null }
+  const { data: competition } = await supabase.schema('rugby').from('competitions').select('id, name, season').eq('status', 'active').maybeSingle() as unknown as { data: Competition | null }
 
   if (!competition) return <div className="max-w-2xl mx-auto p-6"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>No active competition yet.</p></div>
   if (!user) return <div className="max-w-2xl mx-auto p-6"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>Please log in.</p></div>
@@ -40,10 +53,14 @@ export default async function RugbyPicksPage() {
   const { data: entry } = await supabase.schema('rugby').from('competition_entries').select('id').eq('competition_id', competition.id).eq('user_id', user.id).maybeSingle()
   if (!entry) {
     return (
-      <div className="max-w-2xl mx-auto p-6">
-        <div className="pop-panel pop-panel--orange p-5">
-          <p className="text-sm" style={{ color: 'var(--pop-white)' }}>You need to join {competition.name} first.</p>
-          <Link href="/rugby" className="pop-button pop-button--orange inline-block mt-3">Go join</Link>
+      <div className="max-w-2xl mx-auto p-4 md:p-6">
+        <RugbyHero title={competition.name} subtitle={competition.season} />
+        <div className="pop-panel pop-panel--orange p-5 flex items-center justify-between flex-wrap gap-3">
+          <p className="text-sm" style={{ color: 'var(--pop-white)' }}>You&apos;re not entered in {competition.name} yet.</p>
+          <form action={joinRugbyCompetition}>
+            <input type="hidden" name="competition_id" value={competition.id} />
+            <button type="submit" className="pop-button pop-button--orange">Join</button>
+          </form>
         </div>
       </div>
     )
@@ -146,7 +163,7 @@ export default async function RugbyPicksPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
-      <h1 className="pop-hero pop-hero--pink text-2xl md:text-3xl mb-4">✅ Picks</h1>
+      <RugbyHero title={competition.name} subtitle={currentRound ? `Round ${currentRound.number}` : competition.season} />
 
       {steps.length > 0 ? steps[0].render() : null}
 

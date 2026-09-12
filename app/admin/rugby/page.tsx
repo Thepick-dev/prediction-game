@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from '../../lib/supabase-admin'
 import { requireAdmin } from '../../lib/require-admin'
 import { redirect } from 'next/navigation'
 import ConfirmActionButton from '../components/confirm-action-button'
+import RugbySyncButton from '../../rugby/_components/RugbySyncButton'
 
 // Every write below goes through this — Server Actions are reachable as
 // their own endpoint, not just "the button on a page only admins can see",
@@ -95,6 +96,16 @@ export default async function AdminRugbyPage() {
             <textarea name="ticker_text" rows={2} defaultValue={(activeComp as unknown as { ticker_text?: string }).ticker_text ?? ''} className="border rounded px-3 py-2 text-sm w-full" placeholder="e.g. Round 2 deadline: Friday 6pm" />
             <button type="submit" className="bg-black text-white rounded px-3 py-1.5 text-sm font-bold">Save ticker</button>
           </form>
+        </div>
+      )}
+
+      {activeComp && (
+        <div className="bg-white border rounded-lg p-6 mb-8 max-w-md">
+          <h2 className="font-bold mb-1">🔄 Spreadsheet Sync</h2>
+          <p className="text-xs text-gray-500 mb-3">Re-reads <code className="bg-gray-100 px-1 rounded">rugby-data.xlsx</code> and reconciles squads, fixtures, results and scorers into {activeComp.name}.</p>
+          <div className="pop-art-theme inline-block">
+            <RugbySyncButton />
+          </div>
         </div>
       )}
 
