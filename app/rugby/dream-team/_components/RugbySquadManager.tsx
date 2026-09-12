@@ -69,10 +69,13 @@ export default function RugbySquadManager({
       {message && <p className="text-sm mb-2" style={{ color: 'var(--pop-red)' }}>{message}</p>}
       <div className="space-y-2">
         {slots.map(slot => (
-          <div key={slot.teamId} className="flex items-center justify-between flex-wrap gap-2 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-            <div className="text-sm pop-name" style={{ color: 'var(--pop-white)' }}>
-              <span style={{ color: 'var(--pop-blue)' }}>{slot.teamName}</span> — {slot.playerName}
-              {slot.isKicker && <span className="pop-badge pop-badge--orange ml-2" style={{ fontSize: '10px', padding: '2px 8px' }}>KICKER</span>}
+          <div key={slot.teamId} className="rounded-xl p-3 flex items-center justify-between flex-wrap gap-2" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div>
+              <p className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--pop-blue)' }}>{slot.teamName}</p>
+              <p className="pop-name text-base" style={{ color: 'var(--pop-white)' }}>
+                {slot.playerName}
+                {slot.isKicker && <span className="pop-badge pop-badge--orange ml-2" style={{ fontSize: '10px', padding: '2px 8px' }}>KICKER</span>}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               {!slot.isKicker && (
@@ -90,7 +93,7 @@ export default function RugbySquadManager({
               <div className="w-full mt-1">
                 {replacementId ? (
                   <div className="flex items-center gap-2">
-                    <span className="pop-input px-2 py-1 text-xs flex-1" style={{ display: 'inline-block' }}>
+                    <span className="pop-input pop-name px-2 py-1 text-sm flex-1" style={{ display: 'inline-block' }}>
                       {(playersByTeam[slot.teamId] ?? []).find(p => p.id === replacementId)?.name}
                     </span>
                     <button onClick={() => setReplacementId('')} className="text-xs" style={{ color: 'var(--pop-red)' }}>✕</button>

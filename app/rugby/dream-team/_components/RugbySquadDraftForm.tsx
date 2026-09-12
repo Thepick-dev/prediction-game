@@ -26,12 +26,12 @@ function PlayerSearchPicker({
     : []
 
   return (
-    <div>
-      <label className="block text-xs pop-name mb-1" style={{ color: 'var(--pop-blue)' }}>{team.name}</label>
+    <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+      <p className="pop-name text-sm mb-2" style={{ color: 'var(--pop-blue)' }}>{team.name}</p>
       {selected ? (
-        <div className="pop-input flex items-center justify-between px-3 py-2 text-sm">
-          <span>{selected.name}</span>
-          <button type="button" onClick={onClear} className="text-xs" style={{ color: 'var(--pop-red)' }}>✕</button>
+        <div className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: 'rgba(0,242,250,0.1)', border: '1.5px solid var(--pop-blue)' }}>
+          <span className="pop-name text-base" style={{ color: 'var(--pop-white)' }}>{selected.name}</span>
+          <button type="button" onClick={onClear} className="text-sm shrink-0 ml-2" style={{ color: 'var(--pop-red)' }}>✕</button>
         </div>
       ) : (
         <>
@@ -49,7 +49,7 @@ function PlayerSearchPicker({
                   key={p.id}
                   type="button"
                   onClick={() => { onSelect(p.id); setSearch('') }}
-                  className="block w-full text-left px-3 py-1.5 text-sm hover:opacity-80"
+                  className="pop-name block w-full text-left px-3 py-2 text-sm hover:opacity-80"
                   style={{ background: 'var(--pop-surface)', color: 'var(--pop-white)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
                 >
                   {p.name}
@@ -139,20 +139,33 @@ export default function RugbySquadDraftForm({
 
       {allPicked && (
         <div>
-          <label className="block text-xs font-medium mb-1" style={{ color: 'var(--pop-orange)' }}>Kicker (scores for tries + kicks)</label>
-          <select
-            className="pop-input px-3 py-2 text-sm w-full max-w-xs"
-            value={kickerPlayerId}
-            onChange={e => setKickerPlayerId(e.target.value ? Number(e.target.value) : '')}
-          >
-            <option value="">Select your kicker...</option>
+          <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: 'var(--pop-orange)' }}>Pick your kicker</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {teams.map(t => {
               const pid = selections[t.id]
               if (!pid) return null
               const player = (playersByTeam[t.id] ?? []).find(p => p.id === pid)
-              return player ? <option key={pid} value={pid}>{player.name} ({t.name})</option> : null
+              if (!player) return null
+              const active = kickerPlayerId === pid
+              return (
+                <button
+                  key={pid}
+                  type="button"
+                  onClick={() => setKickerPlayerId(pid)}
+                  className="pop-name py-2.5 px-2 rounded-lg text-sm text-center"
+                  style={{
+                    background: active ? 'var(--pop-orange)' : 'rgba(255,255,255,0.06)',
+                    color: active ? 'var(--pop-black)' : 'rgba(255,255,255,0.65)',
+                    border: active ? '2px solid var(--pop-orange)' : '2px solid rgba(255,255,255,0.12)',
+                    boxShadow: active ? '0 0 16px rgba(250,97,0,0.5)' : 'none',
+                    fontWeight: active ? 900 : 700,
+                  }}
+                >
+                  {player.name}
+                </button>
+              )
             })}
-          </select>
+          </div>
         </div>
       )}
 
@@ -161,7 +174,7 @@ export default function RugbySquadDraftForm({
       <button
         onClick={submit}
         disabled={!allPicked || !kickerPlayerId || saving}
-        className="pop-button pop-button--green"
+        className="pop-button pop-button--green w-full py-3 text-base"
       >
         {saving ? 'Saving…' : 'Confirm Dream Team'}
       </button>

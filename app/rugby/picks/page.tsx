@@ -1,9 +1,7 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { DEFAULT_RUGBY_SCORING_RULES } from '../../lib/rugbyScoring'
 import RugbyKitEditor from '../../../components/RugbyKitEditor'
-import RugbyHero from '../../../components/RugbyHero'
-import SeasonPredictionsForm from './_components/SeasonPredictionsForm'
-import MatchPredictionsForm from './_components/MatchPredictionsForm'
+import RugbyPicksForm from './_components/RugbyPicksForm'
 import RugbySquadDraftForm from '../dream-team/_components/RugbySquadDraftForm'
 import RugbySquadManager from '../dream-team/_components/RugbySquadManager'
 import { redirect } from 'next/navigation'
@@ -37,16 +35,8 @@ type MatchPred = {
 }
 type SquadPick = { id: string; player_id: number; is_kicker: boolean; active: boolean; is_initial_pick: boolean }
 
-function SectionPanel({ title, done, children }: { title: string; done: boolean; children: React.ReactNode }) {
-  return (
-    <div className="pop-panel pop-panel--orange p-5 mb-6">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h2 className="pop-headline text-base" style={{ color: 'var(--pop-white)' }}>{title}</h2>
-        {done && <span className="pop-badge pop-badge--green text-xs">✓ Saved</span>}
-      </div>
-      {children}
-    </div>
-  )
+function RoundHeading({ text }: { text: string }) {
+  return <h1 className="pop-headline text-lg mb-5" style={{ color: 'var(--pop-white)' }}>{text}</h1>
 }
 
 export default async function RugbyPicksPage() {
@@ -62,7 +52,7 @@ export default async function RugbyPicksPage() {
   if (!entry) {
     return (
       <div className="max-w-2xl mx-auto p-4 md:p-6">
-        <RugbyHero title={competition.name} subtitle={competition.season} />
+        <RoundHeading text={competition.name} />
         <div className="pop-panel pop-panel--orange p-5 flex items-center justify-between flex-wrap gap-3">
           <p className="text-sm" style={{ color: 'var(--pop-white)' }}>You&apos;re not entered in {competition.name} yet.</p>
           <form action={joinRugbyCompetition}>
@@ -96,6 +86,7 @@ export default async function RugbyPicksPage() {
   const round1 = roundsList.find(r => r.number === 1)
   const round1DeadlinePassed = round1 ? new Date(round1.deadline) < new Date() : false
   const currentRound = roundsList.find(r => new Date(r.deadline) > new Date())
+  const headingText = currentRound ? `Round ${currentRound.number}` : competition.name
 
   const { data: allFixtures } = await supabase.schema('rugby').from('fixtures').select('id, round_id, home_team_id, away_team_id') as unknown as { data: Fixture[] | null }
   const fixturesList = allFixtures ?? []
@@ -130,10 +121,11 @@ export default async function RugbyPicksPage() {
   if (!hasKit) {
     return (
       <div className="max-w-2xl mx-auto p-4 md:p-6">
-        <RugbyHero title={competition.name} subtitle={currentRound ? `Round ${currentRound.number}` : competition.season} />
-        <SectionPanel title="Pick Your Kit" done={false}>
+        <RoundHeading text={headingText} />
+        <div className="pop-panel pop-panel--orange p-5">
+          <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>Pick Your Kit</h2>
           <RugbyKitEditor userId={user.id} />
-        </SectionPanel>
+        </div>
       </div>
     )
   }
@@ -151,39 +143,37 @@ export default async function RugbyPicksPage() {
     if (pick.is_kicker) squadKickerId = pick.player_id
   })
 
+  const nothingToDo = !showSeasonPredictions && !showMatchPredictions && !showSquadDraft && !showSquadManager
+
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
-      <RugbyHero title={competition.name} subtitle={currentRound ? `Round ${currentRound.number}` : competition.season} />
-      <p className="text-xs text-center mb-5" style={{ color: 'rgba(255,255,255,0.4)' }}>
-        Everything below can be changed as many times as you like until its own deadline.
-      </p>
+      <RoundHeading text={headingText} />
 
-      {showSeasonPredictions && (
-        <SectionPanel title="Tournament Predictions" done={hasAllSeasonAnswers}>
-          <SeasonPredictionsForm
+      {(showSeasonPredictions || showMatchPredictions) && (
+        <div className="mb-6">
+          <RugbyPicksForm
             competitionId={competition.id}
+            showSeasonPredictions={showSeasonPredictions}
             questions={questionsList}
             teams={teamsList}
             players={playersList}
-            fixtures={fixturesList.map(f => ({ id: f.id, label: `Round ${roundsList.find(r => r.id === f.round_id)?.number} — ${teamName(f.home_team_id)} v ${teamName(f.away_team_id)}` }))}
+            fixtureLabels={fixturesList.map(f => ({ id: f.id, label: `Round ${roundsList.find(r => r.id === f.round_id)?.number} — ${teamName(f.home_team_id)} v ${teamName(f.away_team_id)}` }))}
             existingAnswers={seasonAnswersList}
-          />
-        </SectionPanel>
-      )}
-
-      {showMatchPredictions && currentRound && (
-        <SectionPanel title={`Round ${currentRound.number} Match Predictions`} done={hasAllCurrentRoundPreds}>
-          <MatchPredictionsForm
-            roundId={currentRound.id}
-            roundNumber={currentRound.number}
+            showMatchPredictions={showMatchPredictions}
+            roundId={currentRound?.id ?? null}
+            roundNumber={currentRound?.number ?? null}
             fixtures={currentRoundFixtures.map(f => ({ id: f.id, homeTeam: teamName(f.home_team_id), awayTeam: teamName(f.away_team_id) }))}
-            existing={currentRoundMatchPreds}
+            existingMatchPreds={currentRoundMatchPreds}
           />
-        </SectionPanel>
+        </div>
       )}
 
       {showSquadDraft && (
-        <SectionPanel title="Your Dream Team" done={hasSquad}>
+        <div className="pop-panel pop-panel--orange p-5 mb-6">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h2 className="pop-headline text-base" style={{ color: 'var(--pop-white)' }}>Your Dream Team</h2>
+            {hasSquad && <span className="pop-badge pop-badge--green text-xs">✓ Saved</span>}
+          </div>
           <RugbySquadDraftForm
             competitionId={competition.id}
             teams={teamsList}
@@ -191,7 +181,7 @@ export default async function RugbyPicksPage() {
             existingSelections={hasSquad ? squadSelections : undefined}
             existingKickerPlayerId={squadKickerId}
           />
-        </SectionPanel>
+        </div>
       )}
 
       {showSquadManager && (
@@ -212,10 +202,16 @@ export default async function RugbyPicksPage() {
         </div>
       )}
 
-      {!showSeasonPredictions && !showMatchPredictions && !showSquadDraft && !showSquadManager && (
+      {nothingToDo && (
         <div className="pop-panel pop-panel--green p-5">
           <p className="pop-badge pop-badge--green">Nothing open to pick right now — check back once the next round is set.</p>
         </div>
+      )}
+
+      {!nothingToDo && (
+        <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          Everything above can be changed as many times as you like until its own deadline.
+        </p>
       )}
     </div>
   )
