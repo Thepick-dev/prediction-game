@@ -202,6 +202,7 @@ export default function PicksPage() {
   const [competition, setCompetition] = useState<any>(null)
   const [gameweek, setGameweek] = useState<Gameweek | null>(null)
   const [nextGameweek, setNextGameweek] = useState<Gameweek | null>(null)
+  const [totalGameweeks, setTotalGameweeks] = useState<number | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [players, setPlayers] = useState<Player[]>([])
   const [playerReactions, setPlayerReactions] = useState<Record<number, { type: 'emoji' | 'text'; content: string }>>({})
@@ -381,11 +382,12 @@ export default function PicksPage() {
     // once a day — that's when the live "how's everyone doing" table is
     // most worth showing. Never falls back to a "completed" one — that has
     // its own full, final view on Results/Leaderboard instead.
-    const [{ data: entry }, { data: openGw }, { data: lockedGw }, { data: upcomingGw }] = await Promise.all([
+    const [{ data: entry }, { data: openGw }, { data: lockedGw }, { data: upcomingGw }, { count: gwCount }] = await Promise.all([
       supabase.from('competition_entries').select('id').eq('competition_id', comp.id).eq('user_id', user.id).single(),
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).eq('status', 'open').order('deadline', { ascending: true }).limit(1).maybeSingle(),
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).eq('status', 'locked').order('deadline', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('gameweeks').select('id, number, deadline, status').eq('competition_id', comp.id).eq('status', 'upcoming').order('deadline', { ascending: true }).limit(1).maybeSingle(),
+      supabase.from('gameweeks').select('id', { count: 'exact', head: true }).eq('competition_id', comp.id),
     ])
 
     if (!entry) { window.location.href = '/join'; return }
@@ -394,6 +396,7 @@ export default function PicksPage() {
     setGameweek(gw)
     if (gw) setDeadlinePassed(new Date() > new Date(gw.deadline))
     setNextGameweek(upcomingGw ?? null)
+    setTotalGameweeks(gwCount ?? null)
 
     // Its own isolated query, same reasoning as everywhere else on this
     // page — a brand new, optional feature, so a problem reading it must
@@ -1011,7 +1014,12 @@ export default function PicksPage() {
             {gameweek && (
               <div className={`pop-panel pop-panel--pulse ${!deadlinePassed && !hasPick ? 'pop-panel--yellow pop-rotate-r' : 'pop-panel--blue pop-rotate-l'} p-3 sm:p-4 mb-4 sm:mb-6 flex items-center justify-between gap-3 flex-wrap`}>
                 <div>
-                  <p className="pop-headline text-2xl sm:text-3xl mb-0.5">GW{gameweek.number}</p>
+                  <p className="pop-headline text-2xl sm:text-3xl mb-0.5">
+                    GW{gameweek.number}
+                    {totalGameweeks && (
+                      <span className="text-sm sm:text-base font-black" style={{ color: 'rgba(255,255,255,0.6)' }}> (of {totalGameweeks})</span>
+                    )}
+                  </p>
                   <p className="font-black text-xs uppercase">
                     {deadlinePassed ? 'Locked — see you next gameweek!' : hasPick ? 'Pick submitted!' : 'Pick required!'}
                   </p>
