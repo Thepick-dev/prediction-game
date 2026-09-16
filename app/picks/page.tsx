@@ -259,14 +259,24 @@ export default function PicksPage() {
   // week's own saved pick so other on-page counters read correctly).
   const [savedPickPlayers, setSavedPickPlayers] = useState<{ p1: number | null; p2: number | null }>({ p1: null, p2: null })
 
-  // Bonus Card — a whole-competition-once bonus on top of the two normal
-  // picks, independent of Banker and All or Nothing. `bonusCard` is the
-  // live/current admin nomination; `bonusCardPlay` is this user's own
-  // resolved play (if any exists at all, for ANY gameweek); `playBonusCard`
-  // is the LOCAL, not-yet-saved choice to play it on THIS gameweek.
+  // Bonus Card — a per-competition bonus on top of the two normal picks,
+  // independent of Banker and All or Nothing. `bonusCard` is the live/
+  // current admin config (still shaped around a single nominee, for
+  // backward compatibility with every competition that only ever had
+  // one); `bonusCardNominees`/`bonusCardMaxPlays`/`bonusCardPlayerUseCap`
+  // are the new, general pool/limits (a competition with exactly one
+  // nominee and maxPlays 1 — every competition today — behaves
+  // identically to the old single-player/single-play design, bit for
+  // bit). `bonusCardPlays` is ALL of this user's plays this competition
+  // (was a single row); `playBonusCard`/`selectedNomineeId` are the
+  // LOCAL, not-yet-saved choice for THIS gameweek.
   const [bonusCard, setBonusCard] = useState<{ bonus_card_enabled: boolean; bonus_card_player_id: number | null; bonus_card_name: string | null } | null>(null)
-  const [bonusCardPlay, setBonusCardPlay] = useState<{ gameweek_id: string; player_id: number; fixture_id: number | null; points: number | null } | null>(null)
+  const [bonusCardNominees, setBonusCardNominees] = useState<{ playerId: number; displayName: string | null }[]>([])
+  const [bonusCardMaxPlays, setBonusCardMaxPlays] = useState(1)
+  const [bonusCardPlayerUseCap, setBonusCardPlayerUseCap] = useState(1)
+  const [bonusCardPlays, setBonusCardPlays] = useState<{ gameweek_id: string; player_id: number; fixture_id: number | null; points: number | null }[]>([])
   const [playBonusCard, setPlayBonusCard] = useState(false)
+  const [selectedNomineeId, setSelectedNomineeId] = useState<number | null>(null)
   const [bonusCardFixture, setBonusCardFixture] = useState<number | null>(null)
 
   const [playerSearch1, setPlayerSearch1] = useState('')
@@ -334,11 +344,11 @@ export default function PicksPage() {
   // so an already-toggled-on choice needs clearing rather than silently
   // becoming invalid.
   useEffect(() => {
-    if (playBonusCard && bonusCard?.bonus_card_player_id != null &&
-        (bonusCard.bonus_card_player_id === player1 || bonusCard.bonus_card_player_id === player2)) {
+    const currentNomineeId = bonusCardNominees.length > 1 ? selectedNomineeId : (bonusCardNominees[0]?.playerId ?? null)
+    if (playBonusCard && currentNomineeId != null && (currentNomineeId === player1 || currentNomineeId === player2)) {
       setPlayBonusCard(false)
     }
-  }, [player1, player2, playBonusCard, bonusCard])
+  }, [player1, player2, playBonusCard, bonusCardNominees, selectedNomineeId])
 
   // Jump straight to the wizard the moment a team's picked — the whole
   // point of it living below a long fixture list is that you shouldn't
@@ -510,11 +520,16 @@ export default function PicksPage() {
       setAllOrNothing(aonFromApi)
       setAonChoice(aonFromApi && aonFromApi.gameweek_id === gw.id ? aonFromApi.player_id : null)
 
-      const bonusCardFromApi = pickData.bonusCardPlay ?? null
+      const bonusCardPlaysFromApi: { gameweek_id: string; player_id: number; fixture_id: number | null; points: number | null }[] = pickData.bonusCardPlays ?? []
+      const bonusCardPlayThisWeek = bonusCardPlaysFromApi.find(p => p.gameweek_id === gw.id) ?? null
       setBonusCard(pickData.bonusCard ?? null)
-      setBonusCardPlay(bonusCardFromApi)
-      setPlayBonusCard(bonusCardFromApi != null && bonusCardFromApi.gameweek_id === gw.id)
-      setBonusCardFixture(bonusCardFromApi && bonusCardFromApi.gameweek_id === gw.id ? bonusCardFromApi.fixture_id : null)
+      setBonusCardNominees(pickData.bonusCardNominees ?? [])
+      setBonusCardMaxPlays(pickData.bonusCardMaxPlays ?? 1)
+      setBonusCardPlayerUseCap(pickData.bonusCardPlayerUseCap ?? 1)
+      setBonusCardPlays(bonusCardPlaysFromApi)
+      setPlayBonusCard(bonusCardPlayThisWeek != null)
+      setSelectedNomineeId(bonusCardPlayThisWeek?.player_id ?? null)
+      setBonusCardFixture(bonusCardPlayThisWeek?.fixture_id ?? null)
 
       const qMap: Record<number, number> = {}
       quartilesData?.forEach(q => { qMap[q.team_id] = q.tier })
@@ -655,6 +670,7 @@ export default function PicksPage() {
         comments: comments.trim() || null,
         all_or_nothing_player_id: aonChoice,
         play_bonus_card: playBonusCard,
+        bonus_card_player_id: bonusCardPlayerId,
         bonus_card_fixture_id: bonusCardFixture
       })
     })
@@ -764,24 +780,41 @@ export default function PicksPage() {
   const aonEligible1 = player1 != null && !aonExclusion1 && aonPriorUses(player1) <= 0
   const aonEligible2 = player2 != null && !aonExclusion2 && aonPriorUses(player2) <= 0
 
-  // Bonus Card eligibility — same "spent for the rest of the competition
-  // once a record exists for any OTHER gameweek" shape as All or Nothing,
-  // plus its own extra rule: can't be played on a player who's already one
-  // of this gameweek's two normal picks.
-  const bonusCardSpentElsewhere = !!bonusCardPlay && (!gameweek || bonusCardPlay.gameweek_id !== gameweek.id)
-  const bonusCardPlayerId = bonusCard?.bonus_card_player_id ?? null
+  // Bonus Card eligibility. `bonusCardNominees` (from the API) is always a
+  // pool now — with exactly one entry for every competition that only ever
+  // had a single admin-nominated player (every competition today), so
+  // everything below reduces to the exact old single-player/single-play
+  // behaviour in that case. `bonusCardHasPool` only turns true once a
+  // competition is actually configured with more than one nominee.
+  const bonusCardHasPool = bonusCardNominees.length > 1
+  const bonusCardPlayerId = bonusCardHasPool ? selectedNomineeId : (bonusCardNominees[0]?.playerId ?? null)
   const bonusCardPlayer = bonusCardPlayerId != null ? players.find(p => p.id === bonusCardPlayerId) : undefined
   // The player's own short name — needed specifically for the "X's team
   // plays twice" fixture-disambiguation message, which is about the player,
   // not the card. Everywhere else, `bonusCardName` (the admin-nameable,
   // resolved display name) is what's shown.
   const bonusCardPlayerShortName = bonusCardPlayer ? playerName(bonusCardPlayerId!) : null
-  const bonusCardName = bonusCardDisplayName(bonusCard?.bonus_card_name, bonusCardPlayerShortName)
+  const chosenNomineeDisplayName = bonusCardNominees.find(n => n.playerId === bonusCardPlayerId)?.displayName ?? bonusCard?.bonus_card_name ?? null
+  const bonusCardName = bonusCardHasPool && bonusCardPlayerId == null
+    ? 'Bonus Card'
+    : bonusCardDisplayName(chosenNomineeDisplayName, bonusCardPlayerShortName)
   const bonusCardIsOneOfThisWeeksPicks = bonusCardPlayerId != null && (bonusCardPlayerId === player1 || bonusCardPlayerId === player2)
-  const bonusCardAvailable = !!bonusCard?.bonus_card_enabled && bonusCardPlayerId != null
-  const bonusCardEligibleThisWeek = bonusCardAvailable && !bonusCardSpentElsewhere && !bonusCardIsOneOfThisWeeksPicks
+  const bonusCardAvailable = !!bonusCard?.bonus_card_enabled && bonusCardNominees.length > 0
+  // How many of this user's plays belong to some OTHER gameweek — with
+  // bonusCardMaxPlays at its default of 1, "elsewhere.length >= 1" is
+  // exactly the old "already played it, and not this week" check.
+  const bonusCardPlaysElsewhere = bonusCardPlays.filter(p => !gameweek || p.gameweek_id !== gameweek.id)
+  const bonusCardSpentElsewhere = bonusCardPlaysElsewhere.length >= bonusCardMaxPlays
+  // Once a pool exists, a specific nominee can also be individually capped
+  // (played on that same player only so many times) — irrelevant while
+  // there's only ever one nominee to choose from.
+  const bonusCardNomineeCapReached = bonusCardHasPool && bonusCardPlayerId != null &&
+    bonusCardPlaysElsewhere.filter(p => p.player_id === bonusCardPlayerId).length >= bonusCardPlayerUseCap
+  const bonusCardEligibleThisWeek = bonusCardAvailable && !bonusCardSpentElsewhere && !bonusCardIsOneOfThisWeeksPicks &&
+    !bonusCardNomineeCapReached && (!bonusCardHasPool || bonusCardPlayerId != null)
   const bonusCardFixtures = fixturesForTeam(bonusCardPlayer?.team_id ?? null)
   const bonusCardNeedsFixtureChoice = bonusCardFixtures.length >= 2
+  const bonusCardPlaysRemaining = Math.max(0, bonusCardMaxPlays - bonusCardPlaysElsewhere.length)
 
   // Pop-art wizard step gating — can't move on until the current step's
   // player is picked, and, for a double-gameweek player, until they've
@@ -790,11 +823,16 @@ export default function PicksPage() {
     (fixturesForTeam(players.find(p => p.id === player1)?.team_id ?? null).length < 2 || player1Fixture != null)
   const wizardStep1Valid = player2 != null && player2 !== player1 &&
     (fixturesForTeam(players.find(p => p.id === player2)?.team_id ?? null).length < 2 || player2Fixture != null)
-  const bonusStepValid = !playBonusCard || !bonusCardNeedsFixtureChoice || bonusCardFixture != null
+  const bonusStepValid = !playBonusCard || (
+    (!bonusCardHasPool || bonusCardPlayerId != null) &&
+    (!bonusCardNeedsFixtureChoice || bonusCardFixture != null)
+  )
 
-  const bonusInfoText = `${bonusCardPlayerShortName ?? 'This player'} is this competition's Bonus Card — the same player for everyone, set by the admin. Play it once, on any gameweek you choose. It scores like a normal pick, on top of your two picks, and is never doubled by Banker.`
+  const bonusInfoText = bonusCardHasPool
+    ? `Choose one of this competition's nominated Bonus Card players and play your card on them — up to ${bonusCardMaxPlays} time${bonusCardMaxPlays === 1 ? '' : 's'} this competition, on any gameweek${bonusCardMaxPlays > 1 ? 's' : ''} you choose. It scores like a normal pick, on top of your two picks, and is never doubled by Banker.`
+    : `${bonusCardPlayerShortName ?? 'This player'} is this competition's Bonus Card — the same player for everyone, set by the admin. Play it ${bonusCardMaxPlays > 1 ? `up to ${bonusCardMaxPlays} times` : 'once'}, on any gameweek${bonusCardMaxPlays > 1 ? 's' : ''} you choose. It scores like a normal pick, on top of your two picks, and is never doubled by Banker.`
 
-  const bankerInfoText = BANKER_INFO_TEXT + (bonusCardAvailable ? ` Excludes ${bonusCardName} points.` : '')
+  const bankerInfoText = BANKER_INFO_TEXT + (bonusCardAvailable ? ` Excludes ${bonusCardHasPool ? 'Bonus Card' : bonusCardName} points.` : '')
 
   // The step LIST itself — Bonus Card and the weekly Question are only
   // included when this competition/gameweek actually has one, so a
@@ -1438,11 +1476,42 @@ export default function PicksPage() {
                           />
                           {bonusCardSpentElsewhere ? (
                             <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                              {bonusCardName} — already played
-                              {bonusCardPlay?.points != null ? `, scored ${bonusCardPlay.points} pts` : ' this competition'}.
+                              {bonusCardMaxPlays > 1
+                                ? `You've used all ${bonusCardMaxPlays} of your Bonus Card plays this competition.`
+                                : `${bonusCardName} — already played this competition.`}
+                              {bonusCardPlaysElsewhere.some(p => p.points != null) &&
+                                ` Scored ${bonusCardPlaysElsewhere.reduce((s, p) => s + (p.points ?? 0), 0)} pts total.`}
                             </p>
                           ) : (
                             <>
+                              {bonusCardHasPool && (
+                                <div className="mb-3">
+                                  <p className="font-mono text-[10px] uppercase tracking-wider mb-1.5 text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                    Choose a player
+                                  </p>
+                                  <div className="flex flex-wrap gap-1.5 justify-center">
+                                    {bonusCardNominees.map(n => {
+                                      const shortName = playerName(n.playerId)
+                                      const label = bonusCardDisplayName(n.displayName, shortName)
+                                      const capReached = bonusCardPlaysElsewhere.filter(p => p.player_id === n.playerId).length >= bonusCardPlayerUseCap
+                                      const isThisWeeksPick = n.playerId === player1 || n.playerId === player2
+                                      const disabled = capReached || isThisWeeksPick
+                                      return (
+                                        <button
+                                          key={n.playerId}
+                                          onClick={() => !disabled && setSelectedNomineeId(n.playerId)}
+                                          disabled={disabled}
+                                          title={isThisWeeksPick ? "Can't play the card on a player who's already one of this week's two picks" : capReached ? "You've already played the card on this player the maximum number of times" : undefined}
+                                          className={`pop-button ${selectedNomineeId === n.playerId ? 'pop-button--green pop-pop-in' : 'pop-button--yellow'} px-3 py-2 text-sm`}
+                                          style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+                                        >
+                                          {label}
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                               <div className="flex items-center gap-3 mb-2 flex-wrap justify-center">
                                 <button
                                   onClick={() => bonusCardEligibleThisWeek && setPlayBonusCard(!playBonusCard)}
@@ -1455,7 +1524,9 @@ export default function PicksPage() {
                                 </button>
                               </div>
                               <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                                Free extra points on top of your two picks — you only get one shot at it all competition, so pick your moment.
+                                {bonusCardMaxPlays > 1
+                                  ? `Free extra points on top of your two picks — you have ${bonusCardPlaysRemaining} play${bonusCardPlaysRemaining === 1 ? '' : 's'} left this competition, so pick your moments.`
+                                  : 'Free extra points on top of your two picks — you only get one shot at it all competition, so pick your moment.'}
                               </p>
                             </>
                           )}

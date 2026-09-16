@@ -200,13 +200,16 @@ export default function LiveGameweekTable({
 
     // Bonus Card points never touch the `points` table (see resolveBonusCard),
     // so they're added on separately — resolved plays from any gameweek this
-    // season, plus a live preview for THIS gameweek's play specifically if
-    // it hasn't been resolved yet (mirrors the Leaderboard's own total).
+    // season (summed, not just the latest — a competition can allow more
+    // than one play), plus a live preview for THIS gameweek's play
+    // specifically if it hasn't been resolved yet (mirrors the
+    // Leaderboard's own total). `points` stays null on an unresolved play,
+    // so a still-live current-gameweek play is never double-counted here.
     const bonusCardTotalByUser: Record<string, number> = {}
-    seasonBonusCardData?.forEach(p => { if (p.points != null) bonusCardTotalByUser[p.user_id] = p.points })
+    seasonBonusCardData?.forEach(p => { if (p.points != null) bonusCardTotalByUser[p.user_id] = (bonusCardTotalByUser[p.user_id] ?? 0) + p.points })
     if (gameweekStatus !== 'completed') {
       Object.entries(liveBonusCardByUser).forEach(([userId, points]) => {
-        if (bonusCardTotalByUser[userId] == null) bonusCardTotalByUser[userId] = points
+        bonusCardTotalByUser[userId] = (bonusCardTotalByUser[userId] ?? 0) + points
       })
     }
     Object.entries(bonusCardTotalByUser).forEach(([userId, points]) => {

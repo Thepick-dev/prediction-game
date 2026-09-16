@@ -230,6 +230,8 @@ export async function syncPlayers(supabase: SupabaseClient): Promise<SyncPlayers
       // play's identity.
       adminSupabase.from('bonus_card_plays').update({ player_id: currentId }).eq('player_id', staleId),
       adminSupabase.from('competitions').update({ bonus_card_player_id: currentId }).eq('bonus_card_player_id', staleId),
+      // The Bonus Card's multi-nominee pool references players the same way.
+      adminSupabase.from('bonus_card_nominees').update({ player_id: currentId }).eq('player_id', staleId),
     ])
   )
   if (staleToCurrentId.size > 0) {

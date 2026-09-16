@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computePickScores, type Pick, type Fixture, type ScoringRule, type PlayerScoringRule, type MatchEvent, type PlayerInfo } from '../scoring'
+import { computePickScores, computeBonusCardPoints, type Pick, type Fixture, type ScoringRule, type PlayerScoringRule, type MatchEvent, type PlayerInfo, type BonusCardPlay } from '../scoring'
 
 function makePick(overrides: Partial<Pick> = {}): Pick {
   return {
@@ -240,5 +240,48 @@ describe('computePickScores — postponements', () => {
     const pick = makePick({ team_id: 1, fixture_id: fixture.id, is_banker: true })
     const [row] = computePickScores('gw-1', [pick], [fixture], quartileMap, homeWinScoringRules, [], [])
     expect(row.team_points).toBe(44) // 22 * 2 for the banker, same as any other team score
+  })
+})
+
+describe('computePickScores — configurable Banker multiplier', () => {
+  const quartileMap = { 1: 3, 2: 3 }
+
+  it('defaults to 2x when no multiplier is passed (existing competitions keep working unchanged)', () => {
+    const fixture = makeFixture({ home_score: 2, away_score: 0 })
+    const pick = makePick({ team_id: 1, fixture_id: fixture.id, is_banker: true })
+    const [row] = computePickScores('gw-1', [pick], [fixture], quartileMap, homeWinScoringRules, [], [])
+    expect(row.team_points).toBe(50) // 25 * 2
+  })
+
+  it('applies an admin-set multiplier other than 2x', () => {
+    const fixture = makeFixture({ home_score: 2, away_score: 0 })
+    const pick = makePick({ team_id: 1, fixture_id: fixture.id, is_banker: true })
+    const [row] = computePickScores('gw-1', [pick], [fixture], quartileMap, homeWinScoringRules, [], [], [], 1.5)
+    expect(row.team_points).toBe(38) // round(25 * 1.5) = round(37.5) = 38
+  })
+
+  it('never multiplies a non-banker pick, regardless of the configured multiplier', () => {
+    const fixture = makeFixture({ home_score: 2, away_score: 0 })
+    const pick = makePick({ team_id: 1, fixture_id: fixture.id, is_banker: false })
+    const [row] = computePickScores('gw-1', [pick], [fixture], quartileMap, homeWinScoringRules, [], [], [], 3)
+    expect(row.team_points).toBe(25)
+  })
+})
+
+describe('computeBonusCardPoints — configurable points multiplier', () => {
+  const player: PlayerInfo = { id: 10, team_id: 1 }
+  const fixture = makeFixture()
+  const events: MatchEvent[] = [{ player_id: 10, event_type: 'goal', fixture_id: fixture.id }]
+  const rules: PlayerScoringRule[] = [{ event_type: 'goal', points: 12 }, { event_type: 'assist', points: 6 }]
+  const play: BonusCardPlay = { id: 'play-1', user_id: 'user-1', gameweek_id: 'gw-1', player_id: 10, fixture_id: null }
+
+  it('defaults to 1x — scores exactly like a normal pick (existing competitions keep working unchanged)', () => {
+    const [row] = computeBonusCardPoints([play], [fixture], [player], events, rules)
+    expect(row.points).toBe(12)
+  })
+
+  it('applies an admin-set points multiplier', () => {
+    const [row] = computeBonusCardPoints([play], [fixture], [player], events, rules, 2)
+    expect(row.points).toBe(24)
   })
 })

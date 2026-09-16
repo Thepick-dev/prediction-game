@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { generateFutzyVoice } from './futzyVoice'
 import { chooseFutzyPick } from './futzyDecision'
+import { getCompetitionMechanicsConfig } from './scoring'
 
 // Futzy — team + two players, Banker, All-or-Nothing, the Bonus Card, and
 // tier draft participation, all reasoned from the same xG/xA/fixture-
@@ -590,7 +591,8 @@ export async function runBotPickForGameweek(supabase: SupabaseClient, gameweekId
     .neq('gameweek_id', gameweekId)
   const bankersUsedElsewhere = (priorPicks ?? []).filter(p => p.is_banker).length
 
-  const playBanker = await shouldPlayBanker(
+  const mechanics = await getCompetitionMechanicsConfig(supabase, gameweek.competition_id)
+  const playBanker = mechanics.bankerEnabled && await shouldPlayBanker(
     supabase, bot.id, gameweek.competition_id, gameweek.number,
     derived.reasoning.chosen.projected_total, bankersUsedElsewhere
   )

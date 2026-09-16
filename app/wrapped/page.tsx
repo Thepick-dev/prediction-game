@@ -101,7 +101,7 @@ export default function WrappedPage() {
           ;(data.rows ?? []).forEach((row: any) => {
             if (!row.pick_id.startsWith('preview-') && activeUserIds.has(row.user_id)) points.push(row)
           })
-          ;(data.bonusCardRows ?? []).forEach((row: any) => { bonusCardPreviewPoints[row.user_id] = row.points })
+          ;(data.bonusCardRows ?? []).forEach((row: any) => { bonusCardPreviewPoints[`${row.user_id}-${gw.id}`] = row.points })
         } catch {
           // A live-preview hiccup shouldn't take the whole recap down —
           // worst case this gameweek's numbers stay stale until it's
@@ -124,7 +124,7 @@ export default function WrappedPage() {
       bonusCardPlays.forEach(play => {
         const t = totalsByUser[play.user_id]
         if (!t) return
-        const pts = play.points ?? bonusCardPreviewPoints[play.user_id] ?? null
+        const pts = play.points ?? bonusCardPreviewPoints[`${play.user_id}-${play.gameweek_id}`] ?? null
         if (pts == null) return
         t.total += pts
       })
@@ -195,10 +195,12 @@ export default function WrappedPage() {
         : myAon.outcome === 'failed' ? 'failed'
         : 'pending'
 
-      // --- Bonus Card ---
+      // --- Bonus Card --- (a competition allowing more than one play only
+      // recaps the first here — a cosmetic simplification, not a scoring
+      // one; the rank/total above already correctly sums every play.)
       const myBonusCardPlay = bonusCardPlays.find(p => p.user_id === authUser.id)
       const bonusCardOutcome = myBonusCardPlay
-        ? { played: true, points: myBonusCardPlay.points ?? bonusCardPreviewPoints[authUser.id] ?? null }
+        ? { played: true, points: myBonusCardPlay.points ?? bonusCardPreviewPoints[`${authUser.id}-${myBonusCardPlay.gameweek_id}`] ?? null }
         : (comp.bonus_card_enabled ? { played: false, points: null } : null)
 
       setStats({

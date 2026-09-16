@@ -1,5 +1,7 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { getSuspendedUserIds } from '../../lib/suspensions'
+import { getCompetitionMechanicsConfig } from '../../lib/scoring'
+import { getBonusCardNominees } from '../../lib/bonusCardNominees'
 import { NextResponse } from 'next/server'
 
 async function getDoubleUseTeams(supabase: any, competition_id: string, user_id: string): Promise<number[]> {
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  const { gameweek_id, competition_id, team_id, player1_id, player2_id, player1_fixture_id, player2_fixture_id, is_banker, question_answer, comments, all_or_nothing_player_id, play_bonus_card, bonus_card_fixture_id } = await request.json()
+  const { gameweek_id, competition_id, team_id, player1_id, player2_id, player1_fixture_id, player2_fixture_id, is_banker, question_answer, comments, all_or_nothing_player_id, play_bonus_card, bonus_card_player_id, bonus_card_fixture_id } = await request.json()
 
   if (player1_id === player2_id) {
     return NextResponse.json({ error: 'Please pick two different players' }, { status: 400 })
@@ -125,6 +127,7 @@ export async function POST(request: Request) {
   }
 
   const doubleUseTeams = await getDoubleUseTeams(supabase, competition_id, user.id)
+  const mechanics = await getCompetitionMechanicsConfig(supabase, competition_id)
 
   // All or Nothing can raise or lower ONE specific player's normal 2-use
   // cap for the rest of the competition — success grants a bonus 3rd use,
@@ -183,6 +186,9 @@ export async function POST(request: Request) {
     }
 
     if (is_banker) {
+      if (!mechanics.bankerEnabled) {
+        return NextResponse.json({ error: 'Banker is not available in this competition' }, { status: 400 })
+      }
       const bankerCount = allPicks.filter(p => p.is_banker).length
       if (bankerCount >= 2) {
         return NextResponse.json({ error: 'You have already used both your bankers' }, { status: 400 })
@@ -191,6 +197,9 @@ export async function POST(request: Request) {
 
     // All or Nothing eligibility — only checked when actually nominating.
     if (all_or_nothing_player_id != null) {
+      if (!mechanics.allOrNothingEnabled) {
+        return NextResponse.json({ error: 'All or Nothing is not available in this competition' }, { status: 400 })
+      }
       if (all_or_nothing_player_id !== player1_id && all_or_nothing_player_id !== player2_id) {
         return NextResponse.json({ error: 'All or Nothing can only be played on one of your two picks' }, { status: 400 })
       }
@@ -211,16 +220,18 @@ export async function POST(request: Request) {
     }
   }
 
-  // Bonus Card — an independent, whole-competition-once bonus on top of the
-  // two normal picks above. The existing play (if any) is fetched
-  // unconditionally, same reasoning as All or Nothing above — needed both
-  // to validate a new play AND to un-play one (unchecking the box).
-  const { data: existingBonusCardPlay } = await supabase
+  // Bonus Card — an independent bonus on top of the two normal picks above,
+  // up to `bonusCardMaxPlays` times per competition (was always exactly 1).
+  // Every play this user has made this competition is fetched — needed to
+  // check both caps below, not just to validate/un-play THIS gameweek's row.
+  const { data: allBonusCardPlays } = await supabase
     .from('bonus_card_plays')
-    .select('id, gameweek_id, fixture_id')
+    .select('id, gameweek_id, fixture_id, player_id')
     .eq('competition_id', competition_id)
     .eq('user_id', user.id)
-    .maybeSingle()
+
+  const existingBonusCardPlay = (allBonusCardPlays ?? []).find((p: any) => p.gameweek_id === gameweek_id) ?? null
+  const bonusCardPlaysElsewhere = (allBonusCardPlays ?? []).filter((p: any) => p.gameweek_id !== gameweek_id)
 
   let bonusCardPlayerId: number | null = null
   let bonusCardFixtureToStore: number | null = null
@@ -228,22 +239,43 @@ export async function POST(request: Request) {
   if (play_bonus_card) {
     const { data: comp } = await supabase
       .from('competitions')
-      .select('bonus_card_enabled, bonus_card_player_id')
+      .select('bonus_card_enabled')
       .eq('id', competition_id)
       .single()
 
-    if (!comp?.bonus_card_enabled || !comp.bonus_card_player_id) {
+    if (!comp?.bonus_card_enabled) {
       return NextResponse.json({ error: 'The Bonus Card is not currently available for this competition' }, { status: 400 })
     }
 
-    bonusCardPlayerId = comp.bonus_card_player_id
+    const nominees = await getBonusCardNominees(supabase, competition_id)
+    if (nominees.length === 0) {
+      return NextResponse.json({ error: 'The Bonus Card is not currently available for this competition' }, { status: 400 })
+    }
+
+    // Which nominee — the client sends one explicitly once there's more
+    // than one to choose from; with exactly one active nominee (the
+    // original single-player design), it's implicit.
+    const requestedNomineeId = bonus_card_player_id ?? (nominees.length === 1 ? nominees[0].playerId : null)
+    if (requestedNomineeId == null || !nominees.some(n => n.playerId === requestedNomineeId)) {
+      return NextResponse.json({ error: 'Choose which Bonus Card player to play' }, { status: 400 })
+    }
+    bonusCardPlayerId = requestedNomineeId
 
     if (bonusCardPlayerId === player1_id || bonusCardPlayerId === player2_id) {
       return NextResponse.json({ error: "You can't play the Bonus Card on a player who's already one of your two picks this gameweek" }, { status: 400 })
     }
 
-    if (existingBonusCardPlay && existingBonusCardPlay.gameweek_id !== gameweek_id) {
-      return NextResponse.json({ error: "You've already played your Bonus Card this competition" }, { status: 400 })
+    // A brand new play (not just re-confirming this gameweek's existing
+    // one) must still fit under the competition's total-plays cap.
+    if (!existingBonusCardPlay && bonusCardPlaysElsewhere.length >= mechanics.bonusCardMaxPlays) {
+      return NextResponse.json({ error: `You've already played your Bonus Card the maximum ${mechanics.bonusCardMaxPlays} time${mechanics.bonusCardMaxPlays === 1 ? '' : 's'} this competition` }, { status: 400 })
+    }
+
+    // A separate, per-nominee cap — how many of THIS user's plays may land
+    // on the SAME player (irrelevant while there's only ever one nominee).
+    const sameNomineeCount = bonusCardPlaysElsewhere.filter((p: any) => p.player_id === bonusCardPlayerId).length
+    if (sameNomineeCount >= mechanics.bonusCardPlayerUseCap) {
+      return NextResponse.json({ error: `You've already played your Bonus Card on this player the maximum ${mechanics.bonusCardPlayerUseCap} time${mechanics.bonusCardPlayerUseCap === 1 ? '' : 's'} this competition` }, { status: 400 })
     }
 
     // Same double-gameweek disambiguation normal picks already require,
@@ -515,10 +547,11 @@ export async function GET(request: Request) {
 
   // Same isolated-query reasoning as All or Nothing above. Returns the
   // live/current nomination (name resolved client-side from the already-
-  // loaded players list) alongside the user's own play, if any — the Picks
-  // page needs both to know what the card currently is AND whether/where
-  // this user has already used theirs.
-  const [{ data: bonusCard }, { data: bonusCardPlay }] = await Promise.all([
+  // loaded players list) alongside EVERY play this user has made this
+  // competition (was a single row) — the Picks page needs both to know
+  // what the card currently is AND whether/where this user has already
+  // used theirs.
+  const [{ data: bonusCard }, { data: bonusCardPlays }, bonusCardNominees, mechanics] = await Promise.all([
     supabase
       .from('competitions')
       .select('bonus_card_enabled, bonus_card_player_id, bonus_card_name')
@@ -528,8 +561,9 @@ export async function GET(request: Request) {
       .from('bonus_card_plays')
       .select('gameweek_id, player_id, fixture_id, points')
       .eq('competition_id', competition_id!)
-      .eq('user_id', user.id)
-      .maybeSingle()
+      .eq('user_id', user.id),
+    getBonusCardNominees(supabase, competition_id!),
+    getCompetitionMechanicsConfig(supabase, competition_id!),
   ])
 
   return NextResponse.json({
@@ -541,6 +575,9 @@ export async function GET(request: Request) {
     allOrNothing,
     playerMaxOverride,
     bonusCard,
-    bonusCardPlay
+    bonusCardPlays,
+    bonusCardNominees,
+    bonusCardMaxPlays: mechanics.bonusCardMaxPlays,
+    bonusCardPlayerUseCap: mechanics.bonusCardPlayerUseCap,
   })
 }

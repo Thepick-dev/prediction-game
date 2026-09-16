@@ -402,6 +402,9 @@ export default function LeaderboardPage() {
     // is actually completed/recalculated — without this, a card played in a
     // still-live gameweek would show 0 here even though the preview below
     // already knows its live value, the same gap the G/A markers had before.
+    // Keyed by user+gameweek (not just user) so a competition that allows
+    // more than one play never has one still-live gameweek's preview
+    // clobber, or get double-counted against, another.
     const bonusCardPreviewPoints: Record<string, number> = {}
 
     await Promise.all(previewGameweeks.map(async gw => {
@@ -438,7 +441,7 @@ export default function LeaderboardPage() {
           }
         })
         ;(scoringData.bonusCardRows ?? []).forEach((row: any) => {
-          bonusCardPreviewPoints[row.user_id] = row.points
+          bonusCardPreviewPoints[`${row.user_id}-${gw.id}`] = row.points
         })
       } catch {
         // ignore preview failures
@@ -590,7 +593,7 @@ export default function LeaderboardPage() {
     bonusCardPlays?.forEach(play => {
       const t = totals[play.user_id]
       if (!t) return
-      const points = play.points ?? bonusCardPreviewPoints[play.user_id] ?? null
+      const points = play.points ?? bonusCardPreviewPoints[`${play.user_id}-${play.gameweek_id}`] ?? null
       if (points == null) return
       t.bonus_card_points += points
       t.total_points += points

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
 import ConfirmActionButton from '../components/confirm-action-button'
 import BonusCardPlayerPicker from '../components/bonus-card-player-picker'
+import BonusCardNomineePicker from '../components/bonus-card-nominee-picker'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../../lib/players'
 
 // Every write below goes through this — Server Actions are reachable as
@@ -51,6 +52,14 @@ export default async function CompetitionsPage({
     supabase.from('profiles').select('id').eq('is_bot', true).maybeSingle(),
   ])
 
+  // Its own isolated, defensive fetch — the bonus_card_nominees table is
+  // new and optional; a competition using only the single-player picker
+  // above should never fail to load this page just because this query
+  // (or the table itself, before the SQL's been run) has a problem.
+  const { data: bonusCardNomineeRows } = selectedCompId
+    ? await supabase.from('bonus_card_nominees').select('id, player_id, display_name, active').eq('competition_id', selectedCompId).order('created_at', { ascending: true })
+    : { data: null as { id: string; player_id: number; display_name: string | null; active: boolean }[] | null }
+
   const nameByUserId: Record<string, string> = {}
   profiles?.forEach(p => { nameByUserId[p.id] = p.display_name ?? 'Unknown' })
 
@@ -84,17 +93,39 @@ export default async function CompetitionsPage({
     'use server'
     const supabase = await requireAdminAction()
 
-    const { data: comp, error } = await supabase
+    const baseFields = {
+      name: formData.get('name') as string,
+      season: formData.get('season') as string,
+      status: 'upcoming',
+      start_date: formData.get('start_date') as string,
+      end_date: formData.get('end_date') as string,
+    }
+
+    // Banker/All-or-Nothing/Bonus Card mechanics — set once here, never
+    // edited after creation, so nobody's picking under rules that change
+    // mid-season. Two-step insert: try with these new columns first, and
+    // if that fails because the SQL hasn't been run yet, fall back to a
+    // plain insert rather than failing to create the competition at all.
+    const mechanicsFields = {
+      banker_enabled: formData.get('banker_enabled') === 'on',
+      banker_multiplier: Number(formData.get('banker_multiplier')) || 2,
+      all_or_nothing_enabled: formData.get('all_or_nothing_enabled') === 'on',
+      bonus_card_points_multiplier: Number(formData.get('bonus_card_points_multiplier')) || 1,
+      bonus_card_max_plays: Number(formData.get('bonus_card_max_plays')) || 1,
+      bonus_card_player_use_cap: Number(formData.get('bonus_card_player_use_cap')) || 1,
+    }
+
+    let { data: comp, error } = await supabase
       .from('competitions')
-      .insert({
-        name: formData.get('name') as string,
-        season: formData.get('season') as string,
-        status: 'upcoming',
-        start_date: formData.get('start_date') as string,
-        end_date: formData.get('end_date') as string,
-      })
+      .insert({ ...baseFields, ...mechanicsFields })
       .select()
       .single()
+
+    if (error) {
+      const fallback = await supabase.from('competitions').insert(baseFields).select().single()
+      comp = fallback.data
+      error = fallback.error
+    }
 
     if (!error && comp) {
       await supabase.rpc('insert_default_scoring_rules', { comp_id: comp.id })
@@ -274,6 +305,33 @@ export default async function CompetitionsPage({
     redirect(`/admin/competitions?comp=${competitionId}#bonus-card`)
   }
 
+  // Optional pool of SEVERAL simultaneous Bonus Card nominees — additive to
+  // the single-player picker above, which keeps working untouched. If this
+  // pool has any active rows for a competition, it takes over from the
+  // single `bonus_card_player_id` automatically (see getBonusCardNominees);
+  // an empty pool means "use the single nominee above", exactly like every
+  // competition before this feature existed.
+  async function addBonusCardNominee(formData: FormData) {
+    'use server'
+    const supabase = await requireAdminAction()
+    const competitionId = formData.get('competition_id') as string
+    const playerId = Number(formData.get('player_id'))
+    await supabase
+      .from('bonus_card_nominees')
+      .upsert({ competition_id: competitionId, player_id: playerId, active: true }, { onConflict: 'competition_id,player_id' })
+    redirect(`/admin/competitions?comp=${competitionId}#bonus-card`)
+  }
+
+  async function toggleBonusCardNominee(formData: FormData) {
+    'use server'
+    const supabase = await requireAdminAction()
+    const competitionId = formData.get('competition_id') as string
+    const nomineeId = formData.get('nominee_id') as string
+    const current = formData.get('current') === 'true'
+    await supabase.from('bonus_card_nominees').update({ active: !current }).eq('id', nomineeId)
+    redirect(`/admin/competitions?comp=${competitionId}#bonus-card`)
+  }
+
 
   // Cosmetic pause, not a functional one — deadlines/autopick/scoring keep
   // running exactly as normal underneath (an explicit choice, see proxy.ts).
@@ -392,6 +450,81 @@ export default async function CompetitionsPage({
               className="w-full border rounded px-3 py-2 text-sm"
             />
           </div>
+
+          <div className="col-span-2 border-t pt-4 mt-2">
+            <p className="text-sm font-bold mb-1">Banker, All-or-Nothing &amp; Bonus Card</p>
+            <p className="text-xs text-gray-500 mb-3">
+              These are set once here and can&apos;t be changed after the competition is created —
+              so nobody ends up picking under rules that shifted mid-season.
+            </p>
+          </div>
+
+          <div className="col-span-2 grid grid-cols-2 gap-4">
+            <div className="border rounded p-3">
+              <label className="flex items-center gap-2 text-sm font-medium mb-2">
+                <input type="checkbox" name="banker_enabled" defaultChecked />
+                Banker enabled
+              </label>
+              <label className="block text-xs text-gray-500 mb-1">Points multiplier when Banker is used</label>
+              <input
+                name="banker_multiplier"
+                type="number"
+                step="0.5"
+                min="1"
+                defaultValue={2}
+                className="w-full border rounded px-3 py-2 text-sm"
+              />
+            </div>
+
+            <div className="border rounded p-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input type="checkbox" name="all_or_nothing_enabled" defaultChecked />
+                All-or-Nothing enabled
+              </label>
+            </div>
+
+            <div className="border rounded p-3 col-span-2">
+              <p className="text-sm font-medium mb-2">Bonus Card</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Points multiplier</label>
+                  <input
+                    name="bonus_card_points_multiplier"
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    defaultValue={1}
+                    className="w-full border rounded px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Plays allowed per user</label>
+                  <input
+                    name="bonus_card_max_plays"
+                    type="number"
+                    min="1"
+                    defaultValue={1}
+                    className="w-full border rounded px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Max plays on the same player</label>
+                  <input
+                    name="bonus_card_player_use_cap"
+                    type="number"
+                    min="1"
+                    defaultValue={1}
+                    className="w-full border rounded px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Whether the Bonus Card is on at all, and who it&apos;s nominated for, are set below
+                once the competition exists (and can be changed any time).
+              </p>
+            </div>
+          </div>
+
           <div className="col-span-2">
             <button
               type="submit"
@@ -594,6 +727,42 @@ export default async function CompetitionsPage({
               players={bonusCardPlayerOptions}
               currentPlayerName={currentPlayerName}
             />
+
+            <div className="mt-6 pt-4 border-t">
+              <p className="text-sm font-medium mb-1">Nominate several players at once (optional)</p>
+              <p className="text-xs text-gray-500 mb-3">
+                Leave this empty to keep using the single player above. Add two or more players here and every
+                entrant instead chooses which one to play their card on. Removing a player here only stops it
+                being offered for new plays — anyone who already played it keeps their result.
+              </p>
+              {(bonusCardNomineeRows ?? []).length > 0 && (
+                <ul className="mb-3 space-y-1.5">
+                  {(bonusCardNomineeRows ?? []).map(n => (
+                    <li key={n.id} className="flex items-center gap-2 text-sm">
+                      <span className={n.active ? '' : 'text-gray-400 line-through'}>
+                        {n.display_name?.trim() || playerDisplayNames[n.player_id] || `Player #${n.player_id}`}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-xs ${n.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                        {n.active ? 'Active' : 'Inactive'}
+                      </span>
+                      <form action={toggleBonusCardNominee}>
+                        <input type="hidden" name="competition_id" value={selectedCompId} />
+                        <input type="hidden" name="nominee_id" value={n.id} />
+                        <input type="hidden" name="current" value={String(n.active)} />
+                        <button type="submit" className="text-xs underline text-gray-500">
+                          {n.active ? 'Remove' : 'Re-add'}
+                        </button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <BonusCardNomineePicker
+                action={addBonusCardNominee}
+                competitionId={selectedCompId}
+                players={bonusCardPlayerOptions}
+              />
+            </div>
           </div>
           <div id="futzy" className="bg-white border rounded-lg p-6 mt-8">
             <h2 className="font-bold mb-1">🤖 Futzy</h2>

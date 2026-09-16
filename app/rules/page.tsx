@@ -30,6 +30,10 @@ export default function RulesPage() {
   const [bonusCardEnabled, setBonusCardEnabled] = useState(false)
   const [bonusCardConfigured, setBonusCardConfigured] = useState(false)
   const [bonusCardName, setBonusCardName] = useState<string | null>(null)
+  const [bankerEnabled, setBankerEnabled] = useState(true)
+  const [bankerMultiplier, setBankerMultiplier] = useState(2)
+  const [allOrNothingEnabled, setAllOrNothingEnabled] = useState(true)
+  const [bonusCardMaxPlays, setBonusCardMaxPlays] = useState(1)
   const [botEnabled, setBotEnabled] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showTLDR, setShowTLDR] = useState(false)
@@ -62,6 +66,21 @@ export default function RulesPage() {
       // page (scoring numbers, AoN exclusions) down with it.
       const { data: botComp } = await supabase.from('competitions').select('bot_enabled').eq('id', competition.id).single()
       setBotEnabled(!!botComp?.bot_enabled)
+
+      // Its own isolated, defensive fetch, same reasoning as bot_enabled
+      // above — these are newer, optional per-competition columns, so a
+      // problem reading them (or the columns not existing yet) should
+      // never take the rest of the Rules page down, and just falls back
+      // to the numbers every competition used before this feature existed.
+      const { data: mechanicsComp } = await supabase
+        .from('competitions')
+        .select('banker_enabled, banker_multiplier, all_or_nothing_enabled, bonus_card_max_plays')
+        .eq('id', competition.id)
+        .single()
+      setBankerEnabled(mechanicsComp?.banker_enabled ?? true)
+      setBankerMultiplier(mechanicsComp?.banker_multiplier ?? 2)
+      setAllOrNothingEnabled(mechanicsComp?.all_or_nothing_enabled ?? true)
+      setBonusCardMaxPlays(mechanicsComp?.bonus_card_max_plays ?? 1)
       const [{ data: rules }, { data: playerRules }] = await Promise.all([
         supabase.from('competition_scoring_rules').select('result_type, quartile_diff, points').eq('competition_id', competition.id),
         supabase.from('player_scoring_rules').select('event_type, points').eq('competition_id', competition.id),
@@ -149,34 +168,44 @@ export default function RulesPage() {
               <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.pickPrivacy[1]}</p>
             </section>
 
-            <section className="pop-panel p-5">
-              <h2 className="pop-headline text-sm mb-2">The Banker</h2>
-              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.banker[0]}</p>
-            </section>
+            {bankerEnabled && (
+              <section className="pop-panel p-5">
+                <h2 className="pop-headline text-sm mb-2">The Banker</h2>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                  {bankerMultiplier === 2 ? RULES_TEXT.banker[0] :
+                    `Two bankers per competition. A banker multiplies your entire gameweek score by ${bankerMultiplier}x — team and both players. Declare it with your pick. Unused bankers are worth nothing. Bankers are never applied to autopicks.`}
+                </p>
+              </section>
+            )}
 
-            <section className="pop-panel p-5">
-              <h2 className="pop-headline text-sm mb-2">All or Nothing</h2>
-              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.allOrNothing[0]}</p>
-              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.allOrNothing[1]}</p>
-              {aonExclusions.length > 0 && (
-                <div className="mt-3">
-                  <p className="text-sm font-bold mb-1.5" style={{ color: 'var(--pop-blue)' }}>Exclusions</p>
-                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                    These players can&apos;t be nominated for All or Nothing:
-                  </p>
-                  <ul className="text-sm leading-relaxed list-disc pl-5 space-y-1" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                    {aonExclusions.map((e, i) => (
-                      <li key={i}><strong>{e.name}</strong> — {e.reason}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </section>
+            {allOrNothingEnabled && (
+              <section className="pop-panel p-5">
+                <h2 className="pop-headline text-sm mb-2">All or Nothing</h2>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.allOrNothing[0]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.allOrNothing[1]}</p>
+                {aonExclusions.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-sm font-bold mb-1.5" style={{ color: 'var(--pop-blue)' }}>Exclusions</p>
+                    <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                      These players can&apos;t be nominated for All or Nothing:
+                    </p>
+                    <ul className="text-sm leading-relaxed list-disc pl-5 space-y-1" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      {aonExclusions.map((e, i) => (
+                        <li key={i}><strong>{e.name}</strong> — {e.reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </section>
+            )}
 
             {bonusCardEnabled && (
               <section className="pop-panel p-5">
                 <h2 className="pop-headline text-sm mb-2">{bonusCardName}</h2>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[0]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                  {bonusCardMaxPlays === 1 ? RULES_TEXT.bonusCard[0] :
+                    `Some competitions have a Bonus Card — one or more nominated players, chosen by the admin, that every entrant can play up to ${bonusCardMaxPlays} times across the whole competition, in any gameweeks of their choosing, up until that gameweek's normal deadline.`}
+                </p>
                 <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[1]}</p>
                 <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[2]}</p>
                 <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[3]}</p>

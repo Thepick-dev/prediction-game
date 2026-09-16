@@ -20,6 +20,10 @@ export default function RulesModal({ onClose }: RulesModalProps) {
   const [bonusCardEnabled, setBonusCardEnabled] = useState(false)
   const [bonusCardName, setBonusCardName] = useState<string | null>(null)
   const [botEnabled, setBotEnabled] = useState(false)
+  const [bankerEnabled, setBankerEnabled] = useState(true)
+  const [bankerMultiplier, setBankerMultiplier] = useState(2)
+  const [allOrNothingEnabled, setAllOrNothingEnabled] = useState(true)
+  const [bonusCardMaxPlays, setBonusCardMaxPlays] = useState(1)
 
   const diffs = [-3, -2, -1, 0, 1, 2, 3]
   const diffLabels = ['3↓', '2↓', '1↓', '=', '1↑', '2↑', '3↑']
@@ -51,6 +55,10 @@ export default function RulesModal({ onClose }: RulesModalProps) {
       setBonusCardEnabled(!!data.bonusCardEnabled)
       setBonusCardName(data.bonusCardName ?? null)
       setBotEnabled(!!data.botEnabled)
+      setBankerEnabled(data.bankerEnabled ?? true)
+      setBankerMultiplier(data.bankerMultiplier ?? 2)
+      setAllOrNothingEnabled(data.allOrNothingEnabled ?? true)
+      setBonusCardMaxPlays(data.bonusCardMaxPlays ?? 1)
     } catch {
       // leave defaults in place
     }
@@ -100,26 +108,36 @@ export default function RulesModal({ onClose }: RulesModalProps) {
                 <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.pickPrivacy[1]}</p>
               </section>
 
-              <section>
-                <h3 className="pop-headline text-sm mb-2">The Banker</h3>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.banker[0]}</p>
-              </section>
-
-              <section>
-                <h3 className="pop-headline text-sm mb-2">All or Nothing</h3>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.allOrNothing[0]}</p>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.allOrNothing[1]}</p>
-                {exclusions.length > 0 && (
-                  <p className="text-xs leading-relaxed mt-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                    <strong style={{ color: 'rgba(255,255,255,0.7)' }}>Excluded players:</strong> {exclusions.map(e => e.name).join(', ')}.
+              {bankerEnabled && (
+                <section>
+                  <h3 className="pop-headline text-sm mb-2">The Banker</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    {bankerMultiplier === 2 ? RULES_TEXT.banker[0] :
+                      `Two bankers per competition. A banker multiplies your entire gameweek score by ${bankerMultiplier}x — team and both players. Declare it with your pick. Unused bankers are worth nothing. Bankers are never applied to autopicks.`}
                   </p>
-                )}
-              </section>
+                </section>
+              )}
+
+              {allOrNothingEnabled && (
+                <section>
+                  <h3 className="pop-headline text-sm mb-2">All or Nothing</h3>
+                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.allOrNothing[0]}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.allOrNothing[1]}</p>
+                  {exclusions.length > 0 && (
+                    <p className="text-xs leading-relaxed mt-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                      <strong style={{ color: 'rgba(255,255,255,0.7)' }}>Excluded players:</strong> {exclusions.map(e => e.name).join(', ')}.
+                    </p>
+                  )}
+                </section>
+              )}
 
               {bonusCardEnabled && (
                 <section>
                   <h3 className="pop-headline text-sm mb-2">{bonusCardName}</h3>
-                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[0]}</p>
+                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    {bonusCardMaxPlays === 1 ? RULES_TEXT.bonusCard[0] :
+                      `Some competitions have a Bonus Card — one or more nominated players, chosen by the admin, that every entrant can play up to ${bonusCardMaxPlays} times across the whole competition, in any gameweeks of their choosing, up until that gameweek's normal deadline.`}
+                  </p>
                   <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[1]}</p>
                   <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[2]}</p>
                   <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[3]}</p>

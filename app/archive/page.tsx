@@ -108,7 +108,7 @@ export default function ArchivePage() {
           supabase.from('competition_entries').select('user_id, competition_id').in('competition_id', compIds).eq('removed', false),
           supabase.from('points').select('user_id, competition_id, total_points').in('competition_id', compIds),
           supabase.from('profiles').select('id, display_name, is_bot'),
-          supabase.from('bonus_card_plays').select('user_id, competition_id, points').in('competition_id', compIds),
+          supabase.from('bonus_card_plays').select('user_id, competition_id, gameweek_id, points').in('competition_id', compIds),
         ])
 
         const nameByUid: Record<string, string> = {}
@@ -131,7 +131,7 @@ export default function ArchivePage() {
                 if (!row.pick_id.startsWith('preview-')) return
                 pointsRows?.push({ user_id: row.user_id, competition_id: activeComp.id, total_points: row.total_points ?? 0 })
               })
-              ;(data.bonusCardRows ?? []).forEach((row: any) => { bonusCardPreview[row.user_id] = row.points })
+              ;(data.bonusCardRows ?? []).forEach((row: any) => { bonusCardPreview[`${row.user_id}-${gw.id}`] = row.points })
             } catch {
               // Live preview hiccup — the current podium just stays based
               // on whatever's already resolved, not a hard failure.
@@ -150,7 +150,7 @@ export default function ArchivePage() {
         bonusCardPlays?.forEach(play => {
           const t = totalsByComp[play.competition_id]
           if (!t || !(play.user_id in t)) return
-          const pts = play.points ?? bonusCardPreview[play.user_id] ?? null
+          const pts = play.points ?? bonusCardPreview[`${play.user_id}-${play.gameweek_id}`] ?? null
           if (pts == null) return
           t[play.user_id] += pts
         })

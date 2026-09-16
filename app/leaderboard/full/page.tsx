@@ -297,7 +297,7 @@ export default function FullLeaderboardPage() {
           }
         })
         ;(scoringData.bonusCardRows ?? []).forEach((row: any) => {
-          bonusCardPreviewPoints[row.user_id] = row.points
+          bonusCardPreviewPoints[`${row.user_id}-${gw.id}`] = row.points
         })
       } catch {
         // ignore preview failures
@@ -421,7 +421,7 @@ export default function FullLeaderboardPage() {
     bonusCardPlays?.forEach(play => {
       const t = totals[play.user_id]
       if (!t) return
-      const points = play.points ?? bonusCardPreviewPoints[play.user_id] ?? null
+      const points = play.points ?? bonusCardPreviewPoints[`${play.user_id}-${play.gameweek_id}`] ?? null
       if (points == null) return
       t.bonus_card_points += points
       t.total_points += points

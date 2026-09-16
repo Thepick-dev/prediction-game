@@ -1,5 +1,6 @@
 import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../../../lib/players'
+import { getCompetitionMechanicsConfig } from '../../../lib/scoring'
 import { NextResponse } from 'next/server'
 
 // Public and read-only on purpose — this backs the Rules popup shown on the
@@ -18,8 +19,14 @@ export async function GET() {
     .single()
 
   if (!competition) {
-    return NextResponse.json({ scoringRules: [], goalPoints: 12, assistPoints: 6, exclusions: [], bonusCardEnabled: false, bonusCardName: null, botEnabled: false })
+    return NextResponse.json({
+      scoringRules: [], goalPoints: 12, assistPoints: 6, exclusions: [],
+      bonusCardEnabled: false, bonusCardName: null, botEnabled: false,
+      bankerEnabled: true, bankerMultiplier: 2, allOrNothingEnabled: true, bonusCardMaxPlays: 1,
+    })
   }
+
+  const mechanics = await getCompetitionMechanicsConfig(supabase, competition.id)
 
   // Its own isolated request, same reasoning as everywhere else this
   // pattern shows up — bot_enabled is a newer, optional column (Futzy),
@@ -54,5 +61,9 @@ export async function GET() {
     bonusCardEnabled: !!competition.bonus_card_enabled,
     bonusCardName: bonusCardDisplayName(competition.bonus_card_name, bonusCardPlayerName),
     botEnabled,
+    bankerEnabled: mechanics.bankerEnabled,
+    bankerMultiplier: mechanics.bankerMultiplier,
+    allOrNothingEnabled: mechanics.allOrNothingEnabled,
+    bonusCardMaxPlays: mechanics.bonusCardMaxPlays,
   })
 }

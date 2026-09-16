@@ -37,6 +37,39 @@ export type ScoringRule = { result_type: string; quartile_diff: number; points: 
 export type PlayerScoringRule = { event_type: string; points: number }
 export type MatchEvent = { player_id: number | null; event_type: string; fixture_id: number }
 
+export type CompetitionMechanicsConfig = {
+  bankerEnabled: boolean
+  bankerMultiplier: number
+  allOrNothingEnabled: boolean
+  bonusCardPointsMultiplier: number
+  bonusCardMaxPlays: number
+  bonusCardPlayerUseCap: number
+}
+
+// Its own isolated, defensive fetch — same convention as every other
+// optional/newer column in this codebase (kit_stars, is_bot, aura_score...):
+// a competition created before this feature shipped, or before the SQL has
+// actually been run, must behave EXACTLY as it always has. If the select
+// fails outright because the columns don't exist yet, `data` comes back
+// null and every field below falls through to its pre-existing hardcoded
+// value via `?? default` — Banker/AoN on, Banker doubles, Bonus Card scores
+// like a normal pick with one play per user.
+export async function getCompetitionMechanicsConfig(supabase: SupabaseClient, competitionId: string): Promise<CompetitionMechanicsConfig> {
+  const { data } = await supabase
+    .from('competitions')
+    .select('banker_enabled, banker_multiplier, all_or_nothing_enabled, bonus_card_points_multiplier, bonus_card_max_plays, bonus_card_player_use_cap')
+    .eq('id', competitionId)
+    .maybeSingle()
+  return {
+    bankerEnabled: data?.banker_enabled ?? true,
+    bankerMultiplier: data?.banker_multiplier ?? 2,
+    allOrNothingEnabled: data?.all_or_nothing_enabled ?? true,
+    bonusCardPointsMultiplier: data?.bonus_card_points_multiplier ?? 1,
+    bonusCardMaxPlays: data?.bonus_card_max_plays ?? 1,
+    bonusCardPlayerUseCap: data?.bonus_card_player_use_cap ?? 1,
+  }
+}
+
 export type PickScoreRow = {
   pick_id: string
   user_id: string
@@ -153,7 +186,8 @@ export function computePickScores(
   scoringRules: ScoringRule[],
   playerScoringRules: PlayerScoringRule[],
   matchEvents: MatchEvent[],
-  players: PlayerInfo[] = []
+  players: PlayerInfo[] = [],
+  bankerMultiplier: number = 2
 ): PickScoreRow[] {
   const scoringMap: Record<string, number> = {}
   scoringRules.forEach(r => {
@@ -290,9 +324,9 @@ export function computePickScores(
     let p2Points = player2Points
 
     if (pick.is_banker) {
-      teamPoints *= 2
-      p1Points *= 2
-      p2Points *= 2
+      teamPoints = Math.round(teamPoints * bankerMultiplier)
+      p1Points = Math.round(p1Points * bankerMultiplier)
+      p2Points = Math.round(p2Points * bankerMultiplier)
     }
 
     return {
@@ -329,7 +363,8 @@ export function computeBonusCardPoints(
   fixtures: Fixture[],
   players: PlayerInfo[],
   matchEvents: MatchEvent[],
-  playerScoringRules: PlayerScoringRule[]
+  playerScoringRules: PlayerScoringRule[],
+  pointsMultiplier: number = 1
 ): BonusCardPointsRow[] {
   const getPlayerPoints = buildPlayerPointsCalculator(fixtures, players, matchEvents, playerScoringRules)
   return plays.map(play => ({
@@ -337,7 +372,7 @@ export function computeBonusCardPoints(
     user_id: play.user_id,
     gameweek_id: play.gameweek_id,
     player_id: play.player_id,
-    points: getPlayerPoints(play.player_id, play.fixture_id),
+    points: Math.round(getPlayerPoints(play.player_id, play.fixture_id) * pointsMultiplier),
   }))
 }
 
@@ -392,7 +427,10 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
     return { error: 'Gameweek not found' }
   }
 
-  const { picks, fixtures, scoringRules, playerScoringRules, matchEvents, players } = await loadCommonScoringData(supabase, gameweek_id, gameweek.competition_id)
+  const [{ picks, fixtures, scoringRules, playerScoringRules, matchEvents, players }, mechanics] = await Promise.all([
+    loadCommonScoringData(supabase, gameweek_id, gameweek.competition_id),
+    getCompetitionMechanicsConfig(supabase, gameweek.competition_id),
+  ])
 
   if (picks.length === 0) {
     return { message: 'No picks found for this gameweek', points_calculated: 0 }
@@ -408,7 +446,7 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
   const quartileMap: Record<number, number> = {}
   quartiles?.forEach(q => { quartileMap[q.team_id] = q.quartile })
 
-  const pointsToUpsert = computePickScores(gameweek_id, picks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players)
+  const pointsToUpsert = computePickScores(gameweek_id, picks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players, mechanics.bankerMultiplier)
 
   const { error: upsertError } = await supabase
     .from('points')
@@ -419,7 +457,7 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
   }
 
   await resolveAllOrNothing(supabase, gameweek_id, picks, pointsToUpsert)
-  await resolveBonusCard(supabase, gameweek_id, fixtures, players, matchEvents, playerScoringRules)
+  await resolveBonusCard(supabase, gameweek_id, fixtures, players, matchEvents, playerScoringRules, mechanics.bonusCardPointsMultiplier)
 
   return {
     success: true,
@@ -480,7 +518,8 @@ async function resolveBonusCard(
   fixtures: Fixture[],
   players: PlayerInfo[],
   matchEvents: MatchEvent[],
-  playerScoringRules: PlayerScoringRule[]
+  playerScoringRules: PlayerScoringRule[],
+  pointsMultiplier: number = 1
 ) {
   const { data: plays } = await supabase
     .from('bonus_card_plays')
@@ -489,7 +528,7 @@ async function resolveBonusCard(
 
   if (!plays || plays.length === 0) return
 
-  const rows = computeBonusCardPoints(plays, fixtures, players, matchEvents, playerScoringRules)
+  const rows = computeBonusCardPoints(plays, fixtures, players, matchEvents, playerScoringRules, pointsMultiplier)
 
   await Promise.all(rows.map(row =>
     supabase
@@ -547,6 +586,7 @@ export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_
     { data: entries },
     suspendedUserIds,
     { data: bonusCardPlays },
+    mechanics,
   ] = await Promise.all([
     loadCommonScoringData(supabase, gameweek_id, gameweek.competition_id),
     supabase.from('tier_assignments').select('team_id, tier').eq('competition_id', gameweek.competition_id),
@@ -556,12 +596,13 @@ export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_
     // from live data, never written back, so it can be called as often as
     // the UI wants without side effects.
     supabase.from('bonus_card_plays').select('id, user_id, gameweek_id, player_id, fixture_id').eq('gameweek_id', gameweek_id),
+    getCompetitionMechanicsConfig(supabase, gameweek.competition_id),
   ])
 
   const quartileMap: Record<number, number> = {}
   assignments?.forEach(a => { quartileMap[a.team_id] = a.tier })
 
-  const realRows = computePickScores(gameweek_id, picks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players)
+  const realRows = computePickScores(gameweek_id, picks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players, mechanics.bankerMultiplier)
 
   const pickedUserIds = new Set(picks.map(p => p.user_id))
   const missingUsers = (entries ?? []).filter(e => !pickedUserIds.has(e.user_id) && !suspendedUserIds.has(e.user_id))
@@ -590,9 +631,9 @@ export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_
     }]
   })
 
-  const provisionalRows = computePickScores(gameweek_id, provisionalPicks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players)
+  const provisionalRows = computePickScores(gameweek_id, provisionalPicks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players, mechanics.bankerMultiplier)
 
-  const bonusCardRows = computeBonusCardPoints(bonusCardPlays ?? [], fixtures, players, matchEvents, playerScoringRules)
+  const bonusCardRows = computeBonusCardPoints(bonusCardPlays ?? [], fixtures, players, matchEvents, playerScoringRules, mechanics.bonusCardPointsMultiplier)
 
   // Already computed above for scoring purposes — exposed here too so
   // callers that need "what would this still-unpicked user's autopick be"
