@@ -18,6 +18,7 @@ async function requireAdminAction() {
 type RugbyCompetition = {
   id: string; name: string; season: string; status: string
   start_date: string | null; end_date: string | null; created_at: string
+  public_signups_enabled: boolean | null
 }
 
 async function createRugbyCompetition(formData: FormData) {
@@ -62,6 +63,22 @@ async function finalizeRugbyCompetition(formData: FormData) {
   redirect('/admin/rugby')
 }
 
+// The site-visible "go live" switch. Deliberately does NOT touch the
+// separate temporary preview password (RUGBY_PREVIEW_PASSWORD/the cookie
+// gate in app/rugby/layout.tsx) — turning this on only changes WHO is
+// allowed to attempt that password screen (admins only -> anyone logged
+// in), by explicit instruction, so this can be used as a "let people
+// preview with the password" step distinct from the site going fully
+// public.
+async function togglePublicSignups(formData: FormData) {
+  'use server'
+  const supabase = await requireAdminAction()
+  const id = formData.get('id') as string
+  const enabled = formData.get('enabled') === 'true'
+  await supabase.schema('rugby').from('competitions').update({ public_signups_enabled: enabled }).eq('id', id)
+  redirect('/admin/rugby')
+}
+
 async function saveTicker(formData: FormData) {
   'use server'
   const supabase = await requireAdminAction()
@@ -86,6 +103,34 @@ export default async function AdminRugbyPage() {
         Only ONE competition can be active at a time — that's the one the spreadsheet sync writes into, and the
         one players see and join. Starting a new season archives whichever one is currently active first.
       </p>
+
+      {activeComp && (
+        <div className="bg-white border rounded-lg p-6 mb-8 max-w-md">
+          <h2 className="font-bold mb-1">🌍 Public Launch</h2>
+          <p className="text-xs text-gray-500 mb-3">
+            {activeComp.public_signups_enabled
+              ? <>Open — any logged-in player can reach <code className="bg-gray-100 px-1 rounded">/rugby</code> and join {activeComp.name} (still behind the temporary preview password), and a Rugby button shows on the football site&apos;s nav.</>
+              : <>Closed — only admins can currently reach {activeComp.name}. Nobody else will see the Rugby button on the football site either.</>}
+          </p>
+          {activeComp.public_signups_enabled ? (
+            <ConfirmActionButton
+              action={togglePublicSignups}
+              hiddenFields={{ id: activeComp.id, enabled: 'false' }}
+              label="Close to the public"
+              confirmText={`Hide ${activeComp.name} from everyone except admins again? Anyone already joined keeps their place.`}
+              className="text-xs bg-gray-200 text-gray-700 rounded px-3 py-1.5 font-bold"
+            />
+          ) : (
+            <ConfirmActionButton
+              action={togglePublicSignups}
+              hiddenFields={{ id: activeComp.id, enabled: 'true' }}
+              label="🚀 Open to the public"
+              confirmText={`Let any logged-in player reach and join ${activeComp.name}, and show the Rugby button on the football site? They'll still need the temporary preview password until that's removed separately.`}
+              className="text-xs bg-black text-white rounded px-3 py-1.5 font-bold"
+            />
+          )}
+        </div>
+      )}
 
       {activeComp && (
         <div id="ticker" className="bg-white border rounded-lg p-6 mb-8 max-w-md">

@@ -6,18 +6,6 @@ import RugbySquadManager from '../dream-team/_components/RugbySquadManager'
 import RugbyCountdownClock from '../../../components/RugbyCountdownClock'
 import { redirect } from 'next/navigation'
 
-// Any logged-in user can join themselves — RLS on rugby.competition_entries
-// already restricts the insert to `user_id = auth.uid()`.
-async function joinRugbyCompetition(formData: FormData) {
-  'use server'
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-  const competitionId = formData.get('competition_id') as string
-  await supabase.schema('rugby').from('competition_entries').insert({ competition_id: competitionId, user_id: user.id })
-  redirect('/rugby/picks')
-}
-
 type Competition = { id: string; name: string; season: string }
 type Team = { id: number; name: string }
 type Player = { id: number; team_id: number; name: string }
@@ -50,24 +38,14 @@ export default async function RugbyPicksPage() {
 
   const { data: competition } = await supabase.schema('rugby').from('competitions').select('id, name, season').eq('status', 'active').maybeSingle() as unknown as { data: Competition | null }
 
-  if (!competition) return <div className="max-w-2xl mx-auto p-6"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>No active competition yet.</p></div>
-  if (!user) return <div className="max-w-2xl mx-auto p-6"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>Please log in.</p></div>
+  // The real "not signed in yet" / "not joined yet" front door is now
+  // /rugby itself (a proper welcome + explanation, not a bare line) — this
+  // page is the wizard for someone already in, so both of those bounce
+  // there instead of showing their own thin message.
+  if (!competition || !user) redirect('/rugby')
 
   const { data: entry } = await supabase.schema('rugby').from('competition_entries').select('id').eq('competition_id', competition.id).eq('user_id', user.id).maybeSingle()
-  if (!entry) {
-    return (
-      <div className="max-w-2xl mx-auto p-4 md:p-6">
-        <RoundHeading text={competition.name} />
-        <div className="pop-panel pop-panel--orange p-5 flex items-center justify-between flex-wrap gap-3">
-          <p className="text-sm" style={{ color: 'var(--pop-white)' }}>You&apos;re not entered in {competition.name} yet.</p>
-          <form action={joinRugbyCompetition}>
-            <input type="hidden" name="competition_id" value={competition.id} />
-            <button type="submit" className="pop-button pop-button--orange">Join</button>
-          </form>
-        </div>
-      </div>
-    )
-  }
+  if (!entry) redirect('/rugby')
 
   const [{ data: kit }, { data: teams }, { data: players }, { data: rounds }, { data: questionTypes }, { data: seasonAnswers }, { data: squadPicks }, { data: rulesRows }] = await Promise.all([
     supabase.schema('rugby').from('player_kits').select('user_id').eq('user_id', user.id).maybeSingle(),

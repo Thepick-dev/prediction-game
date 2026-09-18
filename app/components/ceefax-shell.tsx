@@ -63,6 +63,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
   const [futzySaysLines, setFutzySaysLines] = useState<string[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
+  const [showRugbyLink, setShowRugbyLink] = useState(false)
   const countdown = useCountdown(nextDeadline?.deadline ?? null)
 
   const [kitPopupOpen, setKitPopupOpen] = useState(false)
@@ -139,6 +140,24 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
       .then(data => setPendingCount(data.count ?? 0))
       .catch(() => {})
   }, [isAdmin])
+
+  // Its own isolated query into a whole separate Postgres schema — a
+  // problem here (rugby not launched yet, the column missing, whatever)
+  // must never be able to take the rest of the football header down with
+  // it, same reasoning as every other optional fetch in this file. Shown
+  // to any signed-in visitor once admin has opened rugby.competitions'
+  // public_signups_enabled toggle on /admin/rugby.
+  useEffect(() => {
+    if (!user?.id) return
+    const supabase = createClient()
+    supabase
+      .schema('rugby')
+      .from('competitions')
+      .select('public_signups_enabled')
+      .eq('status', 'active')
+      .maybeSingle()
+      .then(({ data }) => setShowRugbyLink(data?.public_signups_enabled === true))
+  }, [user?.id])
 
   // Deliberately its own query, independent of the kit fetch below — if the
   // competition/gameweek lookup ever fails, it should only mean no deadline
@@ -343,6 +362,15 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                     </Link>
                   )
                 })}
+                {showRugbyLink && (
+                  <a
+                    href="/rugby"
+                    className="pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase"
+                    style={{ color: 'var(--pop-orange)' }}
+                  >
+                    🏉 Rugby
+                  </a>
+                )}
                 {isAdmin && (
                   <a
                     href="/admin"
@@ -455,6 +483,16 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                 </Link>
               )
             })}
+            {isPopArt && showRugbyLink && (
+              <a
+                href="/rugby"
+                onClick={() => setMenuOpen(false)}
+                style={{ color: 'var(--pop-orange)', borderLeft: '4px solid transparent' }}
+                className="flex items-center gap-2 px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-white/10"
+              >
+                🏉 Rugby
+              </a>
+            )}
             {isAdmin && (
               <a
                 href="/admin"

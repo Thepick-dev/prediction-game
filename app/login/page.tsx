@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '../lib/supabase'
 import RulesModal from '../../components/RulesModal'
 import PasswordInput from '../../components/PasswordInput'
@@ -9,7 +10,30 @@ import { isValidUsername, USERNAME_MAX_LENGTH, USERNAME_RULES_MESSAGE } from '..
 
 type Mode = 'login' | 'join'
 
+// Wrapped in Suspense below because useSearchParams needs it. Only ever
+// used for a login (not a fresh join — that always goes through /pending
+// for approval first, same as before) arriving from somewhere other than
+// football, e.g. /rugby's own "log in to join" link — every existing
+// entry point that never passes ?next keeps landing on /picks exactly as
+// before. Only an internal path (starting with /) is ever honoured, so a
+// crafted external URL in the param can't be used to redirect off-site.
+function safeNextPath(raw: string | null): string | null {
+  if (!raw) return null
+  if (!raw.startsWith('/') || raw.startsWith('//')) return null
+  return raw
+}
+
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  )
+}
+
+function LoginPageInner() {
+  const searchParams = useSearchParams()
+  const nextPath = safeNextPath(searchParams.get('next'))
   const [mode, setMode] = useState<Mode>('login')
   const [showRules, setShowRules] = useState(false)
 
@@ -64,7 +88,7 @@ export default function LoginPage() {
       }
     }
 
-    window.location.href = '/picks'
+    window.location.href = nextPath ?? '/picks'
   }
 
   async function handleJoin() {

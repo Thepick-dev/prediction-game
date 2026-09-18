@@ -6,12 +6,15 @@ import RugbyShell from '../../components/RugbyShell'
 
 const COOKIE_NAME = 'rugby_preview_ok'
 
-// Two separate locks, both required while this is still being built:
-// (1) a real admin account (same requireAdmin every other admin-only
-// route uses), and (2) a temporary shared password on top of that, so a
-// half-built game is never one guessed URL away from a real player.
-// Both come off again once this is ready for a real launch — a later,
-// separate task, not decided here.
+// Two separate locks. (1) WHO is allowed to even attempt this layout:
+// admins always; everyone else only once the active competition's
+// public_signups_enabled is on (the admin-facing "launch" toggle on
+// /admin/rugby). (2) the temporary shared preview password — deliberately
+// NOT tied to that toggle at all, by explicit instruction: it stays a hard
+// requirement for literally everyone (admin included) until it's removed
+// as its own separate, later decision, so turning signups on can be used
+// as a "let people in to preview with the password" step without that
+// being the same moment the site goes fully public.
 async function unlockRugby(formData: FormData) {
   'use server'
   const password = formData.get('password') as string
@@ -25,13 +28,15 @@ async function unlockRugby(formData: FormData) {
 export default async function RugbyLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerSupabaseClient()
   const admin = await requireAdmin(supabase)
-  if (!admin) redirect('/')
+
+  const { data: competition } = await supabase.schema('rugby').from('competitions').select('ticker_text, public_signups_enabled').eq('status', 'active').maybeSingle()
+  const tickerText = competition?.ticker_text?.trim() || null
+  const publicOpen = competition?.public_signups_enabled === true
+
+  if (!admin && !publicOpen) redirect('/')
 
   const jar = await cookies()
   const unlocked = jar.get(COOKIE_NAME)?.value === 'yes'
-
-  const { data: competition } = await supabase.schema('rugby').from('competitions').select('ticker_text').eq('status', 'active').maybeSingle()
-  const tickerText = competition?.ticker_text?.trim() || null
 
   const { data: { user } } = await supabase.auth.getUser()
   let displayName: string | undefined
