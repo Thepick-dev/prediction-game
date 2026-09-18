@@ -223,19 +223,47 @@ export default function ResultsPage() {
       setSelectedGw(defaultGw.id)
     }
 
-    const { data: allPoints } = await supabase
-      .from('points')
-      .select('user_id, pick_id, total_points, gameweek_id')
-      .eq('competition_id', comp.id)
+    const [{ data: allPoints }, { data: seasonBonusCardPlays }] = await Promise.all([
+      supabase.from('points').select('user_id, pick_id, total_points, breakdown, gameweek_id').eq('competition_id', comp.id),
+      supabase.from('bonus_card_plays').select('user_id, points').eq('competition_id', comp.id),
+    ])
 
-    // Futzy can top a gameweek like anyone else, but he can't be crowned —
+    // Futzy can top the table like anyone else, but he can't be crowned —
     // exclude bot rows before finding the leader. Also exclude anyone since
     // removed from the competition, same reasoning as everywhere else here.
+    // This must be each user's CUMULATIVE season total (summed across every
+    // gameweek, same as the real Leaderboard's own ranking) — a previous
+    // version of this took the single highest individual-gameweek score
+    // across the whole season instead, which is a completely different
+    // number and could crown someone who isn't actually leading at all
+    // (confirmed live: it was showing whoever had one big Banker week, not
+    // whoever's actually ahead on the season).
     const humanPoints = allPoints?.filter(p => !isBotMap[p.user_id] && activeIds.has(p.user_id)) ?? []
-    if (humanPoints.length > 0) {
-      const maxPts = Math.max(...humanPoints.map(p => p.total_points ?? 0))
-      const topScorer = humanPoints.filter(p => (p.total_points ?? 0) === maxPts)[0]
-      if (topScorer) setPotwUserId(topScorer.user_id)
+    const cumulativeByUser: Record<string, number> = {}
+    // Same first tiebreaker the real Leaderboard uses (points with Banker
+    // doubling removed) — without this, a genuine tie on total points falls
+    // back to whatever order the rows happened to load in, which can crown
+    // someone the real Leaderboard's own tiebreak wouldn't.
+    const withoutBankerByUser: Record<string, number> = {}
+    humanPoints.forEach(p => {
+      cumulativeByUser[p.user_id] = (cumulativeByUser[p.user_id] ?? 0) + (p.total_points ?? 0)
+      const isBanker = (p.breakdown as any)?.is_banker === true
+      const raw = isBanker ? (p.total_points ?? 0) / 2 : (p.total_points ?? 0)
+      withoutBankerByUser[p.user_id] = (withoutBankerByUser[p.user_id] ?? 0) + raw
+    })
+    seasonBonusCardPlays?.forEach(play => {
+      if (isBotMap[play.user_id] || !activeIds.has(play.user_id) || play.points == null) return
+      cumulativeByUser[play.user_id] = (cumulativeByUser[play.user_id] ?? 0) + play.points
+      withoutBankerByUser[play.user_id] = (withoutBankerByUser[play.user_id] ?? 0) + play.points
+    })
+    const userIds = Object.keys(cumulativeByUser)
+    if (userIds.length > 0) {
+      const leaderId = userIds.reduce((best, id) => {
+        if (!best) return id
+        if (cumulativeByUser[id] !== cumulativeByUser[best]) return cumulativeByUser[id] > cumulativeByUser[best] ? id : best
+        return withoutBankerByUser[id] > withoutBankerByUser[best] ? id : best
+      }, '')
+      if (leaderId) setPotwUserId(leaderId)
     }
 
     setLoading(false)
