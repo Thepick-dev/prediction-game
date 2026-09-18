@@ -2,7 +2,6 @@ import { createAdminSupabaseClient } from '../../lib/supabase-admin'
 import { runBotPickForGameweek } from '../../lib/botPick'
 import { syncPlayers } from '../../lib/syncPlayers'
 import { syncFixtureDifficulty } from '../../lib/syncFixtureDifficulty'
-import { syncPlayerFormHistory } from '../../lib/syncPlayerFormHistory'
 import { lockOverdueGameweeks } from '../../lib/lockGameweeks'
 import { NextResponse } from 'next/server'
 
@@ -26,14 +25,10 @@ export async function GET(request: Request) {
   // that often would just be wasted FPL API calls and DB writes.
   const playerSyncResult = await syncPlayers(supabase)
 
-  // Both isolated, defensive, and non-blocking by design (see their own
-  // files) — a problem in either must never stop Futzy's pick derivation
-  // or gameweek locking below. Fixture difficulty is one cheap call
-  // covering the whole season; the per-player form history sync does its
-  // own small daily batch (see syncPlayerFormHistory.ts) rather than
-  // hitting FPL once per player every single day.
+  // Isolated, defensive, and non-blocking by design (see its own file) —
+  // a problem here must never stop Futzy's pick derivation or gameweek
+  // locking below. One cheap call covering the whole season's fixtures.
   const fixtureDifficultyResult = await syncFixtureDifficulty(supabase)
-  const playerFormHistoryResult = await syncPlayerFormHistory(supabase)
 
   // Futzy — re-derive and submit his pick for ONLY the single next
   // gameweek (deadline still ahead) in a bot_enabled competition, every
@@ -90,7 +85,6 @@ export async function GET(request: Request) {
     success: true,
     player_sync: playerSyncResult,
     fixture_difficulty_sync: fixtureDifficultyResult,
-    player_form_history_sync: playerFormHistoryResult,
     results,
     bot_results: botResults,
   })

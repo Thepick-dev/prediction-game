@@ -14,8 +14,9 @@ import PopArtLoading from '../../components/PopArtLoading'
 import ShareableCard from '../../components/ShareableCard'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import { pastDeadlineGameweekIds } from '../lib/pastDeadlineGameweeks'
+import { buildPlayerPointsCalculator, buildTeamPointsCalculator, type Fixture as ScoringFixture, type PlayerInfo as ScoringPlayerInfo, type MatchEvent as ScoringMatchEvent, type ScoringRule, type PlayerScoringRule } from '../lib/scoring'
 
-type Tab = 'teams' | 'players' | 'me' | 'trends'
+type Tab = 'teams' | 'players' | 'me' | 'trends' | 'form'
 
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null; active: boolean }
 type PlayerRow = { id: number; name: string; web_name: string | null; team_id: number }
@@ -94,6 +95,180 @@ function teamDisplayName(team: Team | undefined) {
   return team.short_name ?? team.name.replace(' FC', '').replace(' AFC', '')
 }
 
+type FormGuideGwEntry = { gwNumber: number; points: number }
+type FormGuidePlayerRow = { playerId: number; name: string; teamId: number; position: string | null; totalPoints: number; goals: number; assists: number; byGw: FormGuideGwEntry[] }
+type FormGuideTeamEntry = FormGuideGwEntry & { result: 'W' | 'D' | 'L' | '-' }
+type FormGuideTeamRow = { teamId: number; name: string; shortName: string | null; totalPoints: number; byGw: FormGuideTeamEntry[] }
+
+function resultBadgeStyle(result: 'W' | 'D' | 'L' | '-') {
+  if (result === 'W') return { background: 'var(--pop-green)', color: 'var(--pop-black)' }
+  if (result === 'D') return { background: 'var(--pop-yellow)', color: 'var(--pop-white)' }
+  if (result === 'L') return { background: 'var(--pop-red)', color: 'var(--pop-white)' }
+  return { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }
+}
+
+// Real LMS points, computed fresh for every active team/player over the
+// last 5 completed gameweeks — not FPL's own numbers. Its own component
+// (not inlined into the giant tab-switch below) since it carries a fair
+// bit of local UI state (sub-tab, search, expand) that has nothing to do
+// with the rest of the Stats Hub.
+function FormGuideTabContent({
+  loading, gwNumbers, players, teams, subTab, setSubTab, search, setSearch, expandedId, setExpandedId,
+}: {
+  loading: boolean
+  gwNumbers: number[]
+  players: FormGuidePlayerRow[]
+  teams: FormGuideTeamRow[]
+  subTab: 'players' | 'teams'
+  setSubTab: (t: 'players' | 'teams') => void
+  search: string
+  setSearch: (s: string) => void
+  expandedId: number | null
+  setExpandedId: (id: number | null) => void
+}) {
+  const [showCount, setShowCount] = useState(40)
+  const teamNameById = useMemo(() => {
+    const m = new Map<number, string>()
+    teams.forEach(t => m.set(t.teamId, t.shortName ?? t.name))
+    return m
+  }, [teams])
+
+  const filteredPlayers = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return players
+    return players.filter(p => p.name.toLowerCase().includes(q))
+  }, [players, search])
+
+  const filteredTeams = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return teams
+    return teams.filter(t => t.name.toLowerCase().includes(q) || (t.shortName ?? '').toLowerCase().includes(q))
+  }, [teams, search])
+
+  if (loading) {
+    return <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>Loading…</p>
+  }
+
+  if (gwNumbers.length === 0) {
+    return (
+      <div className="pop-panel pop-panel--orange p-5">
+        <p className="text-sm" style={{ color: 'var(--pop-white)' }}>
+          No completed gameweeks yet this season — the Form Guide fills in once GW1 has been scored.
+        </p>
+      </div>
+    )
+  }
+
+  const gwRangeLabel = gwNumbers.length === 1 ? `GW${gwNumbers[0]}` : `GW${gwNumbers[0]}–${gwNumbers[gwNumbers.length - 1]}`
+
+  return (
+    <div>
+      <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.55)' }}>
+        What every active team and player would have scored in <strong>this game</strong> across {gwRangeLabel} ({gwNumbers.length} gameweek{gwNumbers.length === 1 ? '' : 's'}) — real LMS points from real results, not Fantasy Premier League numbers.
+      </p>
+
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => setSubTab('players')}
+          className={`pop-button px-4 py-2 text-xs ${subTab === 'players' ? 'pop-button--green' : 'pop-button--yellow'}`}
+        >
+          Players
+        </button>
+        <button
+          onClick={() => setSubTab('teams')}
+          className={`pop-button px-4 py-2 text-xs ${subTab === 'teams' ? 'pop-button--green' : 'pop-button--yellow'}`}
+        >
+          Teams
+        </button>
+      </div>
+
+      <input
+        type="text"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder={subTab === 'players' ? 'Search player...' : 'Search team...'}
+        className="pop-input px-3 py-2 text-sm w-full mb-4"
+      />
+
+      {subTab === 'players' && (
+        <div className="space-y-2">
+          {filteredPlayers.slice(0, search ? filteredPlayers.length : showCount).map(p => {
+            const isExpanded = expandedId === p.playerId
+            return (
+              <div key={p.playerId} className="pop-panel p-3">
+                <button onClick={() => setExpandedId(isExpanded ? null : p.playerId)} className="w-full flex items-center justify-between gap-2 text-left">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <TeamCrest teamId={p.teamId} teamName={teamNameById.get(p.teamId) ?? ''} size={20} />
+                    <div className="min-w-0">
+                      <p className="pop-name text-sm truncate" style={{ color: 'var(--pop-white)' }}>
+                        {p.name}
+                        {p.position && <span className="ml-1.5 text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.4)' }}>{p.position}</span>}
+                      </p>
+                      <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                        {teamNameById.get(p.teamId) ?? '?'} · ⚽ {p.goals}G · 🅰️ {p.assists}A over last {gwNumbers.length}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="pop-name text-lg" style={{ color: 'var(--pop-green)' }}>{p.totalPoints}pts</span>
+                    <span style={{ color: 'rgba(255,255,255,0.4)' }}>{isExpanded ? '▲' : '▼'}</span>
+                  </div>
+                </button>
+                {isExpanded && (
+                  <div className="flex gap-1.5 mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                    {p.byGw.map(g => (
+                      <div key={g.gwNumber} className="flex-1 text-center rounded-lg py-1.5" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                        <p className="text-[9px] font-mono" style={{ color: 'rgba(255,255,255,0.4)' }}>GW{g.gwNumber}</p>
+                        <p className="pop-name text-sm" style={{ color: 'var(--pop-white)' }}>{g.points}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          {filteredPlayers.length === 0 && (
+            <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.4)' }}>No players match that search.</p>
+          )}
+          {!search && filteredPlayers.length > showCount && (
+            <button onClick={() => setShowCount(c => c + 40)} className="pop-button pop-button--blue w-full mt-1 py-2 text-sm">
+              Show more
+            </button>
+          )}
+        </div>
+      )}
+
+      {subTab === 'teams' && (
+        <div className="space-y-2">
+          {filteredTeams.map(t => (
+            <div key={t.teamId} className="pop-panel p-3">
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <TeamCrest teamId={t.teamId} teamName={t.shortName ?? t.name} size={22} />
+                  <p className="pop-name text-sm truncate" style={{ color: 'var(--pop-white)' }}>{t.shortName ?? t.name}</p>
+                </div>
+                <span className="pop-name text-lg shrink-0" style={{ color: 'var(--pop-green)' }}>{t.totalPoints}pts</span>
+              </div>
+              <div className="flex gap-1.5">
+                {t.byGw.map(g => (
+                  <div key={g.gwNumber} className="flex-1 text-center rounded-lg py-1.5" style={resultBadgeStyle(g.result)}>
+                    <p className="text-[9px] font-mono opacity-70">GW{g.gwNumber}</p>
+                    <p className="text-xs font-black">{g.result}</p>
+                    <p className="text-[10px] font-bold opacity-80">{g.points}pts</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          {filteredTeams.length === 0 && (
+            <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.4)' }}>No teams match that search.</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function StatsHubPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
@@ -153,6 +328,135 @@ export default function StatsHubPage() {
   const [playerSearch, setPlayerSearch] = useState('')
   const supabase = createClient()
   const { popArt } = usePopArtTheme(user?.id)
+
+  // --- Form Guide (real LMS points, last 5 completed gameweeks) ---
+  // Deliberately its own isolated state/effect, entirely separate from the
+  // big loadData() below — this uses the exact same pure scoring functions
+  // real scoring runs on (buildTeamPointsCalculator/buildPlayerPointsCalculator
+  // from app/lib/scoring.ts), computed fresh for EVERY active team/player,
+  // not just ones someone actually picked, so it answers "what would this
+  // have been worth in OUR game" rather than showing FPL's own numbers.
+  // (FormGuide* types are declared at module scope, above this component.)
+  const [formGuideLoading, setFormGuideLoading] = useState(true)
+  const [formGuidePlayers, setFormGuidePlayers] = useState<FormGuidePlayerRow[]>([])
+  const [formGuideTeams, setFormGuideTeams] = useState<FormGuideTeamRow[]>([])
+  const [formGuideGwNumbers, setFormGuideGwNumbers] = useState<number[]>([])
+  const [formGuideSubTab, setFormGuideSubTab] = useState<'players' | 'teams'>('players')
+  const [formGuideSearch, setFormGuideSearch] = useState('')
+  const [formGuideExpandedId, setFormGuideExpandedId] = useState<number | null>(null)
+
+  useEffect(() => { loadFormGuideData() }, [])
+
+  async function loadFormGuideData() {
+    const { data: comp } = await supabase.from('competitions').select('id').eq('status', 'active').maybeSingle()
+    if (!comp) { setFormGuideLoading(false); return }
+
+    // Last 5 COMPLETED gameweeks in THIS competition only — a brand new
+    // competition naturally has none yet (nothing to pull from a previous
+    // season/competition, since gameweeks are scoped to comp.id below).
+    const { data: recentGws } = await supabase
+      .from('gameweeks')
+      .select('id, number')
+      .eq('competition_id', comp.id)
+      .eq('status', 'completed')
+      .order('number', { ascending: false })
+      .limit(5)
+    const gws = (recentGws ?? []).sort((a, b) => a.number - b.number)
+    if (gws.length === 0) { setFormGuideLoading(false); setFormGuideGwNumbers([]); return }
+    setFormGuideGwNumbers(gws.map(g => g.number))
+    const gwIds = gws.map(g => g.id)
+
+    const [
+      { data: teamsData }, { data: playersData },
+      { data: fixturesData }, { data: quartileRows },
+      { data: scoringRules }, { data: playerScoringRules }, { data: matchEventsData },
+    ] = await Promise.all([
+      supabase.from('teams').select('id, name, short_name').eq('active', true).order('name'),
+      supabase.from('players').select('id, name, web_name, team_id, position').eq('active', true),
+      supabase.from('fixtures').select('id, home_team_id, away_team_id, home_score, away_score, status, postponed_handling, postponed_points, gameweek_id').in('gameweek_id', gwIds),
+      supabase.from('gameweek_quartiles').select('gameweek_id, team_id, quartile').in('gameweek_id', gwIds),
+      supabase.from('competition_scoring_rules').select('result_type, quartile_diff, points').eq('competition_id', comp.id),
+      supabase.from('player_scoring_rules').select('event_type, points').eq('competition_id', comp.id),
+      supabase.from('match_events').select('player_id, event_type, fixture_id'),
+    ])
+
+    const teamsList = teamsData ?? []
+    const playersList = playersData ?? []
+    const allFixtures: (ScoringFixture & { gameweek_id: string })[] = fixturesData ?? []
+    const scoringRulesList: ScoringRule[] = scoringRules ?? []
+    const playerScoringRulesList: PlayerScoringRule[] = playerScoringRules ?? []
+    const playerInfos: ScoringPlayerInfo[] = playersList.map(p => ({ id: p.id, team_id: p.team_id }))
+
+    const fixtureIdsThisWindow = new Set(allFixtures.map(f => f.id))
+    const matchEvents: ScoringMatchEvent[] = (matchEventsData ?? []).filter((e: any) => fixtureIdsThisWindow.has(e.fixture_id))
+
+    const quartileByGw: Record<string, Record<number, number>> = {}
+    ;(quartileRows ?? []).forEach(q => { (quartileByGw[q.gameweek_id] ??= {})[q.team_id] = q.quartile })
+
+    const playerTotals: Record<number, FormGuidePlayerRow> = {}
+    playersList.forEach(p => {
+      playerTotals[p.id] = { playerId: p.id, name: p.web_name || p.name, teamId: p.team_id, position: p.position, totalPoints: 0, goals: 0, assists: 0, byGw: [] }
+    })
+    const teamTotals: Record<number, FormGuideTeamRow> = {}
+    teamsList.forEach(t => {
+      teamTotals[t.id] = { teamId: t.id, name: t.name, shortName: t.short_name, totalPoints: 0, byGw: [] }
+    })
+
+    for (const gw of gws) {
+      const gwFixtures = allFixtures.filter(f => f.gameweek_id === gw.id)
+      const gwFixtureIds = new Set(gwFixtures.map(f => f.id))
+      const gwMatchEvents = matchEvents.filter(e => gwFixtureIds.has(e.fixture_id))
+      const quartileMap = quartileByGw[gw.id] ?? {}
+
+      const getTeamPoints = buildTeamPointsCalculator(gwFixtures, quartileMap, scoringRulesList)
+      const getPlayerPoints = buildPlayerPointsCalculator(gwFixtures, playerInfos, gwMatchEvents, playerScoringRulesList)
+
+      const fixtureByTeam: Record<number, ScoringFixture | undefined> = {}
+      gwFixtures.forEach(f => {
+        // A genuine double gameweek (two fixtures) is left unset here on
+        // purpose — the calculator's own null-fixture-id + 2-fixture
+        // ambiguity rule already scores that 0, same as a real unnominated
+        // pick would, rather than guessing which match "counts".
+        if (fixtureByTeam[f.home_team_id] !== undefined) fixtureByTeam[f.home_team_id] = undefined
+        else fixtureByTeam[f.home_team_id] = f
+        if (fixtureByTeam[f.away_team_id] !== undefined) fixtureByTeam[f.away_team_id] = undefined
+        else fixtureByTeam[f.away_team_id] = f
+      })
+
+      teamsList.forEach(t => {
+        const fixture = fixtureByTeam[t.id]
+        const result = getTeamPoints(t.id, fixture?.id ?? null)
+        const row = teamTotals[t.id]
+        row.totalPoints += result.points
+        let badge: 'W' | 'D' | 'L' | '-' = '-'
+        if (result.detail.result_type.includes('win')) badge = 'W'
+        else if (result.detail.result_type.includes('draw')) badge = 'D'
+        else if (result.detail.result_type === 'loss') badge = 'L'
+        row.byGw.push({ gwNumber: gw.number, points: result.points, result: badge })
+      })
+
+      const goalsByPlayer: Record<number, number> = {}
+      const assistsByPlayer: Record<number, number> = {}
+      gwMatchEvents.forEach(e => {
+        if (!e.player_id) return
+        if (e.event_type === 'goal') goalsByPlayer[e.player_id] = (goalsByPlayer[e.player_id] ?? 0) + 1
+        if (e.event_type === 'assist') assistsByPlayer[e.player_id] = (assistsByPlayer[e.player_id] ?? 0) + 1
+      })
+
+      playersList.forEach(p => {
+        const points = getPlayerPoints(p.id, null)
+        const row = playerTotals[p.id]
+        row.totalPoints += points
+        row.goals += goalsByPlayer[p.id] ?? 0
+        row.assists += assistsByPlayer[p.id] ?? 0
+        row.byGw.push({ gwNumber: gw.number, points })
+      })
+    }
+
+    setFormGuidePlayers(Object.values(playerTotals).sort((a, b) => b.totalPoints - a.totalPoints))
+    setFormGuideTeams(Object.values(teamTotals).sort((a, b) => b.totalPoints - a.totalPoints))
+    setFormGuideLoading(false)
+  }
 
   useEffect(() => { loadData() }, [])
 
@@ -693,6 +997,7 @@ export default function StatsHubPage() {
   }, [selectedWeekly, compareWeekly, compareUserId])
 
   const tabs: { id: Tab; label: string }[] = [
+    { id: 'form', label: 'Form Guide' },
     { id: 'teams', label: 'Teams' },
     { id: 'players', label: 'Players' },
     { id: 'me', label: 'Managers' },
@@ -731,14 +1036,9 @@ export default function StatsHubPage() {
         <div className="pop-art-theme">
           <div className="flex items-start justify-between gap-3 flex-wrap mb-1 mt-2">
             <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">Stats Hub</h1>
-            <div className="flex gap-2">
-              <a href="/stats/form-guide" className="pop-button px-3 py-1.5 text-xs" style={{ background: 'var(--pop-blue)' }}>
-                📈 Form Guide
-              </a>
-              <a href="/wrapped" className="pop-button px-3 py-1.5 text-xs" style={{ background: 'var(--pop-pink)' }}>
-                🎁 Your Season
-              </a>
-            </div>
+            <a href="/wrapped" className="pop-button px-3 py-1.5 text-xs" style={{ background: 'var(--pop-pink)' }}>
+              🎁 Your Season
+            </a>
           </div>
           <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.65)' }}>{competition.name} — every number the game has generated so far.</p>
 
@@ -760,6 +1060,21 @@ export default function StatsHubPage() {
               </button>
             ))}
           </div>
+
+          {tab === 'form' && (
+            <FormGuideTabContent
+              loading={formGuideLoading}
+              gwNumbers={formGuideGwNumbers}
+              players={formGuidePlayers}
+              teams={formGuideTeams}
+              subTab={formGuideSubTab}
+              setSubTab={setFormGuideSubTab}
+              search={formGuideSearch}
+              setSearch={setFormGuideSearch}
+              expandedId={formGuideExpandedId}
+              setExpandedId={setFormGuideExpandedId}
+            />
+          )}
 
           {tab === 'teams' && (
             <div>

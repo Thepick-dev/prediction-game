@@ -174,21 +174,19 @@ export function buildPlayerPointsCalculator(
   }
 }
 
-// The actual maths, shared by both the real scoring run (frozen quartiles,
-// writes to the database) and the live preview (current quartiles, read-only)
-// — one calculation, two different quartile sources. Exported so it can be
-// unit tested directly without needing a real (or mocked) Supabase client.
-export function computePickScores(
-  gameweek_id: string,
-  picks: Pick[],
+export type TeamPointsDetail = { points: number; breakdown: string; detail: PickScoreRow['breakdown']['team_detail'] }
+
+// The exact team-result calculation a normal team pick uses, pulled out
+// into its own reusable builder for the same reason as
+// buildPlayerPointsCalculator above — so anything that needs "what would
+// this team have scored" for a team that WASN'T necessarily picked by
+// anyone (e.g. the Stats Hub's Form Guide) can share the identical
+// calculation instead of drifting out of sync with real scoring.
+export function buildTeamPointsCalculator(
   fixtures: Fixture[],
   quartileMap: Record<number, number>,
-  scoringRules: ScoringRule[],
-  playerScoringRules: PlayerScoringRule[],
-  matchEvents: MatchEvent[],
-  players: PlayerInfo[] = [],
-  bankerMultiplier: number = 2
-): PickScoreRow[] {
+  scoringRules: ScoringRule[]
+): (teamId: number, nominatedFixtureId: number | null) => TeamPointsDetail {
   const scoringMap: Record<string, number> = {}
   scoringRules.forEach(r => {
     scoringMap[`${r.result_type}_${r.quartile_diff}`] = r.points
@@ -210,11 +208,7 @@ export function computePickScores(
     if (f.away_team_id) (fixturesByTeamId[f.away_team_id] ??= []).push(f)
   })
 
-  const getPlayerPoints = buildPlayerPointsCalculator(fixtures, players, matchEvents, playerScoringRules)
-
-  type TeamPointsDetail = { points: number; breakdown: string; detail: PickScoreRow['breakdown']['team_detail'] }
-
-  function getTeamPoints(teamId: number, fixtureId: number | null): TeamPointsDetail {
+  return function getTeamPoints(teamId: number, fixtureId: number | null): TeamPointsDetail {
     // Prefer the exact fixture the pick was made against (always set for a
     // real manual pick — the Picks page ties team selection to a specific
     // fixture row). Without one — an autopick, or a pick made before
@@ -313,6 +307,25 @@ export function computePickScores(
       detail: { opponent_team_id: opponentId, team_quartile: teamQuartile, opponent_quartile: opponentQuartile, quartile_diff: clampedDiff, result_type: resultType, team_score: teamScore, opponent_score: opponentScore, is_home: isHome }
     }
   }
+}
+
+// The actual maths, shared by both the real scoring run (frozen quartiles,
+// writes to the database) and the live preview (current quartiles, read-only)
+// — one calculation, two different quartile sources. Exported so it can be
+// unit tested directly without needing a real (or mocked) Supabase client.
+export function computePickScores(
+  gameweek_id: string,
+  picks: Pick[],
+  fixtures: Fixture[],
+  quartileMap: Record<number, number>,
+  scoringRules: ScoringRule[],
+  playerScoringRules: PlayerScoringRule[],
+  matchEvents: MatchEvent[],
+  players: PlayerInfo[] = [],
+  bankerMultiplier: number = 2
+): PickScoreRow[] {
+  const getPlayerPoints = buildPlayerPointsCalculator(fixtures, players, matchEvents, playerScoringRules)
+  const getTeamPoints = buildTeamPointsCalculator(fixtures, quartileMap, scoringRules)
 
   return picks.map(pick => {
     const teamResult = getTeamPoints(pick.team_id, pick.fixture_id)
