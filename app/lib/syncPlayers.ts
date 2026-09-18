@@ -160,6 +160,44 @@ export async function syncPlayers(supabase: SupabaseClient): Promise<SyncPlayers
     return { success: false, error: playersError.message }
   }
 
+  // Everything below was already arriving in the SAME bootstrap-static
+  // response above — just not stored until now. Zero extra API calls.
+  // Feeds the Form Guide page and general context; kept OUT of Futzy's
+  // actual point maths (see botPick.ts) since these aren't calibrated the
+  // way the existing xG/xA/form model is. Plain per-row updates, not
+  // upsert — same reasoning as teamCodeUpdates above: every id here was
+  // just written by the upsert immediately above, so it always exists,
+  // and upsert's INSERT ... ON CONFLICT still validates NOT NULL columns
+  // (like `name`) on the insert attempt even though it always resolves to
+  // the update path. Also its own isolated step — same "defensive
+  // isolated write" convention used everywhere else in this codebase for
+  // newer/optional columns — so a missing column here (before the SQL's
+  // been run) can never break the base player sync above.
+  const extraFields = data.elements
+    .filter((player: any) => fplTeamIdToOurTeamId[player.team] != null)
+    .map((player: any) => ({
+      id: player.id,
+      bonus_points: typeof player.bonus === 'number' ? player.bonus : null,
+      bps: typeof player.bps === 'number' ? player.bps : null,
+      influence: player.influence != null ? parseFloat(player.influence) : null,
+      creativity: player.creativity != null ? parseFloat(player.creativity) : null,
+      threat: player.threat != null ? parseFloat(player.threat) : null,
+      ict_index: player.ict_index != null ? parseFloat(player.ict_index) : null,
+      selected_by_percent: player.selected_by_percent != null ? parseFloat(player.selected_by_percent) : null,
+      transfers_in_event: typeof player.transfers_in_event === 'number' ? player.transfers_in_event : null,
+      transfers_out_event: typeof player.transfers_out_event === 'number' ? player.transfers_out_event : null,
+      expected_goal_involvements: player.expected_goal_involvements != null ? parseFloat(player.expected_goal_involvements) : null,
+      defensive_contribution: typeof player.defensive_contribution === 'number' ? player.defensive_contribution : null,
+      starts: typeof player.starts === 'number' ? player.starts : null,
+    }))
+  // Chunked rather than firing 600+ requests at once — a moderate, steady
+  // batch size is kinder to both Supabase's REST layer and this function's
+  // own outbound connection limits than one huge burst.
+  for (let i = 0; i < extraFields.length; i += 50) {
+    const chunk = extraFields.slice(i, i + 50)
+    await Promise.all(chunk.map(({ id, ...fields }: { id: number; [key: string]: unknown }) => supabase.from('players').update(fields).eq('id', id)))
+  }
+
   // FPL occasionally reissues a player's id (seen going into 2026/27) while
   // they're still at the same club under the same web_name — upsert-by-id
   // then just inserts a second row for the same real person and leaves the

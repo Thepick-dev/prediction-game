@@ -12,6 +12,7 @@ import { getCompetitionMechanicsConfig } from './scoring'
 // competition's own scoring rules.
 
 type Fixture = { id: number; home_team_id: number; away_team_id: number }
+type FixtureDifficulty = { home: number | null; away: number | null }
 type PlayerRow = {
   id: number
   team_id: number
@@ -51,6 +52,18 @@ function clampDiff(d: number) {
   return Math.max(-3, Math.min(3, d))
 }
 
+// FPL's own fixture difficulty rating (1 easiest - 5 hardest, 3 neutral) —
+// a second opinion alongside our own quartile system, applied the exact
+// same gentle-nudge-not-replacement way projectPlayer already uses ep_next
+// below: a narrow clamped multiplier (0.85x-1.15x) so one rating can't
+// swing the projection anywhere near as much as our own real scoring maths
+// already does. Missing data (rating not synced yet, or the fixture
+// couldn't be matched to an FPL one) is neutral, not a penalty.
+function fdrMultiplier(difficulty: number | null | undefined): number {
+  if (difficulty == null) return 1
+  return Math.max(0.85, Math.min(1.15, 1 + (3 - difficulty) * 0.075))
+}
+
 // Expected points for one specific fixture — the real outcome is unknown
 // ahead of time, only the quartile gap is, so this averages across a simple
 // win/draw/loss model rather than assuming a single result, using the exact
@@ -59,7 +72,8 @@ function projectTeamFixture(
   teamId: number,
   fixture: Fixture,
   quartileMap: Record<number, number>,
-  scoringMap: Record<string, number>
+  scoringMap: Record<string, number>,
+  difficultyByFixtureId: Record<number, FixtureDifficulty> = {}
 ): number {
   const isHome = fixture.home_team_id === teamId
   const opponentId = isHome ? fixture.away_team_id : fixture.home_team_id
@@ -69,7 +83,9 @@ function projectTeamFixture(
   const drawType = isHome ? 'home_draw' : 'away_draw'
   const winPoints = scoringMap[`${winType}_${diff}`] ?? 0
   const drawPoints = scoringMap[`${drawType}_${diff}`] ?? 0
-  return probs.win * winPoints + probs.draw * drawPoints
+  const fdr = difficultyByFixtureId[fixture.id]
+  const multiplier = fdrMultiplier(isHome ? fdr?.home : fdr?.away)
+  return (probs.win * winPoints + probs.draw * drawPoints) * multiplier
 }
 
 // Expected player points: season xG/xA (from the FPL sync) converted into
@@ -186,6 +202,18 @@ export async function deriveBotPick(
     supabase.from('bonus_card_plays').select('id, gameweek_id').eq('user_id', botUserId).eq('competition_id', competitionId).maybeSingle(),
   ])
 
+  // Its own isolated, defensive fetch — home_difficulty/away_difficulty are
+  // newer, optional columns (see syncFixtureDifficulty.ts), so a problem
+  // reading them (or the columns not existing yet) must never be able to
+  // break Futzy's whole pick derivation. Missing data just means every
+  // fdrMultiplier() lookup below falls back to neutral (1x).
+  const { data: difficultyRows } = await supabase
+    .from('fixtures')
+    .select('id, home_difficulty, away_difficulty')
+    .eq('gameweek_id', gameweekId)
+  const difficultyByFixtureId: Record<number, FixtureDifficulty> = {}
+  difficultyRows?.forEach(f => { difficultyByFixtureId[f.id] = { home: f.home_difficulty, away: f.away_difficulty } })
+
   if (!activeTeams || activeTeams.length === 0) return null
   if (!allPlayers || allPlayers.length < 2) return null
 
@@ -231,9 +259,9 @@ export async function deriveBotPick(
       const fixtures = fixturesByTeamId[t.id] ?? []
       if (fixtures.length === 0) return null
       let best = fixtures[0]
-      let bestScore = projectTeamFixture(t.id, best, quartileMap, scoringMap)
+      let bestScore = projectTeamFixture(t.id, best, quartileMap, scoringMap, difficultyByFixtureId)
       for (const f of fixtures.slice(1)) {
-        const score = projectTeamFixture(t.id, f, quartileMap, scoringMap)
+        const score = projectTeamFixture(t.id, f, quartileMap, scoringMap, difficultyByFixtureId)
         if (score > bestScore) { best = f; bestScore = score }
       }
       return { team_id: t.id, fixture_id: best.id, projected: bestScore }
