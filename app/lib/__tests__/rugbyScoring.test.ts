@@ -7,10 +7,12 @@ import {
   computeTryBonusActuals,
   computeSeasonPredictionScores,
   DEFAULT_RUGBY_SCORING_RULES,
+  rulesWithDefaults,
   type SeasonSquadPick,
   type RugbyFixtureRef,
   type RugbyPlayerRef,
   type RugbyMatchEvent,
+  type RugbyPlayerMatchStat,
   type MatchPrediction,
   type FinishedFixture,
   type RugbyFixtureTeams,
@@ -141,6 +143,62 @@ describe('computeSeasonSquadRoundPoints', () => {
 
     const round4 = computeSeasonSquadRoundPoints([pick], 4, 'round-4', roundsFixtures, players, [], rules, penaltyMap)
     expect(round4[0].sub_penalty).toBe(0)
+  })
+})
+
+describe('computeSeasonSquadRoundPoints — new player-statistics categories', () => {
+  it('awards try assist, clean break, offload, meters run and tackle points to any pick, not just the kicker', () => {
+    const picks = [makePick({ player_id: 1, is_kicker: false })]
+    const stats: RugbyPlayerMatchStat[] = [
+      { fixture_id: 100, player_id: 1, meters_run: 40, clean_breaks: 2, offloads: 1, tackles: 5, tackles_missed: 0, try_assists: 1 },
+    ]
+    const rows = computeSeasonSquadRoundPoints(picks, 1, 'round-1', fixtures, players, [], rules, {}, stats)
+    expect(rows[0].try_assist_points).toBe(rules.squad_try_assist_points)
+    expect(rows[0].clean_break_points).toBe(2 * rules.squad_clean_break_points)
+    expect(rows[0].offload_points).toBe(rules.squad_offload_points)
+    expect(rows[0].meters_run_points).toBe(40 * rules.squad_meters_run_points)
+    expect(rows[0].tackle_points).toBe(5 * rules.squad_tackle_points)
+    expect(rows[0].total_points).toBe(
+      rules.squad_try_assist_points + 2 * rules.squad_clean_break_points + rules.squad_offload_points
+      + 40 * rules.squad_meters_run_points + 5 * rules.squad_tackle_points
+    )
+  })
+
+  it('subtracts the tackles-missed and yellow-card penalties', () => {
+    const picks = [makePick({ player_id: 1, is_kicker: false })]
+    const events: RugbyMatchEvent[] = [{ player_id: 1, event_type: 'yellow_card', fixture_id: 100 }]
+    const stats: RugbyPlayerMatchStat[] = [
+      { fixture_id: 100, player_id: 1, meters_run: 0, clean_breaks: 0, offloads: 0, tackles: 0, tackles_missed: 3, try_assists: 0 },
+    ]
+    const rows = computeSeasonSquadRoundPoints(picks, 1, 'round-1', fixtures, players, events, rules, {}, stats)
+    expect(rows[0].tackle_missed_penalty).toBe(3 * rules.squad_tackle_missed_penalty)
+    expect(rows[0].yellow_card_penalty).toBe(rules.squad_yellow_card_penalty)
+    expect(rows[0].total_points).toBe(-(3 * rules.squad_tackle_missed_penalty) - rules.squad_yellow_card_penalty)
+  })
+
+  it('scores zero for these categories when a pick has no match_stats row (defaults to []) ', () => {
+    const picks = [makePick({ player_id: 1, is_kicker: false })]
+    const rows = computeSeasonSquadRoundPoints(picks, 1, 'round-1', fixtures, players, [], rules, {})
+    expect(rows[0].meters_run_points).toBe(0)
+    expect(rows[0].tackle_points).toBe(0)
+    expect(rows[0].total_points).toBe(0)
+  })
+})
+
+describe('rulesWithDefaults — per-category enabled toggle', () => {
+  it('zeroes out a disabled rule\'s points regardless of its configured value', () => {
+    const rows = [{ rule_key: 'squad_tackle_missed_penalty', points: 0.5 }]
+    const enabled = rulesWithDefaults(rows)
+    expect(enabled.squad_tackle_missed_penalty).toBe(0.5)
+    const disabled = rulesWithDefaults(rows, new Set(['squad_tackle_missed_penalty']))
+    expect(disabled.squad_tackle_missed_penalty).toBe(0)
+  })
+
+  it('leaves every other rule untouched when only one key is disabled', () => {
+    const rows = [{ rule_key: 'squad_try_points', points: 10 }, { rule_key: 'squad_yellow_card_penalty', points: 5 }]
+    const rules = rulesWithDefaults(rows, new Set(['squad_yellow_card_penalty']))
+    expect(rules.squad_try_points).toBe(10)
+    expect(rules.squad_yellow_card_penalty).toBe(0)
   })
 })
 

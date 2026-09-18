@@ -20,6 +20,19 @@ export const DEFAULT_RUGBY_SCORING_RULES: RugbyScoringRules = {
   squad_penalty_points: 3,
   squad_dropgoal_points: 5,
   squad_red_card_penalty: 15,
+  // Magnitude/count categories from full match player-statistics, on top of
+  // the discrete try/kick/card events above — apply to ANY of the 6 picks,
+  // not just the designated kicker (unlike kicking points). Calibrated
+  // against a real Six Nations match's full player stats so an average
+  // forward's tackle+carry haul and an average back's carry+tackle haul
+  // come out close to level (~2.4-2.5pts each), not lopsided toward either.
+  squad_try_assist_points: 3,
+  squad_clean_break_points: 2,
+  squad_offload_points: 1,
+  squad_meters_run_points: 0.05,
+  squad_tackle_points: 0.2,
+  squad_tackle_missed_penalty: 0.5,
+  squad_yellow_card_penalty: 5,
   max_free_subs: 6,
   extra_sub_penalty: 10,
   // A player picked by few managers earns a multiplier on their try+kicking
@@ -45,10 +58,21 @@ export const DEFAULT_RUGBY_SCORING_RULES: RugbyScoringRules = {
   season_underdog_multiplier: 1.5,
 }
 
-export function rulesWithDefaults(rows: { rule_key: string; points: number }[]): RugbyScoringRules {
+// disabledKeys is kept as a separate argument (not a field on each row)
+// deliberately — 'enabled' is a newer, optional scoring_rules column, and
+// the codebase's own convention is that any newer/optional column gets its
+// own isolated fetch rather than being bundled into an established select,
+// so a not-yet-run migration degrades to "everything enabled" instead of
+// breaking the whole rules read.
+export function rulesWithDefaults(rows: { rule_key: string; points: number }[], disabledKeys: Set<string> = new Set()): RugbyScoringRules {
   const rules: RugbyScoringRules = { ...DEFAULT_RUGBY_SCORING_RULES }
   rows.forEach(r => { rules[r.rule_key] = r.points })
+  disabledKeys.forEach(key => { rules[key] = 0 })
   return rules
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
 }
 
 export type SeasonSquadPick = {
@@ -68,12 +92,34 @@ export type RugbyMatchEvent = { player_id: number | null; event_type: string; fi
 export type RugbyFixtureRef = { id: number; round_id: string; home_team_id: number; away_team_id: number }
 export type RugbyPlayerRef = { id: number; team_id: number }
 
+// One row per player per fixture — magnitude/count categories that aren't
+// a discrete moment in time (unlike tries/kicks/cards, which stay in
+// match_events). Applies to whichever of a user's 6 squad picks played
+// that fixture, regardless of is_kicker.
+export type RugbyPlayerMatchStat = {
+  fixture_id: number
+  player_id: number
+  meters_run: number
+  clean_breaks: number
+  offloads: number
+  tackles: number
+  tackles_missed: number
+  try_assists: number
+}
+
 export type SeasonSquadPointsRow = {
   season_squad_pick_id: string
   user_id: string
   round_id: string
   try_points: number
   kicking_points: number
+  try_assist_points: number
+  clean_break_points: number
+  offload_points: number
+  meters_run_points: number
+  tackle_points: number
+  tackle_missed_penalty: number
+  yellow_card_penalty: number
   red_card_penalty: number
   sub_penalty: number
   contrarian_bonus: number
@@ -121,7 +167,8 @@ export function computeSeasonSquadRoundPoints(
   players: RugbyPlayerRef[],
   matchEvents: RugbyMatchEvent[],
   rules: RugbyScoringRules,
-  subPenaltyByPickId: Record<string, number>
+  subPenaltyByPickId: Record<string, number>,
+  playerMatchStats: RugbyPlayerMatchStat[] = []
 ): SeasonSquadPointsRow[] {
   const teamIdByPlayerId = new Map<number, number>()
   players.forEach(p => teamIdByPlayerId.set(p.id, p.team_id))
@@ -139,6 +186,9 @@ export function computeSeasonSquadRoundPoints(
     if (!eventsByFixtureAndPlayer.has(key)) eventsByFixtureAndPlayer.set(key, [])
     eventsByFixtureAndPlayer.get(key)!.push(e)
   })
+
+  const statsByFixtureAndPlayer = new Map<string, RugbyPlayerMatchStat>()
+  playerMatchStats.forEach(s => statsByFixtureAndPlayer.set(`${s.fixture_id}::${s.player_id}`, s))
 
   const rows: SeasonSquadPointsRow[] = []
 
@@ -163,6 +213,16 @@ export function computeSeasonSquadRoundPoints(
 
     const hasRedCard = events.some(e => e.event_type === 'red_card')
     const redCardPenalty = hasRedCard ? rules.squad_red_card_penalty : 0
+    const hasYellowCard = events.some(e => e.event_type === 'yellow_card')
+    const yellowCardPenalty = hasYellowCard ? rules.squad_yellow_card_penalty : 0
+
+    const stat = fixture ? statsByFixtureAndPlayer.get(`${fixture.id}::${pick.player_id}`) : undefined
+    const tryAssistPoints = round2((stat?.try_assists ?? 0) * rules.squad_try_assist_points)
+    const cleanBreakPoints = round2((stat?.clean_breaks ?? 0) * rules.squad_clean_break_points)
+    const offloadPoints = round2((stat?.offloads ?? 0) * rules.squad_offload_points)
+    const metersRunPoints = round2((stat?.meters_run ?? 0) * rules.squad_meters_run_points)
+    const tacklePoints = round2((stat?.tackles ?? 0) * rules.squad_tackle_points)
+    const tackleMissedPenalty = round2((stat?.tackles_missed ?? 0) * rules.squad_tackle_missed_penalty)
 
     // Both one-off charges/bonuses only ever apply in the specific round
     // the pick was acquired — never repeated on later rounds' recalcs. A
@@ -177,7 +237,10 @@ export function computeSeasonSquadRoundPoints(
       : 0
     const subPenalty = isAcquisitionRound ? (subPenaltyByPickId[pick.id] ?? 0) : 0
 
-    const totalPoints = tryPoints + kickingPoints + contrarianBonus - redCardPenalty - subPenalty
+    const totalPoints = round2(
+      tryPoints + kickingPoints + tryAssistPoints + cleanBreakPoints + offloadPoints + metersRunPoints + tacklePoints
+      + contrarianBonus - redCardPenalty - yellowCardPenalty - tackleMissedPenalty - subPenalty
+    )
 
     rows.push({
       season_squad_pick_id: pick.id,
@@ -185,6 +248,13 @@ export function computeSeasonSquadRoundPoints(
       round_id: roundId,
       try_points: tryPoints,
       kicking_points: kickingPoints,
+      try_assist_points: tryAssistPoints,
+      clean_break_points: cleanBreakPoints,
+      offload_points: offloadPoints,
+      meters_run_points: metersRunPoints,
+      tackle_points: tacklePoints,
+      tackle_missed_penalty: tackleMissedPenalty,
+      yellow_card_penalty: yellowCardPenalty,
       red_card_penalty: redCardPenalty,
       sub_penalty: subPenalty,
       contrarian_bonus: contrarianBonus,
@@ -211,7 +281,14 @@ export async function calculateSeasonSquadRoundScoring(
     supabase.schema('rugby').from('players').select('id, team_id'),
   ])
 
-  const rules = rulesWithDefaults(rulesRows ?? [])
+  // Isolated fetch: 'enabled' is a newer, optional column — kept out of the
+  // select above so a not-yet-run migration can never break the real points
+  // values, only ever degrade to "everything enabled" (today's behaviour).
+  const disabledKeys = new Set<string>()
+  const { data: enabledRows, error: enabledError } = await supabase.schema('rugby').from('scoring_rules').select('rule_key, enabled').eq('competition_id', round.competition_id)
+  if (!enabledError) enabledRows?.forEach((r: { rule_key: string; enabled: boolean | null }) => { if (r.enabled === false) disabledKeys.add(r.rule_key) })
+
+  const rules = rulesWithDefaults(rulesRows ?? [], disabledKeys)
   const allPicks = (picks ?? []) as SeasonSquadPick[]
   const fixturesList = (fixtures ?? []) as RugbyFixtureRef[]
   const playersList = (players ?? []) as RugbyPlayerRef[]
@@ -221,10 +298,20 @@ export async function calculateSeasonSquadRoundScoring(
     ? await supabase.schema('rugby').from('match_events').select('player_id, event_type, fixture_id').in('fixture_id', fixtureIds)
     : { data: [] as RugbyMatchEvent[] }
 
+  // Isolated fetch: player_match_stats is a brand-new table — degrade to []
+  // if it doesn't exist yet rather than failing try/kick/card scoring too.
+  let statsRows: RugbyPlayerMatchStat[] = []
+  if (fixtureIds.length) {
+    const { data: statsData, error: statsError } = await supabase.schema('rugby').from('player_match_stats')
+      .select('fixture_id, player_id, meters_run, clean_breaks, offloads, tackles, tackles_missed, try_assists')
+      .in('fixture_id', fixtureIds)
+    if (!statsError && statsData) statsRows = statsData as RugbyPlayerMatchStat[]
+  }
+
   const subPenaltyByPickId = computeSubPenalties(allPicks, rules)
 
   const rows = computeSeasonSquadRoundPoints(
-    allPicks, round.number, roundId, fixturesList, playersList, (matchEvents ?? []) as RugbyMatchEvent[], rules, subPenaltyByPickId
+    allPicks, round.number, roundId, fixturesList, playersList, (matchEvents ?? []) as RugbyMatchEvent[], rules, subPenaltyByPickId, statsRows
   )
 
   if (rows.length === 0) return { success: true, rows: 0 }

@@ -20,8 +20,20 @@ type Fixture = {
   kickoff_time: string | null; home_score: number | null; away_score: number | null; status: string
 }
 type MatchEvent = { id: number; player_id: number | null; event_type: string; minute: number | null }
+type PlayerMatchStat = {
+  player_id: number; meters_run: number; clean_breaks: number; offloads: number
+  tackles: number; tackles_missed: number; try_assists: number
+}
 
 const EVENT_TYPES = ['try', 'conversion', 'penalty_goal', 'drop_goal', 'yellow_card', 'red_card']
+const STAT_FIELDS = [
+  { key: 'meters_run', label: 'Meters' },
+  { key: 'clean_breaks', label: 'Clean breaks' },
+  { key: 'offloads', label: 'Offloads' },
+  { key: 'tackles', label: 'Tackles' },
+  { key: 'tackles_missed', label: 'Missed' },
+  { key: 'try_assists', label: 'Try assists' },
+] as const
 
 async function saveScore(formData: FormData) {
   'use server'
@@ -57,6 +69,34 @@ async function deleteEvent(formData: FormData) {
   const fixtureId = formData.get('fixture_id') as string
   await supabase.schema('rugby').from('match_events').delete().eq('id', eventId)
   redirect(`/admin/rugby/results?round=${round}&fixture=${fixtureId}`)
+}
+
+// One upsert per submit, keyed by (fixture_id, player_id) — re-saving the
+// same fixture always overwrites rather than duplicating, same "sync is
+// idempotent" property as everything else on this page.
+async function saveMatchStats(formData: FormData) {
+  'use server'
+  const supabase = await requireAdminAction()
+  const fixtureId = Number(formData.get('fixture_id'))
+  const round = formData.get('round') as string
+  const playerIds = (formData.get('player_ids') as string).split(',').filter(Boolean).map(Number)
+
+  // Every eligible player gets a row, even all-zero — so re-saving a
+  // fixture after correcting a number down to zero actually clears it,
+  // rather than silently leaving a stale nonzero value in place.
+  const rows = playerIds.map(playerId => {
+    const row: Record<string, number> = { fixture_id: fixtureId, player_id: playerId }
+    STAT_FIELDS.forEach(f => {
+      const raw = formData.get(`${f.key}_${playerId}`) as string
+      row[f.key] = raw ? Number(raw) : 0
+    })
+    return row
+  })
+
+  if (rows.length) {
+    await supabase.schema('rugby').from('player_match_stats').upsert(rows, { onConflict: 'fixture_id,player_id' })
+  }
+  redirect(`/admin/rugby/results?round=${round}&fixture=${fixtureId}#stats`)
 }
 
 async function calculatePoints(formData: FormData) {
@@ -119,10 +159,19 @@ export default async function AdminRugbyResultsPage({
 
   let events: MatchEvent[] = []
   let eligiblePlayers: RugbyPlayer[] = []
+  let statsByPlayerId: Record<number, PlayerMatchStat> = {}
   if (selectedFixture) {
     const { data } = await supabase.schema('rugby').from('match_events').select('id, player_id, event_type, minute').eq('fixture_id', selectedFixture.id).order('minute') as unknown as { data: MatchEvent[] | null }
     events = data ?? []
     eligiblePlayers = playersList.filter(p => p.team_id === selectedFixture.home_team_id || p.team_id === selectedFixture.away_team_id)
+
+    // Isolated fetch: player_match_stats is a brand-new table — degrade to
+    // an empty stats panel (all-zero inputs) rather than breaking this page
+    // if the SQL adding it hasn't been run yet.
+    const { data: statsData, error: statsError } = await supabase.schema('rugby').from('player_match_stats')
+      .select('player_id, meters_run, clean_breaks, offloads, tackles, tackles_missed, try_assists')
+      .eq('fixture_id', selectedFixture.id) as unknown as { data: PlayerMatchStat[] | null; error: unknown }
+    if (!statsError) statsData?.forEach(s => { statsByPlayerId[s.player_id] = s })
   }
 
   return (
@@ -248,6 +297,47 @@ export default async function AdminRugbyResultsPage({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {selectedFixture && (
+        <div id="stats" className="bg-white border rounded-lg p-6 mt-6">
+          <h2 className="font-bold mb-1">Player Match Stats</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Powers the Try Assist / Clean Break / Offload / Meters Run / Tackle categories in Dream Team scoring — separate from the scorer events above. Optional: leave a player at 0 if you don&apos;t have their numbers, their points for these categories just stay 0.
+          </p>
+          <form action={saveMatchStats}>
+            <input type="hidden" name="fixture_id" value={selectedFixture.id} />
+            <input type="hidden" name="round" value={selectedRoundId ?? ''} />
+            <input type="hidden" name="player_ids" value={eligiblePlayers.map(p => p.id).join(',')} />
+            <div className="overflow-x-auto">
+              <table className="text-sm min-w-full">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b">
+                    <th className="pb-2 pr-2">Player</th>
+                    {STAT_FIELDS.map(f => <th key={f.key} className="pb-2 px-1 text-center">{f.label}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {eligiblePlayers.map(p => (
+                    <tr key={p.id} className="border-b last:border-0">
+                      <td className="py-1.5 pr-2 whitespace-nowrap">{p.name} <span className="text-gray-400 text-xs">({teamName(p.team_id)})</span></td>
+                      {STAT_FIELDS.map(f => (
+                        <td key={f.key} className="py-1.5 px-1">
+                          <input
+                            type="number" step="any" min="0" name={`${f.key}_${p.id}`}
+                            defaultValue={statsByPlayerId[p.id]?.[f.key] ?? 0}
+                            className="w-16 border rounded px-1 py-1 text-xs text-center"
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button type="submit" className="bg-black text-white rounded px-4 py-2 text-sm font-bold mt-4">Save Match Stats</button>
+          </form>
         </div>
       )}
     </div>

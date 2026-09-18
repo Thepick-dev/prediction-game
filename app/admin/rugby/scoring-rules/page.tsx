@@ -11,6 +11,17 @@ async function requireAdminAction() {
   return createAdminSupabaseClient()
 }
 
+// Every one of these can be switched off entirely by admin, independent of
+// its points value — so a category can be paused without losing whatever
+// number was configured for it. Deliberately just the "real match action"
+// categories, not the structural rules below them (sub budget, ownership
+// multiplier) — those aren't things it makes sense to "turn off".
+const TOGGLEABLE_RULE_KEYS = new Set([
+  'squad_try_points', 'squad_conversion_points', 'squad_penalty_points', 'squad_dropgoal_points', 'squad_red_card_penalty',
+  'squad_try_assist_points', 'squad_clean_break_points', 'squad_offload_points', 'squad_meters_run_points',
+  'squad_tackle_points', 'squad_tackle_missed_penalty', 'squad_yellow_card_penalty',
+])
+
 const RULE_GROUPS: { heading: string; rules: Record<string, string> }[] = [
   {
     heading: 'Dream Team',
@@ -20,6 +31,13 @@ const RULE_GROUPS: { heading: string; rules: Record<string, string> }[] = [
       squad_penalty_points: 'Points per penalty goal (kicker only)',
       squad_dropgoal_points: 'Points per drop goal (kicker only)',
       squad_red_card_penalty: 'Points lost if one of your 6 gets a red card',
+      squad_try_assist_points: 'Points per try assist',
+      squad_clean_break_points: 'Points per clean break',
+      squad_offload_points: 'Points per offload',
+      squad_meters_run_points: 'Points per meter run (e.g. 0.05 = 5pts per 100m)',
+      squad_tackle_points: 'Points per tackle made',
+      squad_tackle_missed_penalty: 'Points lost per tackle missed',
+      squad_yellow_card_penalty: 'Points lost per yellow card',
       max_free_subs: 'Free substitutions per competition',
       extra_sub_penalty: 'Points lost per substitution beyond the free limit',
       player_ownership_threshold_pct: 'Below this % of managers owning a player, their points get multiplied',
@@ -55,6 +73,7 @@ async function saveRules(formData: FormData) {
     competition_id: competitionId,
     rule_key: key,
     points: Number(formData.get(key)),
+    enabled: TOGGLEABLE_RULE_KEYS.has(key) ? formData.get(`${key}__enabled`) === 'on' : true,
   }))
   await supabase.schema('rugby').from('scoring_rules').upsert(rows, { onConflict: 'competition_id,rule_key' })
   redirect('/admin/rugby/scoring-rules')
@@ -77,6 +96,12 @@ export default async function AdminRugbyScoringRulesPage() {
   const valueByKey: Record<string, number> = { ...DEFAULT_RUGBY_SCORING_RULES }
   existingRules?.forEach(r => { valueByKey[r.rule_key] = r.points })
 
+  // Isolated fetch: 'enabled' is a newer, optional column — kept separate
+  // so this page still works before the SQL adding it has been run.
+  const enabledByKey: Record<string, boolean> = {}
+  const { data: enabledRows, error: enabledError } = await supabase.schema('rugby').from('scoring_rules').select('rule_key, enabled').eq('competition_id', competition.id)
+  if (!enabledError) enabledRows?.forEach((r: { rule_key: string; enabled: boolean | null }) => { enabledByKey[r.rule_key] = r.enabled !== false })
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-2">🏉 Rugby Scoring Rules</h1>
@@ -89,9 +114,17 @@ export default async function AdminRugbyScoringRulesPage() {
             <h2 className="font-bold text-sm mb-2">{group.heading}</h2>
             <div className="space-y-3">
               {Object.entries(group.rules).map(([key, label]) => (
-                <div key={key}>
-                  <label className="block text-xs font-medium mb-1">{label}</label>
-                  <input type="number" name={key} step="any" defaultValue={valueByKey[key]} className="border rounded px-3 py-2 text-sm w-full" />
+                <div key={key} className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium mb-1">{label}</label>
+                    <input type="number" name={key} step="any" defaultValue={valueByKey[key]} className="border rounded px-3 py-2 text-sm w-full" />
+                  </div>
+                  {TOGGLEABLE_RULE_KEYS.has(key) && (
+                    <label className="flex items-center gap-1 text-xs text-gray-500 pb-2.5 whitespace-nowrap" title="Untick to switch this category off entirely, without losing the points value above">
+                      <input type="checkbox" name={`${key}__enabled`} defaultChecked={enabledByKey[key] !== false} />
+                      On
+                    </label>
+                  )}
                 </div>
               ))}
             </div>
