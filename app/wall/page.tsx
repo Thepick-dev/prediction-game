@@ -463,6 +463,23 @@ export default function WallPage() {
   const ownBubbleBg = popArt ? 'rgba(160,0,250,0.16)' : 'rgba(217,164,65,0.16)'
   const nothingAtAll = posts.length === 0 && standaloneComments.length === 0
 
+  // One merged, truly chronological feed — standalone comments and pick
+  // comments used to render as two separate blocks (standalone always
+  // first), so a week-old standalone comment could sit above a brand new
+  // pick comment. A pick with no submitted_at (the same rare gap `list`'s
+  // own sort above already tolerates) falls back to 0 rather than a
+  // guess, sinking it toward the bottom instead of the top.
+  type FeedItem =
+    | { kind: 'standalone'; ts: number; comment: StandaloneComment }
+    | { kind: 'pick'; ts: number; post: Post }
+  const feedItems: FeedItem[] = [
+    ...standaloneComments.filter(c => !deletedIds.has(c.id)).map(c => ({ kind: 'standalone' as const, ts: new Date(c.created_at).getTime(), comment: c })),
+    ...posts.map(post => {
+      const submittedAt = pickDetailsByPickId[post.pick_id]?.submitted_at
+      return { kind: 'pick' as const, ts: submittedAt ? new Date(submittedAt).getTime() : 0, post }
+    }),
+  ].sort((a, b) => b.ts - a.ts)
+
   function AuraBadge({ userId }: { userId: string }) {
     const aura = auraByUser[userId] ?? 0
     if (aura <= 0) return null
@@ -521,6 +538,287 @@ export default function WallPage() {
     )
   }
 
+  function renderStandaloneComment(c: StandaloneComment) {
+    const isOwn = c.user_id === user?.id
+    const isPending = c.status === 'pending'
+    return (
+      <div key={c.id} className="flex items-start gap-2.5">
+        <div className="shrink-0 mt-1">{authorAvatar(c.user_id, 48)}</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="font-black text-xs">{nameByUser[c.user_id] ?? 'Unknown'}</span>
+            {authorBadges(c.user_id)}
+            <AuraBadge userId={c.user_id} />
+            {isPending && (
+              <span className="text-[10px] uppercase tracking-wide font-bold" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}>
+                Awaiting approval
+              </span>
+            )}
+            {isAdmin && (
+              <button onClick={() => deleteContent('standalone_comment', c.id)} className="text-[10px] uppercase tracking-wide font-bold" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>
+                Delete
+              </button>
+            )}
+          </div>
+          <div
+            className="relative rounded-2xl px-3.5 py-2.5 inline-block max-w-full"
+            style={{ background: isOwn ? ownBubbleBg : bubbleBg, borderTopLeftRadius: 4, opacity: isPending ? 0.6 : 1 }}
+          >
+            <p className="text-sm break-words">{c.content}</p>
+          </div>
+          {!isPending && (
+            <div className="mt-1.5">
+              <StarRating
+                average={ratingsByTarget[`standalone_comment:${c.id}`]?.average ?? null}
+                count={ratingsByTarget[`standalone_comment:${c.id}`]?.count ?? 0}
+                yourRating={ratingsByTarget[`standalone_comment:${c.id}`]?.yours ?? null}
+                onRate={n => submitRating('standalone_comment', c.id, n)}
+                interactive={!isOwn}
+                popArt={popArt}
+              />
+            </div>
+          )}
+          {isAdmin && !isPending && (
+            <div className="mt-1.5">
+              <FutzyReplyButton targetType="comment" targetId={c.id} popArt={popArt} />
+            </div>
+          )}
+
+          {(commentRepliesByComment[c.id] ?? []).filter(r => !deletedIds.has(r.id)).length > 0 && (
+            <div className="mt-2 ml-4 space-y-1.5">
+              {commentRepliesByComment[c.id].filter(r => !deletedIds.has(r.id)).map(r => (
+                <div key={r.id}>
+                  <div className="rounded-xl rounded-tl px-3 py-1.5 inline-block" style={{ background: popArt ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.03)', opacity: r.status === 'pending' ? 0.6 : 1 }}>
+                  <span className="font-black text-xs">{nameByUser[r.user_id] ?? 'Unknown'}</span>
+                  {authorBadges(r.user_id)}
+                  <span className="text-xs ml-1.5" style={{ color: popArt ? 'rgba(255,255,255,0.7)' : '#F5ECD9CC' }}>{r.content}</span>
+                  {r.status === 'pending' && (
+                    <span className="text-[9px] uppercase tracking-wide font-bold ml-1.5" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}>pending</span>
+                  )}
+                  {isAdmin && (
+                    <button onClick={() => deleteContent('standalone_reply', r.id)} className="text-[9px] uppercase tracking-wide font-bold ml-1.5" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>
+                      Delete
+                    </button>
+                  )}
+                  </div>
+                  {r.status !== 'pending' && (
+                    <div className="mt-1">
+                      <StarRating
+                        average={ratingsByTarget[`standalone_reply:${r.id}`]?.average ?? null}
+                        count={ratingsByTarget[`standalone_reply:${r.id}`]?.count ?? 0}
+                        yourRating={ratingsByTarget[`standalone_reply:${r.id}`]?.yours ?? null}
+                        onRate={n => submitRating('standalone_reply', r.id, n)}
+                        interactive={r.user_id !== user?.id}
+                        popArt={popArt}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {sentCommentReply[c.id] ? (
+            <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-green)' : '#4ADE80' }}>Sent.</p>
+          ) : (
+            <div className="flex items-center gap-2 mt-1.5 max-w-sm">
+              <input
+                type="text"
+                value={commentReplyDraft[c.id] ?? ''}
+                onChange={e => setCommentReplyDraft(prev => ({ ...prev, [c.id]: e.target.value }))}
+                placeholder="Reply..."
+                maxLength={200}
+                className={popArt ? 'pop-input flex-1 p-1.5 text-xs' : 'flex-1 bg-white/5 border border-white/10 rounded px-2 py-1 text-xs'}
+              />
+              <button
+                onClick={() => postCommentReply(c.id)}
+                disabled={!(commentReplyDraft[c.id] ?? '').trim()}
+                className={popArt ? 'pop-button px-3 py-1.5 text-xs' : 'text-xs font-bold uppercase px-3 py-1.5 rounded border border-[#D9A441]/50 text-[#D9A441] disabled:opacity-40'}
+              >
+                Reply
+              </button>
+            </div>
+          )}
+          {replyError[c.id] && (
+            <p className="text-xs mt-1" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>{replyError[c.id]}</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  function renderPickPost(post: Post) {
+    const rating = ratingByUser[post.user_id]
+    const avg = rating && rating.count > 0 ? (rating.total / rating.count).toFixed(1) : null
+    const isOwn = post.user_id === user?.id
+    const q = questionByGw[post.gameweek_id]
+    const answer = answerLabel(q, post.question_answer)
+    return (
+      <div key={post.pick_id} className="flex items-start gap-2.5">
+        <div className="shrink-0 mt-1">{authorAvatar(post.user_id, 48)}</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="font-black text-xs">{nameByUser[post.user_id] ?? 'Unknown'}</span>
+            {authorBadges(post.user_id)}
+            <AuraBadge userId={post.user_id} />
+            <span className="text-[10px] uppercase tracking-wide" style={{ color: popArt ? 'rgba(255,255,255,0.4)' : '#F5ECD940' }}>
+              GW{gwNumberById[post.gameweek_id] ?? '?'}{avg ? ` · ⭐ ${avg} avg (${rating!.count})` : ''}
+            </span>
+          </div>
+
+          {/* Message-bubble chrome: rounded, a little tail nub top-
+              left, own posts tinted differently — the social-
+              media/WhatsApp look this was asked to have. */}
+          <div
+            className="relative rounded-2xl px-3.5 py-2.5 inline-block max-w-full"
+            style={{ background: isOwn ? ownBubbleBg : bubbleBg, borderTopLeftRadius: 4 }}
+          >
+            {(() => {
+              const detail = pickDetailsByPickId[post.pick_id]
+              if (!detail && !(answer && q)) return null
+              const badge = (outcome: string) => ({
+                background: outcome === 'success' ? 'var(--pop-green)' : outcome === 'failed' ? 'var(--pop-red)' : 'var(--pop-pink)',
+                color: outcome === 'success' ? '#0A0A0A' : '#FFFFFF',
+              })
+              const aonLabel = (outcome: string) => outcome === 'success' ? 'AoN ✓' : outcome === 'failed' ? 'AoN ✕' : 'AoN'
+              return (
+                <div className="rounded-lg px-2.5 py-1.5 mb-2 text-xs" style={{ background: 'rgba(0,0,0,0.2)' }}>
+                  {detail && (
+                    <div>
+                      <div className="flex items-center gap-1 font-black">
+                        <span style={{ color: popArt ? 'var(--pop-blue)' : '#D9A441' }}>{teamLabelById[detail.team_id] ?? '?'}</span>
+                        {detail.is_banker && <span title="Banker" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}>★</span>}
+                      </div>
+                      <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                        <span>{playerDisplayNames[detail.player1_id] ?? '?'}</span>
+                        {detail.aon?.player_id === detail.player1_id && (
+                          <span className="px-1 rounded font-black" style={{ fontSize: '9px', ...badge(detail.aon.outcome) }}>{aonLabel(detail.aon.outcome)}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                        <span>{playerDisplayNames[detail.player2_id] ?? '?'}</span>
+                        {detail.aon?.player_id === detail.player2_id && (
+                          <span className="px-1 rounded font-black" style={{ fontSize: '9px', ...badge(detail.aon.outcome) }}>{aonLabel(detail.aon.outcome)}</span>
+                        )}
+                      </div>
+                      {detail.bonusCard && (
+                        <div className="mt-1">
+                          <span className="px-1 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-pink)', color: '#fff' }}>
+                            {bonusCardName}: {playerDisplayNames[detail.bonusCard.player_id] ?? '?'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                {answer && q && (
+                  <div className={detail ? 'mt-1.5 pt-1.5' : ''} style={detail ? { borderTop: '1px solid rgba(255,255,255,0.1)' } : undefined}>
+                <span style={{ color: popArt ? 'var(--pop-yellow)' : '#D9A441' }} className="font-bold">{q.question}</span>
+                <span className="block mt-0.5">{answer}</span>
+                <div className="mt-1.5">
+                  <StarRating
+                    average={ratingsByTarget[`question_answer:${post.pick_id}`]?.average ?? null}
+                    count={ratingsByTarget[`question_answer:${post.pick_id}`]?.count ?? 0}
+                    yourRating={ratingsByTarget[`question_answer:${post.pick_id}`]?.yours ?? null}
+                    onRate={n => submitRating('question_answer', post.pick_id, n)}
+                    interactive={!isOwn}
+                    popArt={popArt}
+                  />
+                </div>
+              </div>
+            )}
+                </div>
+              )
+            })()}
+            {post.comments && !deletedIds.has(post.pick_id) && (
+              <p className="text-sm break-words">{post.comments}</p>
+            )}
+            {post.wall_rating != null && !deletedIds.has(post.pick_id) && (
+              <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-yellow)' : '#D9A441' }}>
+                {'⭐'.repeat(post.wall_rating) || 'Rated 0'}
+              </p>
+            )}
+            {post.comments && !deletedIds.has(post.pick_id) && (
+              <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                <StarRating
+                  average={ratingsByTarget[`comment:${post.pick_id}`]?.average ?? null}
+                  count={ratingsByTarget[`comment:${post.pick_id}`]?.count ?? 0}
+                  yourRating={ratingsByTarget[`comment:${post.pick_id}`]?.yours ?? null}
+                  onRate={n => submitRating('comment', post.pick_id, n)}
+                  interactive={!isOwn}
+                  popArt={popArt}
+                />
+                {isAdmin && (
+                  <button onClick={() => deleteContent('pick_comment', post.pick_id)} className="text-[10px] uppercase tracking-wide font-bold" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>
+                    Delete
+                  </button>
+                )}
+              </div>
+            )}
+            {isAdmin && post.comments && !deletedIds.has(post.pick_id) && (
+              <div className="mt-1.5">
+                <FutzyReplyButton targetType="pick" targetId={post.pick_id} popArt={popArt} />
+              </div>
+            )}
+          </div>
+
+          {(repliesByPick[post.pick_id] ?? []).filter(r => !deletedIds.has(r.id)).length > 0 && (
+            <div className="mt-2 ml-4 space-y-1.5">
+              {repliesByPick[post.pick_id].filter(r => !deletedIds.has(r.id)).map(r => (
+                <div key={r.id}>
+                  <div className="rounded-xl rounded-tl px-3 py-1.5 inline-block" style={{ background: popArt ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.03)' }}>
+                    <span className="font-black text-xs">{nameByUser[r.user_id] ?? 'Unknown'}</span>
+                    {authorBadges(r.user_id)}
+                    <span className="text-xs ml-1.5" style={{ color: popArt ? 'rgba(255,255,255,0.7)' : '#F5ECD9CC' }}>{r.content}</span>
+                    {isAdmin && (
+                      <button onClick={() => deleteContent('reply', r.id)} className="text-[9px] uppercase tracking-wide font-bold ml-1.5" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-1">
+                    <StarRating
+                      average={ratingsByTarget[`reply:${r.id}`]?.average ?? null}
+                      count={ratingsByTarget[`reply:${r.id}`]?.count ?? 0}
+                      yourRating={ratingsByTarget[`reply:${r.id}`]?.yours ?? null}
+                      onRate={n => submitRating('reply', r.id, n)}
+                      interactive={r.user_id !== user?.id}
+                      popArt={popArt}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {sentReply[post.pick_id] ? (
+            <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-green)' : '#4ADE80' }}>Sent.</p>
+          ) : (
+            <div className="flex items-center gap-2 mt-1.5 max-w-sm">
+              <input
+                type="text"
+                value={replyDraft[post.pick_id] ?? ''}
+                onChange={e => setReplyDraft(prev => ({ ...prev, [post.pick_id]: e.target.value }))}
+                placeholder="Reply..."
+                maxLength={200}
+                className={popArt ? 'pop-input flex-1 p-1.5 text-xs' : 'flex-1 bg-white/5 border border-white/10 rounded px-2 py-1 text-xs'}
+              />
+              <button
+                onClick={() => postReply(post.pick_id)}
+                disabled={!(replyDraft[post.pick_id] ?? '').trim()}
+                className={popArt ? 'pop-button px-3 py-1.5 text-xs' : 'text-xs font-bold uppercase px-3 py-1.5 rounded border border-[#D9A441]/50 text-[#D9A441] disabled:opacity-40'}
+              >
+                Reply
+              </button>
+            </div>
+          )}
+          {replyError[post.pick_id] && (
+            <p className="text-xs mt-1" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>{replyError[post.pick_id]}</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <Shell active="THE WALL" user={user} displayName={displayName} theme={popArt ? 'pop-art' : 'classic'}>
       <div className={popArt ? 'pop-art-theme' : ''}>
@@ -556,296 +854,13 @@ export default function WallPage() {
           )}
         </div>
 
-        {standaloneComments.filter(c => !deletedIds.has(c.id)).length > 0 && (
-          <div className="space-y-4 mb-8">
-            {standaloneComments.filter(c => !deletedIds.has(c.id)).map(c => {
-              const isOwn = c.user_id === user?.id
-              const isPending = c.status === 'pending'
-              return (
-                <div key={c.id} className="flex items-start gap-2.5">
-                  <div className="shrink-0 mt-1">{authorAvatar(c.user_id, 48)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="font-black text-xs">{nameByUser[c.user_id] ?? 'Unknown'}</span>
-                      {authorBadges(c.user_id)}
-                      <AuraBadge userId={c.user_id} />
-                      {isPending && (
-                        <span className="text-[10px] uppercase tracking-wide font-bold" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}>
-                          Awaiting approval
-                        </span>
-                      )}
-                      {isAdmin && (
-                        <button onClick={() => deleteContent('standalone_comment', c.id)} className="text-[10px] uppercase tracking-wide font-bold" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                    <div
-                      className="relative rounded-2xl px-3.5 py-2.5 inline-block max-w-full"
-                      style={{ background: isOwn ? ownBubbleBg : bubbleBg, borderTopLeftRadius: 4, opacity: isPending ? 0.6 : 1 }}
-                    >
-                      <p className="text-sm break-words">{c.content}</p>
-                    </div>
-                    {!isPending && (
-                      <div className="mt-1.5">
-                        <StarRating
-                          average={ratingsByTarget[`standalone_comment:${c.id}`]?.average ?? null}
-                          count={ratingsByTarget[`standalone_comment:${c.id}`]?.count ?? 0}
-                          yourRating={ratingsByTarget[`standalone_comment:${c.id}`]?.yours ?? null}
-                          onRate={n => submitRating('standalone_comment', c.id, n)}
-                          interactive={!isOwn}
-                          popArt={popArt}
-                        />
-                      </div>
-                    )}
-                    {isAdmin && !isPending && (
-                      <div className="mt-1.5">
-                        <FutzyReplyButton targetType="comment" targetId={c.id} popArt={popArt} />
-                      </div>
-                    )}
-
-                    {(commentRepliesByComment[c.id] ?? []).filter(r => !deletedIds.has(r.id)).length > 0 && (
-                      <div className="mt-2 ml-4 space-y-1.5">
-                        {commentRepliesByComment[c.id].filter(r => !deletedIds.has(r.id)).map(r => (
-                          <div key={r.id}>
-                            <div className="rounded-xl rounded-tl px-3 py-1.5 inline-block" style={{ background: popArt ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.03)', opacity: r.status === 'pending' ? 0.6 : 1 }}>
-                            <span className="font-black text-xs">{nameByUser[r.user_id] ?? 'Unknown'}</span>
-                            {authorBadges(r.user_id)}
-                            <span className="text-xs ml-1.5" style={{ color: popArt ? 'rgba(255,255,255,0.7)' : '#F5ECD9CC' }}>{r.content}</span>
-                            {r.status === 'pending' && (
-                              <span className="text-[9px] uppercase tracking-wide font-bold ml-1.5" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}>pending</span>
-                            )}
-                            {isAdmin && (
-                              <button onClick={() => deleteContent('standalone_reply', r.id)} className="text-[9px] uppercase tracking-wide font-bold ml-1.5" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>
-                                Delete
-                              </button>
-                            )}
-                            </div>
-                            {r.status !== 'pending' && (
-                              <div className="mt-1">
-                                <StarRating
-                                  average={ratingsByTarget[`standalone_reply:${r.id}`]?.average ?? null}
-                                  count={ratingsByTarget[`standalone_reply:${r.id}`]?.count ?? 0}
-                                  yourRating={ratingsByTarget[`standalone_reply:${r.id}`]?.yours ?? null}
-                                  onRate={n => submitRating('standalone_reply', r.id, n)}
-                                  interactive={r.user_id !== user?.id}
-                                  popArt={popArt}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {sentCommentReply[c.id] ? (
-                      <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-green)' : '#4ADE80' }}>Sent.</p>
-                    ) : (
-                      <div className="flex items-center gap-2 mt-1.5 max-w-sm">
-                        <input
-                          type="text"
-                          value={commentReplyDraft[c.id] ?? ''}
-                          onChange={e => setCommentReplyDraft(prev => ({ ...prev, [c.id]: e.target.value }))}
-                          placeholder="Reply..."
-                          maxLength={200}
-                          className={popArt ? 'pop-input flex-1 p-1.5 text-xs' : 'flex-1 bg-white/5 border border-white/10 rounded px-2 py-1 text-xs'}
-                        />
-                        <button
-                          onClick={() => postCommentReply(c.id)}
-                          disabled={!(commentReplyDraft[c.id] ?? '').trim()}
-                          className={popArt ? 'pop-button px-3 py-1.5 text-xs' : 'text-xs font-bold uppercase px-3 py-1.5 rounded border border-[#D9A441]/50 text-[#D9A441] disabled:opacity-40'}
-                        >
-                          Reply
-                        </button>
-                      </div>
-                    )}
-                    {replyError[c.id] && (
-                      <p className="text-xs mt-1" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>{replyError[c.id]}</p>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
         {nothingAtAll ? (
           <p className={popArt ? 'text-sm' : 'text-sm text-gray-500'} style={popArt ? { color: 'rgba(255,255,255,0.5)' } : undefined}>
             Nothing on the wall yet — be the first to write a comment above.
           </p>
         ) : (
           <div className="space-y-4">
-            {posts.map(post => {
-              const rating = ratingByUser[post.user_id]
-              const avg = rating && rating.count > 0 ? (rating.total / rating.count).toFixed(1) : null
-              const isOwn = post.user_id === user?.id
-              const q = questionByGw[post.gameweek_id]
-              const answer = answerLabel(q, post.question_answer)
-              return (
-                <div key={post.pick_id} className="flex items-start gap-2.5">
-                  <div className="shrink-0 mt-1">{authorAvatar(post.user_id, 48)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="font-black text-xs">{nameByUser[post.user_id] ?? 'Unknown'}</span>
-                      {authorBadges(post.user_id)}
-                      <AuraBadge userId={post.user_id} />
-                      <span className="text-[10px] uppercase tracking-wide" style={{ color: popArt ? 'rgba(255,255,255,0.4)' : '#F5ECD940' }}>
-                        GW{gwNumberById[post.gameweek_id] ?? '?'}{avg ? ` · ⭐ ${avg} avg (${rating!.count})` : ''}
-                      </span>
-                    </div>
-
-                    {/* Message-bubble chrome: rounded, a little tail nub top-
-                        left, own posts tinted differently — the social-
-                        media/WhatsApp look this was asked to have. */}
-                    <div
-                      className="relative rounded-2xl px-3.5 py-2.5 inline-block max-w-full"
-                      style={{ background: isOwn ? ownBubbleBg : bubbleBg, borderTopLeftRadius: 4 }}
-                    >
-                      {(() => {
-                        const detail = pickDetailsByPickId[post.pick_id]
-                        if (!detail && !(answer && q)) return null
-                        const badge = (outcome: string) => ({
-                          background: outcome === 'success' ? 'var(--pop-green)' : outcome === 'failed' ? 'var(--pop-red)' : 'var(--pop-pink)',
-                          color: outcome === 'success' ? '#0A0A0A' : '#FFFFFF',
-                        })
-                        const aonLabel = (outcome: string) => outcome === 'success' ? 'AoN ✓' : outcome === 'failed' ? 'AoN ✕' : 'AoN'
-                        return (
-                          <div className="rounded-lg px-2.5 py-1.5 mb-2 text-xs" style={{ background: 'rgba(0,0,0,0.2)' }}>
-                            {detail && (
-                              <div>
-                                <div className="flex items-center gap-1 font-black">
-                                  <span style={{ color: popArt ? 'var(--pop-blue)' : '#D9A441' }}>{teamLabelById[detail.team_id] ?? '?'}</span>
-                                  {detail.is_banker && <span title="Banker" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}>★</span>}
-                                </div>
-                                <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                                  <span>{playerDisplayNames[detail.player1_id] ?? '?'}</span>
-                                  {detail.aon?.player_id === detail.player1_id && (
-                                    <span className="px-1 rounded font-black" style={{ fontSize: '9px', ...badge(detail.aon.outcome) }}>{aonLabel(detail.aon.outcome)}</span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                                  <span>{playerDisplayNames[detail.player2_id] ?? '?'}</span>
-                                  {detail.aon?.player_id === detail.player2_id && (
-                                    <span className="px-1 rounded font-black" style={{ fontSize: '9px', ...badge(detail.aon.outcome) }}>{aonLabel(detail.aon.outcome)}</span>
-                                  )}
-                                </div>
-                                {detail.bonusCard && (
-                                  <div className="mt-1">
-                                    <span className="px-1 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-pink)', color: '#fff' }}>
-                                      {bonusCardName}: {playerDisplayNames[detail.bonusCard.player_id] ?? '?'}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          {answer && q && (
-                            <div className={detail ? 'mt-1.5 pt-1.5' : ''} style={detail ? { borderTop: '1px solid rgba(255,255,255,0.1)' } : undefined}>
-                          <span style={{ color: popArt ? 'var(--pop-yellow)' : '#D9A441' }} className="font-bold">{q.question}</span>
-                          <span className="block mt-0.5">{answer}</span>
-                          <div className="mt-1.5">
-                            <StarRating
-                              average={ratingsByTarget[`question_answer:${post.pick_id}`]?.average ?? null}
-                              count={ratingsByTarget[`question_answer:${post.pick_id}`]?.count ?? 0}
-                              yourRating={ratingsByTarget[`question_answer:${post.pick_id}`]?.yours ?? null}
-                              onRate={n => submitRating('question_answer', post.pick_id, n)}
-                              interactive={!isOwn}
-                              popArt={popArt}
-                            />
-                          </div>
-                        </div>
-                      )}
-                          </div>
-                        )
-                      })()}
-                      {post.comments && !deletedIds.has(post.pick_id) && (
-                        <p className="text-sm break-words">{post.comments}</p>
-                      )}
-                      {post.wall_rating != null && !deletedIds.has(post.pick_id) && (
-                        <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-yellow)' : '#D9A441' }}>
-                          {'⭐'.repeat(post.wall_rating) || 'Rated 0'}
-                        </p>
-                      )}
-                      {post.comments && !deletedIds.has(post.pick_id) && (
-                        <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-                          <StarRating
-                            average={ratingsByTarget[`comment:${post.pick_id}`]?.average ?? null}
-                            count={ratingsByTarget[`comment:${post.pick_id}`]?.count ?? 0}
-                            yourRating={ratingsByTarget[`comment:${post.pick_id}`]?.yours ?? null}
-                            onRate={n => submitRating('comment', post.pick_id, n)}
-                            interactive={!isOwn}
-                            popArt={popArt}
-                          />
-                          {isAdmin && (
-                            <button onClick={() => deleteContent('pick_comment', post.pick_id)} className="text-[10px] uppercase tracking-wide font-bold" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>
-                              Delete
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      {isAdmin && post.comments && !deletedIds.has(post.pick_id) && (
-                        <div className="mt-1.5">
-                          <FutzyReplyButton targetType="pick" targetId={post.pick_id} popArt={popArt} />
-                        </div>
-                      )}
-                    </div>
-
-                    {(repliesByPick[post.pick_id] ?? []).filter(r => !deletedIds.has(r.id)).length > 0 && (
-                      <div className="mt-2 ml-4 space-y-1.5">
-                        {repliesByPick[post.pick_id].filter(r => !deletedIds.has(r.id)).map(r => (
-                          <div key={r.id}>
-                            <div className="rounded-xl rounded-tl px-3 py-1.5 inline-block" style={{ background: popArt ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.03)' }}>
-                              <span className="font-black text-xs">{nameByUser[r.user_id] ?? 'Unknown'}</span>
-                              {authorBadges(r.user_id)}
-                              <span className="text-xs ml-1.5" style={{ color: popArt ? 'rgba(255,255,255,0.7)' : '#F5ECD9CC' }}>{r.content}</span>
-                              {isAdmin && (
-                                <button onClick={() => deleteContent('reply', r.id)} className="text-[9px] uppercase tracking-wide font-bold ml-1.5" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>
-                                  Delete
-                                </button>
-                              )}
-                            </div>
-                            <div className="mt-1">
-                              <StarRating
-                                average={ratingsByTarget[`reply:${r.id}`]?.average ?? null}
-                                count={ratingsByTarget[`reply:${r.id}`]?.count ?? 0}
-                                yourRating={ratingsByTarget[`reply:${r.id}`]?.yours ?? null}
-                                onRate={n => submitRating('reply', r.id, n)}
-                                interactive={r.user_id !== user?.id}
-                                popArt={popArt}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {sentReply[post.pick_id] ? (
-                      <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-green)' : '#4ADE80' }}>Sent.</p>
-                    ) : (
-                      <div className="flex items-center gap-2 mt-1.5 max-w-sm">
-                        <input
-                          type="text"
-                          value={replyDraft[post.pick_id] ?? ''}
-                          onChange={e => setReplyDraft(prev => ({ ...prev, [post.pick_id]: e.target.value }))}
-                          placeholder="Reply..."
-                          maxLength={200}
-                          className={popArt ? 'pop-input flex-1 p-1.5 text-xs' : 'flex-1 bg-white/5 border border-white/10 rounded px-2 py-1 text-xs'}
-                        />
-                        <button
-                          onClick={() => postReply(post.pick_id)}
-                          disabled={!(replyDraft[post.pick_id] ?? '').trim()}
-                          className={popArt ? 'pop-button px-3 py-1.5 text-xs' : 'text-xs font-bold uppercase px-3 py-1.5 rounded border border-[#D9A441]/50 text-[#D9A441] disabled:opacity-40'}
-                        >
-                          Reply
-                        </button>
-                      </div>
-                    )}
-                    {replyError[post.pick_id] && (
-                      <p className="text-xs mt-1" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>{replyError[post.pick_id]}</p>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+            {feedItems.map(item => item.kind === 'standalone' ? renderStandaloneComment(item.comment) : renderPickPost(item.post))}
           </div>
         )}
       </div>
