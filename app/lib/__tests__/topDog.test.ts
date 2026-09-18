@@ -72,6 +72,25 @@ describe('computeTopDog', () => {
     expect(result.reignWeeks).toBe(2)
   })
 
+  it('breaks a raw-points tie using the same without-banker tiebreaker the real Leaderboard ranking uses, instead of freezing the belt on the wrong incumbent', () => {
+    const result = computeTopDog(
+      [1, 2],
+      { kh: [0, 15, 0], adders: [0, 5, 10] },
+      {},
+      [],
+      {},
+      { kh: [0, 8, 0], adders: [0, 3, 12] }
+    )
+    // GW1: kh leads outright on raw points (15 vs 5) -> belt = kh, reign 1.
+    // GW2: raw cumulative ties at 15 each, but the without-banker cumulative
+    // (kh=8, adders=15) resolves it — this is the exact real-world bug
+    // report ("KH has the badge but is ranked second"): without the
+    // tiebreaker the belt stayed frozen on kh through this tie even though
+    // the real Leaderboard table already ranked adders above kh.
+    expect(result.leaderUserId).toBe('adders')
+    expect(result.reignWeeks).toBe(1)
+  })
+
   it('folds bonus card points into the correct gameweek only', () => {
     const result = computeTopDog(
       [1, 2],

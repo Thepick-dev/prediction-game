@@ -41,6 +41,7 @@ type RankedPlayer = {
   points_without_banker: number
   goals: number
   weekly_points: number[]
+  weekly_points_without_banker: number[]
   best_gameweek_score: number
 }
 
@@ -540,6 +541,7 @@ export default function LeaderboardPage() {
         points_without_banker: 0,
         goals: 0,
         weekly_points: [],
+        weekly_points_without_banker: [],
         best_gameweek_score: 0
       }
     })
@@ -583,7 +585,12 @@ export default function LeaderboardPage() {
       }
 
       const gwNum = gwMap[p.gameweek_id]
-      if (gwNum) t.weekly_points[gwNum] = p.total_points ?? 0
+      if (gwNum) {
+        t.weekly_points[gwNum] = p.total_points ?? 0
+        // Same tiebreaker source Top Dog now uses to break a raw points tie
+        // — see app/lib/topDog.ts.
+        t.weekly_points_without_banker[gwNum] = rawTotal
+      }
     })
 
     // Bonus Card points are real points but deliberately NOT folded into
@@ -624,8 +631,12 @@ export default function LeaderboardPage() {
     // Top Dog — see app/lib/topDog.ts for the reign-tracking rules.
     const scoredGwNumbers = Object.keys(avgMap).map(Number).sort((a, b) => a - b)
     const weeklyPointsByUser: Record<string, number[]> = {}
-    Object.values(totals).forEach(t => { weeklyPointsByUser[t.user_id] = t.weekly_points })
-    const topDog = computeTopDog(scoredGwNumbers, weeklyPointsByUser, isBotMap, bonusCardPlays, gwMap)
+    const weeklyPointsWithoutBankerByUser: Record<string, number[]> = {}
+    Object.values(totals).forEach(t => {
+      weeklyPointsByUser[t.user_id] = t.weekly_points
+      weeklyPointsWithoutBankerByUser[t.user_id] = t.weekly_points_without_banker
+    })
+    const topDog = computeTopDog(scoredGwNumbers, weeklyPointsByUser, isBotMap, bonusCardPlays, gwMap, weeklyPointsWithoutBankerByUser)
     setTopDogUserId(topDog.leaderUserId)
     setTopDogReignWeeks(topDog.reignWeeks)
     setStreakByUser(computeStreaks(weeklyPointsByUser, avgMap))

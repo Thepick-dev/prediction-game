@@ -176,7 +176,7 @@ export default function WallPage() {
     // page: a problem computing badges should never take the real content
     // (comments/ratings) down with it.
     const { data: allEntries } = await supabase.from('competition_entries').select('user_id').eq('competition_id', comp.id).eq('removed', false)
-    const { data: allPointsData } = await supabase.from('points').select('user_id, gameweek_id, total_points').eq('competition_id', comp.id)
+    const { data: allPointsData } = await supabase.from('points').select('user_id, gameweek_id, total_points, breakdown').eq('competition_id', comp.id)
     const { data: bonusCardPlaysData } = await supabase.from('bonus_card_plays').select('user_id, gameweek_id, points').eq('competition_id', comp.id)
     const { data: allBotFlags } = await supabase.from('profiles').select('id, is_bot')
     const { data: badgeFlags } = await supabase.from('profiles').select('id, is_reigning_champ, is_vibes_champion, in_cash_pool, is_sporting_panel')
@@ -203,19 +203,26 @@ export default function WallPage() {
     allBotFlags?.forEach(b => { isBotMap[b.id] = b.is_bot ?? false })
 
     const weeklyPointsByUser: Record<string, number[]> = {}
-    allEntries?.forEach(e => { weeklyPointsByUser[e.user_id] = [] })
+    const weeklyPointsWithoutBankerByUser: Record<string, number[]> = {}
+    allEntries?.forEach(e => { weeklyPointsByUser[e.user_id] = []; weeklyPointsWithoutBankerByUser[e.user_id] = [] })
     allPointsData?.forEach(p => {
       const gwNum = gwMap[p.gameweek_id]
       if (!gwNum) return
       if (!weeklyPointsByUser[p.user_id]) weeklyPointsByUser[p.user_id] = []
+      if (!weeklyPointsWithoutBankerByUser[p.user_id]) weeklyPointsWithoutBankerByUser[p.user_id] = []
       weeklyPointsByUser[p.user_id][gwNum] = (weeklyPointsByUser[p.user_id][gwNum] ?? 0) + (p.total_points ?? 0)
+      // Same tiebreaker Top Dog now uses to break a raw points tie — see
+      // app/lib/topDog.ts.
+      const isBanker = (p.breakdown as any)?.is_banker === true
+      const raw = isBanker ? (p.total_points ?? 0) / 2 : (p.total_points ?? 0)
+      weeklyPointsWithoutBankerByUser[p.user_id][gwNum] = (weeklyPointsWithoutBankerByUser[p.user_id][gwNum] ?? 0) + raw
     })
 
     const avgByGwMap = computeAvgByGw(allPointsData, gwMap)
     setStreakByUser(computeStreaks(weeklyPointsByUser, avgByGwMap))
 
     const scoredGwNumbers = Object.keys(avgByGwMap).map(Number).sort((a, b) => a - b)
-    const topDog = computeTopDog(scoredGwNumbers, weeklyPointsByUser, isBotMap, bonusCardPlaysData, gwMap)
+    const topDog = computeTopDog(scoredGwNumbers, weeklyPointsByUser, isBotMap, bonusCardPlaysData, gwMap, weeklyPointsWithoutBankerByUser)
     setTopDogUserId(topDog.leaderUserId)
     setTopDogReignWeeks(topDog.reignWeeks)
 
