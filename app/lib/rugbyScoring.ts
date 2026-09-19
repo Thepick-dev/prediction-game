@@ -33,6 +33,16 @@ export const DEFAULT_RUGBY_SCORING_RULES: RugbyScoringRules = {
   squad_tackle_points: 0.2,
   squad_tackle_missed_penalty: 0.5,
   squad_yellow_card_penalty: 5,
+  // The actual live scoring mechanism now: each pick's 0-100 match rating
+  // (app/lib/rugbyRating.ts — already accounts for tries/kicks/tackles/
+  // cards/etc. on its own scale) summed across the squad, times this
+  // multiplier. The squad_try_points-and-friends values above stay
+  // computed and shown for transparency but no longer feed the total,
+  // to avoid double-counting what the rating already covers. 0.5 is a
+  // starting estimate for a roughly comparable scale to Match
+  // Predictions' own points, not a guaranteed 50/50 — tune by watching
+  // real rounds.
+  squad_rating_multiplier: 0.5,
   max_free_subs: 6,
   extra_sub_penalty: 10,
   // A player picked by few managers earns a multiplier on their try+kicking
@@ -107,6 +117,8 @@ export type RugbyPlayerMatchStat = {
   try_assists: number
 }
 
+export type RugbyPlayerMatchRating = { fixture_id: number; player_id: number; rating: number }
+
 export type SeasonSquadPointsRow = {
   season_squad_pick_id: string
   user_id: string
@@ -121,6 +133,14 @@ export type SeasonSquadPointsRow = {
   tackle_missed_penalty: number
   yellow_card_penalty: number
   red_card_penalty: number
+  // The player's real 0-100 rating that round (0 if they have no rating
+  // yet — unplayed, unsynced, or no position set — same "no data = zero"
+  // convention as an unused pick). rating_points is rating * the admin's
+  // squad_rating_multiplier, and is what total_points is actually built
+  // from now — every field above this comment stays computed for the
+  // transparency breakdown, but no longer feeds the total.
+  rating: number
+  rating_points: number
   sub_penalty: number
   contrarian_bonus: number
   total_points: number
@@ -175,7 +195,8 @@ export function computeSeasonSquadRoundPoints(
   matchEvents: RugbyMatchEvent[],
   rules: RugbyScoringRules,
   subPenaltyByPickId: Record<string, number>,
-  playerMatchStats: RugbyPlayerMatchStat[] = []
+  playerMatchStats: RugbyPlayerMatchStat[] = [],
+  playerMatchRatings: RugbyPlayerMatchRating[] = []
 ): SeasonSquadPointsRow[] {
   const teamIdByPlayerId = new Map<number, number>()
   players.forEach(p => teamIdByPlayerId.set(p.id, p.team_id))
@@ -196,6 +217,9 @@ export function computeSeasonSquadRoundPoints(
 
   const statsByFixtureAndPlayer = new Map<string, RugbyPlayerMatchStat>()
   playerMatchStats.forEach(s => statsByFixtureAndPlayer.set(`${s.fixture_id}::${s.player_id}`, s))
+
+  const ratingByFixtureAndPlayer = new Map<string, number>()
+  playerMatchRatings.forEach(r => ratingByFixtureAndPlayer.set(`${r.fixture_id}::${r.player_id}`, r.rating))
 
   const rows: SeasonSquadPointsRow[] = []
 
@@ -231,23 +255,31 @@ export function computeSeasonSquadRoundPoints(
     const tacklePoints = round2((stat?.tackles ?? 0) * rules.squad_tackle_points)
     const tackleMissedPenalty = round2((stat?.tackles_missed ?? 0) * rules.squad_tackle_missed_penalty)
 
+    // The real scoring mechanism: this pick's 0-100 rating for this
+    // fixture (0 if unrated — unplayed, unsynced, or no position set,
+    // same "no data = zero" convention as an unused pick), times the
+    // admin's squad_rating_multiplier.
+    const rating = fixture ? (ratingByFixtureAndPlayer.get(`${fixture.id}::${pick.player_id}`) ?? 0) : 0
+    const ratingPoints = round2(rating * rules.squad_rating_multiplier)
+
     // Both one-off charges/bonuses only ever apply in the specific round
     // the pick was acquired — never repeated on later rounds' recalcs. A
-    // rarely-held player multiplies their try+kicking points rather than
+    // rarely-held player multiplies their rating points rather than
     // adding a flat bonus; contrarian_bonus is kept as the EXTRA amount
-    // that multiplier contributes, so try_points/kicking_points stay their
-    // raw, unmultiplied values for anything reading them directly.
+    // that multiplier contributes, so rating_points stays its raw,
+    // unmultiplied value for anything reading it directly.
     const isAcquisitionRound = roundNumber === pick.round_acquired
     const isUnderdogPick = isAcquisitionRound && pick.contrarian_pct_at_pick != null && pick.contrarian_pct_at_pick < rules.player_ownership_threshold_pct
     const contrarianBonus = isUnderdogPick
-      ? Math.round((tryPoints + kickingPoints) * (rules.player_ownership_multiplier - 1))
+      ? Math.round(ratingPoints * (rules.player_ownership_multiplier - 1))
       : 0
     const subPenalty = isAcquisitionRound ? (subPenaltyByPickId[pick.id] ?? 0) : 0
 
-    const totalPoints = round2(
-      tryPoints + kickingPoints + tryAssistPoints + cleanBreakPoints + offloadPoints + metersRunPoints + tacklePoints
-      + contrarianBonus - redCardPenalty - yellowCardPenalty - tackleMissedPenalty - subPenalty
-    )
+    // Red/yellow cards are already priced into the rating itself
+    // (app/lib/rugbyRating.ts's own yellow/red weights) — redCardPenalty/
+    // yellowCardPenalty below are kept computed for the transparency
+    // breakdown only, deliberately NOT subtracted again here.
+    const totalPoints = round2(ratingPoints + contrarianBonus - subPenalty)
 
     rows.push({
       season_squad_pick_id: pick.id,
@@ -258,6 +290,8 @@ export function computeSeasonSquadRoundPoints(
       try_assist_points: tryAssistPoints,
       clean_break_points: cleanBreakPoints,
       offload_points: offloadPoints,
+      rating,
+      rating_points: ratingPoints,
       meters_run_points: metersRunPoints,
       tackle_points: tacklePoints,
       tackle_missed_penalty: tackleMissedPenalty,
@@ -320,10 +354,25 @@ export async function calculateSeasonSquadRoundScoring(
   const { data: competitionRow } = await supabase.schema('rugby').from('competitions').select('sub_budget_mode').eq('id', round.competition_id).maybeSingle()
   const subBudgetMode: SubBudgetMode = competitionRow?.sub_budget_mode === 'per_round' ? 'per_round' : 'season'
 
+  // Isolated fetch: player_match_ratings is a brand-new table (and the
+  // whole reason it exists as its own table rather than a live
+  // computation here — ranking against the full historical pool needs
+  // every fixture ever recorded, not just this round's). Degrades to []
+  // — an admin who hasn't run "Recalculate Ratings" yet just sees 0s
+  // rather than a broken page. Call recomputeAllRugbyRatings (app/lib/
+  // rugbyRating.ts) before this to refresh it first.
+  let ratingRows: RugbyPlayerMatchRating[] = []
+  if (fixtureIds.length) {
+    const { data: ratingsData, error: ratingsError } = await supabase.schema('rugby').from('player_match_ratings')
+      .select('fixture_id, player_id, rating')
+      .in('fixture_id', fixtureIds)
+    if (!ratingsError && ratingsData) ratingRows = ratingsData as RugbyPlayerMatchRating[]
+  }
+
   const subPenaltyByPickId = computeSubPenalties(allPicks, rules, subBudgetMode)
 
   const rows = computeSeasonSquadRoundPoints(
-    allPicks, round.number, roundId, fixturesList, playersList, (matchEvents ?? []) as RugbyMatchEvent[], rules, subPenaltyByPickId, statsRows
+    allPicks, round.number, roundId, fixturesList, playersList, (matchEvents ?? []) as RugbyMatchEvent[], rules, subPenaltyByPickId, statsRows, ratingRows
   )
 
   if (rows.length === 0) return { success: true, rows: 0 }

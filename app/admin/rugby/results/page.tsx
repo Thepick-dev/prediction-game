@@ -4,6 +4,7 @@ import { requireAdmin } from '../../../lib/require-admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { calculateSeasonSquadRoundScoring, calculateMatchPredictionRoundScoring } from '../../../lib/rugbyScoring'
+import { recomputeAllRugbyRatings } from '../../../lib/rugbyRating'
 
 async function requireAdminAction() {
   const supabase = await createServerSupabaseClient()
@@ -103,6 +104,17 @@ async function calculatePoints(formData: FormData) {
   'use server'
   const supabase = await requireAdminAction()
   const roundId = formData.get('round_id') as string
+
+  // Ratings first, always — squad scoring now reads each pick's rating
+  // from rugby.player_match_ratings, and that table only reflects
+  // whatever match data existed the last time ratings were recomputed.
+  // Recomputing in full (not just this round) is what lets newly-pulled
+  // historical data sharpen older ratings too, not just new ones.
+  const ratingsResult = await recomputeAllRugbyRatings(supabase)
+  if ('error' in ratingsResult) {
+    redirect(`/admin/rugby/results?round=${roundId}&error=${encodeURIComponent(ratingsResult.error)}`)
+  }
+
   const [squadResult, matchResult] = await Promise.all([
     calculateSeasonSquadRoundScoring(supabase, roundId),
     calculateMatchPredictionRoundScoring(supabase, roundId),

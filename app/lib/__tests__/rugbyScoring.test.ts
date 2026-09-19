@@ -13,6 +13,7 @@ import {
   type RugbyPlayerRef,
   type RugbyMatchEvent,
   type RugbyPlayerMatchStat,
+  type RugbyPlayerMatchRating,
   type MatchPrediction,
   type FinishedFixture,
   type RugbyFixtureTeams,
@@ -48,29 +49,30 @@ const players: RugbyPlayerRef[] = [
 ]
 
 describe('computeSeasonSquadRoundPoints', () => {
-  it('awards try points to a non-kicker who scores', () => {
+  it('still computes try/kicking category fields for the transparency breakdown, even though they no longer feed total_points', () => {
     const picks = [makePick({ player_id: 1, is_kicker: false })]
     const events: RugbyMatchEvent[] = [{ player_id: 1, event_type: 'try', fixture_id: 100 }]
     const rows = computeSeasonSquadRoundPoints(picks, 1, 'round-1', fixtures, players, events, rules, {})
     expect(rows).toHaveLength(1)
     expect(rows[0].try_points).toBe(rules.squad_try_points)
     expect(rows[0].kicking_points).toBe(0)
-    expect(rows[0].total_points).toBe(rules.squad_try_points)
-  })
-
-  it('gives a non-kicker ZERO points for a conversion/penalty/drop goal — kicking only counts for the kicker', () => {
-    const picks = [makePick({ player_id: 1, is_kicker: false })]
-    const events: RugbyMatchEvent[] = [
-      { player_id: 1, event_type: 'conversion', fixture_id: 100 },
-      { player_id: 1, event_type: 'penalty_goal', fixture_id: 100 },
-      { player_id: 1, event_type: 'drop_goal', fixture_id: 100 },
-    ]
-    const rows = computeSeasonSquadRoundPoints(picks, 1, 'round-1', fixtures, players, events, rules, {})
-    expect(rows[0].kicking_points).toBe(0)
+    // No rating supplied (default []) — total_points now comes from the
+    // rating, not the category fields, so it's 0 here even though a try
+    // was scored.
+    expect(rows[0].rating).toBe(0)
     expect(rows[0].total_points).toBe(0)
   })
 
-  it('awards the kicker points for tries AND every kind of kick', () => {
+  it('total_points is the rating times squad_rating_multiplier, not the category sum', () => {
+    const picks = [makePick({ player_id: 1, is_kicker: false })]
+    const ratings: RugbyPlayerMatchRating[] = [{ fixture_id: 100, player_id: 1, rating: 80 }]
+    const rows = computeSeasonSquadRoundPoints(picks, 1, 'round-1', fixtures, players, [], rules, {}, [], ratings)
+    expect(rows[0].rating).toBe(80)
+    expect(rows[0].rating_points).toBe(Math.round(80 * rules.squad_rating_multiplier * 100) / 100)
+    expect(rows[0].total_points).toBe(rows[0].rating_points)
+  })
+
+  it('kicking category fields still only populate for the designated kicker, even though it no longer affects total_points', () => {
     const picks = [makePick({ id: 'pick-2', player_id: 2, is_kicker: true })]
     const events: RugbyMatchEvent[] = [
       { player_id: 2, event_type: 'try', fixture_id: 100 },
@@ -82,18 +84,18 @@ describe('computeSeasonSquadRoundPoints', () => {
     const expectedKicking = rules.squad_conversion_points + rules.squad_penalty_points + rules.squad_dropgoal_points
     expect(rows[0].try_points).toBe(rules.squad_try_points)
     expect(rows[0].kicking_points).toBe(expectedKicking)
-    expect(rows[0].total_points).toBe(rules.squad_try_points + expectedKicking)
   })
 
-  it('subtracts the red card penalty and can push total_points negative — never floors at zero', () => {
+  it('red_card_penalty is still computed for the breakdown, but no longer subtracted from total_points — it is already priced into the rating itself', () => {
     const picks = [makePick({ player_id: 1, is_kicker: false })]
     const events: RugbyMatchEvent[] = [{ player_id: 1, event_type: 'red_card', fixture_id: 100 }]
-    const rows = computeSeasonSquadRoundPoints(picks, 1, 'round-1', fixtures, players, events, rules, {})
+    const ratings: RugbyPlayerMatchRating[] = [{ fixture_id: 100, player_id: 1, rating: 30 }] // a red-card-affected rating
+    const rows = computeSeasonSquadRoundPoints(picks, 1, 'round-1', fixtures, players, events, rules, {}, [], ratings)
     expect(rows[0].red_card_penalty).toBe(rules.squad_red_card_penalty)
-    expect(rows[0].total_points).toBe(-rules.squad_red_card_penalty)
+    expect(rows[0].total_points).toBe(rows[0].rating_points) // not reduced again by red_card_penalty
   })
 
-  it('multiplies try+kicking points (not a flat add) for a rarely-held player, only in the acquisition round', () => {
+  it('multiplies rating points (not the old try+kicking sum) for a rarely-held player, only in the acquisition round', () => {
     const lowPct = rules.player_ownership_threshold_pct - 1
     const pick = makePick({ player_id: 2, is_kicker: true, round_acquired: 2, contrarian_pct_at_pick: lowPct })
     const roundsFixtures: RugbyFixtureRef[] = [
@@ -101,15 +103,16 @@ describe('computeSeasonSquadRoundPoints', () => {
       { id: 200, round_id: 'round-2', home_team_id: 1, away_team_id: 2 },
       { id: 300, round_id: 'round-3', home_team_id: 1, away_team_id: 2 },
     ]
-    const events: RugbyMatchEvent[] = [{ player_id: 2, event_type: 'try', fixture_id: 200 }]
-    // Round 2 (acquisition round) — try_points stay raw; the multiplier's
+    const ratings: RugbyPlayerMatchRating[] = [{ fixture_id: 200, player_id: 2, rating: 70 }]
+    // Round 2 (acquisition round) — rating_points stays raw; the multiplier's
     // extra shows up as contrarian_bonus, and total_points reflects it.
-    const round2Rows = computeSeasonSquadRoundPoints([pick], 2, 'round-2', roundsFixtures, players, events, rules, {})
-    const expectedBonus = Math.round(rules.squad_try_points * (rules.player_ownership_multiplier - 1))
-    expect(round2Rows[0].try_points).toBe(rules.squad_try_points)
+    const round2Rows = computeSeasonSquadRoundPoints([pick], 2, 'round-2', roundsFixtures, players, [], rules, {}, [], ratings)
+    const expectedRatingPoints = Math.round(70 * rules.squad_rating_multiplier * 100) / 100
+    const expectedBonus = Math.round(expectedRatingPoints * (rules.player_ownership_multiplier - 1))
+    expect(round2Rows[0].rating_points).toBe(expectedRatingPoints)
     expect(round2Rows[0].contrarian_bonus).toBe(expectedBonus)
-    expect(round2Rows[0].total_points).toBe(rules.squad_try_points + expectedBonus)
-    // Round 3 (later, same events wouldn't recur, but even hypothetically) — no repeat bonus.
+    expect(round2Rows[0].total_points).toBe(expectedRatingPoints + expectedBonus)
+    // Round 3 (later, same rating wouldn't recur, but even hypothetically) — no repeat bonus.
     const round3Rows = computeSeasonSquadRoundPoints([pick], 3, 'round-3', roundsFixtures, players, [], rules, {})
     expect(round3Rows[0].contrarian_bonus).toBe(0)
   })
@@ -147,7 +150,7 @@ describe('computeSeasonSquadRoundPoints', () => {
 })
 
 describe('computeSeasonSquadRoundPoints — new player-statistics categories', () => {
-  it('awards try assist, clean break, offload, meters run and tackle points to any pick, not just the kicker', () => {
+  it('still computes try assist, clean break, offload, meters run and tackle points for any pick — for the breakdown, no longer the total', () => {
     const picks = [makePick({ player_id: 1, is_kicker: false })]
     const stats: RugbyPlayerMatchStat[] = [
       { fixture_id: 100, player_id: 1, meters_run: 40, clean_breaks: 2, offloads: 1, tackles: 5, tackles_missed: 0, try_assists: 1 },
@@ -158,22 +161,22 @@ describe('computeSeasonSquadRoundPoints — new player-statistics categories', (
     expect(rows[0].offload_points).toBe(rules.squad_offload_points)
     expect(rows[0].meters_run_points).toBe(40 * rules.squad_meters_run_points)
     expect(rows[0].tackle_points).toBe(5 * rules.squad_tackle_points)
-    expect(rows[0].total_points).toBe(
-      rules.squad_try_assist_points + 2 * rules.squad_clean_break_points + rules.squad_offload_points
-      + 40 * rules.squad_meters_run_points + 5 * rules.squad_tackle_points
-    )
+    // No rating supplied — total_points comes from the rating now, not
+    // these category fields, so it's 0 here regardless of the stat line.
+    expect(rows[0].total_points).toBe(0)
   })
 
-  it('subtracts the tackles-missed and yellow-card penalties', () => {
+  it('still computes the tackles-missed and yellow-card penalty fields, no longer subtracted from total_points (already priced into the rating)', () => {
     const picks = [makePick({ player_id: 1, is_kicker: false })]
     const events: RugbyMatchEvent[] = [{ player_id: 1, event_type: 'yellow_card', fixture_id: 100 }]
     const stats: RugbyPlayerMatchStat[] = [
       { fixture_id: 100, player_id: 1, meters_run: 0, clean_breaks: 0, offloads: 0, tackles: 0, tackles_missed: 3, try_assists: 0 },
     ]
-    const rows = computeSeasonSquadRoundPoints(picks, 1, 'round-1', fixtures, players, events, rules, {}, stats)
+    const ratings: RugbyPlayerMatchRating[] = [{ fixture_id: 100, player_id: 1, rating: 20 }]
+    const rows = computeSeasonSquadRoundPoints(picks, 1, 'round-1', fixtures, players, events, rules, {}, stats, ratings)
     expect(rows[0].tackle_missed_penalty).toBe(3 * rules.squad_tackle_missed_penalty)
     expect(rows[0].yellow_card_penalty).toBe(rules.squad_yellow_card_penalty)
-    expect(rows[0].total_points).toBe(-(3 * rules.squad_tackle_missed_penalty) - rules.squad_yellow_card_penalty)
+    expect(rows[0].total_points).toBe(rows[0].rating_points)
   })
 
   it('scores zero for these categories when a pick has no match_stats row (defaults to []) ', () => {
