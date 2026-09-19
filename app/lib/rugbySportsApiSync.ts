@@ -1,17 +1,27 @@
 import type { ResultRow, ScorerRow } from './rugbySheetSync'
 
-// Pulls real results + scorer events from SportsAPI Pro (sportsapipro.com)
-// for whichever of our own fixtures have already kicked off but aren't
-// marked 'finished' yet. Deliberately produces the exact same ResultRow/
-// ScorerRow shapes the spreadsheet sync already parses (see
-// rugbySheetSync.ts), so both sources can be reconciled into the database
-// by the same kind of logic — this module only fetches and translates,
-// it never touches the database itself.
+// Pulls real results, scorer events AND full player match stats from
+// SportsAPI Pro (sportsapipro.com) for whichever of our own fixtures have
+// already kicked off but aren't marked 'finished' yet. Produces the exact
+// same ResultRow/ScorerRow shapes the spreadsheet sync already parses (see
+// rugbySheetSync.ts), so both sources reconcile into match_events by the
+// same logic — plus a new PlayerStatRow shape for rugby.player_match_stats
+// (the tackles/meters/offloads/etc. categories added this session). This
+// module only fetches and translates, it never touches the database.
+//
+// One call per match, not two: /match/:id/player-statistics already
+// includes exact separate counts for tries/conversions/penalty
+// goals/drop goals/cards per player — strictly better than the old
+// /incidents-based approach, which could only lump penalty and drop goals
+// together as "threePoints" and had to guess. No per-event minute is
+// available this way (player-statistics gives match totals, not a
+// timeline) — match_events.minute is set to null for API-sourced events,
+// same as it already is for many spreadsheet-sourced ones.
 //
 // Matching a fixture to a SportsAPI Pro match: their match ids don't
 // correspond to anything of ours, so matches are found by team-name pair
 // on the fixture's own kickoff date (checked ±1 day, for timezone/late-
-// notice reschedule safety). Matching a scorer to one of our own players:
+// notice reschedule safety). Matching a player to one of our own squad:
 // by team + case-insensitive name, same as the spreadsheet sync's own
 // player matching — a name SportsAPI Pro spells differently to how it's
 // stored in our squads shows up as an "unmatched" warning rather than
@@ -25,9 +35,23 @@ export type DueFixture = {
   kickoffTime: string
 }
 
+export type PlayerStatRow = {
+  round: number
+  homeTeam: string
+  awayTeam: string
+  player: string
+  meters_run: number
+  clean_breaks: number
+  offloads: number
+  tackles: number
+  tackles_missed: number
+  try_assists: number
+}
+
 export type FetchResult = {
   results: ResultRow[]
   scorers: ScorerRow[]
+  playerStats: PlayerStatRow[]
   matchedFixtureIds: number[]
   unmatchedFixtures: string[]
   apiErrors: string[]
@@ -48,33 +72,47 @@ function normalizeTeamName(name: string): string {
   return name.trim().toLowerCase()
 }
 
-// SportsAPI Pro's incident feed distinguishes tries/conversions/cards
-// clearly, but doesn't appear to separately flag penalty goals vs drop
-// goals — both surface as "threePoints". Penalty goals are far more
-// common in real matches, so that's the default; a genuine drop goal
-// would need a quick manual correction on /admin/rugby/results after a
-// sync (same page, same Add/Edit Event panel, either way).
-function mapIncidentToEventType(incident: { incidentType?: string; incidentClass?: string }): string | null {
-  const type = (incident.incidentType || '').toLowerCase()
-  const cls = (incident.incidentClass || '').toLowerCase()
-  if (type === 'card') {
-    if (cls === 'yellow') return 'yellow_card'
-    if (cls === 'red') return 'red_card'
-    return null
+// Player-statistics gives match-total counts, not discrete timestamped
+// events — each count becomes that many identical rows (minute: null),
+// which is exactly what match_events needs to keep counting correctly.
+function pushCountedEvents(
+  scorers: ScorerRow[], round: number, homeTeam: string, awayTeam: string,
+  playerName: string, eventType: string, count: number
+) {
+  for (let i = 0; i < count; i++) {
+    scorers.push({ round, homeTeam, awayTeam, player: playerName, eventType, minute: null })
   }
-  if (type === 'goal') {
-    if (cls === 'try') return 'try'
-    if (cls === 'twopoints') return 'conversion'
-    if (cls.includes('drop')) return 'drop_goal'
-    if (cls === 'threepoints') return 'penalty_goal'
-    return null
-  }
-  return null // substitutions, periods, etc. — not tracked in match_events
+}
+
+function extractFromPlayerStats(
+  data: { home?: any[]; away?: any[] }, round: number, homeTeam: string, awayTeam: string,
+  scorers: ScorerRow[], playerStats: PlayerStatRow[]
+) {
+  const sides: { list: any[]; }[] = [{ list: data.home ?? [] }, { list: data.away ?? [] }]
+  sides.forEach(({ list }) => {
+    list.forEach(entry => {
+      const name = entry.player?.name
+      const s = entry.statistics
+      if (!name || !s) return
+      pushCountedEvents(scorers, round, homeTeam, awayTeam, name, 'try', s.tries ?? 0)
+      pushCountedEvents(scorers, round, homeTeam, awayTeam, name, 'conversion', s.conversions ?? 0)
+      pushCountedEvents(scorers, round, homeTeam, awayTeam, name, 'penalty_goal', s.penaltyGoals ?? 0)
+      pushCountedEvents(scorers, round, homeTeam, awayTeam, name, 'drop_goal', s.dropGoals ?? 0)
+      pushCountedEvents(scorers, round, homeTeam, awayTeam, name, 'yellow_card', s.yellowCard ?? 0)
+      pushCountedEvents(scorers, round, homeTeam, awayTeam, name, 'red_card', s.redCard ?? 0)
+      playerStats.push({
+        round, homeTeam, awayTeam, player: name,
+        meters_run: s.metersRun ?? 0, clean_breaks: s.cleanBreaks ?? 0, offloads: s.offloads ?? 0,
+        tackles: s.tackles ?? 0, tackles_missed: s.tacklesMissed ?? 0, try_assists: s.tryAssists ?? 0,
+      })
+    })
+  })
 }
 
 export async function fetchRugbyResultsFromApi(apiKey: string, dueFixtures: DueFixture[]): Promise<FetchResult> {
   const results: ResultRow[] = []
   const scorers: ScorerRow[] = []
+  const playerStats: PlayerStatRow[] = []
   const matchedFixtureIds: number[] = []
   const unmatchedFixtures: string[] = []
   const apiErrors: string[] = []
@@ -137,24 +175,12 @@ export async function fetchRugbyResultsFromApi(apiKey: string, dueFixtures: DueF
     matchedFixtureIds.push(fixture.fixtureId)
 
     try {
-      const incidentsBody = await apiGet(`/match/${apiMatch.id}/incidents`, apiKey)
-      const incidents = incidentsBody.data?.incidents ?? []
-      incidents.forEach((inc: any) => {
-        const eventType = mapIncidentToEventType(inc)
-        if (!eventType || !inc.player?.name) return
-        scorers.push({
-          round: fixture.round,
-          homeTeam: fixture.homeTeamName,
-          awayTeam: fixture.awayTeamName,
-          player: inc.player.name,
-          eventType,
-          minute: typeof inc.time === 'number' ? inc.time : null,
-        })
-      })
+      const statsBody = await apiGet(`/match/${apiMatch.id}/player-statistics`, apiKey)
+      extractFromPlayerStats(statsBody.data ?? {}, fixture.round, fixture.homeTeamName, fixture.awayTeamName, scorers, playerStats)
     } catch (e: any) {
-      apiErrors.push(`Incidents for ${fixture.homeTeamName} v ${fixture.awayTeamName}: ${e.message}`)
+      apiErrors.push(`Player statistics for ${fixture.homeTeamName} v ${fixture.awayTeamName}: ${e.message}`)
     }
   }
 
-  return { results, scorers, matchedFixtureIds, unmatchedFixtures, apiErrors }
+  return { results, scorers, playerStats, matchedFixtureIds, unmatchedFixtures, apiErrors }
 }

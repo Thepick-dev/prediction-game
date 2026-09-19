@@ -4,6 +4,7 @@ import { requireAdmin } from '../../lib/require-admin'
 import { redirect } from 'next/navigation'
 import ConfirmActionButton from '../components/confirm-action-button'
 import RugbySyncButton from '../../rugby/_components/RugbySyncButton'
+import RugbySportsApiSyncButton from '../../rugby/_components/RugbySportsApiSyncButton'
 
 // Every write below goes through this — Server Actions are reachable as
 // their own endpoint, not just "the button on a page only admins can see",
@@ -150,6 +151,22 @@ export default async function AdminRugbyPage() {
           <p className="text-xs text-gray-500 mb-3">Re-reads <code className="bg-gray-100 px-1 rounded">rugby-data.xlsx</code> and reconciles squads, fixtures, results and scorers into {activeComp.name}.</p>
           <div className="pop-art-theme inline-block">
             <RugbySyncButton />
+          </div>
+        </div>
+      )}
+
+      {activeComp && (
+        <div className="bg-white border rounded-lg p-6 mb-8 max-w-md">
+          <h2 className="font-bold mb-1">📡 SportsAPI Pro Results Sync</h2>
+          <p className="text-xs text-gray-500 mb-3">
+            Checks fixtures in {activeComp.name} that have kicked off but aren&apos;t marked finished yet, and pulls
+            their real result, scorer events, and full player match stats (tackles, metres, offloads, etc.) from
+            SportsAPI Pro. Never creates teams, players, rounds or fixtures itself — only fills in results for a
+            schedule that already exists. Uses one API call per due fixture, against a 100-calls/day free-tier
+            budget shared across everything else using this key.
+          </p>
+          <div className="pop-art-theme inline-block">
+            <RugbySportsApiSyncButton />
           </div>
         </div>
       )}
