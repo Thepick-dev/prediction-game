@@ -21,7 +21,7 @@ type MatchPred = {
   predicted_home_try_bonus: boolean | null
   predicted_away_try_bonus: boolean | null
 }
-type SquadPick = { id: string; player_id: number; is_kicker: boolean; active: boolean; is_initial_pick: boolean }
+type SquadPick = { id: string; player_id: number; is_kicker: boolean; active: boolean; is_initial_pick: boolean; round_acquired: number }
 
 function RoundHeading({ text, deadline }: { text: string; deadline?: string | null }) {
   return (
@@ -54,7 +54,7 @@ export default async function RugbyPicksPage() {
     supabase.schema('rugby').from('rounds').select('id, number, deadline').eq('competition_id', competition.id).order('number') as unknown as Promise<{ data: Round[] | null }>,
     supabase.schema('rugby').from('season_prediction_types').select('type_key, label, answer_type').eq('competition_id', competition.id).eq('active', true) as unknown as Promise<{ data: QuestionType[] | null }>,
     supabase.schema('rugby').from('season_predictions').select('type_key, answer_team_id, answer_player_id, answer_numeric, answer_fixture_id').eq('competition_id', competition.id).eq('user_id', user.id) as unknown as Promise<{ data: SeasonAnswer[] | null }>,
-    supabase.schema('rugby').from('season_squad_picks').select('id, player_id, is_kicker, active, is_initial_pick').eq('competition_id', competition.id).eq('user_id', user.id) as unknown as Promise<{ data: SquadPick[] | null }>,
+    supabase.schema('rugby').from('season_squad_picks').select('id, player_id, is_kicker, active, is_initial_pick, round_acquired').eq('competition_id', competition.id).eq('user_id', user.id) as unknown as Promise<{ data: SquadPick[] | null }>,
     supabase.schema('rugby').from('scoring_rules').select('rule_key, points').eq('competition_id', competition.id),
   ])
 
@@ -70,6 +70,14 @@ export default async function RugbyPicksPage() {
   const round1DeadlinePassed = round1 ? new Date(round1.deadline) < new Date() : false
   const currentRound = roundsList.find(r => new Date(r.deadline) > new Date())
   const headingText = currentRound ? `Round ${currentRound.number}` : competition.name
+
+  // Isolated fetch: 'sub_budget_mode' is a newer, optional competitions
+  // column — degrades to 'season' (today's only behaviour) if missing.
+  const { data: competitionModeRow } = await supabase.schema('rugby').from('competitions').select('sub_budget_mode').eq('id', competition.id).maybeSingle()
+  const subBudgetMode = (competitionModeRow as { sub_budget_mode?: string } | null)?.sub_budget_mode === 'per_round' ? 'per_round' : 'season'
+  const subsUsedCount = subBudgetMode === 'per_round'
+    ? squadPicksList.filter(p => !p.is_initial_pick && currentRound && p.round_acquired === currentRound.number).length
+    : squadPicksList.filter(p => !p.is_initial_pick).length
 
   const { data: allFixtures } = await supabase.schema('rugby').from('fixtures').select('id, round_id, home_team_id, away_team_id') as unknown as { data: Fixture[] | null }
   const fixturesList = allFixtures ?? []
@@ -177,8 +185,9 @@ export default async function RugbyPicksPage() {
               return { teamId: team?.id ?? 0, teamName: team?.name ?? '?', playerId: pick.player_id, playerName: player?.name ?? '?', isKicker: pick.is_kicker }
             }).sort((a, b) => a.teamName.localeCompare(b.teamName))}
             playersByTeam={playersByTeam}
-            subsUsed={squadPicksList.filter(p => !p.is_initial_pick).length}
+            subsUsed={subsUsedCount}
             maxFreeSubs={maxFreeSubs}
+            perRound={subBudgetMode === 'per_round'}
             canSub={!!currentRound}
           />
         </div>

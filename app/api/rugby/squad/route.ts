@@ -3,8 +3,9 @@ import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { requireUser } from '../../../lib/require-admin'
 import { NextResponse } from 'next/server'
 
-// Submitting your one-time initial squad (6 players, one per team, one
-// designated kicker). Deliberately goes through the service-role client
+// Submitting your one-time initial squad (6 players, at most 2 from any
+// one team, one designated kicker). Deliberately goes through the
+// service-role client
 // even though a user only ever writes their OWN rows here — computing
 // each pick's contrarian bonus needs to see how many OTHER users already
 // have that player, and the site's hard pre-deadline privacy rule means a
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
   const { competition_id, picks, kicker_player_id } = await request.json()
 
   if (!competition_id || !Array.isArray(picks) || picks.length !== 6 || !kicker_player_id) {
-    return NextResponse.json({ error: 'A squad needs exactly 6 players, one per team, and one marked as kicker' }, { status: 400 })
+    return NextResponse.json({ error: 'A squad needs exactly 6 players (at most 2 from any one team) and one marked as kicker' }, { status: 400 })
   }
 
   const { data: round1 } = await db.schema('rugby').from('rounds').select('id, number, deadline').eq('competition_id', competition_id).eq('number', 1).maybeSingle()
@@ -49,19 +50,28 @@ export async function POST(request: Request) {
   const teamByPlayerId = new Map<number, number>()
   playerRows?.forEach(p => teamByPlayerId.set(p.id, p.team_id))
 
-  const pickedTeamIds = new Set<number>()
+  // At most 2 picks from any one team, 6 total (checked above) — no
+  // longer required to touch every team, so a squad could legally be e.g.
+  // 2+2+1+1+0+0 across the 6 nations.
+  const pickedPlayerIds = new Set<number>()
+  const teamCounts = new Map<number, number>()
   for (const p of picks) {
     const teamId = teamByPlayerId.get(p.player_id)
     if (teamId == null) {
       return NextResponse.json({ error: `Player ${p.player_id} not found` }, { status: 400 })
     }
-    if (pickedTeamIds.has(teamId)) {
-      return NextResponse.json({ error: 'Only one player per team is allowed' }, { status: 400 })
+    if (!teamIds.has(teamId)) {
+      return NextResponse.json({ error: `Player ${p.player_id} is not on an active team` }, { status: 400 })
     }
-    pickedTeamIds.add(teamId)
-  }
-  if (pickedTeamIds.size !== teamIds.size || ![...pickedTeamIds].every(id => teamIds.has(id))) {
-    return NextResponse.json({ error: 'Your squad must have exactly one player from every active team' }, { status: 400 })
+    if (pickedPlayerIds.has(p.player_id)) {
+      return NextResponse.json({ error: 'The same player can only be picked once' }, { status: 400 })
+    }
+    pickedPlayerIds.add(p.player_id)
+    const count = (teamCounts.get(teamId) ?? 0) + 1
+    teamCounts.set(teamId, count)
+    if (count > 2) {
+      return NextResponse.json({ error: 'No more than 2 players from the same team are allowed' }, { status: 400 })
+    }
   }
   if (!picks.some((p: { player_id: number }) => p.player_id === kicker_player_id)) {
     return NextResponse.json({ error: 'The kicker must be one of your 6 picks' }, { status: 400 })

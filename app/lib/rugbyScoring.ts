@@ -135,23 +135,30 @@ function pickCoversRound(pick: SeasonSquadPick, roundNumber: number): boolean {
   return true
 }
 
+export type SubBudgetMode = 'season' | 'per_round'
+
 // Which of a user's subs (their non-initial picks, in the order they were
 // made) fall beyond the free budget — a pure function of pick order, so
 // it doesn't matter whether it's computed at pick-time or recomputed
 // wholesale on every scoring run; the answer is always the same for a
-// given history.
+// given history. 'season' pools every sub across the whole competition
+// against one budget (max_free_subs total, ever); 'per_round' resets the
+// budget every round instead (max_free_subs per round, never carries
+// over) — grouping key is the only thing that changes between the two.
 export function computeSubPenalties(
   picks: SeasonSquadPick[],
-  rules: RugbyScoringRules
+  rules: RugbyScoringRules,
+  mode: SubBudgetMode = 'season'
 ): Record<string, number> {
   const penaltyByPickId: Record<string, number> = {}
-  const byUser = new Map<string, SeasonSquadPick[]>()
+  const byGroup = new Map<string, SeasonSquadPick[]>()
   picks.filter(p => !p.is_initial_pick).forEach(p => {
-    if (!byUser.has(p.user_id)) byUser.set(p.user_id, [])
-    byUser.get(p.user_id)!.push(p)
+    const key = mode === 'per_round' ? `${p.user_id}::${p.round_acquired}` : p.user_id
+    if (!byGroup.has(key)) byGroup.set(key, [])
+    byGroup.get(key)!.push(p)
   })
-  for (const userPicks of byUser.values()) {
-    const ordered = [...userPicks].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  for (const groupPicks of byGroup.values()) {
+    const ordered = [...groupPicks].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
     ordered.forEach((p, i) => {
       if (i >= rules.max_free_subs) penaltyByPickId[p.id] = rules.extra_sub_penalty
     })
@@ -308,7 +315,12 @@ export async function calculateSeasonSquadRoundScoring(
     if (!statsError && statsData) statsRows = statsData as RugbyPlayerMatchStat[]
   }
 
-  const subPenaltyByPickId = computeSubPenalties(allPicks, rules)
+  // Isolated fetch: sub_budget_mode is a newer, optional competitions
+  // column — degrades to 'season' (today's only behaviour) if missing.
+  const { data: competitionRow } = await supabase.schema('rugby').from('competitions').select('sub_budget_mode').eq('id', round.competition_id).maybeSingle()
+  const subBudgetMode: SubBudgetMode = competitionRow?.sub_budget_mode === 'per_round' ? 'per_round' : 'season'
+
+  const subPenaltyByPickId = computeSubPenalties(allPicks, rules, subBudgetMode)
 
   const rows = computeSeasonSquadRoundPoints(
     allPicks, round.number, roundId, fixturesList, playersList, (matchEvents ?? []) as RugbyMatchEvent[], rules, subPenaltyByPickId, statsRows

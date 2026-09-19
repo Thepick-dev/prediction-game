@@ -11,6 +11,7 @@ export default function RugbySquadManager({
   playersByTeam,
   subsUsed,
   maxFreeSubs,
+  perRound = false,
   canSub,
 }: {
   competitionId: string
@@ -18,6 +19,7 @@ export default function RugbySquadManager({
   playersByTeam: Record<number, { id: number; name: string }[]>
   subsUsed: number
   maxFreeSubs: number
+  perRound?: boolean
   canSub: boolean
 }) {
   const [subbingTeamId, setSubbingTeamId] = useState<number | null>(null)
@@ -64,7 +66,7 @@ export default function RugbySquadManager({
   return (
     <div>
       <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.6)' }}>
-        Subs used: {subsUsed} / {maxFreeSubs} free. {subsRemaining === 0 && 'Any further sub will cost you points.'}
+        Subs used {perRound ? 'this round' : 'this competition'}: {subsUsed} / {maxFreeSubs} free. {subsRemaining === 0 && 'Any further sub will cost you points.'}
       </p>
       {message && <p className="text-sm mb-2" style={{ color: 'var(--pop-red)' }}>{message}</p>}
       <div className="space-y-2">

@@ -235,6 +235,27 @@ describe('computeSubPenalties', () => {
     expect(penalties['u1-sub2']).toBe(smallBudgetRules.extra_sub_penalty)
     expect(penalties['u2-sub1']).toBeUndefined()
   })
+
+  it('per_round mode resets the free budget every round instead of pooling it across the season', () => {
+    const oneFreePerRound: typeof rules = { ...rules, max_free_subs: 1 }
+    const subs = [
+      // Round 2: two subs, one over budget.
+      makePick({ id: 'r2-sub1', round_acquired: 2, is_initial_pick: false, created_at: '2027-01-01T00:00:00.000Z' }),
+      makePick({ id: 'r2-sub2', round_acquired: 2, is_initial_pick: false, created_at: '2027-01-02T00:00:00.000Z' }),
+      // Round 3: one sub — under 'season' mode this would already be the
+      // 3rd sub and penalised; under 'per_round' it's this round's 1st, free.
+      makePick({ id: 'r3-sub1', round_acquired: 3, is_initial_pick: false, created_at: '2027-01-03T00:00:00.000Z' }),
+    ]
+    const seasonMode = computeSubPenalties(subs, oneFreePerRound, 'season')
+    expect(seasonMode['r2-sub1']).toBeUndefined()
+    expect(seasonMode['r2-sub2']).toBe(oneFreePerRound.extra_sub_penalty)
+    expect(seasonMode['r3-sub1']).toBe(oneFreePerRound.extra_sub_penalty)
+
+    const perRoundMode = computeSubPenalties(subs, oneFreePerRound, 'per_round')
+    expect(perRoundMode['r2-sub1']).toBeUndefined()
+    expect(perRoundMode['r2-sub2']).toBe(oneFreePerRound.extra_sub_penalty)
+    expect(perRoundMode['r3-sub1']).toBeUndefined()
+  })
 })
 
 describe('computeTryBonusActuals', () => {

@@ -38,7 +38,7 @@ const RULE_GROUPS: { heading: string; rules: Record<string, string> }[] = [
       squad_tackle_points: 'Points per tackle made',
       squad_tackle_missed_penalty: 'Points lost per tackle missed',
       squad_yellow_card_penalty: 'Points lost per yellow card',
-      max_free_subs: 'Free substitutions per competition',
+      max_free_subs: 'Free substitutions (per competition, or per round — set by the toggle above)',
       extra_sub_penalty: 'Points lost per substitution beyond the free limit',
       player_ownership_threshold_pct: 'Below this % of managers owning a player, their points get multiplied',
       player_ownership_multiplier: 'The multiplier applied to that rarely-owned player\'s try + kicking points',
@@ -64,6 +64,15 @@ const RULE_GROUPS: { heading: string; rules: Record<string, string> }[] = [
   },
 ]
 const RULE_LABELS: Record<string, string> = Object.fromEntries(RULE_GROUPS.flatMap(g => Object.entries(g.rules)))
+
+async function saveSubBudgetMode(formData: FormData) {
+  'use server'
+  const supabase = await requireAdminAction()
+  const competitionId = formData.get('competition_id') as string
+  const mode = formData.get('sub_budget_mode') === 'per_round' ? 'per_round' : 'season'
+  await supabase.schema('rugby').from('competitions').update({ sub_budget_mode: mode }).eq('id', competitionId)
+  redirect('/admin/rugby/scoring-rules')
+}
 
 async function saveRules(formData: FormData) {
   'use server'
@@ -102,10 +111,28 @@ export default async function AdminRugbyScoringRulesPage() {
   const { data: enabledRows, error: enabledError } = await supabase.schema('rugby').from('scoring_rules').select('rule_key, enabled').eq('competition_id', competition.id)
   if (!enabledError) enabledRows?.forEach((r: { rule_key: string; enabled: boolean | null }) => { enabledByKey[r.rule_key] = r.enabled !== false })
 
+  // Isolated fetch: 'sub_budget_mode' is a newer, optional competitions
+  // column — degrades to 'season' (today's only behaviour) if missing.
+  const { data: competitionModeRow } = await supabase.schema('rugby').from('competitions').select('sub_budget_mode').eq('id', competition.id).maybeSingle()
+  const subBudgetMode = competitionModeRow?.sub_budget_mode === 'per_round' ? 'per_round' : 'season'
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-2">🏉 Rugby Scoring Rules</h1>
       <p className="text-gray-500 text-sm mb-6">{competition.name} — these numbers drive every layer of scoring, and update the Rules page automatically. Change them any time; the next &quot;Calculate Points&quot; run always uses whatever&apos;s here.</p>
+
+      <div className="bg-white border rounded-lg p-6 max-w-lg mb-6">
+        <h2 className="font-bold text-sm mb-1">Substitution budget</h2>
+        <p className="text-xs text-gray-500 mb-3">Whether &quot;Free substitutions&quot; below is a total for the whole competition, or resets fresh every round. Extra subs beyond the free limit always cost the points set below, in either mode.</p>
+        <form action={saveSubBudgetMode} className="flex items-center gap-3">
+          <input type="hidden" name="competition_id" value={competition.id} />
+          <select name="sub_budget_mode" defaultValue={subBudgetMode} className="border rounded px-3 py-2 text-sm">
+            <option value="season">Per competition (total, once)</option>
+            <option value="per_round">Per round (resets every round)</option>
+          </select>
+          <button type="submit" className="bg-black text-white rounded px-3 py-1.5 text-sm font-bold">Save</button>
+        </form>
+      </div>
 
       <form action={saveRules} className="bg-white border rounded-lg p-6 max-w-lg space-y-6">
         <input type="hidden" name="competition_id" value={competition.id} />
