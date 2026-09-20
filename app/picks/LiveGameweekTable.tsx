@@ -267,7 +267,7 @@ export default function LiveGameweekTable({
         player2Assists: assistCountByPlayer[pick.player2_id] ?? 0,
         aon: aon ? { onPlayer1: aon.player_id === pick.player1_id, onPlayer2: aon.player_id === pick.player2_id, outcome: aonOutcome ?? 'pending' } : null,
         bonusCard: bonusCardPlay ? { playerName: playerMap[bonusCardPlay.player_id] ?? 'Unknown', points: bonusCardPoints } : null,
-        weeklyPoints: pts?.total_points ?? null,
+        weeklyPoints: pts?.total_points != null ? pts.total_points + (bonusCardPoints ?? 0) : null,
         cumulativeTotal: cumulativeByUser[pick.user_id] ?? 0,
         movement: 0,
       }

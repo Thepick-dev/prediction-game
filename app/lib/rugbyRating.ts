@@ -121,20 +121,44 @@ export type RugbyMatchRatingRow = { fixture_id: number; player_id: number; group
 // data can shift where an older performance ranks too. Cheap enough (a
 // sort per position group) to always run in full rather than try to patch
 // incrementally. Players with no position set are skipped, not guessed.
+// Supabase/PostgREST caps an unpaginated select at 1000 rows — the
+// historical backfill alone put player_match_stats past that, so every
+// table here that can grow past 1000 (stats, events; not the ~300-row
+// players table) needs an explicit page loop or the pool silently truncates.
+async function fetchAllRows<T>(query: () => any): Promise<T[]> {
+  const pageSize = 1000
+  const rows: T[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await query().range(from, from + pageSize - 1)
+    if (error) throw new Error(error.message)
+    rows.push(...(data ?? []))
+    if (!data || data.length < pageSize) break
+    from += pageSize
+  }
+  return rows
+}
+
 export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promise<{ success: true; rows: number } | { error: string }> {
-  const [{ data: statsRows }, { data: players }, { data: matchEvents }] = await Promise.all([
-    supabase.schema('rugby').from('player_match_stats').select('fixture_id, player_id, meters_run, clean_breaks, offloads, tackles, tackles_missed, try_assists'),
-    supabase.schema('rugby').from('players').select('id, position'),
-    supabase.schema('rugby').from('match_events').select('fixture_id, player_id, event_type'),
+  const [statsRows, players, matchEvents] = await Promise.all([
+    fetchAllRows<{ fixture_id: number; player_id: number; meters_run: number; clean_breaks: number; offloads: number; tackles: number; tackles_missed: number; try_assists: number }>(
+      () => supabase.schema('rugby').from('player_match_stats').select('fixture_id, player_id, meters_run, clean_breaks, offloads, tackles, tackles_missed, try_assists')
+    ),
+    fetchAllRows<{ id: number; position: string | null }>(
+      () => supabase.schema('rugby').from('players').select('id, position')
+    ),
+    fetchAllRows<{ fixture_id: number; player_id: number | null; event_type: string }>(
+      () => supabase.schema('rugby').from('match_events').select('fixture_id, player_id, event_type')
+    ),
   ])
 
-  if (!statsRows || statsRows.length === 0) return { success: true, rows: 0 }
+  if (statsRows.length === 0) return { success: true, rows: 0 }
 
   const positionByPlayerId = new Map<number, string>()
-  ;(players ?? []).forEach((p: { id: number; position: string | null }) => { if (p.position) positionByPlayerId.set(p.id, p.position) })
+  players.forEach(p => { if (p.position) positionByPlayerId.set(p.id, p.position) })
 
   const eventsByFixtureAndPlayer = new Map<string, { event_type: string }[]>()
-  ;(matchEvents ?? []).forEach((e: { fixture_id: number; player_id: number | null; event_type: string }) => {
+  matchEvents.forEach(e => {
     if (e.player_id == null) return
     const key = `${e.fixture_id}::${e.player_id}`
     if (!eventsByFixtureAndPlayer.has(key)) eventsByFixtureAndPlayer.set(key, [])
@@ -144,7 +168,7 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
   const pool: RatingPoolEntry[] = []
   const rawByEntryId = new Map<string, { fixture_id: number; player_id: number; group: RugbyPositionGroup }>()
 
-  statsRows.forEach((s: { fixture_id: number; player_id: number; meters_run: number; clean_breaks: number; offloads: number; tackles: number; tackles_missed: number; try_assists: number }) => {
+  statsRows.forEach(s => {
     const position = positionByPlayerId.get(s.player_id)
     if (!position || !(position in WEIGHT_KEY_BY_GROUP)) return // no real position yet — skip, don't guess
     const group = position as RugbyPositionGroup
