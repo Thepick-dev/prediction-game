@@ -646,6 +646,11 @@ export default function FullLeaderboardPage() {
                           </span>
                           <span className="flex items-center gap-1 shrink-0">
                             {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
+                            <span className="inline-flex items-center gap-[1px]" title={`Bankers: ${bankersUsedByPlayer[player.user_id] ?? 0} of 2 used, ${Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} left`}>
+                              {[0, 1].map(i => (
+                                <span key={i} style={{ color: i < (bankersUsedByPlayer[player.user_id] ?? 0) ? 'var(--pop-orange)' : 'rgba(255,255,255,0.2)', fontSize: '12px', lineHeight: 1 }}>★</span>
+                              ))}
+                            </span>
                             {player.is_reigning_champ && <CrownIcon size={13} color="var(--pop-green)" />}
                             {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={13} /></span>}
                             {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={13} /></span>}
