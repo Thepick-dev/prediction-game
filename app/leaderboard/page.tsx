@@ -1375,7 +1375,7 @@ export default function LeaderboardPage() {
         {showShare && (
           <LeaderboardShareCard
             competitionName={competition.name}
-            standings={ranked.map(p => ({
+            standings={ranked.map((p, i) => ({
               name: p.display_name,
               points: p.total_points,
               is_bot: p.is_bot,
@@ -1385,6 +1385,12 @@ export default function LeaderboardPage() {
                 colour2: kitByUser[p.user_id].colour2,
                 colour3: kitByUser[p.user_id].colour3,
               } : null,
+              is_reigning_champ: p.is_reigning_champ,
+              is_vibes_champion: p.is_vibes_champion,
+              is_top_dog: topDogUserId === p.user_id && topDogReignWeeks > 0,
+              streak: streakByUser[p.user_id] ?? null,
+              bankers_used: bankersUsedByPlayer[p.user_id] ?? 0,
+              rank_delta: previousRankByUser[p.user_id] != null ? previousRankByUser[p.user_id] - (i + 1) : null,
             }))}
             onClose={() => setShowShare(false)}
             popArt
