@@ -1,11 +1,22 @@
 import { describe, it, expect } from 'vitest'
-import { computeRawScore, computeRatings, type RugbyMatchStatLine, type RatingPoolEntry } from '../rugbyRating'
+import { computeRawScore, computeRatings, computePackRawScore, type RugbyMatchStatLine, type RatingPoolEntry, type TeamMatchStatLine } from '../rugbyRating'
 
 function stats(overrides: Partial<RugbyMatchStatLine> = {}): RugbyMatchStatLine {
   return {
     tries: 0, try_assists: 0, clean_breaks: 0, offloads: 0, meters_run: 0, passes: 0,
     tackles: 0, tackles_missed: 0, yellow_card: 0, red_card: 0,
     conversions: 0, penalty_goals: 0, drop_goals: 0,
+    ...overrides,
+  }
+}
+
+// League-average team performance across the 5 pack categories — should
+// contribute ~0 to raw score either way.
+function teamStats(overrides: Partial<TeamMatchStatLine> = {}): TeamMatchStatLine {
+  return {
+    scrums_won: 9, scrums_attempted: 10, // ~86% ≈ mean
+    lineouts_won: 9, lineouts_attempted: 10, // 90% ≈ mean
+    turnovers_won: 5, turnovers_conceded: 14, penalties_conceded: 9,
     ...overrides,
   }
 }
@@ -33,6 +44,55 @@ describe('computeRawScore', () => {
   it('penalises missed tackles and cards, can go negative', () => {
     const bad = stats({ tackles_missed: 2, yellow_card: 1 })
     expect(computeRawScore(bad, 'Fullback')).toBe(-(2 * 0.7) - 5)
+  })
+
+  it('ignores team stats entirely with no teamStats argument (backward compatible)', () => {
+    expect(computeRawScore(stats({ tries: 1 }), 'Prop')).toBe(10)
+  })
+
+  it('applies the pack bonus to forward groups only, never to backs', () => {
+    const great = teamStats({ scrums_won: 10, scrums_attempted: 10, lineouts_won: 10, lineouts_attempted: 10, turnovers_won: 10, turnovers_conceded: 5, penalties_conceded: 3 })
+    const base = stats({ tackles: 10 })
+    expect(computeRawScore(base, 'Prop', great)).toBeGreaterThan(computeRawScore(base, 'Prop'))
+    expect(computeRawScore(base, 'Hooker', great)).toBeGreaterThan(computeRawScore(base, 'Hooker'))
+    expect(computeRawScore(base, 'Second Row', great)).toBeGreaterThan(computeRawScore(base, 'Second Row'))
+    expect(computeRawScore(base, 'Back Row', great)).toBeGreaterThan(computeRawScore(base, 'Back Row'))
+    // Backs get no pack bonus at all — a back's rating never moves because of it.
+    expect(computeRawScore(base, 'Fly-half', great)).toBe(computeRawScore(base, 'Fly-half'))
+    expect(computeRawScore(base, 'Wing', great)).toBe(computeRawScore(base, 'Wing'))
+  })
+
+  it('applies full pack bonus/malus regardless of minutes played (no sub adjustment)', () => {
+    // A player who was on the pitch for 10 minutes and one who played the
+    // full 80 get exactly the same pack credit for the same match — by
+    // design, per Kit: it's a team performance, not an individual one.
+    const bad = teamStats({ scrums_won: 3, scrums_attempted: 10, lineouts_won: 6, lineouts_attempted: 10, turnovers_won: 1, turnovers_conceded: 22, penalties_conceded: 15 })
+    const starterStats = stats({ tackles: 15 })
+    const subStats = stats({ tackles: 2 })
+    const starterDelta = computeRawScore(starterStats, 'Prop', bad) - computeRawScore(starterStats, 'Prop')
+    const subDelta = computeRawScore(subStats, 'Prop', bad) - computeRawScore(subStats, 'Prop')
+    expect(starterDelta).toBe(subDelta)
+  })
+})
+
+describe('computePackRawScore', () => {
+  it('rates a league-average pack performance at roughly zero', () => {
+    expect(computePackRawScore(teamStats())).toBeCloseTo(0, 0)
+  })
+
+  it('rewards a dominant scrum/lineout/turnover day with a positive score', () => {
+    const dominant = teamStats({ scrums_won: 10, scrums_attempted: 10, lineouts_won: 10, lineouts_attempted: 10, turnovers_won: 9, turnovers_conceded: 6, penalties_conceded: 4 })
+    expect(computePackRawScore(dominant)).toBeGreaterThan(2)
+  })
+
+  it('punishes a poor set-piece/discipline day with a negative score', () => {
+    const poor = teamStats({ scrums_won: 4, scrums_attempted: 12, lineouts_won: 6, lineouts_attempted: 10, turnovers_won: 1, turnovers_conceded: 22, penalties_conceded: 15 })
+    expect(computePackRawScore(poor)).toBeLessThan(-2)
+  })
+
+  it('falls back to league-average when attempts are missing (0 attempted), never divides by zero', () => {
+    const noSetPiece = teamStats({ scrums_won: null, scrums_attempted: 0, lineouts_won: null, lineouts_attempted: 0 })
+    expect(Number.isFinite(computePackRawScore(noSetPiece))).toBe(true)
   })
 })
 

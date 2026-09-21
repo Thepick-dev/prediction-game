@@ -72,13 +72,65 @@ const WEIGHT_KEY_BY_GROUP: Record<RugbyPositionGroup, string> = {
 // would be, regardless of position.
 const KICKING_WEIGHT = { conversion: 1.5, penalty: 2, dropgoal: 3.5 }
 
-export function computeRawScore(stats: RugbyMatchStatLine, group: RugbyPositionGroup): number {
+// The pack rating: a forward's own tackle/carry stats can't see pure
+// scrummaging or lineout value, so team-level set-piece and turnover data
+// is folded in as a bonus/malus for forwards only (Prop/Hooker/Second
+// Row/Back Row) — the positions that data actually reflects. No sub
+// adjustment, per Kit: a team's scrum performance is a team performance,
+// full weight regardless of who was on for which part of it.
+//
+// Each of the 5 categories is expressed as a z-score (how many standard
+// deviations from average that category was, in that match), then
+// averaged equally across all 5 and scaled. Z-scoring puts percentages
+// (scrum/lineout %) and raw counts (turnovers, penalties) on the same
+// footing without one dominating just because its numbers are bigger.
+//
+// Mean/stdev below are calibrated against the real 45-match 2024-2026
+// Six Nations pool (90 team-match observations) pulled from SportsAPI Pro.
+// PACK_SCALE=4 is tuned so this pillar's spread is roughly 40% of a
+// forward's individual-stats raw score spread (stdev ~4.3 across the same
+// real pool) — a real third factor in the rating, not a rounding error,
+// not a takeover.
+const PACK_STATS_MEAN = { scrumPct: 85.8, lineoutPct: 89.98, turnoversWon: 5.24, turnoversConceded: 13.93, penaltiesConceded: 9.14 }
+const PACK_STATS_STDEV = { scrumPct: 16.59, lineoutPct: 9.58, turnoversWon: 2.35, turnoversConceded: 4.54, penaltiesConceded: 3.05 }
+const PACK_SCALE = 4
+
+export type TeamMatchStatLine = {
+  scrums_won: number | null
+  scrums_attempted: number | null
+  lineouts_won: number | null
+  lineouts_attempted: number | null
+  turnovers_won: number
+  turnovers_conceded: number
+  penalties_conceded: number
+}
+
+export function computePackRawScore(teamStats: TeamMatchStatLine): number {
+  const scrumPct = teamStats.scrums_attempted ? (teamStats.scrums_won! / teamStats.scrums_attempted) * 100 : PACK_STATS_MEAN.scrumPct
+  const lineoutPct = teamStats.lineouts_attempted ? (teamStats.lineouts_won! / teamStats.lineouts_attempted) * 100 : PACK_STATS_MEAN.lineoutPct
+
+  const zScrum = (scrumPct - PACK_STATS_MEAN.scrumPct) / PACK_STATS_STDEV.scrumPct
+  const zLineout = (lineoutPct - PACK_STATS_MEAN.lineoutPct) / PACK_STATS_STDEV.lineoutPct
+  const zTurnoversWon = (teamStats.turnovers_won - PACK_STATS_MEAN.turnoversWon) / PACK_STATS_STDEV.turnoversWon
+  const zTurnoversConceded = (teamStats.turnovers_conceded - PACK_STATS_MEAN.turnoversConceded) / PACK_STATS_STDEV.turnoversConceded
+  const zPenalties = (teamStats.penalties_conceded - PACK_STATS_MEAN.penaltiesConceded) / PACK_STATS_STDEV.penaltiesConceded
+
+  const packZ = (zScrum + zLineout + zTurnoversWon - zTurnoversConceded - zPenalties) / 5
+  return Math.round(packZ * PACK_SCALE * 100) / 100
+}
+
+const FORWARD_GROUPS = new Set<RugbyPositionGroup>(['Prop', 'Hooker', 'Second Row', 'Back Row'])
+
+export function computeRawScore(stats: RugbyMatchStatLine, group: RugbyPositionGroup, teamStats?: TeamMatchStatLine): number {
   const w = WEIGHTS[WEIGHT_KEY_BY_GROUP[group]]
-  const raw = stats.tries * w.try
+  let raw = stats.tries * w.try
     + stats.conversions * KICKING_WEIGHT.conversion + stats.penalty_goals * KICKING_WEIGHT.penalty + stats.drop_goals * KICKING_WEIGHT.dropgoal
     + stats.try_assists * w.try_assist + stats.clean_breaks * w.clean_break + stats.offloads * w.offload
     + stats.meters_run * w.meters + stats.passes * w.passes + stats.tackles * w.tackle
     - stats.tackles_missed * Math.abs(w.tackle_missed) - stats.yellow_card * Math.abs(w.yellow) - stats.red_card * Math.abs(w.red)
+  if (teamStats && FORWARD_GROUPS.has(group)) {
+    raw += computePackRawScore(teamStats)
+  }
   return Math.round(raw * 100) / 100
 }
 
@@ -140,22 +192,34 @@ async function fetchAllRows<T>(query: () => any): Promise<T[]> {
 }
 
 export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promise<{ success: true; rows: number } | { error: string }> {
-  const [statsRows, players, matchEvents] = await Promise.all([
+  const [statsRows, players, matchEvents, teamStatsRows] = await Promise.all([
     fetchAllRows<{ fixture_id: number; player_id: number; meters_run: number; clean_breaks: number; offloads: number; tackles: number; tackles_missed: number; try_assists: number }>(
       () => supabase.schema('rugby').from('player_match_stats').select('fixture_id, player_id, meters_run, clean_breaks, offloads, tackles, tackles_missed, try_assists')
     ),
-    fetchAllRows<{ id: number; position: string | null }>(
-      () => supabase.schema('rugby').from('players').select('id, position')
+    fetchAllRows<{ id: number; position: string | null; team_id: number | null }>(
+      () => supabase.schema('rugby').from('players').select('id, position, team_id')
     ),
     fetchAllRows<{ fixture_id: number; player_id: number | null; event_type: string }>(
       () => supabase.schema('rugby').from('match_events').select('fixture_id, player_id, event_type')
     ),
+    // Team stats are a newer, optional table — missing/empty degrades to
+    // "no pack bonus applied" rather than breaking the whole recompute.
+    fetchAllRows<TeamMatchStatLine & { fixture_id: number; team_id: number }>(
+      () => supabase.schema('rugby').from('match_team_stats').select('fixture_id, team_id, scrums_won, scrums_attempted, lineouts_won, lineouts_attempted, turnovers_won, turnovers_conceded, penalties_conceded')
+    ).catch(() => []),
   ])
 
   if (statsRows.length === 0) return { success: true, rows: 0 }
 
   const positionByPlayerId = new Map<number, string>()
-  players.forEach(p => { if (p.position) positionByPlayerId.set(p.id, p.position) })
+  const teamIdByPlayerId = new Map<number, number>()
+  players.forEach(p => {
+    if (p.position) positionByPlayerId.set(p.id, p.position)
+    if (p.team_id != null) teamIdByPlayerId.set(p.id, p.team_id)
+  })
+
+  const teamStatsByFixtureAndTeam = new Map<string, TeamMatchStatLine>()
+  teamStatsRows.forEach(t => teamStatsByFixtureAndTeam.set(`${t.fixture_id}::${t.team_id}`, t))
 
   const eventsByFixtureAndPlayer = new Map<string, { event_type: string }[]>()
   matchEvents.forEach(e => {
@@ -184,7 +248,9 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
       meters_run: s.meters_run ?? 0, passes: 0, tackles: s.tackles ?? 0, tackles_missed: s.tackles_missed ?? 0,
     }
     const id = `${s.fixture_id}::${s.player_id}`
-    const rawScore = computeRawScore(statLine, group)
+    const teamId = teamIdByPlayerId.get(s.player_id)
+    const teamStats = teamId != null ? teamStatsByFixtureAndTeam.get(`${s.fixture_id}::${teamId}`) : undefined
+    const rawScore = computeRawScore(statLine, group, teamStats)
     pool.push({ id, group, rawScore })
     rawByEntryId.set(id, { fixture_id: s.fixture_id, player_id: s.player_id, group })
   })
