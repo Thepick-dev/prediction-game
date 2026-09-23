@@ -33,17 +33,23 @@ type MatchRowState = {
 // confidence pick, and the kicker choice, so the whole page reads as one
 // game, not several forms bolted together.
 function ChoiceButton({ label, active, fill, text, onClick }: { label: string; active: boolean; fill: string; text: string; onClick: () => void }) {
+  // Even unselected, every choice carries a visible tint of its own team
+  // colour — a wall of identical grey boxes was exactly the "haven't
+  // leant into the theme" problem. Only the active state goes to a full
+  // fill; everything else still reads as belonging to its team at a
+  // glance, not just after you've clicked it.
   return (
     <button
       type="button"
       onClick={onClick}
-      className="rugby-cond uppercase tracking-wide w-full py-3 px-2 rounded-lg text-sm text-center"
+      className={`rugby-choice-btn ${active ? 'rugby-choice-btn--active' : ''} rugby-cond uppercase tracking-wide w-full py-3 px-2 text-sm text-center`}
       style={{
-        background: active ? fill : 'var(--rugby-ink-3)',
-        color: active ? text : 'var(--rugby-text-dim)',
-        border: active ? `2px solid ${fill}` : '2px solid var(--rugby-line)',
-        boxShadow: active ? `0 0 16px ${fill}80` : 'none',
+        background: active ? fill : `linear-gradient(135deg, var(--rugby-ink-3), ${fill}2e)`,
+        color: active ? text : 'var(--rugby-text)',
+        border: active ? `2px solid ${fill}` : `2px solid ${fill}70`,
+        boxShadow: active ? `0 6px 18px ${fill}66` : `0 0 12px ${fill}22`,
         fontWeight: active ? 900 : 700,
+        letterSpacing: '0.05em',
       }}
     >
       {label}
@@ -62,7 +68,7 @@ function PlayerSearchPicker({
   const colours = teamColours(team.name)
 
   return (
-    <div className="rugby-panel p-3">
+    <div className="rugby-panel p-3" style={{ borderColor: `${colours.fill}70`, background: `linear-gradient(160deg, var(--rugby-ink-2), ${colours.fill}18)` }}>
       <p className="rugby-cond text-sm mb-2 uppercase tracking-wide" style={{ color: rugbyLabelColour(team.name) }}>{team.name}</p>
       {selected ? (
         <div className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: `${colours.fill}22`, border: `1.5px solid ${colours.fill}` }}>
@@ -71,7 +77,7 @@ function PlayerSearchPicker({
         </div>
       ) : (
         <>
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Type a player's name..." className="rugby-input px-3 py-2 text-sm w-full" />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Type a player's name..." className="rugby-input px-3 py-2 text-sm w-full" style={{ borderColor: `${colours.fill}60` }} />
           {matches.length > 0 && (
             <div className="mt-1 rounded overflow-hidden" style={{ border: '1px solid var(--rugby-line)' }}>
               {matches.map(p => (
@@ -404,7 +410,10 @@ export default function RugbyPicksForm({
             {fixtures.map(f => {
               const r = rows[f.id]
               return (
-                <div key={f.id} ref={registerStep(`match-${f.id}`)} className="rugby-panel p-4">
+                <div
+                  key={f.id} ref={registerStep(`match-${f.id}`)} className="rugby-panel p-4"
+                  style={{ background: `linear-gradient(115deg, ${teamColours(f.homeTeam).fill}20, var(--rugby-ink-2) 35%, var(--rugby-ink-2) 65%, ${teamColours(f.awayTeam).fill}20)` }}
+                >
                   <div className="grid grid-cols-3 gap-1.5 mb-3">
                     <ChoiceButton label={f.homeTeam} active={r.winner === 'home'} fill={teamColours(f.homeTeam).fill} text={teamColours(f.homeTeam).text} onClick={() => {
                       const nextRow = { ...r, winner: 'home' as Winner, margin: r.margin }
@@ -475,13 +484,13 @@ export default function RugbyPicksForm({
                   <button
                     type="button"
                     onClick={() => setConfidenceFixtureId(f.id)}
-                    className="rugby-cond uppercase tracking-wide w-full py-2.5 rounded-lg text-xs"
+                    className={`rugby-choice-btn ${confidenceFixtureId === f.id ? 'rugby-choice-btn--active' : ''} rugby-cond uppercase tracking-wide w-full py-2.5 text-xs`}
                     style={{
                       background: confidenceFixtureId === f.id ? 'linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2))' : 'var(--rugby-ink-3)',
                       color: confidenceFixtureId === f.id ? '#241300' : 'var(--rugby-text-dim)',
                       border: confidenceFixtureId === f.id ? '2px solid var(--rugby-floodlight)' : '2px solid var(--rugby-line)',
-                      boxShadow: confidenceFixtureId === f.id ? '0 0 16px rgba(255,194,46,0.4)' : 'none',
-                      fontWeight: 900,
+                      boxShadow: confidenceFixtureId === f.id ? '0 6px 18px rgba(255,194,46,0.35)' : 'none',
+                      fontWeight: 900, letterSpacing: '0.05em',
                     }}
                   >
                     {confidenceFixtureId === f.id ? '⭐ CONFIDENCE PICK' : 'Make this my confidence pick'}

@@ -863,16 +863,34 @@ thead th {
   opacity: 1;
 }
 
+/* The picks form's team/winner/yes-no choice buttons carry dynamic team
+   colours via inline style (fill/text props), so this only supplies the
+   shape + active-state sheen — same asymmetric-corner, glossy-overlay
+   language as .rugby-button, kept as its own class since the colour
+   itself can't live in a static CSS rule here. */
+.rugby-choice-btn {
+  border-radius: 4px 14px 4px 14px;
+  position: relative; overflow: hidden;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.rugby-choice-btn:hover { transform: translateY(-1px); }
+.rugby-choice-btn.rugby-choice-btn--active::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 45%);
+}
+
 .rugby-input {
   background: var(--rugby-ink-2);
   color: var(--rugby-text);
   border: 1.5px solid var(--rugby-line);
-  border-radius: 10px;
+  border-bottom: 3px solid var(--rugby-line);
+  border-radius: 8px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .rugby-input:focus {
   outline: none;
   border-color: var(--rugby-floodlight);
+  border-bottom-color: var(--rugby-floodlight);
   box-shadow: 0 0 0 3px rgba(255, 194, 46, 0.2);
 }
 
@@ -917,51 +935,84 @@ thead th {
   position: relative; z-index: 1; font-family: var(--font-rugby-display), sans-serif;
   font-size: clamp(38px, 8vw, 64px); letter-spacing: 0.005em; margin: 0; line-height: 0.94;
   text-transform: uppercase; text-wrap: balance;
+  text-shadow: 0 0 34px rgba(255,194,46,0.28);
 }
 .rugby-hero-sub {
   position: relative; z-index: 1; font-family: var(--font-rugby-cond), sans-serif; font-weight: 600;
   font-size: 14px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--rugby-text-faint); margin: 10px 0 0;
 }
 
-/* Base card — dark surface, thin border, real shadow for lift. Colour
-   shows up as a thin accent border + soft glow, never a filled
-   background (the team banners/VS badge are the deliberate exception —
-   they're the "broadcast graphic", this is the "UI"). */
+/* Base card — a graphic in its own right, not a generic dark box: an
+   asymmetric corner cut (one sharp, one deep round, like a scoreboard
+   nameplate) and a floodlight accent bar across the top of every single
+   one, brighter on --gold. This is what "leaning into the theme" means
+   applied to plain UI — the fixture banners were never the only place
+   this identity was supposed to show up. */
 .rugby-panel {
   background: var(--rugby-ink-2);
-  border: 1px solid var(--rugby-line);
-  border-radius: 12px;
+  border: 1.5px solid var(--rugby-line);
+  border-radius: 4px 20px 4px 20px;
   box-shadow: 0 14px 30px -16px rgba(0,0,0,0.7);
+  position: relative;
+  overflow: hidden;
 }
-.rugby-panel--gold { border-color: rgba(255,194,46,0.45); box-shadow: 0 0 20px rgba(255,194,46,0.18), 0 14px 30px -16px rgba(0,0,0,0.7); }
+.rugby-panel::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--rugby-floodlight), var(--rugby-floodlight-2));
+  opacity: 0.5;
+}
+.rugby-panel--gold {
+  border-color: rgba(255,194,46,0.55);
+  box-shadow: 0 0 22px rgba(255,194,46,0.2), 0 14px 30px -16px rgba(0,0,0,0.7);
+}
+.rugby-panel--gold::before { opacity: 1; height: 4px; }
 
-.rugby-section-title { font-family: var(--font-rugby-display), sans-serif; font-size: clamp(22px, 3.4vw, 28px); letter-spacing: 0.01em; margin: 0 0 4px; text-transform: uppercase; }
+.rugby-section-title {
+  font-family: var(--font-rugby-display), sans-serif; font-size: clamp(22px, 3.4vw, 28px); letter-spacing: 0.01em;
+  margin: 0 0 4px; text-transform: uppercase; position: relative; padding-left: 16px;
+}
+.rugby-section-title::before {
+  content: ''; position: absolute; left: 0; top: 0.12em; bottom: 0.12em; width: 5px; border-radius: 3px;
+  background: linear-gradient(180deg, var(--rugby-floodlight), var(--rugby-floodlight-2));
+  box-shadow: 0 0 10px rgba(255,194,46,0.5);
+}
 .rugby-section-sub { font-family: var(--font-rugby-cond), sans-serif; font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--rugby-text-faint); margin: 0 0 20px; }
 
+/* Buttons: a real graphic element, not a rounded pill — the same
+   asymmetric-corner language as the panels, a full floodlight gradient
+   by default (not just on hover), a glossy diagonal sheen matching the
+   fixture banners, and a lift + brighter glow on hover/press. */
 .rugby-button {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  font-family: var(--font-rugby-cond), sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
-  border-radius: 999px; border: none; cursor: pointer;
+  font-family: var(--font-rugby-cond), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+  border-radius: 4px 16px 4px 16px; border: 2px solid var(--rugby-floodlight); cursor: pointer;
+  position: relative; overflow: hidden;
   background: linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2));
   color: #241300;
-  box-shadow: 0 6px 18px rgba(255,150,20,0.3);
+  box-shadow: 0 6px 18px rgba(255,150,20,0.35);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-.rugby-button:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(255,150,20,0.4); }
+.rugby-button::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 40%);
+}
+.rugby-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(255,150,20,0.5); }
+.rugby-button:active:not(:disabled) { transform: translateY(0); }
 .rugby-button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .rugby-button--ghost {
-  background: transparent; color: var(--rugby-text); box-shadow: none;
-  border: 1.5px solid var(--rugby-line);
+  background: var(--rugby-ink-2); color: var(--rugby-text); box-shadow: none;
+  border: 2px solid var(--rugby-line);
 }
-.rugby-button--ghost:hover { border-color: rgba(255,255,255,0.3); box-shadow: none; }
+.rugby-button--ghost::after { display: none; }
+.rugby-button--ghost:hover:not(:disabled) { border-color: var(--rugby-floodlight); color: var(--rugby-floodlight); box-shadow: 0 0 14px rgba(255,194,46,0.25); }
 
 .rugby-badge {
   display: inline-flex; align-items: center; justify-content: center;
-  font-family: var(--font-rugby-cond), sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-  border-radius: 999px; line-height: 1;
-  background: var(--rugby-ink-3); color: var(--rugby-text-dim); border: 1px solid var(--rugby-line);
+  font-family: var(--font-rugby-cond), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+  border-radius: 3px 11px 3px 11px; line-height: 1;
+  background: var(--rugby-ink-3); color: var(--rugby-text-dim); border: 1.5px solid var(--rugby-line);
 }
-.rugby-badge--gold { background: linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2)); color: #241300; border: none; }
+.rugby-badge--gold { background: linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2)); color: #241300; border: none; box-shadow: 0 3px 10px rgba(255,150,20,0.3); }
 
 /* ---- Shell nav ---- */
 .rugby-nav-link {
@@ -969,7 +1020,7 @@ thead th {
   color: var(--rugby-text-dim); border-bottom: 2px solid transparent; transition: color 0.12s ease;
 }
 .rugby-nav-link:hover { color: var(--rugby-text); }
-.rugby-nav-link--active { color: var(--rugby-floodlight); border-bottom-color: var(--rugby-floodlight); }
+.rugby-nav-link--active { color: var(--rugby-floodlight); border-bottom-color: var(--rugby-floodlight); text-shadow: 0 0 12px rgba(255,194,46,0.45); }
 
 /* ---- Fixture matchday card ----
    Shape (skew, gradient, sheen) lives in an absolutely-positioned
