@@ -19,22 +19,22 @@ export default function BrowseAllPlayers({
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="pop-button pop-button--blue text-xs px-4 py-2"
+        className="rugby-button rugby-button--ghost text-xs px-4 py-2"
       >
         {open ? 'Hide' : '👀 Browse All Players'}
       </button>
       {open && (
-        <div className="pop-panel pop-panel--blue p-5 mt-3 text-left">
+        <div className="rugby-panel p-5 mt-3 text-left">
           {teams.length === 0 ? (
-            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No squads synced yet.</p>
+            <p className="text-sm" style={{ color: 'var(--rugby-text-faint)' }}>No squads synced yet.</p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
               {teams.map(team => (
                 <div key={team.id}>
-                  <h3 className="pop-name text-sm mb-2" style={{ color: 'var(--pop-blue)' }}>{team.name} ({(playersByTeam[team.id] ?? []).length})</h3>
-                  <ul className="text-xs space-y-0.5" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                  <h3 className="rugby-cond text-sm mb-2 uppercase tracking-wide" style={{ color: 'var(--rugby-floodlight)' }}>{team.name} ({(playersByTeam[team.id] ?? []).length})</h3>
+                  <ul className="text-xs space-y-0.5" style={{ color: 'var(--rugby-text-dim)' }}>
                     {(playersByTeam[team.id] ?? []).map(p => (
-                      <li key={p.id} className="pop-name" style={{ letterSpacing: '0.01em' }}>{p.name}</li>
+                      <li key={p.id} style={{ letterSpacing: '0.01em' }}>{p.name}</li>
                     ))}
                   </ul>
                 </div>

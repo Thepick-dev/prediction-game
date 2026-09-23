@@ -9,8 +9,8 @@ export const RUGBY_TEAM_COLOURS: Record<string, { fill: string; text: string }> 
   France: { fill: '#0055A4', text: '#FFFFFF' },
   Italy: { fill: '#0088CE', text: '#FFFFFF' },
 }
-export const DEFAULT_TEAM_COLOURS = { fill: 'var(--pop-blue)', text: 'var(--pop-black)' }
-export const DRAW_COLOURS = { fill: 'var(--pop-pink)', text: 'var(--pop-white)' }
+export const DEFAULT_TEAM_COLOURS = { fill: 'var(--rugby-ink-3)', text: 'var(--rugby-text)' }
+export const DRAW_COLOURS = { fill: 'var(--rugby-floodlight)', text: '#241300' }
 
 export function rugbyTeamColours(name: string): { fill: string; text: string } {
   return RUGBY_TEAM_COLOURS[name] ?? DEFAULT_TEAM_COLOURS

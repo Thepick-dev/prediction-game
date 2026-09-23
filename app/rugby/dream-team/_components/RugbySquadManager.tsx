@@ -65,28 +65,28 @@ export default function RugbySquadManager({
 
   return (
     <div>
-      <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.6)' }}>
+      <p className="text-sm mb-3" style={{ color: 'var(--rugby-text-dim)' }}>
         Subs used {perRound ? 'this round' : 'this competition'}: {subsUsed} / {maxFreeSubs} free. {subsRemaining === 0 && 'Any further sub will cost you points.'}
       </p>
-      {message && <p className="text-sm mb-2" style={{ color: 'var(--pop-red)' }}>{message}</p>}
+      {message && <p className="text-sm mb-2" style={{ color: '#e8574a' }}>{message}</p>}
       <div className="space-y-2">
         {slots.map(slot => (
-          <div key={slot.teamId} className="rounded-xl p-3 flex items-center justify-between flex-wrap gap-2" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div key={slot.teamId} className="rugby-panel p-3 flex items-center justify-between flex-wrap gap-2">
             <div>
-              <p className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--pop-blue)' }}>{slot.teamName}</p>
-              <p className="pop-name text-base" style={{ color: 'var(--pop-white)' }}>
+              <p className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--rugby-floodlight)' }}>{slot.teamName}</p>
+              <p className="rugby-cond text-base uppercase tracking-wide">
                 {slot.playerName}
-                {slot.isKicker && <span className="pop-badge pop-badge--orange ml-2" style={{ fontSize: '10px', padding: '2px 8px' }}>KICKER</span>}
+                {slot.isKicker && <span className="rugby-badge rugby-badge--gold ml-2" style={{ fontSize: '10px', padding: '2px 8px' }}>KICKER</span>}
               </p>
             </div>
             <div className="flex items-center gap-2">
               {!slot.isKicker && (
-                <button onClick={() => makeKicker(slot.playerId)} disabled={busy} className="text-xs underline" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                <button onClick={() => makeKicker(slot.playerId)} disabled={busy} className="text-xs underline" style={{ color: 'var(--rugby-text-faint)' }}>
                   Make kicker
                 </button>
               )}
               {canSub && subbingTeamId !== slot.teamId && (
-                <button onClick={() => { setSubbingTeamId(slot.teamId); setReplacementId(''); setReplacementSearch('') }} className="text-xs pop-button pop-button--blue" style={{ padding: '4px 10px' }}>
+                <button onClick={() => { setSubbingTeamId(slot.teamId); setReplacementId(''); setReplacementSearch('') }} className="text-xs rugby-button rugby-button--ghost" style={{ padding: '4px 10px' }}>
                   Substitute
                 </button>
               )}
@@ -95,14 +95,14 @@ export default function RugbySquadManager({
               <div className="w-full mt-1">
                 {replacementId ? (
                   <div className="flex items-center gap-2">
-                    <span className="pop-input pop-name px-2 py-1 text-sm flex-1" style={{ display: 'inline-block' }}>
+                    <span className="rugby-input rugby-cond uppercase tracking-wide px-2 py-1 text-sm flex-1" style={{ display: 'inline-block' }}>
                       {(playersByTeam[slot.teamId] ?? []).find(p => p.id === replacementId)?.name}
                     </span>
-                    <button onClick={() => setReplacementId('')} className="text-xs" style={{ color: 'var(--pop-red)' }}>✕</button>
-                    <button onClick={() => confirmSub(slot.playerId)} disabled={busy} className="pop-button pop-button--green text-xs" style={{ padding: '4px 10px' }}>
+                    <button onClick={() => setReplacementId('')} className="text-xs" style={{ color: '#e8574a' }}>✕</button>
+                    <button onClick={() => confirmSub(slot.playerId)} disabled={busy} className="rugby-button text-xs" style={{ padding: '4px 10px' }}>
                       Confirm
                     </button>
-                    <button onClick={() => setSubbingTeamId(null)} className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Cancel</button>
+                    <button onClick={() => setSubbingTeamId(null)} className="text-xs" style={{ color: 'var(--rugby-text-faint)' }}>Cancel</button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
@@ -112,10 +112,10 @@ export default function RugbySquadManager({
                         value={replacementSearch}
                         onChange={e => setReplacementSearch(e.target.value)}
                         placeholder="Type a replacement's name..."
-                        className="pop-input px-2 py-1 text-xs w-full"
+                        className="rugby-input px-2 py-1 text-xs w-full"
                       />
                       {replacementSearch.trim().length >= 1 && (
-                        <div className="mt-1 rounded overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.15)' }}>
+                        <div className="mt-1 rounded overflow-hidden" style={{ border: '1px solid var(--rugby-line)' }}>
                           {(playersByTeam[slot.teamId] ?? [])
                             .filter(p => p.id !== slot.playerId && p.name.toLowerCase().includes(replacementSearch.trim().toLowerCase()))
                             .slice(0, 8)
@@ -125,7 +125,7 @@ export default function RugbySquadManager({
                                 type="button"
                                 onClick={() => { setReplacementId(p.id); setReplacementSearch('') }}
                                 className="block w-full text-left px-2 py-1 text-xs hover:opacity-80"
-                                style={{ background: 'var(--pop-surface)', color: 'var(--pop-white)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+                                style={{ background: 'var(--rugby-ink-2)', color: 'var(--rugby-text)', borderBottom: '1px solid var(--rugby-line)' }}
                               >
                                 {p.name}
                               </button>
@@ -133,7 +133,7 @@ export default function RugbySquadManager({
                         </div>
                       )}
                     </div>
-                    <button onClick={() => setSubbingTeamId(null)} className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Cancel</button>
+                    <button onClick={() => setSubbingTeamId(null)} className="text-xs" style={{ color: 'var(--rugby-text-faint)' }}>Cancel</button>
                   </div>
                 )}
               </div>

@@ -14,7 +14,7 @@ export default function DreamTeamUserSelector({
     <select
       value={selectedUserId}
       onChange={e => router.push(`/rugby/dream-team?user=${e.target.value}`)}
-      className="pop-input px-3 py-2 text-sm pop-name"
+      className="rugby-input px-3 py-2 text-sm rugby-cond uppercase tracking-wide"
     >
       {entrants.map(e => (
         <option key={e.userId} value={e.userId}>{e.name}</option>
