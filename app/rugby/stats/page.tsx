@@ -26,7 +26,7 @@ export default async function RugbyStatsHubPage({ searchParams }: { searchParams
   const { data: competition } = await supabase.schema('rugby').from('competitions').select('id, name').eq('status', 'active').maybeSingle() as unknown as { data: Competition | null }
 
   if (!competition) {
-    return <div className="max-w-2xl mx-auto p-6"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>No active competition yet.</p></div>
+    return <div className="max-w-2xl mx-auto p-6"><p className="text-sm" style={{ color: 'var(--rugby-text-dim)' }}>No active competition yet.</p></div>
   }
 
   const [{ data: teams }, { data: players }, { data: rounds }, { data: entries }] = await Promise.all([
@@ -60,15 +60,17 @@ export default async function RugbyStatsHubPage({ searchParams }: { searchParams
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
-      <h1 className="pop-hero pop-hero--pink text-2xl md:text-3xl mb-4">📈 Stats Hub</h1>
+      <div className="rugby-hero-wrap">
+        <p className="rugby-hero-eyebrow">{competition.name}</p>
+        <h1 className="rugby-hero-title">Stats Hub</h1>
+      </div>
 
       <div className="flex gap-2 mb-5 flex-wrap">
         {TABS.map(t => (
           <Link
             key={t.key}
             href={`/rugby/stats?tab=${t.key}`}
-            className="pop-button text-xs px-3 py-1.5"
-            style={tab === t.key ? undefined : { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}
+            className={tab === t.key ? 'rugby-button text-xs px-3 py-1.5' : 'rugby-button rugby-button--ghost text-xs px-3 py-1.5'}
           >
             {t.label}
           </Link>
@@ -115,35 +117,35 @@ function SquadsTab({ teamsList, playersList, squadPicksList, squadPointsList, pl
 
   return (
     <div className="space-y-5">
-      <div className="pop-panel pop-panel--pink p-5">
-        <h2 className="pop-headline text-sm mb-3" style={{ color: 'var(--pop-white)' }}>Most-Picked Nations</h2>
+      <div className="rugby-panel p-5">
+        <h2 className="rugby-cond text-sm mb-3 uppercase tracking-wide">Most-Picked Nations</h2>
         {teamRepRows.every(r => r.count === 0) ? (
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>No squads drafted yet.</p>
+          <p className="text-sm" style={{ color: 'var(--rugby-text-faint)' }}>No squads drafted yet.</p>
         ) : (
           <div className="space-y-2">
             {teamRepRows.map(({ team, count }) => (
               <div key={team.id} className="flex items-center gap-3">
-                <span className="text-xs pop-name w-24 shrink-0" style={{ color: 'var(--pop-white)' }}>{team.name}</span>
-                <div className="flex-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)', height: 10 }}>
-                  <div style={{ width: `${(count / maxRep) * 100}%`, height: '100%', background: 'var(--pop-pink)' }} />
+                <span className="text-xs rugby-cond uppercase tracking-wide w-24 shrink-0">{team.name}</span>
+                <div className="flex-1 rounded-full overflow-hidden" style={{ background: 'var(--rugby-ink-3)', height: 10 }}>
+                  <div style={{ width: `${(count / maxRep) * 100}%`, height: '100%', background: 'linear-gradient(90deg, var(--rugby-floodlight), var(--rugby-floodlight-2))' }} />
                 </div>
-                <span className="text-xs w-6 text-right" style={{ color: 'rgba(255,255,255,0.5)' }}>{count}</span>
+                <span className="text-xs w-6 text-right" style={{ color: 'var(--rugby-text-dim)' }}>{count}</span>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <div className="pop-panel pop-panel--blue p-5">
-        <h2 className="pop-headline text-sm mb-3" style={{ color: 'var(--pop-white)' }}>Top Point-Scoring Players</h2>
+      <div className="rugby-panel rugby-panel--gold p-5">
+        <h2 className="rugby-cond text-sm mb-3 uppercase tracking-wide">Top Point-Scoring Players</h2>
         {topPlayers.length === 0 ? (
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>No points scored yet.</p>
+          <p className="text-sm" style={{ color: 'var(--rugby-text-faint)' }}>No points scored yet.</p>
         ) : (
           <div className="space-y-1.5">
             {topPlayers.map((row, i) => (
-              <div key={row.player!.id} className="flex items-center justify-between text-sm py-1" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                <span className="pop-name" style={{ color: 'var(--pop-white)' }}>{i + 1}. {row.player!.name} <span style={{ color: 'rgba(255,255,255,0.4)' }}>({teamById.get(row.player!.team_id)?.name ?? '?'})</span></span>
-                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>{row.tries} try · {row.kicking} kick = <strong style={{ color: 'var(--pop-blue)' }}>{row.total}</strong></span>
+              <div key={row.player!.id} className="flex items-center justify-between text-sm py-1" style={{ borderBottom: '1px solid var(--rugby-line)' }}>
+                <span className="rugby-cond uppercase tracking-wide">{i + 1}. {row.player!.name} <span style={{ color: 'var(--rugby-text-faint)' }}>({teamById.get(row.player!.team_id)?.name ?? '?'})</span></span>
+                <span className="text-xs" style={{ color: 'var(--rugby-text-dim)' }}>{row.tries} try · {row.kicking} kick = <strong style={{ color: 'var(--rugby-floodlight)' }}>{row.total}</strong></span>
               </div>
             ))}
           </div>
@@ -182,30 +184,30 @@ function ManagersTab({ userIds, nameById, roundsList, squadPointsList, matchPoin
   }).sort((a, b) => b.grandTotal - a.grandTotal)
 
   return (
-    <div className="pop-panel pop-panel--green p-5">
-      <h2 className="pop-headline text-sm mb-3" style={{ color: 'var(--pop-white)' }}>Manager Consistency</h2>
+    <div className="rugby-panel rugby-panel--gold p-5">
+      <h2 className="rugby-cond text-sm mb-3 uppercase tracking-wide">Manager Consistency</h2>
       {rows.length === 0 ? (
-        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>No entrants yet.</p>
+        <p className="text-sm" style={{ color: 'var(--rugby-text-faint)' }}>No entrants yet.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs md:text-sm" style={{ borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.15)' }}>
-                <th className="text-left py-2 px-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Player</th>
-                <th className="text-right py-2 px-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>Best Round</th>
-                <th className="text-right py-2 px-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>Worst Round</th>
-                <th className="text-right py-2 px-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>Rounds Played</th>
-                <th className="text-right py-2 px-1" style={{ color: 'var(--pop-green)' }}>Grand Total</th>
+              <tr style={{ borderBottom: '2px solid var(--rugby-line)' }}>
+                <th className="rugby-cond text-left py-2 px-1 uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Player</th>
+                <th className="rugby-cond text-right py-2 px-1.5 uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Best Round</th>
+                <th className="rugby-cond text-right py-2 px-1.5 uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Worst Round</th>
+                <th className="rugby-cond text-right py-2 px-1.5 uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Rounds Played</th>
+                <th className="rugby-cond text-right py-2 px-1 uppercase tracking-wide" style={{ color: 'var(--rugby-floodlight)' }}>Grand Total</th>
               </tr>
             </thead>
             <tbody>
               {rows.map(row => (
-                <tr key={row.userId} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                  <td className="py-2 px-1 pop-name" style={{ color: 'var(--pop-white)' }}>{row.name}</td>
-                  <td className="text-right py-2 px-1.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{row.best ?? '—'}</td>
-                  <td className="text-right py-2 px-1.5" style={{ color: (row.worst ?? 0) < 0 ? 'var(--pop-red)' : 'rgba(255,255,255,0.7)' }}>{row.worst ?? '—'}</td>
-                  <td className="text-right py-2 px-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>{row.roundsPlayed}</td>
-                  <td className="text-right py-2 px-1 pop-headline" style={{ color: row.grandTotal < 0 ? 'var(--pop-red)' : 'var(--pop-green)' }}>{row.grandTotal}</td>
+                <tr key={row.userId} style={{ borderBottom: '1px solid var(--rugby-line)' }}>
+                  <td className="py-2 px-1 rugby-cond uppercase tracking-wide">{row.name}</td>
+                  <td className="text-right py-2 px-1.5" style={{ color: 'var(--rugby-text-dim)' }}>{row.best ?? '—'}</td>
+                  <td className="text-right py-2 px-1.5" style={{ color: (row.worst ?? 0) < 0 ? '#e8574a' : 'var(--rugby-text-dim)' }}>{row.worst ?? '—'}</td>
+                  <td className="text-right py-2 px-1.5" style={{ color: 'var(--rugby-text-faint)' }}>{row.roundsPlayed}</td>
+                  <td className="rugby-display text-right py-2 px-1" style={{ color: row.grandTotal < 0 ? '#e8574a' : 'var(--rugby-floodlight)' }}>{row.grandTotal}</td>
                 </tr>
               ))}
             </tbody>
@@ -216,7 +218,7 @@ function ManagersTab({ userIds, nameById, roundsList, squadPointsList, matchPoin
   )
 }
 
-function TrendsTab({ squadPicksList, squadPointsList, matchPointsList, seasonPointsList, nameById, playerById, pickById, roundsList }: {
+function TrendsTab({ squadPicksList, squadPointsList, matchPointsList, seasonPointsList, nameById, playerById, roundsList }: {
   squadPicksList: SquadPick[]; squadPointsList: SquadPointsRow[]; matchPointsList: MatchPointsRow[]; seasonPointsList: SeasonPointsRow[]
   nameById: Map<string, string>; playerById: Map<number, Player>; pickById: Map<string, SquadPick>; roundsList: Round[]
 }) {
@@ -231,47 +233,47 @@ function TrendsTab({ squadPicksList, squadPointsList, matchPointsList, seasonPoi
 
   return (
     <div className="space-y-5">
-      <div className="pop-panel pop-panel--orange p-5">
-        <h2 className="pop-headline text-sm mb-3" style={{ color: 'var(--pop-white)' }}>Discipline &amp; Subs</h2>
+      <div className="rugby-panel p-5">
+        <h2 className="rugby-cond text-sm mb-3 uppercase tracking-wide">Discipline &amp; Subs</h2>
         <div className="grid grid-cols-2 gap-4 text-center">
           <div>
-            <p className="pop-headline text-2xl" style={{ color: 'var(--pop-red)' }}>{totalRedCards}</p>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Red cards suffered</p>
+            <p className="rugby-display text-2xl" style={{ color: '#e8574a' }}>{totalRedCards}</p>
+            <p className="text-xs" style={{ color: 'var(--rugby-text-faint)' }}>Red cards suffered</p>
           </div>
           <div>
-            <p className="pop-headline text-2xl" style={{ color: 'var(--pop-orange)' }}>{totalSubPenalties}</p>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Extra subs charged</p>
+            <p className="rugby-display text-2xl" style={{ color: 'var(--rugby-floodlight)' }}>{totalSubPenalties}</p>
+            <p className="text-xs" style={{ color: 'var(--rugby-text-faint)' }}>Extra subs charged</p>
           </div>
         </div>
       </div>
 
-      <div className="pop-panel pop-panel--green p-5">
-        <h2 className="pop-headline text-sm mb-3" style={{ color: 'var(--pop-white)' }}>Underdog Bonuses</h2>
+      <div className="rugby-panel rugby-panel--gold p-5">
+        <h2 className="rugby-cond text-sm mb-3 uppercase tracking-wide">Underdog Bonuses</h2>
         {squadContrarianPicks.length === 0 && seasonContrarianRows.length === 0 ? (
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>No underdog bonuses earned yet.</p>
+          <p className="text-sm" style={{ color: 'var(--rugby-text-faint)' }}>No underdog bonuses earned yet.</p>
         ) : (
           <div className="space-y-1.5 text-sm">
             {squadContrarianPicks.map(p => (
-              <p key={p.id} style={{ color: 'var(--pop-white)' }}>🎯 {nameById.get(p.user_id) ?? 'Unknown'} — drafted {playerById.get(p.player_id)?.name ?? 'a player'} few others picked</p>
+              <p key={p.id}>🎯 {nameById.get(p.user_id) ?? 'Unknown'} — drafted {playerById.get(p.player_id)?.name ?? 'a player'} few others picked</p>
             ))}
             {seasonContrarianRows.map((r, i) => (
-              <p key={i} style={{ color: 'var(--pop-white)' }}>🎯 {nameById.get(r.user_id) ?? 'Unknown'} — correct, rare answer on &quot;{r.type_key.replace(/_/g, ' ')}&quot;</p>
+              <p key={i}>🎯 {nameById.get(r.user_id) ?? 'Unknown'} — correct, rare answer on &quot;{r.type_key.replace(/_/g, ' ')}&quot;</p>
             ))}
           </div>
         )}
       </div>
 
-      <div className="pop-panel pop-panel--blue p-5">
-        <h2 className="pop-headline text-sm mb-3" style={{ color: 'var(--pop-white)' }}>Match Prediction Extremes</h2>
+      <div className="rugby-panel p-5">
+        <h2 className="rugby-cond text-sm mb-3 uppercase tracking-wide">Match Prediction Extremes</h2>
         {!worstBlunder && !bestConfidentCall ? (
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>No match predictions scored yet.</p>
+          <p className="text-sm" style={{ color: 'var(--rugby-text-faint)' }}>No match predictions scored yet.</p>
         ) : (
           <div className="space-y-2 text-sm">
             {bestConfidentCall && (
-              <p style={{ color: 'var(--pop-white)' }}>✅ Best call: {nameById.get(bestConfidentCall.user_id) ?? 'Unknown'}, Round {roundNumberById.get(bestConfidentCall.round_id)}, confidence ×{bestConfidentCall.confidence} — <strong style={{ color: 'var(--pop-green)' }}>+{bestConfidentCall.total_points}</strong></p>
+              <p>✅ Best call: {nameById.get(bestConfidentCall.user_id) ?? 'Unknown'}, Round {roundNumberById.get(bestConfidentCall.round_id)}, confidence ×{bestConfidentCall.confidence} — <strong style={{ color: 'var(--rugby-floodlight)' }}>+{bestConfidentCall.total_points}</strong></p>
             )}
             {worstBlunder && (
-              <p style={{ color: 'var(--pop-white)' }}>💥 Biggest blunder: {nameById.get(worstBlunder.user_id) ?? 'Unknown'}, Round {roundNumberById.get(worstBlunder.round_id)}, confidence ×{worstBlunder.confidence} — <strong style={{ color: 'var(--pop-red)' }}>{worstBlunder.total_points}</strong></p>
+              <p>💥 Biggest blunder: {nameById.get(worstBlunder.user_id) ?? 'Unknown'}, Round {roundNumberById.get(worstBlunder.round_id)}, confidence ×{worstBlunder.confidence} — <strong style={{ color: '#e8574a' }}>{worstBlunder.total_points}</strong></p>
             )}
           </div>
         )}

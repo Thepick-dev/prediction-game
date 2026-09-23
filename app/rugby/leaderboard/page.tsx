@@ -21,7 +21,7 @@ export default async function RugbyLeaderboardPage() {
   if (!competition) {
     return (
       <div className="max-w-2xl mx-auto p-6">
-        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>No active competition yet.</p>
+        <p className="text-sm" style={{ color: 'var(--rugby-text-dim)' }}>No active competition yet.</p>
       </div>
     )
   }
@@ -115,32 +115,35 @@ export default async function RugbyLeaderboardPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
-      <h1 className="pop-hero pop-hero--green text-2xl md:text-3xl mb-4">🏆 Leaderboard</h1>
-      <div className="pop-panel pop-panel--green p-3 md:p-5">
+      <div className="rugby-hero-wrap">
+        <p className="rugby-hero-eyebrow">{competition.name}</p>
+        <h1 className="rugby-hero-title">Leaderboard</h1>
+      </div>
+      <div className="rugby-panel rugby-panel--gold p-3 md:p-5">
         {ranked.length === 0 ? (
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No one has joined {competition.name} yet.</p>
+          <p className="text-sm" style={{ color: 'var(--rugby-text-faint)' }}>No one has joined {competition.name} yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs md:text-sm" style={{ borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.15)' }}>
-                  <th className="text-left py-2 px-1" style={{ color: 'rgba(255,255,255,0.5)' }}>#</th>
-                  <th className="text-left py-2 px-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Player</th>
+                <tr style={{ borderBottom: '2px solid var(--rugby-line)' }}>
+                  <th className="rugby-cond text-left py-2 px-1 uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>#</th>
+                  <th className="rugby-cond text-left py-2 px-1 uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Player</th>
                   {roundsList.map(r => (
-                    <th key={r.id} className="text-right py-2 px-1.5 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.4)' }}>R{r.number}</th>
+                    <th key={r.id} className="rugby-cond text-right py-2 px-1.5 whitespace-nowrap uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>R{r.number}</th>
                   ))}
-                  <th className="text-right py-2 px-1.5 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.4)' }}>Dream Team</th>
-                  <th className="text-right py-2 px-1.5 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.4)' }}>Matches</th>
-                  <th className="text-right py-2 px-1.5 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.4)' }}>Tournament</th>
-                  <th className="text-right py-2 px-1" style={{ color: 'var(--pop-green)' }}>Total</th>
+                  <th className="rugby-cond text-right py-2 px-1.5 whitespace-nowrap uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Dream Team</th>
+                  <th className="rugby-cond text-right py-2 px-1.5 whitespace-nowrap uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Matches</th>
+                  <th className="rugby-cond text-right py-2 px-1.5 whitespace-nowrap uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Tournament</th>
+                  <th className="rugby-cond text-right py-2 px-1 uppercase tracking-wide" style={{ color: 'var(--rugby-floodlight)' }}>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {ranked.map((row, i) => {
                   const kit = kitById.get(row.userId)
                   return (
-                    <tr key={row.userId} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                      <td className="py-2 px-1" style={{ color: 'rgba(255,255,255,0.4)' }}>{i + 1}</td>
+                    <tr key={row.userId} style={{ borderBottom: '1px solid var(--rugby-line)' }}>
+                      <td className="rugby-display py-2 px-1" style={{ color: 'var(--rugby-text-faint)' }}>{i + 1}</td>
                       <td className="py-2 px-1">
                         <div className="flex items-center gap-2">
                           {kit ? (
@@ -153,21 +156,21 @@ export default async function RugbyLeaderboardPage() {
                           ) : (
                             <div style={{ width: 24 }} />
                           )}
-                          <span className="pop-name text-sm" style={{ color: 'var(--pop-white)' }}>{row.name}</span>
+                          <span className="rugby-cond text-sm uppercase tracking-wide">{row.name}</span>
                         </div>
                       </td>
                       {roundsList.map(r => {
                         const pts = row.perRound.get(r.id)
                         return (
-                          <td key={r.id} className="text-right py-2 px-1.5" style={{ color: pts != null && pts < 0 ? 'var(--pop-red)' : 'rgba(255,255,255,0.7)' }}>
+                          <td key={r.id} className="text-right py-2 px-1.5" style={{ color: pts != null && pts < 0 ? '#e8574a' : 'var(--rugby-text-dim)' }}>
                             {pts != null ? pts : '—'}
                           </td>
                         )
                       })}
-                      <td className="text-right py-2 px-1.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{row.squad}</td>
-                      <td className="text-right py-2 px-1.5" style={{ color: row.match < 0 ? 'var(--pop-red)' : 'rgba(255,255,255,0.7)' }}>{row.match}</td>
-                      <td className="text-right py-2 px-1.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{row.season}</td>
-                      <td className="text-right py-2 px-1 pop-headline" style={{ color: row.total < 0 ? 'var(--pop-red)' : 'var(--pop-green)' }}>{row.total}</td>
+                      <td className="text-right py-2 px-1.5" style={{ color: 'var(--rugby-text-dim)' }}>{row.squad}</td>
+                      <td className="text-right py-2 px-1.5" style={{ color: row.match < 0 ? '#e8574a' : 'var(--rugby-text-dim)' }}>{row.match}</td>
+                      <td className="text-right py-2 px-1.5" style={{ color: 'var(--rugby-text-dim)' }}>{row.season}</td>
+                      <td className="rugby-display text-right py-2 px-1" style={{ color: row.total < 0 ? '#e8574a' : 'var(--rugby-floodlight)' }}>{row.total}</td>
                     </tr>
                   )
                 })}

@@ -863,6 +863,25 @@ thead th {
   opacity: 1;
 }
 
+.rugby-input {
+  background: var(--rugby-ink-2);
+  color: var(--rugby-text);
+  border: 1.5px solid var(--rugby-line);
+  border-radius: 10px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.rugby-input:focus {
+  outline: none;
+  border-color: var(--rugby-floodlight);
+  box-shadow: 0 0 0 3px rgba(255, 194, 46, 0.2);
+}
+
+/* Semantic status colours — deliberately NOT the same hues as any nation
+   or the floodlight accent, so "this worked" / "this failed" never gets
+   mistaken for team identity. */
+.rugby-badge--success { background: #1f8a4c; color: #ffffff; border: none; }
+.rugby-badge--error { background: #c8342a; color: #ffffff; border: none; }
+
 /* Small CSS-only rugby ball for the header wordmark — no image asset. */
 .rugby-ball-icon {
   display: inline-block; width: 22px; height: 15px; border-radius: 50%; flex: none;

@@ -108,21 +108,23 @@ export default function RugbySettingsPage() {
   }
 
   if (loading) {
-    return <div className="max-w-2xl mx-auto p-6"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>Loading…</p></div>
+    return <div className="max-w-2xl mx-auto p-6"><p className="text-sm" style={{ color: 'var(--rugby-text-faint)' }}>Loading…</p></div>
   }
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
-      <h1 className="pop-hero pop-hero--blue text-2xl md:text-3xl mb-4">⚙️ Settings</h1>
+      <div className="rugby-hero-wrap">
+        <h1 className="rugby-hero-title">Settings</h1>
+      </div>
 
       <div className="space-y-5">
-        <div className="pop-panel pop-panel--blue p-5">
-          <h2 className="pop-headline text-sm mb-1" style={{ color: 'var(--pop-white)' }}>Username</h2>
-          <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
+        <div className="rugby-panel p-5">
+          <h2 className="rugby-cond text-sm mb-1 uppercase tracking-wide">Username</h2>
+          <p className="text-sm mb-3" style={{ color: 'var(--rugby-text-faint)' }}>
             {currentName ? `Currently shown as "${currentName}"` : 'Not set yet'} — shared with the football side of the site.
           </p>
           {pendingRequest && (
-            <p className="pop-badge pop-badge--orange px-2.5 py-1 text-xs mb-3 inline-block">
+            <p className="rugby-badge rugby-badge--gold px-2.5 py-1 text-xs mb-3 inline-block">
               Waiting on admin approval: &quot;{pendingRequest.requested_name}&quot;
             </p>
           )}
@@ -131,58 +133,58 @@ export default function RugbySettingsPage() {
             value={displayName}
             onChange={e => setDisplayName(e.target.value)}
             maxLength={USERNAME_MAX_LENGTH}
-            className="pop-input w-full p-2 mb-3 font-bold text-sm"
+            className="rugby-input w-full p-2 mb-3 font-bold text-sm"
           />
           {nameMessage && (
-            <p className={`pop-badge ${nameMessage.startsWith('Submitted') ? 'pop-badge--green' : 'pop-badge--red'} px-2.5 py-1 text-xs mb-3 inline-block`}>{nameMessage}</p>
+            <p className={`rugby-badge ${nameMessage.startsWith('Submitted') ? 'rugby-badge--success' : 'rugby-badge--error'} px-2.5 py-1 text-xs mb-3 inline-block`}>{nameMessage}</p>
           )}
-          <button onClick={saveDisplayName} disabled={savingName} className="pop-button w-full py-2.5 text-sm">
+          <button onClick={saveDisplayName} disabled={savingName} className="rugby-button w-full py-2.5 text-sm">
             {savingName ? 'Submitting…' : 'Request Username Change'}
           </button>
         </div>
 
-        <div className="pop-panel pop-panel--blue p-5">
-          <h2 className="pop-headline text-sm mb-1" style={{ color: 'var(--pop-white)' }}>Email</h2>
-          <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>Used for magic link login and account recovery.</p>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="pop-input w-full p-2 mb-3 font-bold text-sm" />
+        <div className="rugby-panel p-5">
+          <h2 className="rugby-cond text-sm mb-1 uppercase tracking-wide">Email</h2>
+          <p className="text-sm mb-3" style={{ color: 'var(--rugby-text-faint)' }}>Used for magic link login and account recovery.</p>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="rugby-input w-full p-2 mb-3 font-bold text-sm" />
           {emailMessage && (
-            <p className={`pop-badge ${emailMessage.startsWith('Check') ? 'pop-badge--green' : 'pop-badge--red'} px-2.5 py-1 text-xs mb-3 inline-block`}>{emailMessage}</p>
+            <p className={`rugby-badge ${emailMessage.startsWith('Check') ? 'rugby-badge--success' : 'rugby-badge--error'} px-2.5 py-1 text-xs mb-3 inline-block`}>{emailMessage}</p>
           )}
-          <button onClick={saveEmail} disabled={savingEmail} className="pop-button w-full py-2.5 text-sm">
+          <button onClick={saveEmail} disabled={savingEmail} className="rugby-button w-full py-2.5 text-sm">
             {savingEmail ? 'Saving…' : 'Update Email'}
           </button>
         </div>
 
-        <div className="pop-panel pop-panel--blue p-5">
-          <h2 className="pop-headline text-sm mb-1" style={{ color: 'var(--pop-white)' }}>Password</h2>
-          <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
+        <div className="rugby-panel p-5">
+          <h2 className="rugby-cond text-sm mb-1 uppercase tracking-wide">Password</h2>
+          <p className="text-sm mb-3" style={{ color: 'var(--rugby-text-faint)' }}>
             Set or change your password to log in with username + password instead of a magic link.
           </p>
           <PasswordInput
             placeholder="New password"
             value={newPassword}
             onChange={e => setNewPassword(e.target.value)}
-            className="pop-input w-full p-2 mb-3 font-bold text-sm"
+            className="rugby-input w-full p-2 mb-3 font-bold text-sm"
             popArt
           />
           {passwordMessage && (
-            <p className={`pop-badge ${passwordMessage.startsWith('Password updated') ? 'pop-badge--green' : 'pop-badge--red'} px-2.5 py-1 text-xs mb-3 inline-block`}>{passwordMessage}</p>
+            <p className={`rugby-badge ${passwordMessage.startsWith('Password updated') ? 'rugby-badge--success' : 'rugby-badge--error'} px-2.5 py-1 text-xs mb-3 inline-block`}>{passwordMessage}</p>
           )}
-          <button onClick={savePassword} disabled={savingPassword || !newPassword} className="pop-button w-full py-2.5 text-sm">
+          <button onClick={savePassword} disabled={savingPassword || !newPassword} className="rugby-button w-full py-2.5 text-sm">
             {savingPassword ? 'Saving…' : 'Set Password'}
           </button>
         </div>
 
-        <div className="pop-panel pop-panel--pink p-5">
-          <h2 className="pop-headline text-sm mb-1" style={{ color: 'var(--pop-white)' }}>Your Kit</h2>
-          <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>Shown next to your name on the leaderboard and in the header — click your kit up top for the same editor any time.</p>
+        <div className="rugby-panel rugby-panel--gold p-5">
+          <h2 className="rugby-cond text-sm mb-1 uppercase tracking-wide">Your Kit</h2>
+          <p className="text-sm mb-3" style={{ color: 'var(--rugby-text-faint)' }}>Shown next to your name on the leaderboard and in the header — click your kit up top for the same editor any time.</p>
           <RugbyKitEditor userId={user.id} />
         </div>
 
-        <div className="pop-panel pop-panel--blue p-5">
-          <h2 className="pop-headline text-sm mb-1" style={{ color: 'var(--pop-white)' }}>Account</h2>
-          <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>Logged in as {email}</p>
-          <button onClick={logOut} className="pop-button pop-button--yellow w-full py-2.5 text-sm">
+        <div className="rugby-panel p-5">
+          <h2 className="rugby-cond text-sm mb-1 uppercase tracking-wide">Account</h2>
+          <p className="text-sm mb-3" style={{ color: 'var(--rugby-text-faint)' }}>Logged in as {email}</p>
+          <button onClick={logOut} className="rugby-button w-full py-2.5 text-sm">
             Log Out
           </button>
         </div>
