@@ -25,8 +25,8 @@ type SquadPick = { id: string; player_id: number; is_kicker: boolean; active: bo
 
 function RoundHeading({ text, deadline }: { text: string; deadline?: string | null }) {
   return (
-    <div className="pop-panel pop-panel--pulse pop-panel--yellow p-3 sm:p-4 mb-5 flex items-center justify-between gap-3 flex-wrap">
-      <h1 className="pop-headline text-xl sm:text-2xl" style={{ color: 'var(--pop-white)' }}>{text}</h1>
+    <div className="rugby-panel rugby-panel--gold p-3 sm:p-4 mb-5 flex items-center justify-between gap-3 flex-wrap">
+      <h1 className="rugby-display text-xl sm:text-2xl">{text}</h1>
       {deadline && <RugbyCountdownClock deadline={deadline} />}
     </div>
   )
@@ -113,8 +113,8 @@ export default async function RugbyPicksPage() {
     return (
       <div className="max-w-2xl mx-auto p-4 md:p-6">
         <RoundHeading text={headingText} deadline={currentRound?.deadline ?? null} />
-        <div className="pop-panel pop-panel--orange p-5">
-          <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>Pick Your Kit</h2>
+        <div className="rugby-panel rugby-panel--gold p-5">
+          <h2 className="rugby-cond text-base mb-4 uppercase tracking-wide">Pick Your Kit</h2>
           <RugbyKitEditor userId={user.id} />
         </div>
       </div>
@@ -146,8 +146,8 @@ export default async function RugbyPicksPage() {
       <RoundHeading text={headingText} deadline={currentRound?.deadline ?? null} />
 
       {picksRequired && (
-        <div className="pop-panel pop-panel--pulse pop-panel--red p-3 mb-5 text-center">
-          <p className="pop-name text-sm" style={{ color: 'var(--pop-white)' }}>⚠️ Picks Required — scroll down and complete everything below</p>
+        <div className="rugby-panel p-3 mb-5 text-center" style={{ borderColor: '#e8574a', boxShadow: '0 0 18px rgba(232,87,74,0.25), 0 14px 30px -16px rgba(0,0,0,0.7)' }}>
+          <p className="rugby-cond text-sm uppercase tracking-wide">⚠️ Picks Required — scroll down and complete everything below</p>
         </div>
       )}
 
@@ -175,8 +175,8 @@ export default async function RugbyPicksPage() {
       )}
 
       {showSquadManager && (
-        <div className="pop-panel pop-panel--pink p-5 mb-6">
-          <h2 className="pop-headline text-base mb-4" style={{ color: 'var(--pop-white)' }}>Manage Your Dream Team</h2>
+        <div className="rugby-panel rugby-panel--gold p-5 mb-6">
+          <h2 className="rugby-cond text-base mb-4 uppercase tracking-wide">Manage Your Dream Team</h2>
           <RugbySquadManager
             competitionId={competition.id}
             slots={squadPicksList.filter(p => p.active).map(pick => {
@@ -194,13 +194,13 @@ export default async function RugbyPicksPage() {
       )}
 
       {nothingToDo && (
-        <div className="pop-panel pop-panel--green p-5">
-          <p className="pop-badge pop-badge--green">Nothing open to pick right now — check back once the next round is set.</p>
+        <div className="rugby-panel p-5">
+          <p className="rugby-badge rugby-badge--success px-2.5 py-1">Nothing open to pick right now — check back once the next round is set.</p>
         </div>
       )}
 
       {!nothingToDo && (
-        <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>
+        <p className="text-xs text-center" style={{ color: 'var(--rugby-text-faint)' }}>
           Everything above can be changed as many times as you like until its own deadline.
         </p>
       )}

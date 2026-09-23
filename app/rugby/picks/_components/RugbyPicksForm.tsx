@@ -37,11 +37,11 @@ function ChoiceButton({ label, active, fill, text, onClick }: { label: string; a
     <button
       type="button"
       onClick={onClick}
-      className="pop-name w-full py-3 px-2 rounded-lg text-sm text-center"
+      className="rugby-cond uppercase tracking-wide w-full py-3 px-2 rounded-lg text-sm text-center"
       style={{
-        background: active ? fill : 'rgba(255,255,255,0.06)',
-        color: active ? text : 'rgba(255,255,255,0.8)',
-        border: active ? `2px solid ${fill}` : '2px solid rgba(255,255,255,0.15)',
+        background: active ? fill : 'var(--rugby-ink-3)',
+        color: active ? text : 'var(--rugby-text-dim)',
+        border: active ? `2px solid ${fill}` : '2px solid var(--rugby-line)',
         boxShadow: active ? `0 0 16px ${fill}80` : 'none',
         fontWeight: active ? 900 : 700,
       }}
@@ -62,21 +62,21 @@ function PlayerSearchPicker({
   const colours = teamColours(team.name)
 
   return (
-    <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
-      <p className="pop-name text-sm mb-2" style={{ color: rugbyLabelColour(team.name) }}>{team.name}</p>
+    <div className="rugby-panel p-3">
+      <p className="rugby-cond text-sm mb-2 uppercase tracking-wide" style={{ color: rugbyLabelColour(team.name) }}>{team.name}</p>
       {selected ? (
         <div className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: `${colours.fill}22`, border: `1.5px solid ${colours.fill}` }}>
-          <span className="pop-name text-base" style={{ color: 'var(--pop-white)' }}>{selected.name}</span>
-          <button type="button" onClick={onClear} className="text-sm shrink-0 ml-2" style={{ color: 'var(--pop-red)' }}>✕</button>
+          <span className="rugby-cond text-base uppercase tracking-wide">{selected.name}</span>
+          <button type="button" onClick={onClear} className="text-sm shrink-0 ml-2" style={{ color: '#e8574a' }}>✕</button>
         </div>
       ) : (
         <>
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Type a player's name..." className="pop-input px-3 py-2 text-sm w-full" />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Type a player's name..." className="rugby-input px-3 py-2 text-sm w-full" />
           {matches.length > 0 && (
-            <div className="mt-1 rounded overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.15)' }}>
+            <div className="mt-1 rounded overflow-hidden" style={{ border: '1px solid var(--rugby-line)' }}>
               {matches.map(p => (
                 <button key={p.id} type="button" onClick={() => { onSelect(p.id); setSearch('') }}
-                  className="pop-name block w-full text-left px-3 py-2 text-sm hover:opacity-80" style={{ background: 'var(--pop-surface)', color: 'var(--pop-white)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  className="rugby-cond uppercase tracking-wide block w-full text-left px-3 py-2 text-sm hover:opacity-80" style={{ background: 'var(--rugby-ink-2)', borderBottom: '1px solid var(--rugby-line)' }}>
                   {p.name}
                 </button>
               ))}
@@ -309,12 +309,12 @@ export default function RugbyPicksForm({
   return (
     <div className="space-y-6">
       {showSeasonPredictions && (
-        <div className="pop-panel pop-panel--blue p-5">
-          <h2 className="pop-headline text-sm mb-4" style={{ color: 'var(--pop-white)' }}>Tournament Predictions</h2>
+        <div className="rugby-panel p-5">
+          <h2 className="rugby-cond text-sm mb-4 uppercase tracking-wide">Tournament Predictions</h2>
           <div className="space-y-4">
             {questions.map(q => (
               <div key={q.type_key} ref={registerStep(`season-${q.type_key}`)}>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--pop-blue)' }}>{q.label}</label>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--rugby-floodlight)' }}>{q.label}</label>
                 {q.answer_type === 'team' && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                     {teams.map(t => {
@@ -337,7 +337,7 @@ export default function RugbyPicksForm({
                   </div>
                 )}
                 {q.answer_type === 'fixture' && (
-                  <select className="pop-input px-3 py-2 text-sm w-full" value={answers[q.type_key] ?? ''} onChange={e => {
+                  <select className="rugby-input px-3 py-2 text-sm w-full" value={answers[q.type_key] ?? ''} onChange={e => {
                     const next = { ...answers, [q.type_key]: e.target.value ? Number(e.target.value) : null }
                     setAnswers(next)
                     advanceFrom(`season-${q.type_key}`, { answers: next })
@@ -347,7 +347,7 @@ export default function RugbyPicksForm({
                   </select>
                 )}
                 {q.answer_type === 'numeric' && (
-                  <input type="number" className="pop-input px-3 py-2 text-sm w-full max-w-[140px]" value={answers[q.type_key] ?? ''} onChange={e => {
+                  <input type="number" className="rugby-input px-3 py-2 text-sm w-full max-w-[140px]" value={answers[q.type_key] ?? ''} onChange={e => {
                     const next = { ...answers, [q.type_key]: e.target.value ? Number(e.target.value) : null }
                     setAnswers(next)
                     if (e.target.value) advanceFrom(`season-${q.type_key}`, { answers: next })
@@ -359,9 +359,9 @@ export default function RugbyPicksForm({
                     const search = playerSearches[q.type_key] ?? ''
                     const matches = search.trim().length >= 1 ? players.filter(p => p.name.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 8) : []
                     return selected ? (
-                      <div className="pop-input flex items-center justify-between px-3 py-2 text-sm pop-name">
+                      <div className="rugby-input flex items-center justify-between px-3 py-2 text-sm rugby-cond uppercase tracking-wide">
                         <span>{selected.name}</span>
-                        <button type="button" onClick={() => setAnswers(prev => ({ ...prev, [q.type_key]: null }))} className="text-xs" style={{ color: 'var(--pop-red)' }}>✕</button>
+                        <button type="button" onClick={() => setAnswers(prev => ({ ...prev, [q.type_key]: null }))} className="text-xs" style={{ color: '#e8574a' }}>✕</button>
                       </div>
                     ) : (
                       <>
@@ -370,10 +370,10 @@ export default function RugbyPicksForm({
                           value={search}
                           onChange={e => setPlayerSearches(prev => ({ ...prev, [q.type_key]: e.target.value }))}
                           placeholder="Type a player's name..."
-                          className="pop-input px-3 py-2 text-sm w-full"
+                          className="rugby-input px-3 py-2 text-sm w-full"
                         />
                         {matches.length > 0 && (
-                          <div className="mt-1 rounded overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.15)' }}>
+                          <div className="mt-1 rounded overflow-hidden" style={{ border: '1px solid var(--rugby-line)' }}>
                             {matches.map(p => (
                               <button key={p.id} type="button" onClick={() => {
                                 const next = { ...answers, [q.type_key]: p.id }
@@ -381,7 +381,7 @@ export default function RugbyPicksForm({
                                 setPlayerSearches(prev => ({ ...prev, [q.type_key]: '' }))
                                 advanceFrom(`season-${q.type_key}`, { answers: next })
                               }}
-                                className="pop-name block w-full text-left px-3 py-1.5 text-sm hover:opacity-80" style={{ background: 'var(--pop-surface)', color: 'var(--pop-white)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                className="rugby-cond uppercase tracking-wide block w-full text-left px-3 py-1.5 text-sm hover:opacity-80" style={{ background: 'var(--rugby-ink-2)', borderBottom: '1px solid var(--rugby-line)' }}>
                                 {p.name}
                               </button>
                             ))}
@@ -398,13 +398,13 @@ export default function RugbyPicksForm({
       )}
 
       {showMatchPredictions && roundNumber && (
-        <div className="pop-panel pop-panel--yellow p-5">
-          <h2 className="pop-headline text-sm mb-4" style={{ color: 'var(--pop-white)' }}>Round {roundNumber} Match Predictions</h2>
+        <div className="rugby-panel rugby-panel--gold p-5">
+          <h2 className="rugby-cond text-sm mb-4 uppercase tracking-wide">Round {roundNumber} Match Predictions</h2>
           <div className="space-y-4">
             {fixtures.map(f => {
               const r = rows[f.id]
               return (
-                <div key={f.id} ref={registerStep(`match-${f.id}`)} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div key={f.id} ref={registerStep(`match-${f.id}`)} className="rugby-panel p-4">
                   <div className="grid grid-cols-3 gap-1.5 mb-3">
                     <ChoiceButton label={f.homeTeam} active={r.winner === 'home'} fill={teamColours(f.homeTeam).fill} text={teamColours(f.homeTeam).text} onClick={() => {
                       const nextRow = { ...r, winner: 'home' as Winner, margin: r.margin }
@@ -425,7 +425,7 @@ export default function RugbyPicksForm({
 
                   {r.winner !== '' && r.winner !== 'draw' && (
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>Winning margin</span>
+                      <span className="text-xs" style={{ color: 'var(--rugby-text-dim)' }}>Winning margin</span>
                       <input
                         type="number" min="1" placeholder="pts"
                         value={r.margin}
@@ -434,21 +434,21 @@ export default function RugbyPicksForm({
                           updateRow(f.id, nextRow)
                           if (e.target.value) advanceFrom(`match-${f.id}`, { rows: { ...rows, [f.id]: nextRow } })
                         }}
-                        className="pop-input px-2 py-1.5 text-sm w-20 text-center"
+                        className="rugby-input px-2 py-1.5 text-sm w-20 text-center"
                       />
                     </div>
                   )}
 
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <div>
-                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>🏉 {f.homeTeam} try bonus</p>
+                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--rugby-text-faint)' }}>🏉 {f.homeTeam} try bonus</p>
                       <div className="flex gap-1.5">
-                        <ChoiceButton label="Yes" active={r.homeTryBonus === true} fill="var(--pop-green)" text="var(--pop-black)" onClick={() => {
+                        <ChoiceButton label="Yes" active={r.homeTryBonus === true} fill="#1f8a4c" text="#ffffff" onClick={() => {
                           const nextRow = { ...r, homeTryBonus: true }
                           updateRow(f.id, nextRow)
                           advanceFrom(`match-${f.id}`, { rows: { ...rows, [f.id]: nextRow } })
                         }} />
-                        <ChoiceButton label="No" active={r.homeTryBonus === false} fill="var(--pop-red)" text="var(--pop-white)" onClick={() => {
+                        <ChoiceButton label="No" active={r.homeTryBonus === false} fill="#c8342a" text="#ffffff" onClick={() => {
                           const nextRow = { ...r, homeTryBonus: false }
                           updateRow(f.id, nextRow)
                           advanceFrom(`match-${f.id}`, { rows: { ...rows, [f.id]: nextRow } })
@@ -456,14 +456,14 @@ export default function RugbyPicksForm({
                       </div>
                     </div>
                     <div>
-                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>🏉 {f.awayTeam} try bonus</p>
+                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--rugby-text-faint)' }}>🏉 {f.awayTeam} try bonus</p>
                       <div className="flex gap-1.5">
-                        <ChoiceButton label="Yes" active={r.awayTryBonus === true} fill="var(--pop-green)" text="var(--pop-black)" onClick={() => {
+                        <ChoiceButton label="Yes" active={r.awayTryBonus === true} fill="#1f8a4c" text="#ffffff" onClick={() => {
                           const nextRow = { ...r, awayTryBonus: true }
                           updateRow(f.id, nextRow)
                           advanceFrom(`match-${f.id}`, { rows: { ...rows, [f.id]: nextRow } })
                         }} />
-                        <ChoiceButton label="No" active={r.awayTryBonus === false} fill="var(--pop-red)" text="var(--pop-white)" onClick={() => {
+                        <ChoiceButton label="No" active={r.awayTryBonus === false} fill="#c8342a" text="#ffffff" onClick={() => {
                           const nextRow = { ...r, awayTryBonus: false }
                           updateRow(f.id, nextRow)
                           advanceFrom(`match-${f.id}`, { rows: { ...rows, [f.id]: nextRow } })
@@ -475,12 +475,12 @@ export default function RugbyPicksForm({
                   <button
                     type="button"
                     onClick={() => setConfidenceFixtureId(f.id)}
-                    className="pop-name w-full py-2.5 rounded-lg text-xs"
+                    className="rugby-cond uppercase tracking-wide w-full py-2.5 rounded-lg text-xs"
                     style={{
-                      background: confidenceFixtureId === f.id ? 'var(--pop-orange)' : 'rgba(255,255,255,0.06)',
-                      color: confidenceFixtureId === f.id ? 'var(--pop-black)' : 'rgba(255,255,255,0.8)',
-                      border: confidenceFixtureId === f.id ? '2px solid var(--pop-orange)' : '2px solid rgba(255,255,255,0.12)',
-                      boxShadow: confidenceFixtureId === f.id ? '0 0 16px rgba(250,97,0,0.5)' : 'none',
+                      background: confidenceFixtureId === f.id ? 'linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2))' : 'var(--rugby-ink-3)',
+                      color: confidenceFixtureId === f.id ? '#241300' : 'var(--rugby-text-dim)',
+                      border: confidenceFixtureId === f.id ? '2px solid var(--rugby-floodlight)' : '2px solid var(--rugby-line)',
+                      boxShadow: confidenceFixtureId === f.id ? '0 0 16px rgba(255,194,46,0.4)' : 'none',
                       fontWeight: 900,
                     }}
                   >
@@ -494,9 +494,9 @@ export default function RugbyPicksForm({
       )}
 
       {showSquadDraft && (
-        <div className="pop-panel pop-panel--orange p-5">
-          <h2 className="pop-headline text-sm mb-2" style={{ color: 'var(--pop-white)' }}>Your Dream Team</h2>
-          <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.75)' }}>
+        <div className="rugby-panel rugby-panel--gold p-5">
+          <h2 className="rugby-cond text-sm mb-2 uppercase tracking-wide">Your Dream Team</h2>
+          <p className="text-sm mb-4" style={{ color: 'var(--rugby-text-dim)' }}>
             Pick one player from each team — six in total — then mark one as your kicker.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
@@ -514,7 +514,7 @@ export default function RugbyPicksForm({
           </div>
           {teams.every(t => squadSelections[t.id]) && (
             <div>
-              <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: 'var(--pop-orange)' }}>Pick your kicker</p>
+              <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: 'var(--rugby-floodlight)' }}>Pick your kicker</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {teams.map(t => {
                   const pid = squadSelections[t.id]
@@ -526,8 +526,8 @@ export default function RugbyPicksForm({
                       key={pid}
                       label={player.name}
                       active={kickerPlayerId === pid}
-                      fill="var(--pop-orange)"
-                      text="var(--pop-black)"
+                      fill="var(--rugby-floodlight)"
+                      text="#241300"
                       onClick={() => setKickerPlayerId(pid)}
                     />
                   )
@@ -539,13 +539,13 @@ export default function RugbyPicksForm({
       )}
 
       {message && (
-        <p className="text-sm text-center" style={{ color: 'var(--pop-red)' }}>{message}</p>
+        <p className="text-sm text-center" style={{ color: '#e8574a' }}>{message}</p>
       )}
 
       <button
         onClick={submit}
         disabled={!allValid || saving}
-        className={`pop-button w-full py-3 text-base ${justSubmitted ? 'pop-button--green pop-celebrate' : 'pop-button--green'}`}
+        className={`rugby-button w-full py-3 text-base ${justSubmitted ? 'pop-celebrate' : ''}`}
       >
         {saving ? 'Saving…' : justSubmitted ? '✓ Submitted!' : isUpdate ? 'Update My Picks' : 'Confirm My Picks'}
       </button>

@@ -1,9 +1,9 @@
 'use client'
 
-// Same visual language as football's CountdownClock (app/picks/page.tsx) —
-// four colour-coded pill units (D/H/M/S), the seconds pill pulsing to read
-// as "ticking" — kept as its own copy rather than importing football's
-// page-local helper, per this project's isolation rule.
+// Four D/H/M/S pill units in the rugby matchday theme's dark ink, the
+// seconds pill picked out in floodlight gold and pulsing to read as
+// "ticking" — kept as its own copy rather than importing football's
+// page-local CountdownClock, per this project's isolation rule.
 
 import { useCountdown } from '../app/lib/useCountdown'
 
@@ -12,14 +12,14 @@ export default function RugbyCountdownClock({ deadline }: { deadline: string | n
   if (!time) return null
 
   if (time.expired) {
-    return <span className="pop-badge pop-badge--red px-3 py-1.5 text-xs">Deadline passed</span>
+    return <span className="rugby-badge rugby-badge--error px-3 py-1.5 text-xs">Deadline passed</span>
   }
 
   const units = [
-    { label: 'D', value: time.days, bg: 'var(--pop-pink)', fg: 'var(--pop-white)' },
-    { label: 'H', value: time.hours, bg: 'var(--pop-blue)', fg: 'var(--pop-black)' },
-    { label: 'M', value: time.mins, bg: 'var(--pop-green)', fg: 'var(--pop-black)' },
-    { label: 'S', value: time.secs, bg: 'var(--pop-orange)', fg: 'var(--pop-black)', pulse: true },
+    { label: 'D', value: time.days, bg: 'var(--rugby-ink-3)', fg: 'var(--rugby-text)' },
+    { label: 'H', value: time.hours, bg: 'var(--rugby-ink-3)', fg: 'var(--rugby-text)' },
+    { label: 'M', value: time.mins, bg: 'var(--rugby-ink-3)', fg: 'var(--rugby-text)' },
+    { label: 'S', value: time.secs, bg: 'var(--rugby-floodlight)', fg: '#241300', pulse: true },
   ]
 
   return (

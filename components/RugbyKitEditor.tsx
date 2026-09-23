@@ -155,9 +155,9 @@ export default function RugbyKitEditor({
     setTimeout(() => setShuffleSpin(false), 500)
   }
 
-  if (loading) return <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.5)' }}>Loading kit…</p>
+  if (loading) return <p className="text-sm text-center py-4" style={{ color: 'var(--rugby-text-faint)' }}>Loading kit…</p>
 
-  const sectionClass = `pop-panel ${compact ? 'p-2 mb-2' : 'p-3 mb-3'}`
+  const sectionClass = `rugby-panel ${compact ? 'p-2 mb-2' : 'p-3 mb-3'}`
   const swatchMaxSize = compact ? 22 : 28
   const previewSize = compact ? 90 : 150
 
@@ -175,8 +175,8 @@ export default function RugbyKitEditor({
                 width: '100%',
                 maxWidth: swatchMaxSize,
                 backgroundColor: c,
-                border: selectedHere ? '3px solid var(--pop-green)' : '3px solid rgba(255,255,255,0.2)',
-                boxShadow: selectedHere ? '0 0 12px rgba(204,250,0,0.6)' : 'none',
+                border: selectedHere ? '3px solid var(--rugby-floodlight)' : '3px solid var(--rugby-line)',
+                boxShadow: selectedHere ? '0 0 12px rgba(255,194,46,0.5)' : 'none',
               }}
             />
           )
@@ -195,15 +195,15 @@ export default function RugbyKitEditor({
     <div>
       <div
         className={`rounded-xl ${compact ? 'p-2 mb-2' : 'p-5 mb-3'} flex items-center justify-center gap-4`}
-        style={{ background: 'radial-gradient(circle at 50% 30%, rgba(160,0,250,0.14), rgba(255,255,255,0.03) 70%)', border: '1px solid rgba(255,255,255,0.08)' }}
+        style={{ background: 'radial-gradient(circle at 50% 30%, rgba(255,194,46,0.10), rgba(255,255,255,0.03) 70%)', border: '1px solid var(--rugby-line)' }}
       >
         <div className="flex flex-col items-center gap-1">
           <RugbyKitPreview {...previewProps} view="front" size={previewSize} />
-          {!compact && <span className="text-[9px] uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>Front</span>}
+          {!compact && <span className="text-[9px] uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Front</span>}
         </div>
         <div className="flex flex-col items-center gap-1">
           <RugbyKitPreview {...previewProps} view="back" size={previewSize} />
-          {!compact && <span className="text-[9px] uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>Back</span>}
+          {!compact && <span className="text-[9px] uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Back</span>}
         </div>
       </div>
 
@@ -211,7 +211,7 @@ export default function RugbyKitEditor({
         <button
           onClick={shuffleKit}
           type="button"
-          className={`pop-button pop-button--yellow px-3 py-1.5 text-xs ${shuffleSpin ? 'pop-shuffle-spin' : ''}`}
+          className={`rugby-button rugby-button--ghost px-3 py-1.5 text-xs ${shuffleSpin ? 'pop-shuffle-spin' : ''}`}
         >
           Shuffle
         </button>
@@ -229,10 +229,10 @@ export default function RugbyKitEditor({
               onClick={() => setActiveTab(t.key)}
               className={`flex flex-col items-center gap-1 ${compact ? 'py-1' : 'py-2'} rounded-lg text-[10px] font-black uppercase tracking-wide`}
               style={{
-                border: active ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
-                boxShadow: active ? '0 0 14px rgba(204,250,0,0.4)' : 'none',
-                background: active ? 'rgba(204,250,0,0.12)' : 'transparent',
-                color: active ? 'var(--pop-green)' : 'rgba(255,255,255,0.55)',
+                border: active ? '2px solid var(--rugby-floodlight)' : '2px solid var(--rugby-line)',
+                boxShadow: active ? '0 0 14px rgba(255,194,46,0.35)' : 'none',
+                background: active ? 'rgba(255,194,46,0.12)' : 'transparent',
+                color: active ? 'var(--rugby-floodlight)' : 'var(--rugby-text-dim)',
               }}
             >
               {t.key === 'pattern' ? (
@@ -263,10 +263,10 @@ export default function RugbyKitEditor({
                   onClick={() => setPattern(p.value)}
                   className={`flex flex-col items-center gap-1 ${compact ? 'p-1' : 'p-2'} rounded-lg text-xs ${selected ? 'pop-pop-in' : ''}`}
                   style={{
-                    border: selected ? '2px solid var(--pop-green)' : '2px solid rgba(255,255,255,0.15)',
-                    boxShadow: selected ? '0 0 14px rgba(204,250,0,0.4)' : 'none',
-                    background: selected ? 'rgba(204,250,0,0.12)' : 'transparent',
-                    color: 'var(--pop-white)',
+                    border: selected ? '2px solid var(--rugby-floodlight)' : '2px solid var(--rugby-line)',
+                    boxShadow: selected ? '0 0 14px rgba(255,194,46,0.35)' : 'none',
+                    background: selected ? 'rgba(255,194,46,0.12)' : 'transparent',
+                    color: 'var(--rugby-text)',
                   }}
                 >
                   <RugbyKitPreview pattern={p.value} colour1={colour1} colour2={colour2} colour3={colour3} size={compact ? 22 : 28} />
@@ -292,22 +292,22 @@ export default function RugbyKitEditor({
 
       {activeTab === 'trim' && (
         <div className={sectionClass}>
-          <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Collar trim (optional)</p>
+          <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'var(--rugby-text-faint)' }}>Collar trim (optional)</p>
           <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
             <button
               onClick={() => setColour3(null)}
               className={`rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${compact ? 'w-5 h-5' : 'w-6 h-6'} ${colour3 === null ? 'pop-pop-in' : ''}`}
               style={{
                 background: 'transparent',
-                color: 'var(--pop-white)',
-                border: colour3 === null ? '3px solid var(--pop-green)' : '3px solid rgba(255,255,255,0.2)',
-                boxShadow: colour3 === null ? '0 0 12px rgba(204,250,0,0.6)' : 'none',
+                color: 'var(--rugby-text)',
+                border: colour3 === null ? '3px solid var(--rugby-floodlight)' : '3px solid var(--rugby-line)',
+                boxShadow: colour3 === null ? '0 0 12px rgba(255,194,46,0.5)' : 'none',
               }}
               title="No contrast collar"
             >
               ✕
             </button>
-            <span className="text-[9px] uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>No contrast collar</span>
+            <span className="text-[9px] uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>No contrast collar</span>
           </div>
           <SwatchPicker selected={colour3 ?? ''} onSelect={setColour3} />
         </div>
@@ -315,16 +315,16 @@ export default function RugbyKitEditor({
 
       {activeTab === 'number' && (
         <div className={sectionClass}>
-          <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Your number or initial</p>
+          <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'var(--rugby-text-faint)' }}>Your number or initial</p>
           <input
             type="text"
             value={backText ?? ''}
             onChange={e => setBackText(e.target.value.slice(0, 2).toUpperCase() || null)}
             maxLength={2}
             placeholder="e.g. 8 or KH"
-            className="pop-input px-3 py-2 text-sm w-full mb-3"
+            className="rugby-input px-3 py-2 text-sm w-full mb-3"
           />
-          <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Shape</p>
+          <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'var(--rugby-text-faint)' }}>Shape</p>
           <div className="flex gap-2 mb-3">
             {(['circle', 'square'] as const).map(shape => (
               <button
@@ -333,8 +333,8 @@ export default function RugbyKitEditor({
                 onClick={() => setBackShape(shape)}
                 className="text-xs px-3 py-1.5 capitalize"
                 style={{
-                  background: backShape === shape ? 'var(--pop-green)' : 'rgba(255,255,255,0.08)',
-                  color: backShape === shape ? 'var(--pop-black)' : 'rgba(255,255,255,0.6)',
+                  background: backShape === shape ? 'var(--rugby-floodlight)' : 'var(--rugby-ink-3)',
+                  color: backShape === shape ? '#241300' : 'var(--rugby-text-dim)',
                   borderRadius: shape === 'circle' ? 999 : 6,
                   fontWeight: backShape === shape ? 700 : 400,
                 }}
@@ -343,31 +343,31 @@ export default function RugbyKitEditor({
               </button>
             ))}
           </div>
-          <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Shape colour</p>
+          <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'var(--rugby-text-faint)' }}>Shape colour</p>
           <div className="mb-3"><SwatchPicker selected={backShapeColour} onSelect={setBackShapeColour} /></div>
-          <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Number colour</p>
+          <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'var(--rugby-text-faint)' }}>Number colour</p>
           <SwatchPicker selected={backTextColour} onSelect={setBackTextColour} />
         </div>
       )}
 
       {activeTab === 'shorts' && (
         <div className={sectionClass}>
-          <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Shorts colour</p>
+          <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'var(--rugby-text-faint)' }}>Shorts colour</p>
           <SwatchPicker selected={shortsColour ?? colour2} onSelect={setShortsColour} />
         </div>
       )}
 
       {activeTab === 'socks' && (
         <div className={sectionClass}>
-          <label className="flex items-center gap-2 text-xs mb-3 cursor-pointer" style={{ color: 'rgba(255,255,255,0.6)' }}>
+          <label className="flex items-center gap-2 text-xs mb-3 cursor-pointer" style={{ color: 'var(--rugby-text-dim)' }}>
             <input type="checkbox" checked={socksHooped} onChange={e => setSocksHooped(e.target.checked)} />
             Hooped socks
           </label>
-          <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>{socksHooped ? 'First colour' : 'Socks colour'}</p>
+          <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'var(--rugby-text-faint)' }}>{socksHooped ? 'First colour' : 'Socks colour'}</p>
           <div className="mb-3"><SwatchPicker selected={socksColour ?? colour1} onSelect={setSocksColour} /></div>
           {socksHooped && (
             <>
-              <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Hoop colour</p>
+              <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'var(--rugby-text-faint)' }}>Hoop colour</p>
               <SwatchPicker selected={socksColour2 ?? colour2} onSelect={setSocksColour2} />
             </>
           )}
@@ -375,12 +375,12 @@ export default function RugbyKitEditor({
       )}
 
       {message && (
-        <p className={`pop-badge ${message === 'Kit saved' ? 'pop-badge--green' : 'pop-badge--red'} px-2.5 py-1 text-xs mb-3 inline-block`}>{message}</p>
+        <p className={`rugby-badge ${message === 'Kit saved' ? 'rugby-badge--success' : 'rugby-badge--error'} px-2.5 py-1 text-xs mb-3 inline-block`}>{message}</p>
       )}
       <button
         onClick={saveKit}
         disabled={saving}
-        className={`pop-button ${justSaved ? 'pop-button--green pop-celebrate' : ''} w-full py-2.5 text-sm`}
+        className={`rugby-button ${justSaved ? 'pop-celebrate' : ''} w-full py-2.5 text-sm`}
       >
         {saving ? 'Saving…' : justSaved ? 'Kit Saved!' : 'Save Kit'}
       </button>
