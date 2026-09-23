@@ -1,7 +1,9 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
+import RugbyFixtureCard from '../../../components/RugbyFixtureCard'
+import RugbyResultCard from '../../../components/RugbyResultCard'
 
 type Competition = { id: string; name: string }
-type Team = { id: number; name: string }
+type Team = { id: number; name: string; short_code: string | null }
 type Round = { id: string; number: number }
 type Fixture = {
   id: number; round_id: string; home_team_id: number; away_team_id: number
@@ -18,18 +20,18 @@ export default async function RugbyResultsPage() {
   const { data: competition } = await supabase.schema('rugby').from('competitions').select('id, name').eq('status', 'active').maybeSingle() as unknown as { data: Competition | null }
 
   if (!competition) {
-    return <div className="max-w-2xl mx-auto p-6"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>No active competition yet.</p></div>
+    return <div className="max-w-2xl mx-auto p-6"><p className="text-sm" style={{ color: 'var(--rugby-text-dim)' }}>No active competition yet.</p></div>
   }
 
   const [{ data: teams }, { data: players }, { data: rounds }] = await Promise.all([
-    supabase.schema('rugby').from('teams').select('id, name') as unknown as Promise<{ data: Team[] | null }>,
+    supabase.schema('rugby').from('teams').select('id, name, short_code') as unknown as Promise<{ data: Team[] | null }>,
     supabase.schema('rugby').from('players').select('id, name') as unknown as Promise<{ data: Player[] | null }>,
     supabase.schema('rugby').from('rounds').select('id, number').eq('competition_id', competition.id).order('number') as unknown as Promise<{ data: Round[] | null }>,
   ])
   const teamsList = teams ?? []
   const playersList = players ?? []
   const roundsList = rounds ?? []
-  const teamName = (id: number) => teamsList.find(t => t.id === id)?.name ?? '?'
+  const team = (id: number) => teamsList.find(t => t.id === id)
   const playerName = (id: number | null) => playersList.find(p => p.id === id)?.name ?? 'Unknown'
 
   const roundIds = new Set(roundsList.map(r => r.id))
@@ -61,11 +63,14 @@ export default async function RugbyResultsPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
-      <h1 className="pop-hero pop-hero--green text-2xl md:text-3xl mb-4">📊 Fixtures &amp; Results</h1>
+      <div className="rugby-hero-wrap">
+        <p className="rugby-hero-eyebrow">{competition.name}</p>
+        <h1 className="rugby-hero-title">Fixtures</h1>
+      </div>
 
       {roundsList.length === 0 ? (
-        <div className="pop-panel pop-panel--green p-5">
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No fixtures yet.</p>
+        <div className="rugby-panel p-5">
+          <p className="text-sm" style={{ color: 'var(--rugby-text-faint)' }}>No fixtures yet.</p>
         </div>
       ) : (
         roundsList.map(round => {
@@ -75,33 +80,45 @@ export default async function RugbyResultsPage() {
           const matchPts = matchPointsByRound.get(round.id)
           const hasAnyResult = roundFixtures.some(f => f.status === 'finished')
           return (
-            <div key={round.id} className="pop-panel pop-panel--green p-5 mb-4">
-              <h2 className="pop-headline text-sm mb-3" style={{ color: 'var(--pop-white)' }}>Round {round.number}</h2>
-              <div className="space-y-1 mb-3">
-                {roundFixtures.map(f => (
-                  <div key={f.id} className="flex items-center justify-between text-sm py-1" style={{ color: 'var(--pop-white)' }}>
-                    <span className="pop-name">{teamName(f.home_team_id)} v {teamName(f.away_team_id)}</span>
-                    <span style={{ color: 'rgba(255,255,255,0.6)' }}>
-                      {f.status === 'finished'
-                        ? `${f.home_score} - ${f.away_score}`
-                        : f.kickoff_time
-                          ? new Date(f.kickoff_time).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })
-                          : 'TBC'}
-                    </span>
-                  </div>
-                ))}
+            <div key={round.id} className="mb-9">
+              <p className="rugby-section-title">Round {round.number}</p>
+              <div className="flex flex-col gap-4 mt-3">
+                {roundFixtures.map(f => {
+                  const home = team(f.home_team_id)
+                  const away = team(f.away_team_id)
+                  const fixtureEvents = eventsByFixture.get(f.id) ?? []
+                  if (f.status === 'finished' && f.home_score != null && f.away_score != null) {
+                    return (
+                      <div key={f.id}>
+                        <RugbyResultCard
+                          homeName={home?.name.toUpperCase() ?? '?'} homeCode={home?.short_code ?? null} homeScore={f.home_score}
+                          awayName={away?.name.toUpperCase() ?? '?'} awayCode={away?.short_code ?? null} awayScore={f.away_score}
+                          tag="Full Time"
+                        />
+                        {fixtureEvents.length > 0 && (
+                          <div className="text-xs space-y-0.5 mt-2 px-1" style={{ color: 'var(--rugby-text-faint)' }}>
+                            {fixtureEvents.map((e, i) => (
+                              <p key={i}>{playerName(e.player_id)} — {e.event_type}{e.minute ? ` (${e.minute}')` : ''}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
+                  return (
+                    <RugbyFixtureCard
+                      key={f.id}
+                      homeName={home?.name.toUpperCase() ?? '?'} homeCode={home?.short_code ?? null}
+                      awayName={away?.name.toUpperCase() ?? '?'} awayCode={away?.short_code ?? null}
+                      meta={{ left: f.kickoff_time ? new Date(f.kickoff_time).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' }) : 'TBC' }}
+                    />
+                  )
+                })}
               </div>
-              {roundFixtures.some(f => (eventsByFixture.get(f.id)?.length ?? 0) > 0) && (
-                <div className="text-xs space-y-0.5 mb-3" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  {roundFixtures.flatMap(f => (eventsByFixture.get(f.id) ?? []).map((e, i) => (
-                    <p key={`${f.id}-${i}`}>{teamName(f.home_team_id)} v {teamName(f.away_team_id)}: {playerName(e.player_id)} — {e.event_type}{e.minute ? ` (${e.minute}')` : ''}</p>
-                  )))}
-                </div>
-              )}
               {hasAnyResult && user && (squadPts != null || matchPts != null) && (
-                <div className="text-xs pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
-                  Your points this round — Dream Team: <strong style={{ color: (squadPts ?? 0) < 0 ? 'var(--pop-red)' : 'var(--pop-white)' }}>{squadPts ?? 0}</strong>
-                  {matchPts != null && <> · Match Predictions: <strong style={{ color: matchPts < 0 ? 'var(--pop-red)' : 'var(--pop-white)' }}>{matchPts}</strong></>}
+                <div className="rugby-panel text-xs mt-4 p-3" style={{ color: 'var(--rugby-text-dim)' }}>
+                  Your points this round — Dream Team: <strong style={{ color: (squadPts ?? 0) < 0 ? '#e8574a' : 'var(--rugby-text)' }}>{squadPts ?? 0}</strong>
+                  {matchPts != null && <> · Match Predictions: <strong style={{ color: matchPts < 0 ? '#e8574a' : 'var(--rugby-text)' }}>{matchPts}</strong></>}
                 </div>
               )}
             </div>

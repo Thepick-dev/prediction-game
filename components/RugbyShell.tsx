@@ -1,14 +1,13 @@
 'use client'
 
-// Rugby's own header/nav shell, built to visually match football's
-// components/ceefax-shell.tsx (Shell) pop-art rendering — same header
-// layout, kit badge, deadline countdown strip, mobile menu, Admin link —
-// but wired to rugby's own tables (rugby.player_kits, rugby.competitions,
-// rugby.rounds) instead of football's. Deliberately its own component
-// rather than importing/extending Shell: Shell is hardcoded to football's
-// data (profiles.kit_*, minigame scores, Futzy ticker), and this project's
-// isolation rule is that no football-facing file is touched by the rugby
-// build.
+// Rugby's own header/nav shell — its own "matchday broadcast" visual
+// identity (see globals.css, .rugby-theme), completely separate from
+// football's pop-art theme, wired to rugby's own tables
+// (rugby.player_kits, rugby.competitions, rugby.rounds). Deliberately its
+// own component rather than importing/extending football's Shell: Shell
+// is hardcoded to football's data (profiles.kit_*, minigame scores, Futzy
+// ticker), and this project's isolation rule is that no football-facing
+// file is touched by the rugby build.
 
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
@@ -32,9 +31,6 @@ const navItems = [
   { label: 'Winners', href: '/rugby/winners' },
   { label: 'Settings', href: '/rugby/settings' },
 ]
-
-// Same rotation football's Shell uses for the nav underline accent.
-const popNavAccents = ['var(--pop-pink)', 'var(--pop-blue)', 'var(--pop-green)', 'var(--pop-orange)']
 
 type Kit = {
   pattern: string; colour1: string; colour2: string; colour3: string | null
@@ -155,22 +151,25 @@ export default function RugbyShell({
   }
 
   return (
-    <div className="pop-art-theme min-h-screen">
-      <header className="sticky top-0 z-50" style={{ borderBottom: '2px solid rgba(255,255,255,0.15)' }}>
+    <div className="rugby-theme min-h-screen">
+      <header className="sticky top-0 z-50" style={{ borderBottom: '2px solid var(--rugby-line)', background: 'var(--rugby-ink)' }}>
         {tickerText && (
-          <div className="overflow-hidden whitespace-nowrap" style={{ background: 'var(--pop-orange)', height: 28 }}>
+          <div className="overflow-hidden whitespace-nowrap" style={{ background: 'linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2))', height: 28 }}>
             <div
-              className="pop-ticker-single pop-name inline-block py-1.5"
-              style={{ fontSize: '14px', color: 'var(--pop-black)', animationDuration: `${Math.max(2.5, tickerText.length * 0.06)}s` }}
+              className="pop-ticker-single rugby-cond inline-block py-1.5"
+              style={{ fontSize: '13px', color: '#241300', animationDuration: `${Math.max(2.5, tickerText.length * 0.06)}s` }}
             >
               📢 {tickerText}
             </div>
           </div>
         )}
         <div className="max-w-4xl mx-auto px-4">
-          <div className="flex sm:grid sm:grid-cols-3 items-center justify-between h-14">
+          <div className="flex sm:grid sm:grid-cols-3 items-center justify-between h-16">
             <Link href="/rugby" className="flex items-center justify-center gap-2 sm:col-start-2 sm:justify-self-center whitespace-nowrap">
-              <span className="pop-hero pop-hero--pink inline-block text-lg sm:text-2xl tracking-wide uppercase">🏉 Six Nations</span>
+              <span className="rugby-ball-icon" aria-hidden="true" />
+              <span className="rugby-display inline-block text-lg sm:text-2xl tracking-wide">
+                Six <b style={{ color: 'var(--rugby-floodlight)' }}>Nations</b>
+              </span>
             </Link>
             <div className="flex items-center gap-3 sm:col-start-3 sm:justify-self-end">
               {userId && (
@@ -198,42 +197,36 @@ export default function RugbyShell({
                 className="md:hidden flex flex-col justify-center items-center w-8 h-8 gap-1.5"
                 aria-label="Menu"
               >
-                <span className="block w-5 h-0.5 transition-all duration-200" style={{ backgroundColor: 'var(--pop-white)', transform: menuOpen ? 'rotate(45deg) translateY(8px)' : undefined }} />
-                <span className="block w-5 h-0.5 transition-all duration-200" style={{ backgroundColor: 'var(--pop-white)', opacity: menuOpen ? 0 : 1 }} />
-                <span className="block w-5 h-0.5 transition-all duration-200" style={{ backgroundColor: 'var(--pop-white)', transform: menuOpen ? 'rotate(-45deg) translateY(-8px)' : undefined }} />
+                <span className="block w-5 h-0.5 transition-all duration-200" style={{ backgroundColor: 'var(--rugby-text)', transform: menuOpen ? 'rotate(45deg) translateY(8px)' : undefined }} />
+                <span className="block w-5 h-0.5 transition-all duration-200" style={{ backgroundColor: 'var(--rugby-text)', opacity: menuOpen ? 0 : 1 }} />
+                <span className="block w-5 h-0.5 transition-all duration-200" style={{ backgroundColor: 'var(--rugby-text)', transform: menuOpen ? 'rotate(-45deg) translateY(-8px)' : undefined }} />
               </button>
             </div>
           </div>
-          <nav className="hidden md:flex flex-wrap justify-center gap-x-3 pb-2">
-            {navItems.map((item, i) => {
+          <nav className="hidden md:flex flex-wrap justify-center gap-x-4 pb-2.5">
+            {navItems.map(item => {
               const active = isActive(item.href)
-              const accent = popNavAccents[i % popNavAccents.length]
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase ${active ? 'pop-nav-link--active' : ''}`}
-                  style={{ borderBottomColor: active ? accent : 'transparent' }}
+                  className={`rugby-nav-link px-1 py-1.5 text-[10px] lg:text-xs whitespace-nowrap ${active ? 'rugby-nav-link--active' : ''}`}
                 >
                   {item.label}
                 </Link>
               )
             })}
             {isAdmin && (
-              <a
-                href="/admin/rugby"
-                className="pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase"
-                style={{ color: 'var(--pop-blue)' }}
-              >
+              <a href="/admin/rugby" className="rugby-nav-link px-1 py-1.5 text-[10px] lg:text-xs whitespace-nowrap">
                 Admin
               </a>
             )}
-            <Link href="/picks" className="pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            <Link href="/picks" className="rugby-nav-link px-1 py-1.5 text-[10px] lg:text-xs whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.3)' }}>
               ⚽ Football
             </Link>
             {userId && (
               <form action="/auth/signout" method="POST">
-                <button type="submit" className="pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase" style={{ color: 'var(--pop-red)' }}>
+                <button type="submit" className="rugby-nav-link px-1 py-1.5 text-[10px] lg:text-xs whitespace-nowrap" style={{ color: '#e8574a' }}>
                   Log Out
                 </button>
               </form>
@@ -241,12 +234,12 @@ export default function RugbyShell({
           </nav>
         </div>
         {nextDeadline && countdown && !countdown.expired && (
-          <div style={{ background: 'rgba(255,255,255,0.06)', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ background: 'rgba(255,194,46,0.08)', borderTop: '1px solid var(--rugby-line)' }}>
             <div className="max-w-4xl mx-auto px-4">
               <Link
                 href="/rugby/picks"
-                className="flex items-center justify-center gap-1.5 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider hover:opacity-80"
-                style={{ color: 'var(--pop-orange)' }}
+                className="rugby-cond flex items-center justify-center gap-1.5 py-1.5 text-[10px] sm:text-xs uppercase tracking-wider hover:opacity-80"
+                style={{ color: 'var(--rugby-floodlight)' }}
               >
                 <span>⏱</span>
                 Round {nextDeadline.number} picks close in {countdown.days > 0 ? `${countdown.days}d ` : ''}{countdown.hours}h {countdown.mins}m
@@ -255,17 +248,16 @@ export default function RugbyShell({
           </div>
         )}
         {menuOpen && (
-          <div className="md:hidden border-t" style={{ borderColor: 'rgba(255,255,255,0.15)', background: 'var(--pop-surface)' }}>
-            {navItems.map((item, i) => {
+          <div className="md:hidden border-t" style={{ borderColor: 'var(--rugby-line)', background: 'var(--rugby-ink-2)' }}>
+            {navItems.map(item => {
               const active = isActive(item.href)
-              const accent = popNavAccents[i % popNavAccents.length]
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={() => setMenuOpen(false)}
-                  style={{ color: active ? 'var(--pop-white)' : 'rgba(255,255,255,0.65)', borderLeft: `4px solid ${active ? accent : 'transparent'}` }}
-                  className="block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-white/10"
+                  style={{ color: active ? 'var(--rugby-floodlight)' : 'var(--rugby-text-dim)', borderLeft: `4px solid ${active ? 'var(--rugby-floodlight)' : 'transparent'}` }}
+                  className="rugby-cond block px-6 py-4 text-sm tracking-widest uppercase border-b border-white/10"
                 >
                   {item.label}
                 </Link>
@@ -275,20 +267,20 @@ export default function RugbyShell({
               <a
                 href="/admin/rugby"
                 onClick={() => setMenuOpen(false)}
-                style={{ color: 'var(--pop-blue)' }}
-                className="block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-white/10"
+                style={{ color: 'var(--rugby-text-dim)' }}
+                className="rugby-cond block px-6 py-4 text-sm tracking-widest uppercase border-b border-white/10"
               >
                 Admin
               </a>
             )}
-            <Link href="/picks" onClick={() => setMenuOpen(false)} style={{ color: 'rgba(255,255,255,0.5)' }} className="block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-white/10">
+            <Link href="/picks" onClick={() => setMenuOpen(false)} style={{ color: 'rgba(255,255,255,0.4)' }} className="rugby-cond block px-6 py-4 text-sm tracking-widest uppercase border-b border-white/10">
               ⚽ Football
             </Link>
             {userId && (
               <>
-                <div className="px-6 py-3 text-xs uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>{displayName ?? ''}</div>
+                <div className="rugby-cond px-6 py-3 text-xs uppercase tracking-wider" style={{ color: 'var(--rugby-text-faint)' }}>{displayName ?? ''}</div>
                 <form action="/auth/signout" method="POST">
-                  <button type="submit" className="block w-full text-left px-6 py-4 text-sm font-bold tracking-widest uppercase" style={{ color: 'var(--pop-red)' }}>
+                  <button type="submit" className="rugby-cond block w-full text-left px-6 py-4 text-sm tracking-widest uppercase" style={{ color: '#e8574a' }}>
                     Log Out
                   </button>
                 </form>
@@ -300,13 +292,13 @@ export default function RugbyShell({
       <main className="max-w-4xl mx-auto px-4 py-6">
         {children}
       </main>
-      <footer className="py-4 mt-8 text-center" style={{ borderTop: '2px solid rgba(255,255,255,0.15)' }}>
-        <span className="text-xs uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.5)' }}>Six Nations — part of LMS All-Stars</span>
+      <footer className="py-4 mt-8 text-center" style={{ borderTop: '2px solid var(--rugby-line)' }}>
+        <span className="rugby-cond text-xs uppercase tracking-widest" style={{ color: 'var(--rugby-text-faint)' }}>Six Nations — part of LMS All-Stars</span>
       </footer>
       {kitPopupOpen && kitPopupPos && userId && typeof document !== 'undefined' && createPortal(
         <div
           ref={kitPopupRef}
-          className="pop-art-theme fixed z-50 rounded-lg p-4"
+          className="rugby-theme fixed z-50 p-4"
           style={{
             top: kitPopupPos.top,
             left: kitPopupPos.left,
@@ -314,13 +306,13 @@ export default function RugbyShell({
             maxWidth: `calc(100vw - ${KIT_POPUP_MARGIN * 2}px)`,
             maxHeight: `calc(100vh - ${KIT_POPUP_MARGIN * 2}px)`,
             overflowY: 'auto',
-            background: 'var(--pop-surface)',
-            border: '2px solid rgba(255,255,255,0.15)',
+            background: 'var(--rugby-ink-2)',
+            border: '1px solid var(--rugby-line)',
             boxShadow: '0 8px 30px rgba(0,0,0,0.6)',
             borderRadius: '16px',
           }}
         >
-          <h3 className="pop-headline text-lg mb-2" style={{ color: 'var(--pop-white)' }}>Change Your Kit</h3>
+          <h3 className="rugby-display text-lg mb-2" style={{ color: 'var(--rugby-text)' }}>Change Your Kit</h3>
           <RugbyKitEditor
             userId={userId}
             onSaved={newKit => {
@@ -332,7 +324,7 @@ export default function RugbyShell({
               setTimeout(() => setKitPopupOpen(false), 900)
             }}
           />
-          <button onClick={() => setKitPopupOpen(false)} className="pop-button pop-button--blue w-full mt-3 py-1.5 text-xs">
+          <button onClick={() => setKitPopupOpen(false)} className="rugby-button w-full mt-3 py-1.5 text-xs">
             Close
           </button>
         </div>,

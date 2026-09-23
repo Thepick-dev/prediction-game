@@ -34,25 +34,28 @@ export default async function RugbyWinnersPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
-      <h1 className="pop-hero pop-hero--blue text-2xl md:text-3xl mb-4">🏆 Winners</h1>
+      <div className="rugby-hero-wrap">
+        <p className="rugby-hero-eyebrow">Hall of Fame</p>
+        <h1 className="rugby-hero-title">Winners</h1>
+      </div>
 
       {podiums.length === 0 ? (
-        <div className="pop-panel pop-panel--blue p-5">
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No competitions have finished yet — check back once a tournament wraps up.</p>
+        <div className="rugby-panel p-5">
+          <p className="text-sm" style={{ color: 'var(--rugby-text-faint)' }}>No competitions have finished yet — check back once a tournament wraps up.</p>
         </div>
       ) : (
         podiums.map(({ competition, podium }) => (
-          <div key={competition.id} className="pop-panel pop-panel--blue p-5 mb-4">
-            <h2 className="pop-headline text-sm mb-3" style={{ color: 'var(--pop-white)' }}>{competition.name} ({competition.season})</h2>
+          <div key={competition.id} className="rugby-panel rugby-panel--gold p-5 mb-4">
+            <h2 className="rugby-cond text-sm mb-3 uppercase tracking-wide">{competition.name} ({competition.season})</h2>
             {podium.length === 0 ? (
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>No entrants.</p>
+              <p className="text-sm" style={{ color: 'var(--rugby-text-faint)' }}>No entrants.</p>
             ) : (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {podium.map((row, i) => (
-                  <div key={i} className="flex items-center gap-3 text-sm" style={{ color: 'var(--pop-white)' }}>
+                  <div key={i} className="flex items-center gap-3 text-sm">
                     <span className="text-lg">{medals[i]}</span>
-                    <span className="flex-1 pop-name">{row.name}</span>
-                    <span className="pop-headline" style={{ color: 'var(--pop-blue)' }}>{row.points}</span>
+                    <span className="flex-1 rugby-cond uppercase tracking-wide">{row.name}</span>
+                    <span className="rugby-display" style={{ color: 'var(--rugby-floodlight)' }}>{row.points}</span>
                   </div>
                 ))}
               </div>

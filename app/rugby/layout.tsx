@@ -47,19 +47,19 @@ export default async function RugbyLayout({ children }: { children: React.ReactN
 
   if (!unlocked) {
     return (
-      <div className="pop-art-theme min-h-screen flex items-center justify-center p-4">
-        <form action={unlockRugby} className="pop-panel pop-panel--orange p-6 w-full max-w-xs space-y-3">
-          <h1 className="pop-headline text-lg" style={{ color: 'var(--pop-white)' }}>🏉 Rugby — Locked</h1>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>This is still being built. Enter the temporary password to preview it.</p>
+      <div className="rugby-theme min-h-screen flex items-center justify-center p-4">
+        <form action={unlockRugby} className="rugby-panel rugby-panel--gold p-6 w-full max-w-xs space-y-3">
+          <h1 className="rugby-display text-lg flex items-center gap-2"><span className="rugby-ball-icon" aria-hidden="true" />Rugby — Locked</h1>
+          <p className="text-xs" style={{ color: 'var(--rugby-text-dim)' }}>This is still being built. Enter the temporary password to preview it.</p>
           <input
             type="password"
             name="password"
             placeholder="Password"
             autoFocus
             className="rounded px-3 py-2 text-sm w-full"
-            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: 'var(--pop-white)' }}
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid var(--rugby-line)', color: 'var(--rugby-text)' }}
           />
-          <button type="submit" className="pop-button pop-button--yellow w-full">
+          <button type="submit" className="rugby-button w-full py-2">
             Unlock
           </button>
         </form>

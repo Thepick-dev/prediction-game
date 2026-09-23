@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Bebas_Neue } from 'next/font/google'
+import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Bebas_Neue, Anton, Barlow_Condensed, IBM_Plex_Sans } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
@@ -35,6 +35,31 @@ const plexMono = IBM_Plex_Mono({
   display: 'swap',
 })
 
+// Rugby's own "matchday broadcast" skin (see globals.css, .rugby-theme) —
+// a completely separate visual identity from football's pop-art theme, so
+// these three are scoped to rugby only via rugby-theme's own CSS vars,
+// never touching h1-h6/body defaults above.
+const anton = Anton({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-rugby-display',
+  display: 'swap',
+})
+
+const barlowCondensed = Barlow_Condensed({
+  weight: ['500', '600', '700', '800'],
+  subsets: ['latin'],
+  variable: '--font-rugby-cond',
+  display: 'swap',
+})
+
+const plexSans = IBM_Plex_Sans({
+  weight: ['400', '500', '600', '700'],
+  subsets: ['latin'],
+  variable: '--font-rugby-body',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
   title: 'LMS All-Stars Predictions',
   description: 'The Premier League Prediction Game',
@@ -61,7 +86,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${bebasNeue.variable}`}>
+    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${bebasNeue.variable} ${anton.variable} ${barlowCondensed.variable} ${plexSans.variable}`}>
       <head>
         {/* Preloaded so the loading-screen mascot (logo.png) and its player-photo
             cap patch (mascot-cap-photo.png) are already cached by the time

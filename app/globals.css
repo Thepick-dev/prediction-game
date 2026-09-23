@@ -805,3 +805,257 @@ thead th {
   0%, 100% { opacity: 0.75; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.15); }
 }
+
+/* ============================================================
+   RUGBY MATCHDAY THEME — a completely separate visual identity from
+   football's pop-art theme above, built for the Six Nations game only.
+   "Broadcast graphics at a stadium at night": dark ground with crossed
+   floodlight glow, bold condensed display type, skewed team-colour
+   banners with a rugby-ball VS badge for fixtures, and a calmer dark
+   panel system (colour as accent, not fill) for everything else — rules
+   text, settings, stats tables. Classes are not nested under
+   .rugby-theme via a descendant selector, for the same reason pop-art's
+   aren't: it doesn't match when both classes land on the same element.
+   ============================================================ */
+
+.rugby-theme {
+  --rugby-ink: #07090d;
+  --rugby-ink-2: #12161f;
+  --rugby-ink-3: #1b212d;
+  --rugby-line: rgba(255,255,255,0.10);
+  --rugby-text: #f7f5ee;
+  --rugby-text-dim: rgba(247,245,238,0.6);
+  --rugby-text-faint: rgba(247,245,238,0.36);
+  --rugby-floodlight: #ffc22e;
+  --rugby-floodlight-2: #ff7a1a;
+
+  --rugby-eng: #e8172c; --rugby-eng-2: #8f0a17;
+  --rugby-sco: #16204a; --rugby-sco-2: #060a1c;
+  --rugby-ita: #0d6fbe; --rugby-ita-2: #063a63;
+  --rugby-wal: #d4142a; --rugby-wal-2: #7a0a17;
+  --rugby-ire: #0e9a48; --rugby-ire-2: #054e25;
+  --rugby-fra: #1c3f9e; --rugby-fra-2: #0c1f52;
+
+  background: var(--rugby-ink);
+  color: var(--rugby-text);
+  color-scheme: dark;
+  overflow-x: hidden;
+  position: relative;
+  font-family: var(--font-rugby-body), sans-serif;
+}
+
+/* Crossed floodlight beams + diagonal speed-line texture + bottom
+   vignette — fixed so it reads as one continuous atmosphere behind
+   scrolling content, not a per-section background. */
+.rugby-theme::before {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 700px 900px at -5% -15%, rgba(255,194,46,0.14), transparent 55%),
+    radial-gradient(ellipse 700px 900px at 105% -15%, rgba(255,122,26,0.11), transparent 55%),
+    radial-gradient(ellipse 1000px 600px at 50% 8%, rgba(255,194,46,0.06), transparent 60%),
+    repeating-linear-gradient(115deg, rgba(255,255,255,0.02) 0 3px, transparent 3px 58px);
+}
+.rugby-theme > * { position: relative; z-index: 1; }
+
+.rugby-theme input::placeholder,
+.rugby-theme textarea::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+  opacity: 1;
+}
+
+/* Small CSS-only rugby ball for the header wordmark — no image asset. */
+.rugby-ball-icon {
+  display: inline-block; width: 22px; height: 15px; border-radius: 50%; flex: none;
+  background: linear-gradient(155deg, #d9b06a, #8a6a34);
+  transform: rotate(-18deg);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  position: relative;
+}
+.rugby-ball-icon::before, .rugby-ball-icon::after { content: ''; position: absolute; background: rgba(0,0,0,0.4); }
+.rugby-ball-icon::before { left: 50%; top: 1px; bottom: 1px; width: 1.5px; transform: translateX(-50%); }
+.rugby-ball-icon::after { top: 50%; left: 3px; right: 3px; height: 1px; transform: translateY(-50%); }
+
+/* Team names, scores, big headings — the poster-bold display face. */
+.rugby-display { font-family: var(--font-rugby-display), sans-serif; text-transform: uppercase; }
+/* Nav, labels, kickoff/venue meta, small caps. */
+.rugby-cond { font-family: var(--font-rugby-cond), sans-serif; font-weight: 700; }
+
+/* The one genuine hero moment per page (page title) — ghost numeral is
+   opt-in via .rugby-hero-ghost, a giant hollow-stroke numeral bleeding
+   off the top-right, same move as a broadcast graphics package's own
+   "ROUND 1" title card. */
+.rugby-hero-wrap { position: relative; padding: 36px 0 26px; overflow: hidden; }
+.rugby-hero-ghost {
+  position: absolute; right: -18px; top: -30px; font-family: var(--font-rugby-display), sans-serif;
+  font-size: 180px; line-height: 1; color: transparent; -webkit-text-stroke: 1.5px rgba(255,255,255,0.07);
+  z-index: 0; user-select: none; pointer-events: none;
+}
+.rugby-hero-eyebrow {
+  position: relative; z-index: 1; font-family: var(--font-rugby-cond), sans-serif; font-weight: 700;
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.22em; color: var(--rugby-floodlight); margin: 0 0 6px;
+}
+.rugby-hero-title {
+  position: relative; z-index: 1; font-family: var(--font-rugby-display), sans-serif;
+  font-size: clamp(38px, 8vw, 64px); letter-spacing: 0.005em; margin: 0; line-height: 0.94;
+  text-transform: uppercase; text-wrap: balance;
+}
+.rugby-hero-sub {
+  position: relative; z-index: 1; font-family: var(--font-rugby-cond), sans-serif; font-weight: 600;
+  font-size: 14px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--rugby-text-faint); margin: 10px 0 0;
+}
+
+/* Base card — dark surface, thin border, real shadow for lift. Colour
+   shows up as a thin accent border + soft glow, never a filled
+   background (the team banners/VS badge are the deliberate exception —
+   they're the "broadcast graphic", this is the "UI"). */
+.rugby-panel {
+  background: var(--rugby-ink-2);
+  border: 1px solid var(--rugby-line);
+  border-radius: 12px;
+  box-shadow: 0 14px 30px -16px rgba(0,0,0,0.7);
+}
+.rugby-panel--gold { border-color: rgba(255,194,46,0.45); box-shadow: 0 0 20px rgba(255,194,46,0.18), 0 14px 30px -16px rgba(0,0,0,0.7); }
+
+.rugby-section-title { font-family: var(--font-rugby-display), sans-serif; font-size: clamp(22px, 3.4vw, 28px); letter-spacing: 0.01em; margin: 0 0 4px; text-transform: uppercase; }
+.rugby-section-sub { font-family: var(--font-rugby-cond), sans-serif; font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--rugby-text-faint); margin: 0 0 20px; }
+
+.rugby-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-family: var(--font-rugby-cond), sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  border-radius: 999px; border: none; cursor: pointer;
+  background: linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2));
+  color: #241300;
+  box-shadow: 0 6px 18px rgba(255,150,20,0.3);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.rugby-button:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(255,150,20,0.4); }
+.rugby-button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.rugby-button--ghost {
+  background: transparent; color: var(--rugby-text); box-shadow: none;
+  border: 1.5px solid var(--rugby-line);
+}
+.rugby-button--ghost:hover { border-color: rgba(255,255,255,0.3); box-shadow: none; }
+
+.rugby-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-rugby-cond), sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  border-radius: 999px; line-height: 1;
+  background: var(--rugby-ink-3); color: var(--rugby-text-dim); border: 1px solid var(--rugby-line);
+}
+.rugby-badge--gold { background: linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2)); color: #241300; border: none; }
+
+/* ---- Shell nav ---- */
+.rugby-nav-link {
+  font-family: var(--font-rugby-cond), sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--rugby-text-dim); border-bottom: 2px solid transparent; transition: color 0.12s ease;
+}
+.rugby-nav-link:hover { color: var(--rugby-text); }
+.rugby-nav-link--active { color: var(--rugby-floodlight); border-bottom-color: var(--rugby-floodlight); }
+
+/* ---- Fixture matchday card ----
+   Shape (skew, gradient, sheen) lives in an absolutely-positioned
+   .rugby-fx-bg layer; the team name sits in a normal unclipped flex box
+   on top — so long names (SCOTLAND, ENGLAND) can never be sliced by the
+   clip-path, at any width. See rugby-skin-concept artifact for the bug
+   this fixes. */
+.rugby-fx-row { display: grid; grid-template-columns: 1fr 76px 1fr; align-items: stretch; height: 104px; }
+.rugby-fx-side { position: relative; overflow: visible; }
+.rugby-fx-side.rugby-fx-home { margin-right: -22px; }
+.rugby-fx-side.rugby-fx-away { margin-left: -22px; }
+
+.rugby-fx-bg { position: absolute; inset: 0; box-shadow: 0 10px 26px -6px rgba(0,0,0,0.65); }
+.rugby-fx-home .rugby-fx-bg { clip-path: polygon(0 0, 100% 0, 82% 100%, 0% 100%); }
+.rugby-fx-away .rugby-fx-bg { clip-path: polygon(18% 0, 100% 0, 100% 100%, 0% 100%); }
+.rugby-fx-bg::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(115deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 32%, rgba(0,0,0,0.18) 100%);
+}
+.rugby-fx-bg::before {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 40%;
+  background: linear-gradient(to top, rgba(0,0,0,0.35), transparent);
+}
+
+.rugby-fx-label {
+  position: relative; z-index: 2; height: 100%; display: flex; align-items: center;
+  font-family: var(--font-rugby-display), sans-serif;
+  font-size: clamp(19px, 3.2vw, 30px); letter-spacing: 0.01em; white-space: nowrap;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.4); text-transform: uppercase;
+}
+.rugby-fx-home .rugby-fx-label { justify-content: flex-end; text-align: right; padding-right: 40px; padding-left: 14px; }
+.rugby-fx-away .rugby-fx-label { justify-content: flex-start; text-align: left; padding-left: 40px; padding-right: 14px; }
+
+.rugby-fx-row:hover .rugby-fx-bg { filter: brightness(1.08); }
+
+.rugby-fx-mid { position: relative; display: flex; align-items: center; justify-content: center; z-index: 3; }
+.rugby-vs-badge {
+  width: 62px; height: 62px; border-radius: 999px;
+  background: conic-gradient(from 200deg, #232a38, #12161f 40%, #232a38 75%, #12161f);
+  border: 2.5px solid var(--rugby-floodlight);
+  display: flex; align-items: center; justify-content: center; position: relative;
+  box-shadow: 0 0 0 6px var(--rugby-ink), 0 8px 22px rgba(0,0,0,0.6), 0 0 22px rgba(255,194,46,0.25);
+}
+.rugby-vs-badge::before {
+  content: ''; position: absolute; inset: -13px; border-radius: 999px;
+  background: repeating-conic-gradient(from 0deg, rgba(255,194,46,0.5) 0deg 2deg, transparent 2deg 18deg);
+  -webkit-mask: radial-gradient(circle, transparent 60%, black 62%, black 72%, transparent 74%);
+  mask: radial-gradient(circle, transparent 60%, black 62%, black 72%, transparent 74%);
+  animation: rugby-vs-spin 14s linear infinite;
+}
+@keyframes rugby-vs-spin { to { transform: rotate(360deg); } }
+.rugby-vs-badge span { position: relative; font-family: var(--font-rugby-display), sans-serif; font-size: 15px; color: var(--rugby-floodlight); letter-spacing: 0.03em; }
+
+.rugby-fx-meta { display: flex; justify-content: space-between; margin-top: 9px; padding: 0 4px; font-family: var(--font-rugby-cond), sans-serif; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--rugby-text-faint); }
+.rugby-fx-meta .rugby-fx-venue { color: var(--rugby-text-dim); }
+
+@media (max-width: 620px) {
+  .rugby-fx-row { grid-template-columns: 1fr 48px 1fr; height: 76px; }
+  .rugby-fx-home .rugby-fx-bg { clip-path: polygon(0 0, 100% 0, 80% 100%, 0% 100%); }
+  .rugby-fx-away .rugby-fx-bg { clip-path: polygon(20% 0, 100% 0, 100% 100%, 0% 100%); }
+  .rugby-fx-side.rugby-fx-home { margin-right: -10px; } .rugby-fx-side.rugby-fx-away { margin-left: -10px; }
+  .rugby-fx-label { font-size: 14.5px; letter-spacing: 0; }
+  .rugby-fx-home .rugby-fx-label { padding-right: 16px; padding-left: 8px; }
+  .rugby-fx-away .rugby-fx-label { padding-left: 16px; padding-right: 8px; }
+  .rugby-vs-badge { width: 44px; height: 44px; box-shadow: 0 0 0 4px var(--rugby-ink), 0 5px 16px rgba(0,0,0,0.6); }
+  .rugby-vs-badge span { font-size: 10px; }
+  .rugby-vs-badge::before { inset: -8px; }
+}
+@media (max-width: 400px) {
+  .rugby-fx-label { font-size: 12.5px; }
+  .rugby-fx-home .rugby-fx-label { padding-right: 12px; } .rugby-fx-away .rugby-fx-label { padding-left: 12px; }
+}
+
+/* ---- Full-time result card ---- */
+.rugby-ft-wrap { position: relative; padding-top: 14px; }
+.rugby-ft-tag {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-rugby-cond), sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  background: linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2)); color: #241300; padding: 5px 16px; border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(255,150,20,0.35); white-space: nowrap;
+}
+.rugby-result-card {
+  display: flex; align-items: stretch; gap: 0; margin-top: 10px; flex-wrap: wrap;
+  background: linear-gradient(180deg, var(--rugby-ink-3), var(--rugby-ink-2)); border: 1px solid var(--rugby-line); border-radius: 12px; overflow: hidden;
+  box-shadow: 0 14px 30px -12px rgba(0,0,0,0.7);
+}
+.rugby-rt-team { flex: 1 1 120px; display: flex; align-items: center; gap: 14px; padding: 18px 20px; min-width: 0; }
+.rugby-rt-team.rugby-rt-away { flex-direction: row-reverse; text-align: right; }
+.rugby-flagbar { width: 7px; align-self: stretch; flex: none; }
+.rugby-rt-team .rugby-rt-name { font-family: var(--font-rugby-display), sans-serif; font-weight: 400; font-size: 18px; text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rugby-rt-score {
+  font-family: var(--font-rugby-display), sans-serif; font-size: 36px; letter-spacing: 0.02em;
+  display: flex; align-items: center; gap: 14px; padding: 10px 22px; font-variant-numeric: tabular-nums;
+  border-left: 1px solid var(--rugby-line); border-right: 1px solid var(--rugby-line); flex: none;
+}
+.rugby-rt-score .rugby-rt-win { color: var(--rugby-floodlight); }
+.rugby-rt-score .rugby-rt-dash { color: var(--rugby-text-faint); font-size: 19px; }
+
+/* ---- Leaderboard / stat rows ---- */
+.rugby-lb-list { display: flex; flex-direction: column; border: 1px solid var(--rugby-line); border-radius: 12px; overflow: hidden; box-shadow: 0 14px 30px -14px rgba(0,0,0,0.7); }
+.rugby-lb-row { display: flex; align-items: center; gap: 14px; padding: 13px 16px; background: var(--rugby-ink-2); border-bottom: 1px solid var(--rugby-line); }
+.rugby-lb-row:last-child { border-bottom: none; }
+.rugby-lb-row:nth-child(odd) { background: var(--rugby-ink-3); }
+.rugby-lb-row--first { background: linear-gradient(90deg, rgba(255,194,46,0.13), transparent 60%); }
+.rugby-lb-rank { font-family: var(--font-rugby-display), sans-serif; font-size: 19px; color: var(--rugby-text-faint); width: 26px; text-align: center; flex: none; }
+.rugby-lb-rank--top { color: var(--rugby-floodlight); }
+.rugby-lb-name { font-family: var(--font-rugby-cond), sans-serif; font-weight: 700; font-size: 15px; flex: 1; min-width: 0; text-transform: uppercase; letter-spacing: 0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rugby-lb-pts { font-family: var(--font-rugby-display), sans-serif; font-size: 20px; color: var(--rugby-text); font-variant-numeric: tabular-nums; flex: none; }
