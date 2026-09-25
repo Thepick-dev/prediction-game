@@ -98,9 +98,15 @@ const shareTechMono = Share_Tech_Mono({
 
 // The rb5 "Maximalism / Dopamine" concept (Kit, 2026-09-25) — the
 // leaderboard page's own identity, own vars again, same reasoning.
+// Requesting Outfit as discrete static weights (['700','800','900'])
+// tripped a real Turbopack production-build bug ("next/font/google
+// queries have exactly one entry") — confirmed failing on Vercel this
+// session, local `next build` didn't catch it. Outfit is a variable
+// font; using its full variable range instead (the standard approach
+// for a variable font) sidesteps the bug entirely.
 const outfit = Outfit({
   subsets: ['latin'],
-  weight: ['700', '800', '900'],
+  weight: 'variable',
   variable: '--font-rb5-display',
   display: 'swap',
 })
