@@ -13,12 +13,12 @@ export type MatchRowState = {
   awayTryBonus: boolean | null
 }
 
-// A binary yes/no pick doesn't have a "team colour" of its own — "yes"
-// glows gold (the one earned accent, same family as the progress bar/
-// submit button), "no" glows a quiet neutral so it still confirms the
-// choice without reading as an alarm the way red did before.
-const YES_GLOW = '#e8a94c'
-const NO_GLOW = '#6b6f78'
+// A binary yes/no pick doesn't have a "team colour" — "yes" floods
+// cyan (the system's own interactive accent), "no" floods a quiet
+// muted purple so it still confirms the pick without reading as an
+// alarm.
+const YES_GLOW = '#00ffff'
+const NO_GLOW = '#5b4a86'
 
 // One question at a time, sliding through every fixture in the round —
 // Kit's own words: "a series of sliding questions on a carousel. one
@@ -128,90 +128,99 @@ export default function MatchPredictionCarousel({
   const canAdvance = isStepAnswered(step, fixtures, rows)
 
   return (
-    <div className="rb3-panel rb3-panel--glow p-6">
-      <div className="rb3-progress-track w-full mb-5">
-        <div className="rb3-progress-fill" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} />
+    <div className="rb4-panel rb4-panel--terminal">
+      <div className="rb4-titlebar">
+        <span className="rb4-dot" style={{ background: '#ff00ff' }} />
+        <span className="rb4-dot" style={{ background: '#00ffff' }} />
+        <span className="rb4-dot" style={{ background: '#ff9900' }} />
+        <span style={{ marginLeft: 6 }}>MATCH_{String(step.fixtureIndex + 1).padStart(2, '0')}.EXE</span>
       </div>
 
-      <div key={stepKey(step)}>
-        <p className="rb3-title text-center mb-5" style={{ fontSize: 'clamp(22px, 5.5vw, 30px)' }}>
-          {fixture.homeTeam} <span style={{ color: 'var(--rb3-text-faint)', fontStyle: 'italic' }}>v</span> {fixture.awayTeam}
-        </p>
+      <div className="p-6">
+        <div className="rb4-progress-track w-full mb-5">
+          <div className="rb4-progress-fill" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} />
+        </div>
 
-        {step.kind === 'winner' && (
-          <div className="grid grid-cols-3 gap-2">
-            <ChoiceButton label={fixture.homeTeam} active={r.winner === 'home'} glow={homeC.fill}
-              onClick={() => answerAndAdvance(fixture.id, { winner: 'home', margin: r.winner === 'draw' ? '' : r.margin })} />
-            <ChoiceButton label="Draw" active={r.winner === 'draw'} glow={DRAW_COLOURS.fill}
-              onClick={() => answerAndAdvance(fixture.id, { winner: 'draw', margin: '' })} />
-            <ChoiceButton label={fixture.awayTeam} active={r.winner === 'away'} glow={awayC.fill}
-              onClick={() => answerAndAdvance(fixture.id, { winner: 'away', margin: r.winner === 'draw' ? '' : r.margin })} />
-          </div>
-        )}
+        <div key={stepKey(step)}>
+          <p className="rb4-title text-center mb-5" style={{ fontSize: 'clamp(20px, 5.5vw, 28px)' }}>
+            {fixture.homeTeam} <span style={{ color: 'var(--rb4-orange)' }}>v</span> {fixture.awayTeam}
+          </p>
 
-        {step.kind === 'margin' && (
-          <div className="text-center">
-            <p className="rb3-eyebrow mb-3">Winning margin</p>
-            <input
-              type="number" min="1" placeholder="pts" autoFocus
-              value={r.margin}
-              onChange={e => updateRow(fixture.id, { margin: e.target.value })}
-              className="rb3-input rb3-stat-number px-3 py-2 text-4xl w-28 text-center"
-            />
-            <button type="button" onClick={advance} disabled={!canAdvance} className="rb3-button w-full mt-5 py-3 text-sm">
-              Next
-            </button>
-          </div>
-        )}
+          {step.kind === 'winner' && (
+            <div className="flex flex-col gap-3">
+              <ChoiceButton label={fixture.homeTeam} active={r.winner === 'home'} glow={homeC.fill}
+                onClick={() => answerAndAdvance(fixture.id, { winner: 'home', margin: r.winner === 'draw' ? '' : r.margin })} />
+              <ChoiceButton label="Draw" active={r.winner === 'draw'} glow={DRAW_COLOURS.fill}
+                onClick={() => answerAndAdvance(fixture.id, { winner: 'draw', margin: '' })} />
+              <ChoiceButton label={fixture.awayTeam} active={r.winner === 'away'} glow={awayC.fill}
+                onClick={() => answerAndAdvance(fixture.id, { winner: 'away', margin: r.winner === 'draw' ? '' : r.margin })} />
+            </div>
+          )}
 
-        {step.kind === 'tryBonus' && (
-          <>
-            <p className="rb3-eyebrow text-center mb-3">Try bonus (4+ tries)?</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs text-center mb-2" style={{ color: 'var(--rb3-text-faint)' }}>{fixture.homeTeam}</p>
-                <div className="flex gap-1.5">
-                  <ChoiceButton label="Yes" active={r.homeTryBonus === true} glow={YES_GLOW} onClick={() => answerAndAdvance(fixture.id, { homeTryBonus: true })} />
-                  <ChoiceButton label="No" active={r.homeTryBonus === false} glow={NO_GLOW} onClick={() => answerAndAdvance(fixture.id, { homeTryBonus: false })} />
+          {step.kind === 'margin' && (
+            <div className="text-center">
+              <p className="rb4-eyebrow mb-3">&gt; Winning margin</p>
+              <input
+                type="number" min="1" placeholder="00" autoFocus
+                value={r.margin}
+                onChange={e => updateRow(fixture.id, { margin: e.target.value })}
+                className="rb4-input rb4-stat-number px-3 py-2 text-4xl w-28 text-center"
+              />
+              <button type="button" onClick={advance} disabled={!canAdvance} className="rb4-button w-full mt-5 py-3 text-sm">
+                <span>Next &gt;</span>
+              </button>
+            </div>
+          )}
+
+          {step.kind === 'tryBonus' && (
+            <>
+              <p className="rb4-eyebrow text-center mb-3">&gt; Try bonus (4+ tries)?</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-center mb-2" style={{ color: 'var(--rb4-fg)', opacity: 0.6, fontFamily: 'var(--font-rb4-mono)' }}>{fixture.homeTeam}</p>
+                  <div className="flex gap-1.5">
+                    <ChoiceButton label="Yes" active={r.homeTryBonus === true} glow={YES_GLOW} onClick={() => answerAndAdvance(fixture.id, { homeTryBonus: true })} />
+                    <ChoiceButton label="No" active={r.homeTryBonus === false} glow={NO_GLOW} onClick={() => answerAndAdvance(fixture.id, { homeTryBonus: false })} />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-center mb-2" style={{ color: 'var(--rb4-fg)', opacity: 0.6, fontFamily: 'var(--font-rb4-mono)' }}>{fixture.awayTeam}</p>
+                  <div className="flex gap-1.5">
+                    <ChoiceButton label="Yes" active={r.awayTryBonus === true} glow={YES_GLOW} onClick={() => answerAndAdvance(fixture.id, { awayTryBonus: true })} />
+                    <ChoiceButton label="No" active={r.awayTryBonus === false} glow={NO_GLOW} onClick={() => answerAndAdvance(fixture.id, { awayTryBonus: false })} />
+                  </div>
                 </div>
               </div>
-              <div>
-                <p className="text-xs text-center mb-2" style={{ color: 'var(--rb3-text-faint)' }}>{fixture.awayTeam}</p>
-                <div className="flex gap-1.5">
-                  <ChoiceButton label="Yes" active={r.awayTryBonus === true} glow={YES_GLOW} onClick={() => answerAndAdvance(fixture.id, { awayTryBonus: true })} />
-                  <ChoiceButton label="No" active={r.awayTryBonus === false} glow={NO_GLOW} onClick={() => answerAndAdvance(fixture.id, { awayTryBonus: false })} />
-                </div>
-              </div>
-            </div>
-          </>
-        )}
+            </>
+          )}
 
-        {step.kind === 'confidence' && (
-          <>
-            <p className="rb3-eyebrow text-center mb-3">Confidence pick? (scores extra)</p>
-            <div className="grid grid-cols-2 gap-1.5">
-              <ChoiceButton label="Yes" active={confidenceFixtureId === fixture.id} glow={YES_GLOW} onClick={() => {
-                setConfidenceFixtureId(fixture.id)
-                const idx = steps.findIndex(s => stepKey(s) === currentKey)
-                if (idx === steps.length - 1) { onAllAnswered?.(); return }
-                setTimeout(() => setCurrentKey(stepKey(steps[idx + 1])), 150)
-              }} />
-              <ChoiceButton label="No" active={confidenceFixtureId !== fixture.id} glow={NO_GLOW} onClick={() => {
-                if (confidenceFixtureId === fixture.id) setConfidenceFixtureId(null)
-                const idx = steps.findIndex(s => stepKey(s) === currentKey)
-                if (idx === steps.length - 1) { onAllAnswered?.(); return }
-                setTimeout(() => setCurrentKey(stepKey(steps[idx + 1])), 150)
-              }} />
-            </div>
-          </>
+          {step.kind === 'confidence' && (
+            <>
+              <p className="rb4-eyebrow text-center mb-3">&gt; Confidence pick? (scores extra)</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                <ChoiceButton label="Yes" active={confidenceFixtureId === fixture.id} glow={YES_GLOW} onClick={() => {
+                  setConfidenceFixtureId(fixture.id)
+                  const idx = steps.findIndex(s => stepKey(s) === currentKey)
+                  if (idx === steps.length - 1) { onAllAnswered?.(); return }
+                  setTimeout(() => setCurrentKey(stepKey(steps[idx + 1])), 150)
+                }} />
+                <ChoiceButton label="No" active={confidenceFixtureId !== fixture.id} glow={NO_GLOW} onClick={() => {
+                  if (confidenceFixtureId === fixture.id) setConfidenceFixtureId(null)
+                  const idx = steps.findIndex(s => stepKey(s) === currentKey)
+                  if (idx === steps.length - 1) { onAllAnswered?.(); return }
+                  setTimeout(() => setCurrentKey(stepKey(steps[idx + 1])), 150)
+                }} />
+              </div>
+            </>
+          )}
+        </div>
+
+        {!isFirst && (
+          <button type="button" onClick={() => goTo(currentIndex - 1)} className="text-xs mt-5" style={{ color: 'var(--rb4-cyan)', fontFamily: 'var(--font-rb4-mono)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            &lt; back
+          </button>
         )}
       </div>
-
-      {!isFirst && (
-        <button type="button" onClick={() => goTo(currentIndex - 1)} className="text-xs font-medium uppercase tracking-wide mt-5" style={{ color: 'var(--rb3-text-faint)', fontFamily: 'var(--font-rb2-body)' }}>
-          ← Back
-        </button>
-      )}
     </div>
   )
 }

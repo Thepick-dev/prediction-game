@@ -1345,3 +1345,142 @@ thead th {
 .rb3-table th.rb3-num { text-align: right; }
 .rb3-table td { padding: 12px 6px; border-top: 1px solid var(--rb3-line); }
 .rb3-table td.rb3-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   Rugby "rb4" concept — Vaporwave / Outrun (Kit, 2026-09-25). Third
+   separate token/class system tried this session for /rugby/picks —
+   rb2- still runs the leaderboard, rb3- is what was live before this;
+   same "one page at a time" scoping throughout. Void background, neon
+   magenta/cyan/orange as the STRUCTURAL accent (buttons, borders,
+   focus, the glow), a nation's own colour reserved for that team's own
+   pick — quiet outline at rest, a full neon flood the instant it's
+   picked. Orbitron for anything shouting a heading, Share Tech Mono
+   (terminal/monospace) for everything else.
+   ============================================================ */
+:root {
+  --rb4-void: #090014;
+  --rb4-fg: #e0e0e0;
+  --rb4-card: rgba(26, 16, 60, 0.8);
+  --rb4-card-solid: #1a103c;
+  --rb4-magenta: #ff00ff;
+  --rb4-cyan: #00ffff;
+  --rb4-orange: #ff9900;
+  --rb4-border: #2d1b4e;
+  --rb4-danger: #ff3366;
+  --rb4-good: #00ffaa;
+}
+
+.rb4-page {
+  position: relative; overflow: hidden;
+  background: var(--rb4-void); color: var(--rb4-fg);
+  font-family: var(--font-rb4-mono), monospace;
+  padding: 0 0 48px;
+}
+
+/* Fixed-feeling FX layers — absolute, not fixed, so they're contained to
+   this page's own box and never bleed onto any other rugby page. */
+.rb4-scanlines {
+  position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.35) 3px, rgba(0,0,0,0) 4px);
+  mix-blend-mode: overlay;
+}
+.rb4-sun {
+  position: absolute; top: -120px; left: 50%; transform: translateX(-50%);
+  width: 520px; height: 520px; border-radius: 50%; pointer-events: none; z-index: 0;
+  background: linear-gradient(to bottom, var(--rb4-orange), var(--rb4-magenta));
+  filter: blur(90px); opacity: 0.28;
+}
+.rb4-grid {
+  position: absolute; left: 0; right: 0; top: 140px; height: 260px; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(transparent 95%, var(--rb4-magenta) 95%),
+    linear-gradient(90deg, transparent 95%, var(--rb4-magenta) 95%);
+  background-size: 40px 40px;
+  opacity: 0.35;
+  transform: perspective(300px) rotateX(60deg);
+  mask-image: linear-gradient(to bottom, black, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, black, transparent);
+}
+
+.rb4-eyebrow { font-family: var(--font-rb4-mono), monospace; text-transform: uppercase; letter-spacing: 0.2em; font-size: 11px; color: var(--rb4-cyan); opacity: 0.85; margin: 0; }
+.rb4-title {
+  font-family: var(--font-rb4-display), sans-serif; font-weight: 900; text-transform: uppercase;
+  letter-spacing: 0.01em; line-height: 1; color: var(--rb4-fg);
+  filter: drop-shadow(0 0 14px rgba(255,255,255,0.35));
+  margin: 0;
+}
+.rb4-title--gradient {
+  background: linear-gradient(to right, var(--rb4-orange), var(--rb4-magenta), var(--rb4-cyan));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 24px rgba(255,0,255,0.35));
+}
+
+/* Terminal window chrome — border-2 cyan glow, a title bar with the
+   classic three coloured dots. */
+.rb4-panel {
+  position: relative; background: var(--rb4-card); backdrop-filter: blur(6px);
+  border: 2px solid var(--rb4-border);
+}
+.rb4-panel--terminal { border-color: var(--rb4-cyan); box-shadow: 0 0 24px rgba(0,255,255,0.18); }
+.rb4-titlebar {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(0,255,255,0.08); border-bottom: 1px solid var(--rb4-cyan);
+  padding: 8px 12px;
+  font-family: var(--font-rb4-mono), monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--rb4-cyan);
+}
+.rb4-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+.rb4-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--font-rb4-mono), monospace; font-weight: 400; text-transform: uppercase; letter-spacing: 0.08em; font-size: 14px;
+  border: 2px solid var(--rb4-magenta); border-radius: 0; cursor: pointer;
+  background: var(--rb4-magenta); color: #ffffff;
+  transform: skewX(-8deg);
+  transition: transform 150ms ease, opacity 150ms linear, box-shadow 200ms linear;
+}
+.rb4-button > span { display: inline-block; transform: skewX(8deg); }
+.rb4-button:hover:not(:disabled) { box-shadow: 0 0 22px var(--rb4-magenta); opacity: 0.92; }
+.rb4-button:active:not(:disabled) { transform: skewX(-8deg) scale(0.96); }
+.rb4-button:disabled { opacity: 0.35; cursor: not-allowed; }
+.rb4-button--ghost { background: transparent; color: var(--rb4-fg); border-color: var(--rb4-border); }
+
+/* The pick itself — a skewed neon tube, quiet at rest (that team's own
+   colour as a thin border/text only), a full colour flood + glow the
+   instant it's picked. --team is set inline per instance. */
+.rb4-choice {
+  font-family: var(--font-rb4-mono), monospace; text-transform: uppercase; letter-spacing: 0.05em;
+  border-radius: 0; cursor: pointer; text-align: left;
+  transform: skewX(-6deg);
+  transition: transform 150ms ease, background 150ms linear, color 150ms linear, box-shadow 200ms linear, border-color 150ms linear;
+}
+.rb4-choice > span { display: inline-block; transform: skewX(6deg); }
+.rb4-choice:active { transform: skewX(-6deg) scale(0.98); }
+.rb4-choice--active { box-shadow: 0 0 22px var(--glow, var(--rb4-cyan)); }
+
+.rb4-progress-track { background: var(--rb4-border); height: 3px; }
+.rb4-progress-fill { background: linear-gradient(to right, var(--rb4-magenta), var(--rb4-cyan)); height: 100%; box-shadow: 0 0 10px var(--rb4-magenta); transition: width 0.3s linear; }
+
+.rb4-input {
+  background: #000000; color: var(--rb4-cyan); border: none; border-bottom: 2px solid var(--rb4-magenta); border-radius: 0;
+  font-family: var(--font-rb4-mono), monospace;
+}
+.rb4-input::placeholder { color: rgba(255,0,255,0.5); }
+.rb4-input:focus { outline: none; border-color: var(--rb4-cyan); box-shadow: 0 4px 14px -6px var(--rb4-cyan); }
+
+.rb4-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-rb4-mono), monospace; letter-spacing: 0.06em; text-transform: uppercase; font-size: 11px;
+  border-radius: 0; padding: 3px 10px; background: transparent; color: var(--rb4-fg); border: 1.5px solid var(--rb4-border);
+}
+.rb4-badge--magenta { color: var(--rb4-magenta); border-color: var(--rb4-magenta); }
+.rb4-badge--good { color: var(--rb4-good); border-color: var(--rb4-good); }
+.rb4-badge--bad { color: var(--rb4-danger); border-color: var(--rb4-danger); }
+
+.rb4-stat-number { font-family: var(--font-rb4-display), sans-serif; font-variant-numeric: tabular-nums; line-height: 1; }
+
+.rb4-table { width: 100%; border-collapse: collapse; font-family: var(--font-rb4-mono), monospace; }
+.rb4-table th { font-weight: 400; text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; color: var(--rb4-cyan); text-align: left; padding: 8px 6px; }
+.rb4-table th.rb4-num { text-align: right; }
+.rb4-table td { padding: 11px 6px; border-top: 1px solid rgba(224,224,224,0.1); }
+.rb4-table td.rb4-num { text-align: right; font-variant-numeric: tabular-nums; }
+.rb4-statusbar { border-top: 2px solid rgba(224,224,224,0.15); background: var(--rb4-void); color: rgba(224,224,224,0.5); font-size: 11px; padding: 8px 12px; font-family: var(--font-rb4-mono), monospace; text-transform: uppercase; letter-spacing: 0.08em; }

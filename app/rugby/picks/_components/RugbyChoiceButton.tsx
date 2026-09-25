@@ -2,28 +2,26 @@
 
 import type { CSSProperties } from 'react'
 
-// Dark Mode First / Kinetic (Kit, 2026-09-25, matching the approved
-// "Meridian" mockup): quiet outline at rest — muted grey, nothing
-// competing for attention — and a soft breathing glow in the choice's
-// own colour once picked. Colour only ever appears once something is
-// actually chosen, never as permanent decoration.
+// Vaporwave / Outrun (Kit, 2026-09-25): a skewed neon tube, quiet — that
+// choice's own colour as a thin outline only — until it's actually
+// picked, then it floods solid with that colour and glows. Text sits in
+// a counter-skewed <span> so it reads upright despite the button itself
+// being skewed.
 export default function ChoiceButton({ label, active, glow, onClick }: { label: string; active: boolean; glow: string; onClick: () => void }) {
   const style: CSSProperties & { [key: `--${string}`]: string } = {
-    background: active ? 'rgba(255,255,255,0.04)' : 'transparent',
-    color: active ? glow : 'var(--rb3-text-faint)',
-    border: `1.5px solid ${active ? glow : 'var(--rb3-line)'}`,
-    fontWeight: 600,
+    background: active ? glow : 'transparent',
+    color: active ? '#000000' : glow,
+    borderColor: glow,
     '--glow': glow,
-    '--glow-soft': `${glow}66`,
   }
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rb3-choice w-full py-4 px-2 text-base ${active ? 'rb3-choice--active' : ''}`}
+      className={`rb4-choice w-full py-4 px-4 text-base border-2 ${active ? 'rb4-choice--active' : ''}`}
       style={style}
     >
-      {label}
+      <span>{label}</span>
     </button>
   )
 }

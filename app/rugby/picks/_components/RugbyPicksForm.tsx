@@ -176,29 +176,37 @@ export default function RugbyPicksForm({
       )}
 
       {showSquadDraft && (
-        <div className="rb3-panel rb3-panel--glow p-6" ref={squadSectionRef}>
-          <h2 className="rb3-title mb-5" style={{ fontSize: 'clamp(24px, 6vw, 34px)' }}>Dream Team</h2>
-          <RugbySquadBuilder
-            mode="draft"
-            players={squadPlayers}
-            selectedIds={squadSelections}
-            squadBudgetCap={squadBudgetCap}
-            onAdd={addSquadPlayer}
-            onRemove={removeSquadPlayer}
-          />
+        <div className="rb4-panel rb4-panel--terminal" ref={squadSectionRef}>
+          <div className="rb4-titlebar">
+            <span className="rb4-dot" style={{ background: '#ff00ff' }} />
+            <span className="rb4-dot" style={{ background: '#00ffff' }} />
+            <span className="rb4-dot" style={{ background: '#ff9900' }} />
+            <span style={{ marginLeft: 6 }}>DREAM_TEAM.EXE</span>
+          </div>
+          <div className="p-6">
+            <h2 className="rb4-title mb-5" style={{ fontSize: 'clamp(22px, 6vw, 30px)' }}>Dream Team</h2>
+            <RugbySquadBuilder
+              mode="draft"
+              players={squadPlayers}
+              selectedIds={squadSelections}
+              squadBudgetCap={squadBudgetCap}
+              onAdd={addSquadPlayer}
+              onRemove={removeSquadPlayer}
+            />
+          </div>
         </div>
       )}
 
       {message && (
-        <p className="text-sm text-center font-medium" style={{ color: 'var(--rb3-danger)' }}>{message}</p>
+        <p className="text-sm text-center" style={{ color: 'var(--rb4-danger)', fontFamily: 'var(--font-rb4-mono)' }}>{message}</p>
       )}
 
       <button
         onClick={submit}
         disabled={!allValid || saving}
-        className={`rb3-button w-full py-4 text-lg ${justSubmitted ? 'pop-celebrate' : ''}`}
+        className={`rb4-button w-full py-4 text-lg ${justSubmitted ? 'pop-celebrate' : ''}`}
       >
-        {saving ? 'Saving…' : justSubmitted ? '✓ Submitted!' : isUpdate ? 'Update My Picks' : 'Confirm My Picks'}
+        <span>{saving ? 'Saving…' : justSubmitted ? '✓ Submitted!' : isUpdate ? 'Update My Picks' : 'Confirm My Picks'}</span>
       </button>
     </div>
   )

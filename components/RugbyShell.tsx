@@ -150,18 +150,18 @@ export default function RugbyShell({
     return pathname === href || (pathname?.startsWith(href + '/') ?? false)
   }
 
-  // Picks gets the Dark Mode First / Kinetic header (matching its own
-  // rb3- body) so the page reads as one cohesive thing, not a light
-  // banner stitched onto a black page. Every other rugby page keeps the
-  // existing bold-on-white rb2- header — this reskin is still scoped to
-  // Picks only, same "one page at a time" instruction as before.
+  // Picks gets the Vaporwave / Outrun header (matching its own rb4- body)
+  // so the page reads as one cohesive thing, not a light banner stitched
+  // onto a neon page. Every other rugby page keeps the existing
+  // bold-on-white rb2- header — this reskin is still scoped to Picks
+  // only, same "one page at a time" instruction as before.
   const isPicksTheme = pathname === '/rugby/picks'
   const t = isPicksTheme
     ? {
-        headerBg: 'var(--rb3-bg)', headerBorder: 'var(--rb3-line)', text: 'var(--rb3-text)',
-        textFaint: 'var(--rb3-text-faint)', textDim: 'var(--rb3-text-dim)', line: 'var(--rb3-line)',
-        gold: 'var(--rb3-gold)', stripBg: 'var(--rb3-bg-2)', font: 'var(--font-rb2-body)',
-        fontDisplay: 'var(--font-rb2-display)', titleTransform: 'none' as const, tickerText: 'var(--rb3-bg)',
+        headerBg: 'var(--rb4-void)', headerBorder: 'var(--rb4-magenta)', text: 'var(--rb4-fg)',
+        textFaint: 'rgba(224,224,224,0.5)', textDim: 'rgba(224,224,224,0.7)', line: 'var(--rb4-border)',
+        gold: 'var(--rb4-cyan)', stripBg: 'var(--rb4-card-solid)', font: 'var(--font-rb4-mono)',
+        fontDisplay: 'var(--font-rb4-display)', titleTransform: 'uppercase' as const, tickerText: '#000000',
       }
     : {
         headerBg: 'var(--rb2-paper)', headerBorder: 'var(--rb2-ink)', text: 'var(--rb2-ink)',
@@ -188,10 +188,10 @@ export default function RugbyShell({
             <Link href="/rugby" className="flex items-center justify-center gap-2 sm:col-start-2 sm:justify-self-center whitespace-nowrap">
               <span className="rugby-ball-icon" aria-hidden="true" />
               <span className="inline-flex flex-col items-center leading-none">
-                <span style={{ fontSize: 'clamp(15px, 4vw, 20px)', color: t.text, fontFamily: t.fontDisplay, textTransform: t.titleTransform, fontWeight: isPicksTheme ? 500 : undefined }}>
-                  All-Stars <span style={{ color: t.gold, WebkitTextStroke: isPicksTheme ? undefined : `1px ${t.headerBorder}` }}>Rugby</span>
+                <span style={{ fontSize: 'clamp(15px, 4vw, 20px)', color: t.text, fontFamily: t.fontDisplay, textTransform: t.titleTransform, fontWeight: isPicksTheme ? 900 : undefined, filter: isPicksTheme ? 'drop-shadow(0 0 8px rgba(255,255,255,0.3))' : undefined }}>
+                  All-Stars <span style={{ color: t.gold, WebkitTextStroke: isPicksTheme ? undefined : `1px ${t.headerBorder}`, filter: isPicksTheme ? `drop-shadow(0 0 10px ${t.gold})` : undefined }}>Rugby</span>
                 </span>
-                <span style={{ fontSize: 9, padding: '1px 8px', marginTop: 2, borderRadius: 999, background: isPicksTheme ? 'rgba(232,169,76,0.15)' : t.gold, color: isPicksTheme ? t.gold : t.headerBorder, border: isPicksTheme ? '1px solid rgba(232,169,76,0.4)' : `2px solid ${t.headerBorder}`, fontFamily: t.font, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Six Nations</span>
+                <span style={{ fontSize: 9, padding: '1px 8px', marginTop: 2, borderRadius: isPicksTheme ? 0 : 999, background: isPicksTheme ? 'rgba(0,255,255,0.1)' : t.gold, color: isPicksTheme ? t.gold : t.headerBorder, border: isPicksTheme ? `1.5px solid ${t.gold}` : `2px solid ${t.headerBorder}`, fontFamily: t.font, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', transform: isPicksTheme ? 'skewX(-8deg)' : undefined }}>Six Nations</span>
               </span>
             </Link>
             <div className="flex items-center gap-3 sm:col-start-3 sm:justify-self-end">
@@ -315,10 +315,10 @@ export default function RugbyShell({
           </div>
         )}
       </header>
-      <main className="max-w-4xl mx-auto px-4 py-6" style={isPicksTheme ? { background: 'var(--rb3-bg)' } : undefined}>
+      <main className="max-w-4xl mx-auto px-4 py-6" style={isPicksTheme ? { background: 'var(--rb4-void)' } : undefined}>
         {children}
       </main>
-      <footer className="py-4 mt-8 text-center" style={{ borderTop: `2px solid ${t.line}`, background: isPicksTheme ? 'var(--rb3-bg)' : undefined }}>
+      <footer className="py-4 mt-8 text-center" style={{ borderTop: `2px solid ${t.line}`, background: isPicksTheme ? 'var(--rb4-void)' : undefined }}>
         <span className="text-xs uppercase tracking-widest font-bold" style={{ color: t.textFaint, fontFamily: t.font }}>Six Nations — a game within All-Stars Rugby</span>
       </footer>
       {kitPopupOpen && kitPopupPos && userId && typeof document !== 'undefined' && createPortal(

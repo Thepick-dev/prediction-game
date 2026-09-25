@@ -11,7 +11,7 @@ export default function RugbyCountdownClock({ deadline }: { deadline: string | n
   if (!time) return null
 
   if (time.expired) {
-    return <span className="rb3-badge rb3-badge--bad px-3 py-1.5 text-xs">Deadline passed</span>
+    return <span className="rb4-badge rb4-badge--bad px-3 py-1.5 text-xs">Deadline passed</span>
   }
 
   const parts = [
@@ -21,7 +21,7 @@ export default function RugbyCountdownClock({ deadline }: { deadline: string | n
   ].filter(Boolean)
 
   return (
-    <span className="rb3-stat-number text-lg" style={{ color: 'var(--rb3-gold)' }}>
+    <span className="rb4-stat-number text-lg" style={{ color: 'var(--rb4-cyan)', filter: 'drop-shadow(0 0 6px rgba(0,255,255,0.6))' }}>
       {parts.join(' ')}
     </span>
   )

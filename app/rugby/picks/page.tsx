@@ -25,8 +25,8 @@ function RoundHeading({ text, deadline }: { text: string; deadline?: string | nu
   return (
     <div className="flex items-center justify-between gap-3 flex-wrap mb-8">
       <div>
-        <p className="rb3-eyebrow mb-1">Six Nations</p>
-        <h1 className="rb3-title" style={{ fontSize: 'clamp(26px, 6vw, 38px)' }}>{text}</h1>
+        <p className="rb4-eyebrow mb-1">&gt; six_nations.sys</p>
+        <h1 className="rb4-title rb4-title--gradient" style={{ fontSize: 'clamp(26px, 6vw, 38px)' }}>{text}</h1>
       </div>
       {deadline && <RugbyCountdownClock deadline={deadline} />}
     </div>
@@ -111,11 +111,18 @@ export default async function RugbyPicksPage() {
   // own and blocks nothing by staying set.
   if (!hasKit) {
     return (
-      <div className="rb3-page max-w-2xl mx-auto">
-        <RoundHeading text={headingText} deadline={currentRound?.deadline ?? null} />
-        <div className="rb3-panel rb3-panel--glow p-6 rugby-theme">
-          <h2 className="rb3-eyebrow" style={{ margin: '0 0 12px' }}>Pick Your Kit</h2>
-          <RugbyKitEditor userId={user.id} />
+      <div className="rb4-page max-w-2xl mx-auto">
+        <div className="rb4-scanlines" />
+        <div className="rb4-sun" />
+        <div className="rb4-grid" />
+        <div className="relative px-5 pt-8" style={{ zIndex: 2 }}>
+          <RoundHeading text={headingText} deadline={currentRound?.deadline ?? null} />
+          <div className="rb4-panel rb4-panel--terminal rugby-theme">
+            <div className="p-6">
+              <h2 className="rb4-eyebrow" style={{ margin: '0 0 12px' }}>&gt; Pick Your Kit</h2>
+              <RugbyKitEditor userId={user.id} />
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -135,61 +142,74 @@ export default async function RugbyPicksPage() {
   const picksRequired = !nothingToDo && (!matchComplete || !squadComplete)
 
   return (
-    <div className="rb3-page max-w-2xl mx-auto">
-      <RoundHeading text={headingText} deadline={currentRound?.deadline ?? null} />
+    <div className="rb4-page max-w-2xl mx-auto">
+      <div className="rb4-scanlines" />
+      <div className="rb4-sun" />
+      <div className="rb4-grid" />
+      <div className="relative px-5 pt-8" style={{ zIndex: 2 }}>
+        <RoundHeading text={headingText} deadline={currentRound?.deadline ?? null} />
 
-      {picksRequired && (
-        <div className="rb3-panel p-4 mb-6 flex items-center gap-3" style={{ borderLeft: '3px solid var(--rb3-danger)', boxShadow: '0 0 24px 0 rgba(224,52,74,0.15)' }}>
-          <span style={{ color: 'var(--rb3-danger)', fontSize: 10 }}>●</span>
-          <p className="text-sm font-medium" style={{ color: 'var(--rb3-text)' }}>Picks required for this round</p>
-        </div>
-      )}
+        {picksRequired && (
+          <div className="rb4-panel p-4 mb-6 flex items-center gap-3" style={{ borderColor: 'var(--rb4-danger)', boxShadow: '0 0 24px rgba(255,51,102,0.2)' }}>
+            <span style={{ color: 'var(--rb4-danger)', fontSize: 10 }}>●</span>
+            <p className="text-sm" style={{ color: 'var(--rb4-fg)', fontFamily: 'var(--font-rb4-mono)' }}>Picks required for this round</p>
+          </div>
+        )}
 
-      {(showMatchPredictions || showSquadDraft) && (
-        <div className="mb-6">
-          <RugbyPicksForm
-            competitionId={competition.id}
-            showMatchPredictions={showMatchPredictions}
-            roundId={currentRound?.id ?? null}
-            roundNumber={currentRound?.number ?? null}
-            fixtures={currentRoundFixtures.map(f => ({ id: f.id, homeTeam: teamName(f.home_team_id), awayTeam: teamName(f.away_team_id) }))}
-            existingMatchPreds={currentRoundMatchPreds}
-            showSquadDraft={showSquadDraft}
-            squadPlayers={squadPlayers}
-            existingSquadSelections={hasSquad ? activeSquadPlayerIds : undefined}
-            squadBudgetCap={squadBudgetCap}
-          />
-        </div>
-      )}
+        {(showMatchPredictions || showSquadDraft) && (
+          <div className="mb-6">
+            <RugbyPicksForm
+              competitionId={competition.id}
+              showMatchPredictions={showMatchPredictions}
+              roundId={currentRound?.id ?? null}
+              roundNumber={currentRound?.number ?? null}
+              fixtures={currentRoundFixtures.map(f => ({ id: f.id, homeTeam: teamName(f.home_team_id), awayTeam: teamName(f.away_team_id) }))}
+              existingMatchPreds={currentRoundMatchPreds}
+              showSquadDraft={showSquadDraft}
+              squadPlayers={squadPlayers}
+              existingSquadSelections={hasSquad ? activeSquadPlayerIds : undefined}
+              squadBudgetCap={squadBudgetCap}
+            />
+          </div>
+        )}
 
-      {showSquadManager && (
-        <div className="rb3-panel rb3-panel--glow p-6 mb-6">
-          <h2 className="rb3-title mb-5" style={{ fontSize: 'clamp(22px, 5vw, 30px)' }}>Dream Team</h2>
-          <RugbySquadBuilder
-            mode="manage"
-            competitionId={competition.id}
-            players={squadPlayers}
-            selectedIds={activeSquadPlayerIds}
-            squadBudgetCap={squadBudgetCap}
-            maxFreeSubs={maxFreeSubs}
-            subsUsed={subsUsedCount}
-            perRound={subBudgetMode === 'per_round'}
-            canSub={!!currentRound}
-          />
-        </div>
-      )}
+        {showSquadManager && (
+          <div className="rb4-panel rb4-panel--terminal mb-6">
+            <div className="rb4-titlebar">
+              <span className="rb4-dot" style={{ background: '#ff00ff' }} />
+              <span className="rb4-dot" style={{ background: '#00ffff' }} />
+              <span className="rb4-dot" style={{ background: '#ff9900' }} />
+              <span style={{ marginLeft: 6 }}>DREAM_TEAM.EXE</span>
+            </div>
+            <div className="p-6">
+              <h2 className="rb4-title mb-5" style={{ fontSize: 'clamp(22px, 5vw, 30px)' }}>Dream Team</h2>
+              <RugbySquadBuilder
+                mode="manage"
+                competitionId={competition.id}
+                players={squadPlayers}
+                selectedIds={activeSquadPlayerIds}
+                squadBudgetCap={squadBudgetCap}
+                maxFreeSubs={maxFreeSubs}
+                subsUsed={subsUsedCount}
+                perRound={subBudgetMode === 'per_round'}
+                canSub={!!currentRound}
+              />
+            </div>
+          </div>
+        )}
 
-      {nothingToDo && (
-        <div className="rb3-panel p-6">
-          <p className="rb3-badge rb3-badge--good px-3 py-1.5">Nothing open to pick right now — check back once the next round is set.</p>
-        </div>
-      )}
+        {nothingToDo && (
+          <div className="rb4-panel p-6">
+            <p className="rb4-badge rb4-badge--good px-3 py-1.5">Nothing open to pick right now — check back once the next round is set.</p>
+          </div>
+        )}
 
-      {!nothingToDo && (
-        <p className="text-xs text-center font-medium mt-6" style={{ color: 'var(--rb3-text-faint)' }}>
-          Change anything above until its deadline.
-        </p>
-      )}
+        {!nothingToDo && (
+          <p className="text-xs text-center mt-6" style={{ color: 'var(--rb4-fg)', opacity: 0.5, fontFamily: 'var(--font-rb4-mono)' }}>
+            Change anything above until its deadline.
+          </p>
+        )}
+      </div>
     </div>
   )
 }
