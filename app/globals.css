@@ -1160,8 +1160,8 @@ thead th {
   --rb2-italy: #0088ce;
 }
 
-.rb2-page { background: var(--rb2-paper); color: var(--rb2-ink); padding: 20px; border: 3px solid var(--rb2-ink); }
-.rb2-hero { padding: 22px 0 16px; border-bottom: 4px solid var(--rb2-ink); margin-bottom: 22px; }
+.rb2-page { background: var(--rb2-paper); color: var(--rb2-ink); padding: 20px; border: 2px solid var(--rb2-ink); }
+.rb2-hero { padding: 22px 0 16px; border-bottom: 3px solid var(--rb2-ink); margin-bottom: 22px; }
 .rb2-eyebrow { font-family: var(--font-rugby-cond), sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; font-size: 12px; color: var(--rb2-text-dim); margin: 0 0 4px; }
 .rb2-title { font-family: var(--font-rugby-display), sans-serif; text-transform: uppercase; font-size: clamp(34px, 7vw, 52px); line-height: 0.95; margin: 0; letter-spacing: 0.005em; }
 
@@ -1169,11 +1169,13 @@ thead th {
 .rb2-chip {
   font-family: var(--font-rugby-cond), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
   font-size: 12px; color: #fff; border: 2px solid var(--rb2-ink); padding: 6px 14px;
-  box-shadow: 3px 3px 0 var(--rb2-ink);
 }
 
-.rb2-panel { background: var(--rb2-paper-2); border: 3px solid var(--rb2-ink); box-shadow: 7px 7px 0 var(--rb2-ink); }
-.rb2-panel--gold { box-shadow: 7px 7px 0 var(--rb2-gold); }
+/* Clean — a border and a flat ground, no drop shadow. --gold marks the
+   "primary" panel on a page via a slim top accent bar instead of a
+   shadow, so there's still a hierarchy without adding visual noise. */
+.rb2-panel { background: var(--rb2-paper-2); border: 2px solid var(--rb2-line); }
+.rb2-panel--gold { border-top: 4px solid var(--rb2-gold); }
 
 .rb2-table { width: 100%; border-collapse: collapse; }
 .rb2-table th { font-family: var(--font-rugby-cond), sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; color: var(--rb2-text-faint); text-align: left; padding: 10px 8px; border-bottom: 3px solid var(--rb2-ink); }
@@ -1189,20 +1191,19 @@ thead th {
 /* ---- rb2 extensions: Picks page (carousel + squad builder) ----
    "Bold clear and emphatic... imagine you are 4 pints deep but you still
    want to look at each page and instantly understand what is going on."
-   (Kit, 2026-09-25). Big numbers, unmissable colour, square edges, hard
-   offset shadows — the same visual language as the leaderboard concept,
-   extended to cover buttons/choices/inputs/progress. */
+   (Kit, 2026-09-25) — refined 2026-09-25: "too much noise, too many
+   shadows... really simple really clean." Flat colour, clean borders,
+   no drop shadows anywhere — the boldness comes from colour and type
+   size, not from a comic-book shadow effect. */
 
 .rb2-button {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   font-family: var(--font-rugby-cond), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
-  border: 3px solid var(--rb2-ink); border-radius: 0; cursor: pointer;
+  border: 2px solid var(--rb2-ink); border-radius: 0; cursor: pointer;
   background: var(--rb2-gold); color: var(--rb2-ink);
-  box-shadow: 4px 4px 0 var(--rb2-ink);
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  transition: opacity 0.1s ease;
 }
-.rb2-button:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--rb2-ink); }
-.rb2-button:active:not(:disabled) { transform: translate(0, 0); box-shadow: 2px 2px 0 var(--rb2-ink); }
+.rb2-button:hover:not(:disabled) { opacity: 0.85; }
 .rb2-button:disabled { opacity: 0.4; cursor: not-allowed; }
 .rb2-button--ghost { background: var(--rb2-paper); color: var(--rb2-ink); }
 .rb2-button--dark { background: var(--rb2-ink); color: var(--rb2-paper); }
@@ -1213,20 +1214,19 @@ thead th {
 .rb2-choice {
   font-family: var(--font-rugby-cond), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
   border-radius: 0; cursor: pointer; text-align: center;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  transition: opacity 0.1s ease;
 }
-.rb2-choice:hover { transform: translateY(-2px); }
-.rb2-choice:active { transform: translateY(0); }
+.rb2-choice:hover { opacity: 0.85; }
 
-.rb2-progress-track { background: #e4e1d6; border: 2px solid var(--rb2-ink); height: 14px; }
+.rb2-progress-track { background: #e4e1d6; height: 8px; }
 .rb2-progress-fill { background: var(--rb2-gold); height: 100%; transition: width 0.25s ease; }
 
 .rb2-input {
-  background: var(--rb2-paper); color: var(--rb2-ink); border: 3px solid var(--rb2-ink); border-radius: 0;
+  background: var(--rb2-paper); color: var(--rb2-ink); border: 2px solid var(--rb2-line); border-radius: 0;
   font-family: var(--font-rugby-body), sans-serif;
 }
 .rb2-input::placeholder { color: #9b9d9f; }
-.rb2-input:focus { outline: none; box-shadow: 3px 3px 0 var(--rb2-gold); }
+.rb2-input:focus { outline: none; border-color: var(--rb2-gold); }
 
 .rb2-badge {
   display: inline-flex; align-items: center; justify-content: center;

@@ -155,7 +155,7 @@ export default function RugbySquadBuilder(props: Props) {
 
   return (
     <div>
-      <div className="rb2-panel p-4 mb-3" style={overBudget ? { borderColor: '#d1293d', boxShadow: '5px 5px 0 #d1293d' } : undefined}>
+      <div className="rb2-panel p-4 mb-3" style={overBudget ? { borderColor: '#d1293d', borderWidth: 2 } : undefined}>
         <div className="flex items-end justify-between flex-wrap gap-3 mb-2">
           <div>
             <div className="rb2-eyebrow" style={{ margin: 0 }}>{mode === 'draft' ? 'Squad' : `Subs ${props.perRound ? 'this round' : 'this competition'}`}</div>
