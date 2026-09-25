@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { calculateSeasonSquadRoundScoring, calculateMatchPredictionRoundScoring } from '../../../lib/rugbyScoring'
 import { recomputeAllRugbyRatings } from '../../../lib/rugbyRating'
+import { recomputeAllRugbyPlayerValues } from '../../../lib/rugbyPlayerDatabase'
 
 async function requireAdminAction() {
   const supabase = await createServerSupabaseClient()
@@ -113,6 +114,14 @@ async function calculatePoints(formData: FormData) {
   const ratingsResult = await recomputeAllRugbyRatings(supabase)
   if ('error' in ratingsResult) {
     redirect(`/admin/rugby/results?round=${roundId}&error=${encodeURIComponent(ratingsResult.error)}`)
+  }
+
+  // Player values are dynamic, tied to average rating (Kit, 2026-09-25) —
+  // recompute right after ratings, same reasoning as ratings-before-
+  // scoring above: this always reflects whatever's freshest.
+  const valuesResult = await recomputeAllRugbyPlayerValues(supabase)
+  if ('error' in valuesResult) {
+    redirect(`/admin/rugby/results?round=${roundId}&error=${encodeURIComponent(valuesResult.error)}`)
   }
 
   const [squadResult, matchResult] = await Promise.all([

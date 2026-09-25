@@ -73,6 +73,29 @@ describe('computeRawScore', () => {
     const subDelta = computeRawScore(subStats, 'Prop', bad) - computeRawScore(subStats, 'Prop')
     expect(starterDelta).toBe(subDelta)
   })
+
+  it('nudges raw score up for a win, down for a loss, leaves a draw untouched — same size either way', () => {
+    const base = stats({ tackles: 10 })
+    const neutral = computeRawScore(base, 'Fly-half')
+    const win = computeRawScore(base, 'Fly-half', undefined, 'win')
+    const loss = computeRawScore(base, 'Fly-half', undefined, 'loss')
+    const draw = computeRawScore(base, 'Fly-half', undefined, 'draw')
+    expect(win).toBeGreaterThan(neutral)
+    expect(loss).toBeLessThan(neutral)
+    expect(draw).toBe(neutral)
+    expect(win - neutral).toBeCloseTo(neutral - loss, 5) // same magnitude both directions
+  })
+
+  it('applies the win/loss nudge to every position, not just forwards (unlike the pack bonus)', () => {
+    const base = stats({ tries: 1 })
+    expect(computeRawScore(base, 'Prop', undefined, 'win')).toBeGreaterThan(computeRawScore(base, 'Prop'))
+    expect(computeRawScore(base, 'Wing', undefined, 'win')).toBeGreaterThan(computeRawScore(base, 'Wing'))
+    expect(computeRawScore(base, 'Fly-half', undefined, 'win')).toBeGreaterThan(computeRawScore(base, 'Fly-half'))
+  })
+
+  it('leaves raw score unchanged with no matchResult argument (backward compatible)', () => {
+    expect(computeRawScore(stats({ tries: 1 }), 'Prop')).toBe(computeRawScore(stats({ tries: 1 }), 'Prop', undefined, undefined))
+  })
 })
 
 describe('computePackRawScore', () => {

@@ -121,7 +121,15 @@ export function computePackRawScore(teamStats: TeamMatchStatLine): number {
 
 const FORWARD_GROUPS = new Set<RugbyPositionGroup>(['Prop', 'Hooker', 'Second Row', 'Back Row'])
 
-export function computeRawScore(stats: RugbyMatchStatLine, group: RugbyPositionGroup, teamStats?: TeamMatchStatLine): number {
+// A small, deliberately modest nudge for the team's actual match result —
+// applies to every position (unlike the pack bonus, forwards only). Not
+// calibrated against real data the way the weights above are — a
+// starting estimate for Kit to tune by watching real rounds, same caveat
+// already attached to squad_rating_multiplier in rugbyScoring.ts.
+const WIN_LOSS_BONUS = 1.5
+export type MatchResult = 'win' | 'loss' | 'draw'
+
+export function computeRawScore(stats: RugbyMatchStatLine, group: RugbyPositionGroup, teamStats?: TeamMatchStatLine, matchResult?: MatchResult): number {
   const w = WEIGHTS[WEIGHT_KEY_BY_GROUP[group]]
   let raw = stats.tries * w.try
     + stats.conversions * KICKING_WEIGHT.conversion + stats.penalty_goals * KICKING_WEIGHT.penalty + stats.drop_goals * KICKING_WEIGHT.dropgoal
@@ -131,6 +139,8 @@ export function computeRawScore(stats: RugbyMatchStatLine, group: RugbyPositionG
   if (teamStats && FORWARD_GROUPS.has(group)) {
     raw += computePackRawScore(teamStats)
   }
+  if (matchResult === 'win') raw += WIN_LOSS_BONUS
+  else if (matchResult === 'loss') raw -= WIN_LOSS_BONUS
   return Math.round(raw * 100) / 100
 }
 
@@ -192,7 +202,7 @@ async function fetchAllRows<T>(query: () => any): Promise<T[]> {
 }
 
 export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promise<{ success: true; rows: number } | { error: string }> {
-  const [statsRows, players, matchEvents, teamStatsRows] = await Promise.all([
+  const [statsRows, players, matchEvents, teamStatsRows, fixtures] = await Promise.all([
     fetchAllRows<{ fixture_id: number; player_id: number; meters_run: number; clean_breaks: number; offloads: number; tackles: number; tackles_missed: number; try_assists: number }>(
       () => supabase.schema('rugby').from('player_match_stats').select('fixture_id, player_id, meters_run, clean_breaks, offloads, tackles, tackles_missed, try_assists')
     ),
@@ -207,7 +217,21 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
     fetchAllRows<TeamMatchStatLine & { fixture_id: number; team_id: number }>(
       () => supabase.schema('rugby').from('match_team_stats').select('fixture_id, team_id, scrums_won, scrums_attempted, lineouts_won, lineouts_attempted, turnovers_won, turnovers_conceded, penalties_conceded')
     ).catch(() => []),
+    fetchAllRows<{ id: number; home_team_id: number; away_team_id: number; home_score: number | null; away_score: number | null }>(
+      () => supabase.schema('rugby').from('fixtures').select('id, home_team_id, away_team_id, home_score, away_score')
+    ),
   ])
+
+  const fixtureById = new Map(fixtures.map(f => [f.id, f]))
+  function matchResultFor(fixtureId: number, teamId: number | undefined): MatchResult | undefined {
+    if (teamId == null) return undefined
+    const f = fixtureById.get(fixtureId)
+    if (!f || f.home_score == null || f.away_score == null) return undefined
+    if (f.home_score === f.away_score) return 'draw'
+    const wonAsHome = f.home_score > f.away_score && teamId === f.home_team_id
+    const wonAsAway = f.away_score > f.home_score && teamId === f.away_team_id
+    return (wonAsHome || wonAsAway) ? 'win' : 'loss'
+  }
 
   if (statsRows.length === 0) return { success: true, rows: 0 }
 
@@ -250,7 +274,8 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
     const id = `${s.fixture_id}::${s.player_id}`
     const teamId = teamIdByPlayerId.get(s.player_id)
     const teamStats = teamId != null ? teamStatsByFixtureAndTeam.get(`${s.fixture_id}::${teamId}`) : undefined
-    const rawScore = computeRawScore(statLine, group, teamStats)
+    const matchResult = matchResultFor(s.fixture_id, teamId)
+    const rawScore = computeRawScore(statLine, group, teamStats, matchResult)
     pool.push({ id, group, rawScore })
     rawByEntryId.set(id, { fixture_id: s.fixture_id, player_id: s.player_id, group })
   })

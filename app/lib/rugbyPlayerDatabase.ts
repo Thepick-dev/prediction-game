@@ -165,6 +165,19 @@ export type RugbyPlayerSummary = {
   performances: RugbyPlayerPerformanceRow[]
 }
 
+// Recency weighting on a player's average rating — Kit's choice: "light
+// taper" (confirmed 2026-09-25). A more recent season counts more, but
+// even 2 years back still carries real weight, a gentle nudge toward
+// current form rather than a wholesale reset. Relative to whichever
+// season is MOST RECENT in the data (not hardcoded), so this keeps
+// working correctly once a new season's results get added.
+export function seasonWeight(season: number, latestSeason: number): number {
+  const yearsBack = latestSeason - season
+  if (yearsBack <= 0) return 1.0
+  if (yearsBack === 1) return 0.85
+  return 0.65
+}
+
 export async function fetchRugbyPlayerSummaries(supabase: SupabaseClient): Promise<RugbyPlayerSummary[]> {
   const [performances, teams, rosterRaw] = await Promise.all([
     fetchRugbyPlayerPerformances(supabase),
@@ -190,12 +203,17 @@ export async function fetchRugbyPlayerSummaries(supabase: SupabaseClient): Promi
     performancesByPlayerId.get(p.player_id)!.push(p)
   })
 
+  const latestSeason = performances.length ? Math.max(...performances.map(p => p.season)) : 0
+
   return rosterRaw.map(p => {
     const perfs = (performancesByPlayerId.get(p.id) ?? [])
       .slice()
       .sort((a, b) => (b.season - a.season) || (b.round - a.round))
     const rated = perfs.filter(r => r.rating != null)
-    const averageRating = rated.length ? rated.reduce((sum, r) => sum + (r.rating ?? 0), 0) / rated.length : null
+    const weightTotal = rated.reduce((sum, r) => sum + seasonWeight(r.season, latestSeason), 0)
+    const averageRating = rated.length
+      ? rated.reduce((sum, r) => sum + (r.rating ?? 0) * seasonWeight(r.season, latestSeason), 0) / weightTotal
+      : null
 
     return {
       player_id: p.id,
@@ -210,4 +228,88 @@ export async function fetchRugbyPlayerSummaries(supabase: SupabaseClient): Promi
       performances: perfs,
     }
   })
+}
+
+// ============================================================
+// Dynamic player value — Kit's ask (2026-09-25): "the player's value
+// should be dynamic and linked to their average player rating."
+// ============================================================
+
+// Linear mapping from average rating (0-100, already percentile-like
+// from the rating engine) onto the £ range set when player values were
+// FIRST computed (the 196 originally-priced players spanned
+// £42,904-£1,000,000) — fixed constants, not re-derived from whatever
+// the current pool's own min/max happens to be, so a player's value
+// stays stable and comparable over time rather than every single
+// player's number shifting whenever the pool's spread changes.
+const VALUE_RANGE_MIN = 42904
+const VALUE_RANGE_MAX = 1000000
+export function computeValueFromRating(averageRating: number): number {
+  const clamped = Math.max(0, Math.min(100, averageRating))
+  return Math.round(VALUE_RANGE_MIN + (clamped / 100) * (VALUE_RANGE_MAX - VALUE_RANGE_MIN))
+}
+
+// Recomputes every non-admin-pinned player's value from their current
+// (recency-weighted) average rating — run this AFTER recomputeAllRugbyRatings
+// (app/lib/rugbyRating.ts), since it reads whatever's in
+// player_match_ratings. A player with no rating data yet (new call-up,
+// no historical performances) falls back to their position group's mean
+// value among players who DO have a real one this same pass (or the
+// overall mean if they have no position at all) — same neutral,
+// non-exploitable placeholder approach as the original one-time backfill,
+// flagged via value_is_estimated so it's never shown as if it were real.
+// value_is_admin_set is Kit's explicit ask: an admin's manual correction
+// is "pinned" and this recompute skips it entirely until an admin
+// reverts it back to auto (see revertToAutoValue in the admin players page).
+export async function recomputeAllRugbyPlayerValues(supabase: SupabaseClient): Promise<{ success: true; rows: number } | { error: string }> {
+  const summaries = await fetchRugbyPlayerSummaries(supabase)
+
+  // Isolated fetch: value_is_admin_set is a newer, optional column —
+  // missing/unreadable degrades to "nobody is pinned," which just means
+  // this recompute overwrites everyone rather than silently corrupting
+  // an admin's correction (the safer failure direction either way, since
+  // running this recompute at all is an explicit admin action).
+  let adminSetById = new Map<number, boolean>()
+  try {
+    const { data } = await supabase.schema('rugby').from('players').select('id, value_is_admin_set')
+    adminSetById = new Map((data ?? []).map((r: { id: number; value_is_admin_set: boolean }) => [r.id, r.value_is_admin_set]))
+  } catch { /* column not added yet */ }
+
+  const unpinned = summaries.filter(p => !adminSetById.get(p.player_id))
+
+  const withRating = unpinned.filter(p => p.average_rating != null)
+  const realValueById = new Map(withRating.map(p => [p.player_id, computeValueFromRating(p.average_rating as number)]))
+
+  const overallMean = withRating.length
+    ? Array.from(realValueById.values()).reduce((s, v) => s + v, 0) / realValueById.size
+    : VALUE_RANGE_MIN + (VALUE_RANGE_MAX - VALUE_RANGE_MIN) / 2 // no rated players at all yet — degrade to the range midpoint rather than divide by zero
+  const groupMeanByPosition = new Map<string, number>()
+  const groups = new Set(withRating.map(p => p.group).filter((g): g is string => !!g))
+  groups.forEach(g => {
+    const inGroup = withRating.filter(p => p.group === g)
+    const mean = inGroup.length ? inGroup.reduce((s, p) => s + (realValueById.get(p.player_id) ?? 0), 0) / inGroup.length : overallMean
+    groupMeanByPosition.set(g, mean)
+  })
+
+  const updates: { id: number; value: number; value_is_estimated: boolean }[] = []
+  unpinned.forEach(p => {
+    const real = realValueById.get(p.player_id)
+    if (real != null) {
+      updates.push({ id: p.player_id, value: real, value_is_estimated: false })
+    } else {
+      const fallback = (p.group ? groupMeanByPosition.get(p.group) : undefined) ?? overallMean
+      updates.push({ id: p.player_id, value: Math.round(fallback), value_is_estimated: true })
+    }
+  })
+
+  if (updates.length === 0) return { success: true, rows: 0 }
+
+  // No batch upsert-by-arbitrary-column in PostgREST — one update per
+  // row. This runs from an explicit admin action (piggybacking on
+  // "Calculate Points"), not a hot path, so a loop is fine here.
+  for (const u of updates) {
+    const { error } = await supabase.schema('rugby').from('players').update({ value: u.value, value_is_estimated: u.value_is_estimated }).eq('id', u.id)
+    if (error) return { error: error.message }
+  }
+  return { success: true, rows: updates.length }
 }
