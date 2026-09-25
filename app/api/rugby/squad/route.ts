@@ -4,11 +4,10 @@ import { requireUser } from '../../../lib/require-admin'
 import { NextResponse } from 'next/server'
 
 // Submitting your one-time initial squad (6 players, at most 2 from any
-// one team, one designated kicker). Deliberately goes through the
-// service-role client
-// even though a user only ever writes their OWN rows here — computing
-// each pick's contrarian bonus needs to see how many OTHER users already
-// have that player, and the site's hard pre-deadline privacy rule means a
+// one team). Deliberately goes through the service-role client even
+// though a user only ever writes their OWN rows here — computing each
+// pick's contrarian bonus needs to see how many OTHER users already have
+// that player, and the site's hard pre-deadline privacy rule means a
 // normal session's RLS can't see anyone else's picks yet. Only the
 // resulting aggregate percentage is ever computed and stored here — the
 // raw rows behind it are never returned to the client.
@@ -20,10 +19,10 @@ export async function POST(request: Request) {
   }
   const db = createAdminSupabaseClient()
 
-  const { competition_id, picks, kicker_player_id } = await request.json()
+  const { competition_id, picks } = await request.json()
 
-  if (!competition_id || !Array.isArray(picks) || picks.length !== 6 || !kicker_player_id) {
-    return NextResponse.json({ error: 'A squad needs exactly 6 players (at most 2 from any one team) and one marked as kicker' }, { status: 400 })
+  if (!competition_id || !Array.isArray(picks) || picks.length !== 6) {
+    return NextResponse.json({ error: 'A squad needs exactly 6 players (at most 2 from any one team)' }, { status: 400 })
   }
 
   const { data: round1 } = await db.schema('rugby').from('rounds').select('id, number, deadline').eq('competition_id', competition_id).eq('number', 1).maybeSingle()
@@ -74,10 +73,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No more than 2 players from the same team are allowed' }, { status: 400 })
     }
   }
-  if (!picks.some((p: { player_id: number }) => p.player_id === kicker_player_id)) {
-    return NextResponse.json({ error: 'The kicker must be one of your 6 picks' }, { status: 400 })
-  }
-
   // Budget cap is a newer, optional competitions column — null means
   // uncapped, so a competition that never set one enforces nothing here.
   const { data: comp } = await db.schema('rugby').from('competitions').select('squad_budget_cap').eq('id', competition_id).maybeSingle()
@@ -102,7 +97,7 @@ export async function POST(request: Request) {
       competition_id,
       user_id: user.id,
       player_id: p.player_id,
-      is_kicker: p.player_id === kicker_player_id,
+      is_kicker: false,
       is_initial_pick: true,
       active: true,
       contrarian_pct_at_pick: pct,

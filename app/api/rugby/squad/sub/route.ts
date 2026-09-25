@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   }
 
   const { data: oldPick } = await db.schema('rugby').from('season_squad_picks')
-    .select('id, player_id, is_kicker')
+    .select('id, player_id')
     .eq('competition_id', competition_id).eq('user_id', user.id).eq('player_id', old_player_id).eq('active', true)
     .maybeSingle()
   if (!oldPick) {
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
 
   const { error: insertError } = await db.schema('rugby').from('season_squad_picks').insert({
     competition_id, user_id: user.id, player_id: new_player_id,
-    is_kicker: oldPick.is_kicker, // carries over automatically; change it separately if needed
+    is_kicker: false,
     is_initial_pick: false, active: true,
     contrarian_pct_at_pick: pct,
     round_acquired: currentRound.number, round_removed: null,

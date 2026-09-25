@@ -11,8 +11,6 @@ type Team = { id: number; name: string }
 type Player = { id: number; team_id: number; name: string; value: number | null; value_is_estimated: boolean }
 type Round = { id: string; number: number; deadline: string }
 type Fixture = { id: number; round_id: string; home_team_id: number; away_team_id: number }
-type QuestionType = { type_key: string; label: string; answer_type: string }
-type SeasonAnswer = { type_key: string; answer_team_id: number | null; answer_player_id: number | null; answer_numeric: number | null; answer_fixture_id: number | null }
 type MatchPred = {
   fixture_id: number
   predicted_winner: 'home' | 'away' | 'draw'
@@ -21,7 +19,7 @@ type MatchPred = {
   predicted_home_try_bonus: boolean | null
   predicted_away_try_bonus: boolean | null
 }
-type SquadPick = { id: string; player_id: number; is_kicker: boolean; active: boolean; is_initial_pick: boolean; round_acquired: number }
+type SquadPick = { id: string; player_id: number; active: boolean; is_initial_pick: boolean; round_acquired: number }
 
 function RoundHeading({ text, deadline }: { text: string; deadline?: string | null }) {
   return (
@@ -47,14 +45,12 @@ export default async function RugbyPicksPage() {
   const { data: entry } = await supabase.schema('rugby').from('competition_entries').select('id').eq('competition_id', competition.id).eq('user_id', user.id).maybeSingle()
   if (!entry) redirect('/rugby')
 
-  const [{ data: kit }, { data: teams }, { data: playersRaw }, { data: rounds }, { data: questionTypes }, { data: seasonAnswers }, { data: squadPicks }, { data: rulesRows }] = await Promise.all([
+  const [{ data: kit }, { data: teams }, { data: playersRaw }, { data: rounds }, { data: squadPicks }, { data: rulesRows }] = await Promise.all([
     supabase.schema('rugby').from('player_kits').select('user_id').eq('user_id', user.id).maybeSingle(),
     supabase.schema('rugby').from('teams').select('id, name').eq('active', true).order('name') as unknown as Promise<{ data: Team[] | null }>,
     supabase.schema('rugby').from('players').select('id, team_id, name').order('name') as unknown as Promise<{ data: Omit<Player, 'value' | 'value_is_estimated'>[] | null }>,
     supabase.schema('rugby').from('rounds').select('id, number, deadline').eq('competition_id', competition.id).order('number') as unknown as Promise<{ data: Round[] | null }>,
-    supabase.schema('rugby').from('season_prediction_types').select('type_key, label, answer_type').eq('competition_id', competition.id).eq('active', true) as unknown as Promise<{ data: QuestionType[] | null }>,
-    supabase.schema('rugby').from('season_predictions').select('type_key, answer_team_id, answer_player_id, answer_numeric, answer_fixture_id').eq('competition_id', competition.id).eq('user_id', user.id) as unknown as Promise<{ data: SeasonAnswer[] | null }>,
-    supabase.schema('rugby').from('season_squad_picks').select('id, player_id, is_kicker, active, is_initial_pick, round_acquired').eq('competition_id', competition.id).eq('user_id', user.id) as unknown as Promise<{ data: SquadPick[] | null }>,
+    supabase.schema('rugby').from('season_squad_picks').select('id, player_id, active, is_initial_pick, round_acquired').eq('competition_id', competition.id).eq('user_id', user.id) as unknown as Promise<{ data: SquadPick[] | null }>,
     supabase.schema('rugby').from('scoring_rules').select('rule_key, points').eq('competition_id', competition.id),
   ])
 
@@ -71,8 +67,6 @@ export default async function RugbyPicksPage() {
 
   const teamsList = teams ?? []
   const roundsList = rounds ?? []
-  const questionsList = questionTypes ?? []
-  const seasonAnswersList = seasonAnswers ?? []
   const squadPicksList = squadPicks ?? []
   const maxFreeSubs = rulesRows?.find(r => r.rule_key === 'max_free_subs')?.points ?? DEFAULT_RUGBY_SCORING_RULES.max_free_subs
 
@@ -104,11 +98,6 @@ export default async function RugbyPicksPage() {
   }
 
   const hasKit = !!kit
-  // Vacuously true when there are no active tournament questions yet (no
-  // admin-defined season_prediction_types) — an earlier `length > 0 &&`
-  // guard here inverted that, permanently blocking the entire rest of the
-  // wizard (match predictions, squad draft) whenever no questions existed.
-  const hasAllSeasonAnswers = questionsList.every(q => seasonAnswersList.some(a => a.type_key === q.type_key))
   const currentRoundFixtures = currentRound ? fixturesList.filter(f => f.round_id === currentRound.id) : []
   const hasAllCurrentRoundPreds = currentRoundFixtures.length > 0 && currentRoundFixtures.every(f => currentRoundMatchPreds.some(p => p.fixture_id === f.id))
   const hasSquad = squadPicksList.length > 0
@@ -117,10 +106,10 @@ export default async function RugbyPicksPage() {
   playersList.forEach(p => { if (!playersByTeam[p.team_id]) playersByTeam[p.team_id] = []; playersByTeam[p.team_id].push(p) })
 
   // Nothing below stays hidden just because it's already been answered —
-  // every section here can be freely changed until its own deadline (Round
-  // 1's for tournament predictions and the squad, that round's for match
-  // predictions). Only the kit step is a true one-time gate, since it has
-  // no deadline of its own and blocks nothing by staying set.
+  // every section here can be freely changed until its own deadline
+  // (Round 1's for the squad, that round's for match predictions). Only
+  // the kit step is a true one-time gate, since it has no deadline of its
+  // own and blocks nothing by staying set.
   if (!hasKit) {
     return (
       <div className="max-w-2xl mx-auto p-4 md:p-6">
@@ -133,13 +122,11 @@ export default async function RugbyPicksPage() {
     )
   }
 
-  const showSeasonPredictions = questionsList.length > 0 && !round1DeadlinePassed
   const showMatchPredictions = !!currentRound
   const showSquadDraft = !round1DeadlinePassed
   const showSquadManager = hasSquad && round1DeadlinePassed
 
   const squadSelections: Record<number, number[]> = {}
-  let squadKickerId: number | undefined
   let squadPickCount = 0
   squadPicksList.filter(p => p.active).forEach(pick => {
     const player = playersList.find(p => p.id === pick.player_id)
@@ -148,15 +135,13 @@ export default async function RugbyPicksPage() {
       squadSelections[player.team_id].push(pick.player_id)
       squadPickCount++
     }
-    if (pick.is_kicker) squadKickerId = pick.player_id
   })
 
-  const nothingToDo = !showSeasonPredictions && !showMatchPredictions && !showSquadDraft && !showSquadManager
+  const nothingToDo = !showMatchPredictions && !showSquadDraft && !showSquadManager
 
-  const seasonComplete = !showSeasonPredictions || hasAllSeasonAnswers
   const matchComplete = !showMatchPredictions || (hasAllCurrentRoundPreds && currentRoundMatchPreds.some(p => p.is_confidence_pick))
-  const squadComplete = !showSquadDraft || (squadPickCount === 6 && squadKickerId != null)
-  const picksRequired = !nothingToDo && (!seasonComplete || !matchComplete || !squadComplete)
+  const squadComplete = !showSquadDraft || squadPickCount === 6
+  const picksRequired = !nothingToDo && (!matchComplete || !squadComplete)
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
@@ -168,16 +153,16 @@ export default async function RugbyPicksPage() {
         </div>
       )}
 
-      {(showSeasonPredictions || showMatchPredictions || showSquadDraft) && (
+      {(showMatchPredictions || showSquadDraft) && (
         <div className="mb-6">
           <RugbyPicksForm
             competitionId={competition.id}
-            showSeasonPredictions={showSeasonPredictions}
-            questions={questionsList}
+            showSeasonPredictions={false}
+            questions={[]}
             teams={teamsList}
             players={playersList}
             fixtureLabels={fixturesList.map(f => ({ id: f.id, label: `Round ${roundsList.find(r => r.id === f.round_id)?.number} — ${teamName(f.home_team_id)} v ${teamName(f.away_team_id)}` }))}
-            existingAnswers={seasonAnswersList}
+            existingAnswers={[]}
             showMatchPredictions={showMatchPredictions}
             roundId={currentRound?.id ?? null}
             roundNumber={currentRound?.number ?? null}
@@ -186,7 +171,6 @@ export default async function RugbyPicksPage() {
             showSquadDraft={showSquadDraft}
             playersByTeam={playersByTeam}
             existingSquadSelections={hasSquad ? squadSelections : undefined}
-            existingSquadKickerId={squadKickerId}
             squadBudgetCap={squadBudgetCap}
           />
         </div>
@@ -201,7 +185,7 @@ export default async function RugbyPicksPage() {
               const player = playersList.find(p => p.id === pick.player_id)
               const team = player ? teamsList.find(t => t.id === player.team_id) : undefined
               return {
-                teamId: team?.id ?? 0, teamName: team?.name ?? '?', playerId: pick.player_id, playerName: player?.name ?? '?', isKicker: pick.is_kicker,
+                teamId: team?.id ?? 0, teamName: team?.name ?? '?', playerId: pick.player_id, playerName: player?.name ?? '?',
                 value: player?.value ?? null, valueIsEstimated: player?.value_is_estimated ?? false,
               }
             }).sort((a, b) => a.teamName.localeCompare(b.teamName))}

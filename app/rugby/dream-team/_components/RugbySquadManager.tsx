@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-type SquadSlot = { teamId: number; teamName: string; playerId: number; playerName: string; isKicker: boolean; value: number | null; valueIsEstimated: boolean }
+type SquadSlot = { teamId: number; teamName: string; playerId: number; playerName: string; value: number | null; valueIsEstimated: boolean }
 type SubPlayer = { id: number; name: string; value: number | null; value_is_estimated: boolean }
 
 function formatValue(value: number | null, estimated: boolean) {
@@ -42,19 +42,6 @@ export default function RugbySquadManager({
   const subsRemaining = Math.max(0, maxFreeSubs - subsUsed)
   const squadValueTotal = slots.reduce((sum, s) => sum + (s.value ?? 0), 0)
   const overBudget = squadBudgetCap != null && squadValueTotal > squadBudgetCap
-
-  async function makeKicker(playerId: number) {
-    setBusy(true)
-    setMessage('')
-    const res = await fetch('/api/rugby/squad/kicker', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ competition_id: competitionId, player_id: playerId }),
-    })
-    const data = await res.json()
-    if (!res.ok || data.error) setMessage(data.error ?? 'Could not update kicker')
-    setBusy(false)
-    router.refresh()
-  }
 
   async function confirmSub(oldPlayerId: number) {
     if (!replacementId) return
@@ -98,18 +85,12 @@ export default function RugbySquadManager({
               <p className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--rugby-floodlight)' }}>{slot.teamName}</p>
               <p className="rugby-cond text-base uppercase tracking-wide">
                 {slot.playerName}
-                {slot.isKicker && <span className="rugby-badge rugby-badge--gold ml-2" style={{ fontSize: '10px', padding: '2px 8px' }}>KICKER</span>}
               </p>
               {formatValue(slot.value, slot.valueIsEstimated) && (
                 <p className="text-xs" style={{ color: 'var(--rugby-text-faint)' }}>{formatValue(slot.value, slot.valueIsEstimated)}</p>
               )}
             </div>
             <div className="flex items-center gap-2">
-              {!slot.isKicker && (
-                <button onClick={() => makeKicker(slot.playerId)} disabled={busy} className="text-xs underline" style={{ color: 'var(--rugby-text-faint)' }}>
-                  Make kicker
-                </button>
-              )}
               {canSub && subbingPlayerId !== slot.playerId && (
                 <button onClick={() => { setSubbingPlayerId(slot.playerId); setReplacementId(''); setReplacementSearch('') }} className="text-xs rugby-button rugby-button--ghost" style={{ padding: '4px 10px' }}>
                   Substitute

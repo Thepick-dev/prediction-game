@@ -9,10 +9,9 @@ type Player = { id: number; team_id: number; name: string }
 type Round = { id: string; number: number }
 type Entry = { user_id: string }
 type Profile = { id: string; display_name: string }
-type SquadPick = { id: string; user_id: string; player_id: number; is_kicker: boolean; active: boolean; round_acquired: number; contrarian_pct_at_pick: number | null }
+type SquadPick = { id: string; user_id: string; player_id: number; active: boolean; round_acquired: number; contrarian_pct_at_pick: number | null }
 type SquadPointsRow = { season_squad_pick_id: string; user_id: string; round_id: string; try_points: number; kicking_points: number; red_card_penalty: number; sub_penalty: number; contrarian_bonus: number; total_points: number }
 type MatchPointsRow = { user_id: string; round_id: string; fixture_id: number; is_correct: boolean; confidence: number; total_points: number }
-type SeasonPointsRow = { user_id: string; type_key: string; is_correct: boolean; points: number; contrarian_bonus_applied: boolean }
 
 const TABS = [
   { key: 'squads', label: 'Dream Teams & Players' },
@@ -46,19 +45,17 @@ export default async function RugbyStatsHubPage({ searchParams }: { searchParams
   const teamById = new Map(teamsList.map(t => [t.id, t]))
   const playerById = new Map(playersList.map(p => [p.id, p]))
 
-  const [{ data: profiles }, { data: squadPicks }, { data: squadPoints }, { data: matchPoints }, { data: seasonPoints }] = await Promise.all([
+  const [{ data: profiles }, { data: squadPicks }, { data: squadPoints }, { data: matchPoints }] = await Promise.all([
     userIds.length ? supabase.from('profiles').select('id, display_name').in('id', userIds) as unknown as Promise<{ data: Profile[] | null }> : Promise.resolve({ data: [] as Profile[] }),
-    supabase.schema('rugby').from('season_squad_picks').select('id, user_id, player_id, is_kicker, active, round_acquired, contrarian_pct_at_pick').eq('competition_id', competition.id) as unknown as Promise<{ data: SquadPick[] | null }>,
+    supabase.schema('rugby').from('season_squad_picks').select('id, user_id, player_id, active, round_acquired, contrarian_pct_at_pick').eq('competition_id', competition.id) as unknown as Promise<{ data: SquadPick[] | null }>,
     roundIds.length ? supabase.schema('rugby').from('season_squad_points').select('season_squad_pick_id, user_id, round_id, try_points, kicking_points, red_card_penalty, sub_penalty, contrarian_bonus, total_points').in('round_id', roundIds) as unknown as Promise<{ data: SquadPointsRow[] | null }> : Promise.resolve({ data: [] as SquadPointsRow[] }),
     roundIds.length ? supabase.schema('rugby').from('match_prediction_points').select('user_id, round_id, fixture_id, is_correct, confidence, total_points').in('round_id', roundIds) as unknown as Promise<{ data: MatchPointsRow[] | null }> : Promise.resolve({ data: [] as MatchPointsRow[] }),
-    supabase.schema('rugby').from('season_prediction_points').select('user_id, type_key, is_correct, points, contrarian_bonus_applied').eq('competition_id', competition.id) as unknown as Promise<{ data: SeasonPointsRow[] | null }>,
   ])
 
   const nameById = new Map((profiles ?? []).map(p => [p.id, p.display_name]))
   const squadPicksList = squadPicks ?? []
   const squadPointsList = squadPoints ?? []
   const matchPointsList = matchPoints ?? []
-  const seasonPointsList = seasonPoints ?? []
   const pickById = new Map(squadPicksList.map(p => [p.id, p]))
 
   return (
@@ -81,8 +78,8 @@ export default async function RugbyStatsHubPage({ searchParams }: { searchParams
       </div>
 
       {tab === 'squads' && <SquadsTab teamsList={teamsList} playersList={playersList} squadPicksList={squadPicksList} squadPointsList={squadPointsList} playerById={playerById} teamById={teamById} />}
-      {tab === 'managers' && <ManagersTab userIds={userIds} nameById={nameById} roundsList={roundsList} squadPointsList={squadPointsList} matchPointsList={matchPointsList} seasonPointsList={seasonPointsList} />}
-      {tab === 'trends' && <TrendsTab squadPicksList={squadPicksList} squadPointsList={squadPointsList} matchPointsList={matchPointsList} seasonPointsList={seasonPointsList} nameById={nameById} playerById={playerById} pickById={pickById} roundsList={roundsList} />}
+      {tab === 'managers' && <ManagersTab userIds={userIds} nameById={nameById} roundsList={roundsList} squadPointsList={squadPointsList} matchPointsList={matchPointsList} />}
+      {tab === 'trends' && <TrendsTab squadPicksList={squadPicksList} squadPointsList={squadPointsList} matchPointsList={matchPointsList} nameById={nameById} playerById={playerById} pickById={pickById} roundsList={roundsList} />}
       {tab === 'database' && <PlayerDatabaseTab rows={await fetchRugbyPlayerPerformances(supabase)} />}
     </div>
   )
@@ -159,9 +156,9 @@ function SquadsTab({ teamsList, playersList, squadPicksList, squadPointsList, pl
   )
 }
 
-function ManagersTab({ userIds, nameById, roundsList, squadPointsList, matchPointsList, seasonPointsList }: {
+function ManagersTab({ userIds, nameById, roundsList, squadPointsList, matchPointsList }: {
   userIds: string[]; nameById: Map<string, string>; roundsList: Round[]
-  squadPointsList: SquadPointsRow[]; matchPointsList: MatchPointsRow[]; seasonPointsList: SeasonPointsRow[]
+  squadPointsList: SquadPointsRow[]; matchPointsList: MatchPointsRow[]
 }) {
   const roundTotalByUser = new Map<string, Map<string, number>>()
   function add(userId: string, roundId: string, pts: number) {
@@ -175,8 +172,7 @@ function ManagersTab({ userIds, nameById, roundsList, squadPointsList, matchPoin
   const rows = userIds.map(userId => {
     const perRound = roundTotalByUser.get(userId) ?? new Map<string, number>()
     const roundScores = roundsList.map(r => perRound.get(r.id)).filter((v): v is number => v != null)
-    const seasonTotal = seasonPointsList.filter(s => s.user_id === userId).reduce((s, r) => s + r.points, 0)
-    const grandTotal = Array.from(perRound.values()).reduce((s, v) => s + v, 0) + seasonTotal
+    const grandTotal = Array.from(perRound.values()).reduce((s, v) => s + v, 0)
     return {
       userId,
       name: nameById.get(userId) ?? 'Unknown',
@@ -222,15 +218,14 @@ function ManagersTab({ userIds, nameById, roundsList, squadPointsList, matchPoin
   )
 }
 
-function TrendsTab({ squadPicksList, squadPointsList, matchPointsList, seasonPointsList, nameById, playerById, roundsList }: {
-  squadPicksList: SquadPick[]; squadPointsList: SquadPointsRow[]; matchPointsList: MatchPointsRow[]; seasonPointsList: SeasonPointsRow[]
+function TrendsTab({ squadPicksList, squadPointsList, matchPointsList, nameById, playerById, roundsList }: {
+  squadPicksList: SquadPick[]; squadPointsList: SquadPointsRow[]; matchPointsList: MatchPointsRow[]
   nameById: Map<string, string>; playerById: Map<number, Player>; pickById: Map<string, SquadPick>; roundsList: Round[]
 }) {
   const roundNumberById = new Map(roundsList.map(r => [r.id, r.number]))
   const totalRedCards = squadPointsList.filter(r => r.red_card_penalty > 0).length
   const totalSubPenalties = squadPointsList.reduce((s, r) => s + (r.sub_penalty > 0 ? 1 : 0), 0)
   const squadContrarianPicks = squadPicksList.filter(p => p.contrarian_pct_at_pick != null && squadPointsList.some(r => r.season_squad_pick_id === p.id && r.contrarian_bonus > 0))
-  const seasonContrarianRows = seasonPointsList.filter(r => r.contrarian_bonus_applied)
 
   const worstBlunder = matchPointsList.filter(r => !r.is_correct).sort((a, b) => a.total_points - b.total_points)[0]
   const bestConfidentCall = matchPointsList.filter(r => r.is_correct).sort((a, b) => b.total_points - a.total_points)[0]
@@ -253,15 +248,12 @@ function TrendsTab({ squadPicksList, squadPointsList, matchPointsList, seasonPoi
 
       <div className="rugby-panel rugby-panel--gold p-5">
         <h2 className="rugby-cond text-sm mb-3 uppercase tracking-wide">Underdog Bonuses</h2>
-        {squadContrarianPicks.length === 0 && seasonContrarianRows.length === 0 ? (
+        {squadContrarianPicks.length === 0 ? (
           <p className="text-sm" style={{ color: 'var(--rugby-text-faint)' }}>No underdog bonuses earned yet.</p>
         ) : (
           <div className="space-y-1.5 text-sm">
             {squadContrarianPicks.map(p => (
               <p key={p.id}>🎯 {nameById.get(p.user_id) ?? 'Unknown'} — drafted {playerById.get(p.player_id)?.name ?? 'a player'} few others picked</p>
-            ))}
-            {seasonContrarianRows.map((r, i) => (
-              <p key={i}>🎯 {nameById.get(r.user_id) ?? 'Unknown'} — correct, rare answer on &quot;{r.type_key.replace(/_/g, ' ')}&quot;</p>
             ))}
           </div>
         )}

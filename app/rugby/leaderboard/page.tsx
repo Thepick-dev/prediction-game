@@ -12,7 +12,6 @@ type Kit = {
 type Round = { id: string; number: number }
 type SquadPointsRow = { user_id: string; round_id: string; total_points: number }
 type MatchPointsRow = { user_id: string; round_id: string; total_points: number }
-type SeasonPointsRow = { user_id: string; points: number }
 
 export default async function RugbyLeaderboardPage() {
   const supabase = await createServerSupabaseClient()
@@ -41,12 +40,11 @@ export default async function RugbyLeaderboardPage() {
     shorts_colour: string | null; socks_colour: string | null; socks_hooped: boolean; socks_colour2: string | null
   }
 
-  const [{ data: profiles }, { data: kits }, { data: squadPoints }, { data: matchPoints }, { data: seasonPoints }] = await Promise.all([
+  const [{ data: profiles }, { data: kits }, { data: squadPoints }, { data: matchPoints }] = await Promise.all([
     userIds.length ? supabase.from('profiles').select('id, display_name').in('id', userIds) as unknown as Promise<{ data: Profile[] | null }> : Promise.resolve({ data: [] as Profile[] }),
     userIds.length ? supabase.schema('rugby').from('player_kits').select('user_id, pattern, colour1, colour2, colour3').in('user_id', userIds) as unknown as Promise<{ data: Omit<Kit, 'back_text' | 'back_shape' | 'back_shape_colour' | 'back_text_colour' | 'shorts_colour' | 'socks_colour' | 'socks_hooped' | 'socks_colour2'>[] | null }> : Promise.resolve({ data: [] as any[] }),
     userIds.length && roundIds.length ? supabase.schema('rugby').from('season_squad_points').select('user_id, round_id, total_points').in('user_id', userIds).in('round_id', roundIds) as unknown as Promise<{ data: SquadPointsRow[] | null }> : Promise.resolve({ data: [] as SquadPointsRow[] }),
     userIds.length && roundIds.length ? supabase.schema('rugby').from('match_prediction_points').select('user_id, round_id, total_points').in('user_id', userIds).in('round_id', roundIds) as unknown as Promise<{ data: MatchPointsRow[] | null }> : Promise.resolve({ data: [] as MatchPointsRow[] }),
-    userIds.length ? supabase.schema('rugby').from('season_prediction_points').select('user_id, points').eq('competition_id', competition.id).in('user_id', userIds) as unknown as Promise<{ data: SeasonPointsRow[] | null }> : Promise.resolve({ data: [] as SeasonPointsRow[] }),
   ])
 
   // Its own separate query, deliberately not bundled with the one above:
@@ -78,9 +76,7 @@ export default async function RugbyLeaderboardPage() {
     })
   })
 
-  // Per-round combined total (squad + match predictions — season predictions
-  // are one-off tournament calls, not tied to any single round, so they get
-  // their own column instead of being split across rounds).
+  // Per-round combined total (squad + match predictions).
   const byUserRound = new Map<string, Map<string, number>>()
   function addRoundPoints(userId: string, roundId: string, pts: number) {
     if (!byUserRound.has(userId)) byUserRound.set(userId, new Map())
@@ -94,20 +90,17 @@ export default async function RugbyLeaderboardPage() {
   ;(squadPoints ?? []).forEach(r => squadTotalByUser.set(r.user_id, (squadTotalByUser.get(r.user_id) ?? 0) + r.total_points))
   const matchTotalByUser = new Map<string, number>()
   ;(matchPoints ?? []).forEach(r => matchTotalByUser.set(r.user_id, (matchTotalByUser.get(r.user_id) ?? 0) + r.total_points))
-  const seasonTotalByUser = new Map<string, number>()
-  ;(seasonPoints ?? []).forEach(r => seasonTotalByUser.set(r.user_id, (seasonTotalByUser.get(r.user_id) ?? 0) + r.points))
 
   const ranked = entriesList
     .map(e => {
       const squad = squadTotalByUser.get(e.user_id) ?? 0
       const match = matchTotalByUser.get(e.user_id) ?? 0
-      const season = seasonTotalByUser.get(e.user_id) ?? 0
       const perRound = byUserRound.get(e.user_id) ?? new Map<string, number>()
       return {
         userId: e.user_id,
         name: nameById.get(e.user_id) ?? 'Unknown',
-        squad, match, season,
-        total: squad + match + season,
+        squad, match,
+        total: squad + match,
         perRound,
       }
     })
@@ -134,7 +127,6 @@ export default async function RugbyLeaderboardPage() {
                   ))}
                   <th className="rugby-cond text-right py-2 px-1.5 whitespace-nowrap uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Dream Team</th>
                   <th className="rugby-cond text-right py-2 px-1.5 whitespace-nowrap uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Matches</th>
-                  <th className="rugby-cond text-right py-2 px-1.5 whitespace-nowrap uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Tournament</th>
                   <th className="rugby-cond text-right py-2 px-1 uppercase tracking-wide" style={{ color: 'var(--rugby-floodlight)' }}>Total</th>
                 </tr>
               </thead>
@@ -169,7 +161,6 @@ export default async function RugbyLeaderboardPage() {
                       })}
                       <td className="text-right py-2 px-1.5" style={{ color: 'var(--rugby-text-dim)' }}>{row.squad}</td>
                       <td className="text-right py-2 px-1.5" style={{ color: row.match < 0 ? '#e8574a' : 'var(--rugby-text-dim)' }}>{row.match}</td>
-                      <td className="text-right py-2 px-1.5" style={{ color: 'var(--rugby-text-dim)' }}>{row.season}</td>
                       <td className="rugby-display text-right py-2 px-1" style={{ color: row.total < 0 ? '#e8574a' : 'var(--rugby-floodlight)' }}>{row.total}</td>
                     </tr>
                   )

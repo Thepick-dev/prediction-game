@@ -30,9 +30,9 @@ type MatchRowState = {
 
 // Toggle button used everywhere in this form for a binary/ternary choice —
 // bold, filled when active, plenty of touch target, no small print. The
-// one shared visual language behind winner picks, try-bonus calls, the
-// confidence pick, and the kicker choice, so the whole page reads as one
-// game, not several forms bolted together.
+// one shared visual language behind winner picks, try-bonus calls, and
+// the confidence pick, so the whole page reads as one game, not several
+// forms bolted together.
 function ChoiceButton({ label, active, fill, text, onClick }: { label: string; active: boolean; fill: string; text: string; onClick: () => void }) {
   // Even unselected, every choice carries a visible tint of its own team
   // colour — a wall of identical grey boxes was exactly the "haven't
@@ -148,7 +148,6 @@ export default function RugbyPicksForm({
   showSquadDraft,
   playersByTeam,
   existingSquadSelections,
-  existingSquadKickerId,
   squadBudgetCap,
 }: {
   competitionId: string
@@ -166,7 +165,6 @@ export default function RugbyPicksForm({
   showSquadDraft: boolean
   playersByTeam: Record<number, SquadPlayer[]>
   existingSquadSelections?: Record<number, number[]>
-  existingSquadKickerId?: number
   squadBudgetCap?: number | null
 }) {
   const router = useRouter()
@@ -216,8 +214,6 @@ export default function RugbyPicksForm({
     teams.forEach(t => { init[t.id] = existingSquadSelections?.[t.id] ?? [] })
     return init
   })
-  const [kickerPlayerId, setKickerPlayerId] = useState<number | ''>(existingSquadKickerId ?? '')
-
   const totalSquadCount = Object.values(squadSelections).reduce((sum, ids) => sum + ids.length, 0)
   const allSquadPlayers = teams.flatMap(t => playersByTeam[t.id] ?? [])
   const squadValueById = new Map(allSquadPlayers.map(p => [p.id, p.value ?? 0]))
@@ -231,7 +227,6 @@ export default function RugbyPicksForm({
   }
   function removeSquadPlayer(teamId: number, playerId: number) {
     setSquadSelections(prev => ({ ...prev, [teamId]: (prev[teamId] ?? []).filter(id => id !== playerId) }))
-    if (kickerPlayerId === playerId) setKickerPlayerId('')
   }
 
   // --- "Slide along" auto-advance: completing one item smoothly scrolls
@@ -285,7 +280,7 @@ export default function RugbyPicksForm({
       return r.homeTryBonus !== null && r.awayTryBonus !== null
     }) && confidenceFixtureId != null
   )
-  const squadValid = !showSquadDraft || (totalSquadCount === 6 && !!kickerPlayerId && !overBudget)
+  const squadValid = !showSquadDraft || (totalSquadCount === 6 && !overBudget)
   const allValid = seasonValid && matchValid && squadValid
 
   const hasExistingSeason = showSeasonPredictions && existingAnswers.length > 0
@@ -344,7 +339,6 @@ export default function RugbyPicksForm({
           body: JSON.stringify({
             competition_id: competitionId,
             picks: Object.values(squadSelections).flat().map(player_id => ({ player_id })),
-            kicker_player_id: kickerPlayerId,
           }),
         }).then(r => r.json())
       )
@@ -556,7 +550,7 @@ export default function RugbyPicksForm({
         <div className="rugby-panel rugby-panel--gold p-5">
           <h2 className="rugby-cond text-sm mb-2 uppercase tracking-wide">Your Dream Team</h2>
           <p className="text-sm mb-4" style={{ color: 'var(--rugby-text-dim)' }}>
-            Pick 6 players, at most 2 from any one team — then mark one as your kicker.
+            Pick 6 players, at most 2 from any one team.
           </p>
           <div
             className="rugby-panel p-3 mb-4 flex items-center justify-between flex-wrap gap-2"
@@ -586,27 +580,6 @@ export default function RugbyPicksForm({
               </div>
             ))}
           </div>
-          {totalSquadCount === 6 && (
-            <div>
-              <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: 'var(--rugby-floodlight)' }}>Pick your kicker</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {teams.flatMap(t => (squadSelections[t.id] ?? []).map(pid => {
-                  const player = (playersByTeam[t.id] ?? []).find(p => p.id === pid)
-                  if (!player) return null
-                  return (
-                    <ChoiceButton
-                      key={pid}
-                      label={player.name}
-                      active={kickerPlayerId === pid}
-                      fill="var(--rugby-floodlight)"
-                      text="#241300"
-                      onClick={() => setKickerPlayerId(pid)}
-                    />
-                  )
-                }))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 

@@ -103,7 +103,7 @@ export default async function RugbyLandingPage() {
         <div className="rugby-panel p-4">
           <p className="text-xl mb-1">🏆</p>
           <p className="rugby-cond text-sm mb-1 uppercase tracking-wide">Dream Team</p>
-          <p className="text-xs" style={{ color: 'var(--rugby-text-dim)' }}>Draft 6 players, up to 2 per nation, plus a kicker — score on tries, kicks, tackles, cards and more, all season.</p>
+          <p className="text-xs" style={{ color: 'var(--rugby-text-dim)' }}>Draft 6 players within budget, up to 2 per nation — scored on their full match rating, all season.</p>
         </div>
       </div>
 

@@ -55,13 +55,6 @@ const RULE_GROUPS: { heading: string; rules: Record<string, string> }[] = [
       try_bonus_points: 'Points for correctly calling a team\'s try bonus (4+ tries), per team',
     },
   },
-  {
-    heading: 'Season Predictions',
-    rules: {
-      season_underdog_threshold_pct: 'Below this % of players answering correctly, it counts as an underdog answer',
-      season_underdog_multiplier: 'Multiplier applied to that question\'s own points for a correct underdog answer',
-    },
-  },
 ]
 const RULE_LABELS: Record<string, string> = Object.fromEntries(RULE_GROUPS.flatMap(g => Object.entries(g.rules)))
 

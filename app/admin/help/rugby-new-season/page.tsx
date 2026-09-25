@@ -23,16 +23,7 @@ export default function RugbyAdminGuidePage() {
         </div>
 
         <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-2">3. Set up the tournament questions</h2>
-          <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
-            <li>Go to <a href="/admin/rugby/season-questions" className="underline">Admin → Rugby Season Questions</a> and add whichever one-off tournament predictions you want players to make (winner, wooden spoon, top try scorer, or anything else you think of) — pick an answer type (team/player/number/match) and how many points it&apos;s worth for each.</li>
-            <li>These appear automatically on the player-facing Rules page and in their Picks flow — nothing else to wire up.</li>
-            <li>Once the tournament is over and you know the real answers, come back to this same page, fill in the answer for each question under &quot;Enter the answers&quot;, then click <strong>Calculate Season Prediction Points</strong>.</li>
-          </ul>
-        </div>
-
-        <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-2">4. Set the scoring rules</h2>
+          <h2 className="font-bold mb-2">3. Set the scoring rules</h2>
           <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
             <li>Go to <a href="/admin/rugby/scoring-rules" className="underline">Admin → Rugby Scoring Rules</a> to set every point value in the game — try/kicking points, the red card penalty, substitution limits and penalties, the underdog bonus and its threshold, and the weekly match-prediction point values.</li>
             <li>Change these any time — the Rules page shown to players always reflects whatever&apos;s set here, automatically. A &quot;Calculate Points&quot; run always uses the current values, so correcting a number retroactively re-scores fairly if you recalculate afterwards.</li>
@@ -40,7 +31,7 @@ export default function RugbyAdminGuidePage() {
         </div>
 
         <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-2">5. The weekly routine, once a round&apos;s matches are played</h2>
+          <h2 className="font-bold mb-2">4. The weekly routine, once a round&apos;s matches are played</h2>
           <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
             <li>Go to <a href="/admin/rugby/results" className="underline">Admin → Rugby Results</a>, pick the round, and enter each fixture&apos;s final score.</li>
             <li>Click into each fixture and add every try/conversion/penalty/drop goal/card, with who scored it.</li>
@@ -50,7 +41,7 @@ export default function RugbyAdminGuidePage() {
         </div>
 
         <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-2">6. Managing players between rounds</h2>
+          <h2 className="font-bold mb-2">5. Managing players between rounds</h2>
           <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
             <li><a href="/admin/rugby/players" className="underline">Admin → Rugby Players</a> lets you add a one-off call-up or remove someone without touching the spreadsheet.</li>
             <li>The ticker banner at the top of every rugby page (deadline reminders, shout-outs) is editable from <a href="/admin/rugby" className="underline">Admin → Rugby Competitions</a> — leave it empty to hide it.</li>
@@ -58,9 +49,8 @@ export default function RugbyAdminGuidePage() {
         </div>
 
         <div className="bg-white border rounded-lg p-6">
-          <h2 className="font-bold mb-2">7. Ending a season and starting the next one</h2>
+          <h2 className="font-bold mb-2">6. Ending a season and starting the next one</h2>
           <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1.5">
-            <li>Once the tournament&apos;s over, finish entering season-question answers (step 3) and calculate those points.</li>
             <li>Click <strong>Mark completed</strong> on the competition at <a href="/admin/rugby" className="underline">Admin → Rugby Competitions</a> — this is what makes it show up on the public <a href="/rugby/winners" className="underline">Winners</a> page.</li>
             <li>For a new season: update the spreadsheet (clear last season&apos;s fixtures, keep or edit squads), create and activate a new competition (step 1), then re-import (step 2). Rounds/fixtures/predictions/points all start fresh per competition automatically; squads carry over unless you edit them.</li>
           </ul>
@@ -69,10 +59,10 @@ export default function RugbyAdminGuidePage() {
         <div className="bg-white border rounded-lg p-6">
           <h2 className="font-bold mb-2">If you ever need to undo something</h2>
           <p className="text-sm text-gray-700">
-            Activating a different competition, deactivating a season question, or re-running &quot;Calculate Points&quot;
-            are all safe to do repeatedly — nothing here is destructive. The one thing to be careful with is removing
-            a player from <a href="/admin/rugby/players" className="underline">Rugby Players</a> if they&apos;ve already
-            been picked by someone&apos;s squad or predictions — check first.
+            Activating a different competition or re-running &quot;Calculate Points&quot; are both safe to do
+            repeatedly — nothing here is destructive. The one thing to be careful with is removing a player from{' '}
+            <a href="/admin/rugby/players" className="underline">Rugby Players</a> if they&apos;ve already been
+            picked by someone&apos;s squad or predictions — check first.
           </p>
         </div>
       </div>
