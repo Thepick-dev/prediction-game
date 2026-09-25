@@ -13,6 +13,10 @@ type Round = { id: string; number: number }
 type SquadPointsRow = { user_id: string; round_id: string; total_points: number }
 type MatchPointsRow = { user_id: string; round_id: string; total_points: number }
 
+// The five clashing Maximalism accents — repeated elements (cards,
+// chips) rotate through these systematically via index % 5.
+const ACCENTS = ['#FF3AF2', '#00F5D4', '#FFE600', '#FF6B35', '#7B2FFF']
+
 export default async function RugbyLeaderboardPage() {
   const supabase = await createServerSupabaseClient()
   const { data: competition } = await supabase.schema('rugby').from('competitions').select('id, name, season').eq('status', 'active').maybeSingle() as unknown as { data: Competition | null }
@@ -106,85 +110,103 @@ export default async function RugbyLeaderboardPage() {
     })
     .sort((a, b) => b.total - a.total)
 
-  // CONCEPT PREVIEW ONLY — this page previews a new "bold nation colour on
-  // white" visual direction (see the rb2-* rules in app/globals.css) ahead
-  // of a possible full site-wide rollout. Nothing else in the rugby site
-  // is touched yet; this is deliberately confined to one page for review.
+  // Real Six Nations colours — kept ONLY here (actual information: which
+  // nations are in this competition), not used as the page's decorative
+  // accent system (that's the 5 Maximalism accents, ACCENTS above).
   const NATION_COLOURS: Record<string, string> = {
-    England: 'var(--rb2-england)', Ireland: 'var(--rb2-ireland)', Wales: 'var(--rb2-wales)',
-    Scotland: 'var(--rb2-scotland)', France: 'var(--rb2-france)', Italy: 'var(--rb2-italy)',
+    England: '#1D2D5C', Ireland: '#169B62', Wales: '#C8102E',
+    Scotland: '#0065BD', France: '#0055A4', Italy: '#0088CE',
   }
 
   return (
-    <div className="rb2-page">
-      <div className="rb2-hero">
-        <p className="rb2-eyebrow">{competition.name} · Design concept</p>
-        <h1 className="rb2-title">Leaderboard</h1>
-      </div>
+    <div className="rb5-page">
+      <div className="rb5-mesh" />
+      <div className="rb5-bg-word" aria-hidden="true">RUGBY</div>
+      <span className="rb5-float" aria-hidden="true" style={{ position: 'absolute', top: 18, right: 24, fontSize: 36, zIndex: 1 }}>🏆</span>
+      <span className="rb5-wiggle" aria-hidden="true" style={{ position: 'absolute', top: 90, left: 10, fontSize: 26, zIndex: 1 }}>⚡</span>
+      <span className="rb5-float" aria-hidden="true" style={{ position: 'absolute', top: 10, left: '38%', fontSize: 22, zIndex: 1, animationDelay: '1.2s' }}>✨</span>
 
-      <div className="rb2-legend">
-        {Object.entries(NATION_COLOURS).map(([name, colour]) => (
-          <span key={name} className="rb2-chip" style={{ background: colour }}>{name}</span>
-        ))}
-      </div>
+      <div className="relative" style={{ zIndex: 2 }}>
+        <p className="rb5-eyebrow mb-2">{competition.name} 🔥 Leaderboard</p>
+        <h1 className="rb5-title rb5-title--gradient mb-6" style={{ fontSize: 'clamp(32px, 11vw, 62px)', overflowWrap: 'break-word', wordBreak: 'break-word' }}>Leaderboard</h1>
 
-      <div className="rb2-panel rb2-panel--gold p-3 md:p-5">
+        <div className="flex flex-wrap gap-2 mb-7">
+          {Object.entries(NATION_COLOURS).map(([name, colour], i) => (
+            <span
+              key={name}
+              className="rb5-chip"
+              style={{ background: colour, border: `3px solid ${ACCENTS[i % ACCENTS.length]}`, transform: `rotate(${i % 2 === 0 ? '-1.5' : '1.5'}deg)` }}
+            >
+              {name}
+            </span>
+          ))}
+        </div>
+
         {ranked.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--rb2-text-faint)' }}>No one has joined {competition.name} yet.</p>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>No one has joined {competition.name} yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="rb2-table text-xs md:text-sm">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Player</th>
-                  {roundsList.map(r => (
-                    <th key={r.id} className="rb2-num whitespace-nowrap">R{r.number}</th>
-                  ))}
-                  <th className="rb2-num whitespace-nowrap">Dream Team</th>
-                  <th className="rb2-num whitespace-nowrap">Matches</th>
-                  <th className="rb2-num" style={{ color: 'var(--rb2-ink)' }}>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ranked.map((row, i) => {
-                  const kit = kitById.get(row.userId)
-                  return (
-                    <tr key={row.userId}>
-                      <td>
-                        {i === 0 ? <span className="rb2-rank rb2-rank--top">1</span> : <span className="rb2-rank">{i + 1}</span>}
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          {kit ? (
-                            <RugbyKitPreview
-                              pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} colour3={kit.colour3}
-                              shortsColour={kit.shorts_colour} socksColour={kit.socks_colour} socksHooped={kit.socks_hooped} socksColour2={kit.socks_colour2}
-                              backText={kit.back_text} backShape={kit.back_shape} backShapeColour={kit.back_shape_colour} backTextColour={kit.back_text_colour}
-                              view="back" size={24}
-                            />
-                          ) : (
-                            <div style={{ width: 24 }} />
-                          )}
-                          <span className="rb2-name">{row.name}</span>
-                        </div>
-                      </td>
-                      {roundsList.map(r => {
-                        const pts = row.perRound.get(r.id)
-                        return (
-                          <td key={r.id} className="rb2-num" style={{ color: pts != null && pts < 0 ? '#c8102e' : 'var(--rb2-text-dim)' }}>
-                            {pts != null ? pts : '—'}
-                          </td>
-                        )
-                      })}
-                      <td className="rb2-num" style={{ color: 'var(--rb2-text-dim)' }}>{row.squad}</td>
-                      <td className="rb2-num" style={{ color: row.match < 0 ? '#c8102e' : 'var(--rb2-text-dim)' }}>{row.match}</td>
-                      <td className="rb2-num rb2-total" style={{ color: row.total < 0 ? '#c8102e' : 'var(--rb2-ink)' }}>{row.total}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="flex flex-col gap-5">
+            {ranked.map((row, i) => {
+              const kit = kitById.get(row.userId)
+              const border = ACCENTS[i % ACCENTS.length]
+              const shadow = ACCENTS[(i + 1) % ACCENTS.length]
+              const rotate = i % 2 === 0 ? '-0.6deg' : '0.6deg'
+              const isLeader = i === 0
+
+              const cardInner = (
+                <>
+                  <div className="flex items-center gap-3 mb-3 flex-wrap">
+                    <span className={isLeader ? 'rb5-rank rb5-rank--leader' : 'rb5-rank'}>{i + 1}</span>
+                    {kit ? (
+                      <RugbyKitPreview
+                        pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} colour3={kit.colour3}
+                        shortsColour={kit.shorts_colour} socksColour={kit.socks_colour} socksHooped={kit.socks_hooped} socksColour2={kit.socks_colour2}
+                        backText={kit.back_text} backShape={kit.back_shape} backShapeColour={kit.back_shape_colour} backTextColour={kit.back_text_colour}
+                        view="back" size={30}
+                      />
+                    ) : null}
+                    <span className="rb5-name" style={{ fontSize: isLeader ? 20 : 17 }}>{row.name}</span>
+                    <span
+                      className="rb5-stat ml-auto"
+                      style={{
+                        fontSize: isLeader ? 40 : 30, color: border,
+                        textShadow: `2px 2px 0 rgba(0,0,0,0.4)`,
+                      }}
+                    >
+                      {row.total}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {roundsList.map(r => {
+                      const pts = row.perRound.get(r.id)
+                      return (
+                        <span key={r.id} className="rb5-pill" style={pts != null && pts < 0 ? { color: '#FF6B35' } : undefined}>
+                          R{r.number}: {pts != null ? pts : '—'}
+                        </span>
+                      )
+                    })}
+                    <span className="rb5-pill" style={{ background: 'rgba(0,245,212,0.12)', color: '#00F5D4' }}>Dream Team: {row.squad}</span>
+                    <span className="rb5-pill" style={{ background: 'rgba(255,58,242,0.12)', color: '#FF3AF2' }}>Matches: {row.match}</span>
+                  </div>
+                </>
+              )
+
+              return (
+                <div key={row.userId} style={{ transform: `rotate(${rotate})` }}>
+                  {isLeader ? (
+                    <div style={{ padding: 4, borderRadius: 28, background: 'linear-gradient(135deg, #FFE600, #FF3AF2, #00F5D4)' }} className="rb5-float">
+                      <div className="rb5-card rb5-card--leader" style={{ borderRadius: 24 }}>
+                        {cardInner}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rb5-card" style={{ border: `4px solid ${border}`, boxShadow: `8px 8px 0 ${shadow}` }}>
+                      {cardInner}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

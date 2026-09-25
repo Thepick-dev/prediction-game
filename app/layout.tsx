@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Bebas_Neue, Anton, Barlow_Condensed, IBM_Plex_Sans, Fraunces, Space_Grotesk, Orbitron, Share_Tech_Mono } from 'next/font/google'
+import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Bebas_Neue, Anton, Barlow_Condensed, IBM_Plex_Sans, Fraunces, Space_Grotesk, Orbitron, Share_Tech_Mono, Outfit, DM_Sans, Bungee } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
@@ -96,6 +96,29 @@ const shareTechMono = Share_Tech_Mono({
   display: 'swap',
 })
 
+// The rb5 "Maximalism / Dopamine" concept (Kit, 2026-09-25) — the
+// leaderboard page's own identity, own vars again, same reasoning.
+const outfit = Outfit({
+  subsets: ['latin'],
+  weight: ['700', '800', '900'],
+  variable: '--font-rb5-display',
+  display: 'swap',
+})
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+  variable: '--font-rb5-body',
+  display: 'swap',
+})
+
+const bungee = Bungee({
+  subsets: ['latin'],
+  weight: '400',
+  variable: '--font-rb5-accent',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
   title: 'LMS All-Stars Predictions',
   description: 'The Premier League Prediction Game',
@@ -122,7 +145,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${bebasNeue.variable} ${anton.variable} ${barlowCondensed.variable} ${plexSans.variable} ${fraunces.variable} ${spaceGrotesk.variable} ${orbitron.variable} ${shareTechMono.variable}`}>
+    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${bebasNeue.variable} ${anton.variable} ${barlowCondensed.variable} ${plexSans.variable} ${fraunces.variable} ${spaceGrotesk.variable} ${orbitron.variable} ${shareTechMono.variable} ${outfit.variable} ${dmSans.variable} ${bungee.variable}`}>
       <head>
         {/* Preloaded so the loading-screen mascot (logo.png) and its player-photo
             cap patch (mascot-cap-photo.png) are already cached by the time

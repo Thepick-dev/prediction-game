@@ -1484,3 +1484,116 @@ thead th {
 .rb4-table td { padding: 11px 6px; border-top: 1px solid rgba(224,224,224,0.1); }
 .rb4-table td.rb4-num { text-align: right; font-variant-numeric: tabular-nums; }
 .rb4-statusbar { border-top: 2px solid rgba(224,224,224,0.15); background: var(--rb4-void); color: rgba(224,224,224,0.5); font-size: 11px; padding: 8px 12px; font-family: var(--font-rb4-mono), monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* ============================================================
+   Rugby "rb5" concept — Maximalism / Dopamine (Kit, 2026-09-25). The
+   Leaderboard page's own identity — separate token/class system again,
+   same "one page at a time" scoping: rb2- still exists as the fallback
+   default for every OTHER rugby page, rb4- runs Picks. Five clashing
+   neon accents rotate systematically through repeated elements (cards,
+   chips); real Six Nations colours are kept ONLY for the nation legend,
+   since that's actual information, not decoration. Stacked hard
+   shadows, thick clashing borders, layered background patterns, a
+   couple of floating decorative emoji — but rank order and each
+   player's total stay the clearest thing on every card, since this
+   page's one job is "who's winning" at a glance.
+   ============================================================ */
+:root {
+  --rb5-bg: #0d0d1a;
+  --rb5-fg: #ffffff;
+  --rb5-muted: #2d1b4e;
+  --rb5-magenta: #ff3af2;
+  --rb5-cyan: #00f5d4;
+  --rb5-yellow: #ffe600;
+  --rb5-orange: #ff6b35;
+  --rb5-purple: #7b2fff;
+}
+
+@keyframes rb5-float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-14px) rotate(5deg); } }
+@keyframes rb5-wiggle { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes rb5-pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(255,58,242,0.5), 8px 8px 0 var(--rb5-yellow), 16px 16px 0 var(--rb5-magenta); }
+  50% { box-shadow: 0 0 40px rgba(255,58,242,0.8), 0 0 60px rgba(0,245,212,0.5), 8px 8px 0 var(--rb5-yellow), 16px 16px 0 var(--rb5-magenta); }
+}
+@keyframes rb5-gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+.rb5-page {
+  position: relative; overflow: hidden;
+  background: var(--rb5-bg); color: var(--rb5-fg);
+  font-family: var(--font-rb5-body), sans-serif;
+  padding: 40px 20px 56px;
+}
+.rb5-page::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background-image: radial-gradient(circle, var(--rb5-magenta) 1px, transparent 1px);
+  background-size: 28px 28px; opacity: 0.08;
+}
+.rb5-page::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,230,0,0.06) 10px, rgba(255,230,0,0.06) 20px);
+}
+.rb5-mesh {
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse at 15% 20%, rgba(255,58,242,0.18) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 15%, rgba(0,245,212,0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 90%, rgba(123,47,255,0.15) 0%, transparent 55%);
+}
+.rb5-bg-word {
+  position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-rb5-display), sans-serif; font-weight: 900; text-transform: uppercase;
+  font-size: clamp(6rem, 40vw, 11rem); line-height: 1; color: var(--rb5-purple); opacity: 0.14;
+  white-space: nowrap; pointer-events: none; z-index: 0;
+}
+
+.rb5-eyebrow { font-family: var(--font-rb5-body), sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; font-size: 12px; color: var(--rb5-cyan); margin: 0; }
+.rb5-title {
+  font-family: var(--font-rb5-display), sans-serif; font-weight: 900; text-transform: uppercase;
+  letter-spacing: -0.02em; line-height: 0.95; color: var(--rb5-fg); margin: 0;
+  text-shadow: 3px 3px 0 var(--rb5-purple), 6px 6px 0 var(--rb5-magenta), 9px 9px 0 var(--rb5-cyan);
+}
+.rb5-title--gradient {
+  background: linear-gradient(90deg, var(--rb5-magenta), var(--rb5-cyan), var(--rb5-yellow), var(--rb5-magenta));
+  background-size: 300% 100%; animation: rb5-gradient-shift 4s ease infinite;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: none; filter: drop-shadow(4px 4px 0 rgba(123,47,255,0.6));
+}
+
+.rb5-chip {
+  font-family: var(--font-rb5-body), sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  font-size: 12px; color: #ffffff; border-radius: 999px; padding: 7px 16px;
+}
+
+.rb5-card {
+  position: relative; background: rgba(45,27,78,0.8); backdrop-filter: blur(6px);
+  border-radius: 24px; padding: 18px 18px;
+}
+.rb5-card--leader { padding: 22px 20px; }
+
+.rb5-rank {
+  font-family: var(--font-rb5-display), sans-serif; font-weight: 900; font-size: 20px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 999px; flex-shrink: 0;
+  background: var(--rb5-muted); color: var(--rb5-fg); border: 3px solid var(--rb5-fg);
+}
+.rb5-rank--leader {
+  width: 46px; height: 46px; font-size: 24px; color: #0d0d1a;
+  background: linear-gradient(135deg, var(--rb5-yellow), var(--rb5-orange));
+  border: 3px solid var(--rb5-fg);
+}
+
+.rb5-name { font-family: var(--font-rb5-display), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: -0.01em; }
+.rb5-stat { font-family: var(--font-rb5-display), sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; }
+
+.rb5-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-rb5-body), sans-serif; font-weight: 700; font-size: 11px; font-variant-numeric: tabular-nums;
+  min-width: 30px; padding: 4px 6px; border-radius: 8px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85);
+}
+
+.rb5-float { animation: rb5-float 6s ease-in-out infinite; }
+.rb5-wiggle { animation: rb5-wiggle 1.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rb5-float, .rb5-wiggle, .rb5-title--gradient { animation: none !important; }
+}
