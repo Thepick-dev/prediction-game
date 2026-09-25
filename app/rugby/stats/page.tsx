@@ -1,5 +1,7 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import Link from 'next/link'
+import { fetchRugbyPlayerPerformances } from '../../lib/rugbyPlayerDatabase'
+import PlayerDatabaseTab from './_components/PlayerDatabaseTab'
 
 type Competition = { id: string; name: string }
 type Team = { id: number; name: string }
@@ -16,6 +18,7 @@ const TABS = [
   { key: 'squads', label: 'Dream Teams & Players' },
   { key: 'managers', label: 'Managers' },
   { key: 'trends', label: 'Trends' },
+  { key: 'database', label: 'Player Database' },
 ] as const
 
 export default async function RugbyStatsHubPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
@@ -80,6 +83,7 @@ export default async function RugbyStatsHubPage({ searchParams }: { searchParams
       {tab === 'squads' && <SquadsTab teamsList={teamsList} playersList={playersList} squadPicksList={squadPicksList} squadPointsList={squadPointsList} playerById={playerById} teamById={teamById} />}
       {tab === 'managers' && <ManagersTab userIds={userIds} nameById={nameById} roundsList={roundsList} squadPointsList={squadPointsList} matchPointsList={matchPointsList} seasonPointsList={seasonPointsList} />}
       {tab === 'trends' && <TrendsTab squadPicksList={squadPicksList} squadPointsList={squadPointsList} matchPointsList={matchPointsList} seasonPointsList={seasonPointsList} nameById={nameById} playerById={playerById} pickById={pickById} roundsList={roundsList} />}
+      {tab === 'database' && <PlayerDatabaseTab rows={await fetchRugbyPlayerPerformances(supabase)} />}
     </div>
   )
 }
