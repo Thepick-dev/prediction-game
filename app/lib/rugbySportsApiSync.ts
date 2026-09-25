@@ -1,4 +1,5 @@
 import type { ResultRow, ScorerRow } from './rugbySheetSync'
+import { sportsApiProGet } from './sportsApiProClient'
 
 // Pulls real results, scorer events AND full player match stats from
 // SportsAPI Pro (sportsapipro.com) for whichever of our own fixtures have
@@ -57,16 +58,7 @@ export type FetchResult = {
   apiErrors: string[]
 }
 
-const BASE = 'https://api.sportsapipro.com/v2/rugby/api'
-
-async function apiGet(path: string, apiKey: string): Promise<any> {
-  const res = await fetch(`${BASE}${path}`, { headers: { 'x-api-key': apiKey } })
-  const body = await res.json()
-  if (!res.ok || body?.success === false) {
-    throw new Error(body?.error || `SportsAPI Pro request failed (${res.status})`)
-  }
-  return body
-}
+const apiGet = sportsApiProGet
 
 function normalizeTeamName(name: string): string {
   return name.trim().toLowerCase()

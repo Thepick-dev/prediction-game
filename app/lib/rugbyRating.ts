@@ -201,8 +201,20 @@ async function fetchAllRows<T>(query: () => any): Promise<T[]> {
   return rows
 }
 
+// One row per external performance (rugby.player_performances) — unlike
+// the fixture-based rows, these already carry every stat inline (no
+// separate match_events table to derive try/card counts from) and their
+// own match_result, so they build a RatingPoolEntry far more directly.
+type ExternalPerformanceRow = {
+  id: number; player_id: number
+  tries: number; conversions: number; penalty_goals: number; drop_goals: number
+  yellow_card: number; red_card: number; try_assists: number; clean_breaks: number
+  offloads: number; meters_run: number; passes: number; tackles: number; tackles_missed: number
+  match_result: MatchResult | null
+}
+
 export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promise<{ success: true; rows: number } | { error: string }> {
-  const [statsRows, players, matchEvents, teamStatsRows, fixtures] = await Promise.all([
+  const [statsRows, players, matchEvents, teamStatsRows, fixtures, externalPerformances] = await Promise.all([
     fetchAllRows<{ fixture_id: number; player_id: number; meters_run: number; clean_breaks: number; offloads: number; tackles: number; tackles_missed: number; try_assists: number }>(
       () => supabase.schema('rugby').from('player_match_stats').select('fixture_id, player_id, meters_run, clean_breaks, offloads, tackles, tackles_missed, try_assists')
     ),
@@ -220,6 +232,13 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
     fetchAllRows<{ id: number; home_team_id: number; away_team_id: number; home_score: number | null; away_score: number | null }>(
       () => supabase.schema('rugby').from('fixtures').select('id, home_team_id, away_team_id, home_score, away_score')
     ),
+    // Own isolated fetch, own try/catch — a brand-new table (this
+    // session), so a problem reading it must only mean external
+    // performances sit out of this recompute, never that fixture-based
+    // ratings (the live game) stop working.
+    fetchAllRows<ExternalPerformanceRow>(
+      () => supabase.schema('rugby').from('player_performances').select('id, player_id, tries, conversions, penalty_goals, drop_goals, yellow_card, red_card, try_assists, clean_breaks, offloads, meters_run, passes, tackles, tackles_missed, match_result')
+    ).catch(() => [] as ExternalPerformanceRow[]),
   ])
 
   const fixtureById = new Map(fixtures.map(f => [f.id, f]))
@@ -280,10 +299,32 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
     rawByEntryId.set(id, { fixture_id: s.fixture_id, player_id: s.player_id, group })
   })
 
+  // Domestic/other-international performances (rugby.player_performances)
+  // join the SAME ever-growing pool, ranked against fixture-based ones on
+  // equal footing — computeRawScore/computeRatings are already generic,
+  // nothing to change there. No team-level pack stats available for these
+  // yet (teamStats left undefined — computeRawScore treats that as "no
+  // pack bonus," same as any fixture missing match_team_stats).
+  externalPerformances.forEach(p => {
+    const position = positionByPlayerId.get(p.player_id)
+    if (!position || !(position in WEIGHT_KEY_BY_GROUP)) return
+    const group = position as RugbyPositionGroup
+    const statLine: RugbyMatchStatLine = {
+      tries: p.tries ?? 0, conversions: p.conversions ?? 0, penalty_goals: p.penalty_goals ?? 0,
+      drop_goals: p.drop_goals ?? 0, yellow_card: p.yellow_card ?? 0, red_card: p.red_card ?? 0,
+      try_assists: p.try_assists ?? 0, clean_breaks: p.clean_breaks ?? 0, offloads: p.offloads ?? 0,
+      meters_run: p.meters_run ?? 0, passes: p.passes ?? 0, tackles: p.tackles ?? 0, tackles_missed: p.tackles_missed ?? 0,
+    }
+    const id = `ext::${p.id}`
+    const rawScore = computeRawScore(statLine, group, undefined, p.match_result ?? undefined)
+    pool.push({ id, group, rawScore })
+  })
+
   if (pool.length === 0) return { success: true, rows: 0 }
 
   const ratings = computeRatings(pool)
-  const rows: RugbyMatchRatingRow[] = pool.map(e => ({
+  const fixtureBased = pool.filter(e => !e.id.startsWith('ext::'))
+  const rows: RugbyMatchRatingRow[] = fixtureBased.map(e => ({
     fixture_id: rawByEntryId.get(e.id)!.fixture_id,
     player_id: rawByEntryId.get(e.id)!.player_id,
     group: e.group,
@@ -293,5 +334,22 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
 
   const { error } = await supabase.schema('rugby').from('player_match_ratings').upsert(rows, { onConflict: 'fixture_id,player_id' })
   if (error) return { error: error.message }
-  return { success: true, rows: rows.length }
+
+  // One .update() per row, since a PostgREST upsert would need every
+  // NOT NULL column on player_performances re-sent, not just the two
+  // being changed — but sequentially awaited, this was ~11 minutes for
+  // 1150 rows in real testing this session (each a full round trip).
+  // Chunked and run concurrently within each chunk instead — fast enough
+  // without opening hundreds of connections at once.
+  const externalEntries = pool.filter(e => e.id.startsWith('ext::'))
+  const UPDATE_CHUNK_SIZE = 25
+  for (let i = 0; i < externalEntries.length; i += UPDATE_CHUNK_SIZE) {
+    const chunk = externalEntries.slice(i, i + UPDATE_CHUNK_SIZE)
+    await Promise.all(chunk.map(e => {
+      const perfId = Number(e.id.slice('ext::'.length))
+      return supabase.schema('rugby').from('player_performances')
+        .update({ raw_score: e.rawScore, rating: ratings.get(e.id) ?? 50 }).eq('id', perfId)
+    }))
+  }
+  return { success: true, rows: rows.length + externalEntries.length }
 }

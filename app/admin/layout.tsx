@@ -174,6 +174,7 @@ export default async function AdminLayout({
                 <p className="text-gray-500 uppercase tracking-widest text-xs mb-1.5">Setup</p>
                 <div className="space-y-1.5">
                   <a href="/admin/rugby/scoring-rules" className="block hover:text-white">Scoring Rules</a>
+                  <a href="/admin/rugby/external-competitions" className="block hover:text-white">External Data</a>
                 </div>
               </div>
             </div>

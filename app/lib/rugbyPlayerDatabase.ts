@@ -56,10 +56,58 @@ async function fetchAllRows<T>(query: () => any): Promise<T[]> {
   return rows
 }
 
+// Domestic/other-international performances (rugby.player_performances) —
+// already flat (every stat inline, no separate match_events table), so
+// this is a much shorter mapping than the fixture-based one below. Own
+// isolated fetch: a problem here must only mean these are missing from
+// the Player Database / average_rating for now, never that the whole
+// page breaks.
+async function fetchExternalPlayerPerformances(supabase: SupabaseClient): Promise<RugbyPlayerPerformanceRow[]> {
+  try {
+    const [perfRows, players] = await Promise.all([
+      fetchAllRows<{
+        id: number; player_id: number; season: number; round_label: string | null; team_name: string | null
+        opponent_name: string | null; is_home: boolean | null; tries: number; conversions: number
+        penalty_goals: number; drop_goals: number; yellow_card: number; red_card: number; try_assists: number
+        clean_breaks: number; offloads: number; meters_run: number; tackles: number; tackles_missed: number
+        raw_score: number | null; rating: number | null
+      }>(() => supabase.schema('rugby').from('player_performances').select(
+        'id, player_id, season, round_label, team_name, opponent_name, is_home, tries, conversions, penalty_goals, drop_goals, yellow_card, red_card, try_assists, clean_breaks, offloads, meters_run, tackles, tackles_missed, raw_score, rating'
+      )),
+      fetchAllRows<{ id: number; name: string; position: string | null; value: number | null }>(
+        () => supabase.schema('rugby').from('players').select('id, name, position, value')
+      ),
+    ])
+    const playerById = new Map(players.map(p => [p.id, p]))
+    return perfRows.map(p => {
+      const player = playerById.get(p.player_id)
+      return {
+        season: p.season, round: Number(p.round_label?.match(/\d+/)?.[0] ?? 0),
+        home_team: p.is_home ? (p.team_name ?? '?') : (p.opponent_name ?? '?'),
+        away_team: p.is_home ? (p.opponent_name ?? '?') : (p.team_name ?? '?'),
+        home_score: null, away_score: null,
+        player_id: p.player_id, player: player?.name ?? `#${p.player_id}`,
+        team: p.team_name ?? '?', opponent: p.opponent_name ?? '?', is_home: p.is_home ?? true,
+        group: player?.position ?? null,
+        value: player?.value ?? null, value_is_estimated: true,
+        tries: p.tries, conversions: p.conversions, penalty_goals: p.penalty_goals, drop_goals: p.drop_goals,
+        yellow_card: p.yellow_card, red_card: p.red_card,
+        try_assists: p.try_assists, clean_breaks: p.clean_breaks, offloads: p.offloads,
+        meters_run: p.meters_run, tackles: p.tackles, tackles_missed: p.tackles_missed,
+        raw_score: p.raw_score, rating: p.rating,
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
 export async function fetchRugbyPlayerPerformances(supabase: SupabaseClient): Promise<RugbyPlayerPerformanceRow[]> {
+  const externalPerformances = await fetchExternalPlayerPerformances(supabase)
+
   const { data: comps } = await supabase.schema('rugby').from('competitions').select('id, name').like('name', 'Six Nations % (Historical Archive)')
   const compList = comps ?? []
-  if (compList.length === 0) return []
+  if (compList.length === 0) return externalPerformances
   const compIds = compList.map((c: { id: string }) => c.id)
   const seasonByCompId = new Map(compList.map((c: { id: string; name: string }) => [c.id, Number(c.name.match(/Six Nations (\d+)/)?.[1] ?? 0)]))
 
@@ -68,14 +116,14 @@ export async function fetchRugbyPlayerPerformances(supabase: SupabaseClient): Pr
   )
   const roundInfo = new Map(rounds.map(r => [r.id, { season: seasonByCompId.get(r.competition_id) ?? 0, round: r.number }]))
   const roundIds = rounds.map(r => r.id)
-  if (roundIds.length === 0) return []
+  if (roundIds.length === 0) return externalPerformances
 
   const fixtures = await fetchAllRows<{ id: number; round_id: string; home_team_id: number; away_team_id: number; home_score: number | null; away_score: number | null }>(
     () => supabase.schema('rugby').from('fixtures').select('id, round_id, home_team_id, away_team_id, home_score, away_score').in('round_id', roundIds)
   )
   const fixtureIds = fixtures.map(f => f.id)
   const fixtureById = new Map(fixtures.map(f => [f.id, f]))
-  if (fixtureIds.length === 0) return []
+  if (fixtureIds.length === 0) return externalPerformances
 
   const [teams, players, statsRows, events, ratings] = await Promise.all([
     fetchAllRows<{ id: number; name: string }>(() => supabase.schema('rugby').from('teams').select('id, name')),
@@ -141,7 +189,7 @@ export async function fetchRugbyPlayerPerformances(supabase: SupabaseClient): Pr
       meters_run: s.meters_run ?? 0, tackles: s.tackles ?? 0, tackles_missed: s.tackles_missed ?? 0,
       raw_score: rating?.raw_score ?? null, rating: rating?.rating ?? null,
     }
-  })
+  }).concat(externalPerformances)
 }
 
 // One row per PLAYER (not per performance) — a summary line plus every
