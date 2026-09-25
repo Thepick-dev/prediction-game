@@ -17,7 +17,7 @@ import { QUARTILE_RING_COLORS } from '../lib/quartileColors'
 import LiveGameweekTable from './LiveGameweekTable'
 
 type Team = { id: number; name: string; short_name: string | null; short_code: string | null }
-type Player = { id: number; name: string; web_name: string | null; team_id: number; value: number | null; active: boolean | null; xg: number | null; xa: number | null; form: number | null }
+type Player = { id: number; name: string; web_name: string | null; team_id: number; value: number | null; active: boolean | null; xg: number | null; xa: number | null; form: number | null; chance_of_playing: number | null; injury_news: string | null }
 type Gameweek = { id: string; number: number; deadline: string; status: string }
 type Fixture = { id: number; home_team_id: number; away_team_id: number; kickoff_time: string; home_score: number | null; away_score: number | null; status: string }
 type HistoryPick = {
@@ -424,7 +424,7 @@ export default function PicksPage() {
 
     const [{ data: teamsData }, { data: playersData }] = await Promise.all([
       supabase.from('teams').select('id, name, short_name, short_code').eq('active', true).order('name'),
-      supabase.from('players').select('id, name, web_name, team_id, value, xg, xa, form').order('name')
+      supabase.from('players').select('id, name, web_name, team_id, value, xg, xa, form, chance_of_playing, injury_news').order('name')
     ])
     setTeams(teamsData ?? [])
 
@@ -721,6 +721,22 @@ export default function PicksPage() {
   teams.forEach(t => { teamMap[t.id] = t })
   const displayNames = buildPlayerDisplayNames(players, teamMap)
   const playerName = (id: number | null) => (id != null ? displayNames[id] : undefined) ?? ''
+  const playerMap: Record<number, Player> = {}
+  players.forEach(p => { playerMap[p.id] = p })
+  // Checked empirically against live data before shipping this: a fully
+  // fit player's chance_of_playing is very often an explicit 100, not
+  // null (Futzy's bot comment assuming "null means fit" doesn't hold up
+  // here) — so the real trigger is "< 100", not "not null". Also real:
+  // chance_of_playing covers more than injuries (loans, permanent
+  // transfers show up at 0% too, with injury_news saying so, not just
+  // "active" already filtering them out) — hence the neutral ⚠️ rather
+  // than an injury-specific icon, with the real reason always in the
+  // hover title.
+  const playerInjuryDoubt = (id: number) => {
+    const p = playerMap[id]
+    if (!p || p.chance_of_playing == null || p.chance_of_playing >= 100) return null
+    return { pct: p.chance_of_playing, news: p.injury_news, severe: p.chance_of_playing <= 25 }
+  }
 
   const questionAnswerLabel = (() => {
     if (!question || !questionAnswer) return ''
@@ -1305,6 +1321,7 @@ export default function PicksPage() {
                                   const count = playerCounts[p.id] ?? 0
                                   const max = playerMaxOverride[p.id] ?? 2
                                   const maxed = count >= max
+                                  const doubt = playerInjuryDoubt(p.id)
                                   return (
                                     <button
                                       key={p.id}
@@ -1317,6 +1334,15 @@ export default function PicksPage() {
                                         <span className="inline-flex items-center gap-1">
                                           {playerName(p.id)}
                                           {!maxed && p.form != null && p.form >= 5 && <span title={`Form: ${p.form}`}>🔥</span>}
+                                          {!maxed && doubt && (
+                                            <span
+                                              className={`pop-badge ${doubt.severe ? 'pop-badge--red' : 'pop-badge--orange'} px-1.5`}
+                                              style={{ fontSize: '9px' }}
+                                              title={doubt.news ?? `${doubt.pct}% chance of playing`}
+                                            >
+                                              ⚠️ {doubt.pct}%
+                                            </span>
+                                          )}
                                         </span>
                                         <span className="font-mono text-xs shrink-0" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/{max})</span>
                                       </div>
@@ -1421,6 +1447,7 @@ export default function PicksPage() {
                                   const count = playerCounts[p.id] ?? 0
                                   const max = playerMaxOverride[p.id] ?? 2
                                   const maxed = count >= max
+                                  const doubt = playerInjuryDoubt(p.id)
                                   return (
                                     <button
                                       key={p.id}
@@ -1429,7 +1456,17 @@ export default function PicksPage() {
                                       className="block w-full text-left px-3 py-2 font-bold text-sm border-b last:border-0"
                                       style={{ background: maxed ? '#0A0A0A' : 'var(--pop-surface)', color: maxed ? '#555555' : 'var(--pop-white)', borderColor: 'rgba(255,255,255,0.1)' }}
                                     >
-                                      {playerName(p.id)} <span className="font-mono text-xs" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/{max})</span>
+                                      {playerName(p.id)}
+                                      {!maxed && doubt && (
+                                        <span
+                                          className={`pop-badge ${doubt.severe ? 'pop-badge--red' : 'pop-badge--orange'} px-1.5 ml-1`}
+                                          style={{ fontSize: '9px' }}
+                                          title={doubt.news ?? `${doubt.pct}% chance of playing`}
+                                        >
+                                          ⚠️ {doubt.pct}%
+                                        </span>
+                                      )}
+                                      {' '}<span className="font-mono text-xs" style={{ color: maxed ? '#555555' : 'rgba(255,255,255,0.5)' }}>({count}/{max})</span>
                                     </button>
                                   )
                                 })}
@@ -1928,6 +1965,7 @@ export default function PicksPage() {
                                 const count = playerCounts[p.id] ?? 0
                                 const max = playerMaxOverride[p.id] ?? 2
                                 const maxed = count >= max
+                                const doubt = playerInjuryDoubt(p.id)
                                 return (
                                   <button
                                     key={p.id}
@@ -1936,6 +1974,14 @@ export default function PicksPage() {
                                     className={`block w-full text-left px-3 py-2 text-sm ${maxed ? 'text-[#F5ECD9]/30 line-through cursor-not-allowed' : 'hover:bg-white/10'}`}
                                   >
                                     <span className="uppercase">{playerName(p.id)}</span>
+                                    {!maxed && doubt && (
+                                      <span
+                                        className={`text-[9px] font-bold rounded px-1.5 py-0.5 ml-1.5 ${doubt.severe ? 'bg-red-900/40 text-red-300' : 'bg-yellow-900/40 text-yellow-300'}`}
+                                        title={doubt.news ?? `${doubt.pct}% chance of playing`}
+                                      >
+                                        ⚠️ {doubt.pct}%
+                                      </span>
+                                    )}
                                     <span className="text-xs text-[#F5ECD9]/40 ml-2">({count}/{max})</span>
                                   </button>
                                 )
@@ -2000,6 +2046,7 @@ export default function PicksPage() {
                                 const count = playerCounts[p.id] ?? 0
                                 const max = playerMaxOverride[p.id] ?? 2
                                 const maxed = count >= max
+                                const doubt = playerInjuryDoubt(p.id)
                                 return (
                                   <button
                                     key={p.id}
@@ -2008,6 +2055,14 @@ export default function PicksPage() {
                                     className={`block w-full text-left px-3 py-2 text-sm ${maxed ? 'text-[#F5ECD9]/30 line-through cursor-not-allowed' : 'hover:bg-white/10'}`}
                                   >
                                     <span className="uppercase">{playerName(p.id)}</span>
+                                    {!maxed && doubt && (
+                                      <span
+                                        className={`text-[9px] font-bold rounded px-1.5 py-0.5 ml-1.5 ${doubt.severe ? 'bg-red-900/40 text-red-300' : 'bg-yellow-900/40 text-yellow-300'}`}
+                                        title={doubt.news ?? `${doubt.pct}% chance of playing`}
+                                      >
+                                        ⚠️ {doubt.pct}%
+                                      </span>
+                                    )}
                                     <span className="text-xs text-[#F5ECD9]/40 ml-2">({count}/{max})</span>
                                   </button>
                                 )
