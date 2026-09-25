@@ -1,21 +1,27 @@
 'use client'
 
-// Clean and simple (Kit, 2026-09-25): outline-on-white when unselected —
-// still visibly tinted in that choice's own colour, never a flat grey
-// box — solid fill with white text once picked. High contrast either
-// way, no drop shadow, readable at a glance.
-export default function ChoiceButton({ label, active, fill, text, onClick }: { label: string; active: boolean; fill: string; text: string; onClick: () => void }) {
+import type { CSSProperties } from 'react'
+
+// Dark Mode First / Kinetic (Kit, 2026-09-25, matching the approved
+// "Meridian" mockup): quiet outline at rest — muted grey, nothing
+// competing for attention — and a soft breathing glow in the choice's
+// own colour once picked. Colour only ever appears once something is
+// actually chosen, never as permanent decoration.
+export default function ChoiceButton({ label, active, glow, onClick }: { label: string; active: boolean; glow: string; onClick: () => void }) {
+  const style: CSSProperties & { [key: `--${string}`]: string } = {
+    background: active ? 'rgba(255,255,255,0.04)' : 'transparent',
+    color: active ? glow : 'var(--rb3-text-faint)',
+    border: `1.5px solid ${active ? glow : 'var(--rb3-line)'}`,
+    fontWeight: 600,
+    '--glow': glow,
+    '--glow-soft': `${glow}66`,
+  }
   return (
     <button
       type="button"
       onClick={onClick}
-      className="rb2-choice w-full py-4 px-2 text-base"
-      style={{
-        background: active ? fill : '#ffffff',
-        color: active ? text : fill,
-        border: `2px solid ${fill}`,
-        fontWeight: 800,
-      }}
+      className={`rb3-choice w-full py-4 px-2 text-base ${active ? 'rb3-choice--active' : ''}`}
+      style={style}
     >
       {label}
     </button>

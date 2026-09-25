@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Bebas_Neue, Anton, Barlow_Condensed, IBM_Plex_Sans } from 'next/font/google'
+import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Bebas_Neue, Anton, Barlow_Condensed, IBM_Plex_Sans, Fraunces, Space_Grotesk } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
@@ -60,6 +60,25 @@ const plexSans = IBM_Plex_Sans({
   display: 'swap',
 })
 
+// The rb2 "dark mode / kinetic" concept (see globals.css) — a distinct
+// identity from rugby-theme's Anton/Barlow Condensed above, scoped to its
+// own vars so it doesn't repaint the rest of the rugby site, which isn't
+// part of this reskin yet.
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  style: ['normal', 'italic'],
+  variable: '--font-rb2-display',
+  display: 'swap',
+})
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-rb2-body',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
   title: 'LMS All-Stars Predictions',
   description: 'The Premier League Prediction Game',
@@ -86,7 +105,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${bebasNeue.variable} ${anton.variable} ${barlowCondensed.variable} ${plexSans.variable}`}>
+    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${bebasNeue.variable} ${anton.variable} ${barlowCondensed.variable} ${plexSans.variable} ${fraunces.variable} ${spaceGrotesk.variable}`}>
       <head>
         {/* Preloaded so the loading-screen mascot (logo.png) and its player-photo
             cap patch (mascot-cap-photo.png) are already cached by the time

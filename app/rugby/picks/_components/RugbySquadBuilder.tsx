@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
 
 // Replaces both the old per-team search picker (initial draft) and the
@@ -52,6 +52,36 @@ type ManageProps = {
   canSub: boolean
 }
 type Props = DraftProps | ManageProps
+
+// A quiet circular affordance for the common draft-mode case (add / this
+// row is picked) — text pills on every one of 50 rows read as noise;
+// gold + glow is reserved for the row that's actually selected, matching
+// the "colour only where earned" rule everywhere else on this page.
+function RowDot({ state, onClick, title }: { state: 'add' | 'picked' | 'off'; onClick?: () => void; title?: string }) {
+  if (state === 'picked') {
+    const style: CSSProperties & { [key: `--${string}`]: string } = {
+      width: 28, height: 28, borderRadius: '50%', border: 'none', cursor: 'pointer',
+      background: 'var(--rb3-gold)', color: 'var(--rb3-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      '--glow': 'var(--rb3-gold)', '--glow-soft': 'rgba(232,169,76,0.5)',
+    }
+    return (
+      <button type="button" onClick={onClick} title={title} className="rb3-choice--active" style={style}>
+        <svg width="13" height="10" viewBox="0 0 16 12" fill="none"><path d="M1 6.2L5.5 10.5L15 1" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </button>
+    )
+  }
+  const disabled = state === 'off'
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} title={title} style={{
+      width: 28, height: 28, borderRadius: '50%', cursor: disabled ? 'not-allowed' : 'pointer',
+      background: 'transparent', border: `1.5px solid ${disabled ? 'var(--rb3-line)' : 'var(--rb3-text-faint)'}`,
+      color: disabled ? 'var(--rb3-line)' : 'var(--rb3-text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      transition: 'border-color 150ms ease, color 150ms ease',
+    }}>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
+    </button>
+  )
+}
 
 export default function RugbySquadBuilder(props: Props) {
   const { players, selectedIds, squadBudgetCap, mode } = props
@@ -146,40 +176,40 @@ export default function RugbySquadBuilder(props: Props) {
 
   return (
     <div>
-      <div className="rb2-panel p-4 mb-3" style={overBudget ? { borderColor: '#d1293d', borderWidth: 2 } : undefined}>
-        <div className="flex items-end justify-between flex-wrap gap-3 mb-2">
+      <div className="rb3-panel p-5 mb-4" style={overBudget ? { boxShadow: '0 0 30px 0 rgba(224,52,74,0.18)' } : undefined}>
+        <div className="flex items-end justify-between flex-wrap gap-3 mb-3">
           <div>
-            <div className="rb2-eyebrow" style={{ margin: 0 }}>{mode === 'draft' ? 'Squad' : `Subs ${props.perRound ? 'this round' : 'this competition'}`}</div>
-            <div className="rb2-stat-number text-4xl">
+            <div className="rb3-eyebrow" style={{ margin: 0 }}>{mode === 'draft' ? 'Squad' : `Subs ${props.perRound ? 'this round' : 'this competition'}`}</div>
+            <div className="rb3-stat-number text-4xl">
               {mode === 'draft' ? `${totalSelected}/6` : `${props.subsUsed}/${props.maxFreeSubs}`}
             </div>
           </div>
           {squadBudgetCap != null && (
             <div className="text-right">
-              <div className="rb2-eyebrow" style={{ margin: 0 }}>{overBudget ? 'Over budget' : 'Budget remaining'}</div>
-              <div className="rb2-stat-number text-4xl" style={{ color: overBudget ? '#d1293d' : '#1f8a4c' }}>
+              <div className="rb3-eyebrow" style={{ margin: 0 }}>{overBudget ? 'Over budget' : 'Budget remaining'}</div>
+              <div className="rb3-stat-number text-4xl" style={{ color: overBudget ? 'var(--rb3-danger)' : 'var(--rb3-good)' }}>
                 £{Math.abs(squadBudgetCap - squadValueTotal).toLocaleString()}
               </div>
             </div>
           )}
         </div>
         {squadBudgetCap != null && (
-          <div className="rb2-progress-track" style={{ height: 10 }}>
-            <div className="rb2-progress-fill" style={{ width: `${budgetPct}%`, background: overBudget ? '#d1293d' : '#1f8a4c' }} />
+          <div className="rb3-progress-track" style={{ height: 4 }}>
+            <div className="rb3-progress-fill" style={{ width: `${budgetPct}%`, background: overBudget ? 'var(--rb3-danger)' : 'var(--rb3-good)', boxShadow: 'none' }} />
           </div>
         )}
       </div>
 
       {totalSelected > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
+        <div className="flex flex-wrap gap-1.5 mb-4">
           {selectedIds.map(id => {
             const p = playerById.get(id)
             if (!p) return null
             return (
-              <span key={id} className="rb2-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span key={id} className="rb3-badge rb3-badge--gold" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 {p.name}
                 {mode === 'draft' && (
-                  <button type="button" onClick={() => props.onRemove(id)} style={{ color: '#d1293d' }}>✕</button>
+                  <button type="button" onClick={() => props.onRemove(id)} style={{ color: 'var(--rb3-gold)', opacity: 0.7 }}>✕</button>
                 )}
               </span>
             )
@@ -188,16 +218,16 @@ export default function RugbySquadBuilder(props: Props) {
       )}
 
       {mode === 'manage' && swappingOutId != null && (
-        <p className="text-sm font-bold mb-2" style={{ color: 'var(--rb2-ink)' }}>
+        <p className="text-sm font-medium mb-3" style={{ color: 'var(--rb3-text)' }}>
           Pick a replacement for {playerById.get(swappingOutId)?.name ?? 'this player'} from the same team below.
         </p>
       )}
-      {message && <p className="text-sm font-bold mb-2" style={{ color: '#d1293d' }}>{message}</p>}
+      {message && <p className="text-sm font-medium mb-3" style={{ color: 'var(--rb3-danger)' }}>{message}</p>}
 
-      <div className="mb-3">
+      <div className="mb-4">
         <input
           type="text" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search player or country…" className="rb2-input px-3 py-1.5 text-sm w-full"
+          placeholder="Search player or country…" className="rb3-input px-1 py-2 text-sm w-full"
         />
       </div>
 
@@ -205,8 +235,8 @@ export default function RugbySquadBuilder(props: Props) {
           side-scrolling on mobile is a hard no (Kit: nothing on the site
           may ever require horizontal scrolling). Every cell wraps instead
           of forcing width. */}
-      <div className="rb2-panel">
-        <table className="rb2-table text-xs" style={{ tableLayout: 'fixed', width: '100%' }}>
+      <div className="rb3-panel px-4">
+        <table className="rb3-table text-xs" style={{ tableLayout: 'fixed', width: '100%' }}>
           <colgroup>
             <col style={{ width: '46%' }} />
             <col style={{ width: '24%' }} />
@@ -222,7 +252,7 @@ export default function RugbySquadBuilder(props: Props) {
                   key={key}
                   onClick={() => toggleSort(key)}
                   className="cursor-pointer select-none"
-                  style={{ color: sortKey === key ? 'var(--rb2-ink)' : 'var(--rb2-text-faint)' }}
+                  style={{ color: sortKey === key ? 'var(--rb3-text)' : 'var(--rb3-text-faint)' }}
                 >
                   {label}{sortKey === key ? (sortDir === 1 ? ' ▲' : ' ▼') : ''}
                 </th>
@@ -234,26 +264,33 @@ export default function RugbySquadBuilder(props: Props) {
             {sorted.slice(0, 50).map(p => {
               const action = rowAction(p)
               const isSelected = selectedSet.has(p.id)
+              const dotState: 'add' | 'picked' | 'off' = isSelected ? 'picked' : action.disabled ? 'off' : 'add'
               return (
-                <tr key={p.id} style={{ background: isSelected ? 'rgba(255,182,18,0.18)' : undefined }}>
-                  <td className="py-1.5 px-1">
-                    <div className="font-extrabold uppercase tracking-wide" style={{ fontFamily: 'var(--font-rugby-cond)' }}>{p.name}</div>
-                    <div style={{ color: 'var(--rb2-text-faint)' }}>{p.team}{p.group ? ` · ${p.group}` : ''}</div>
+                <tr key={p.id} style={{ background: isSelected ? 'rgba(232,169,76,0.06)' : undefined }}>
+                  <td className="py-2 px-1" style={isSelected ? { boxShadow: 'inset 2px 0 0 var(--rb3-gold)' } : undefined}>
+                    <div className="font-medium" style={{ color: 'var(--rb3-text)' }}>{p.name}</div>
+                    <div style={{ color: 'var(--rb3-text-faint)' }}>{p.team}{p.group ? ` · ${p.group}` : ''}</div>
                   </td>
-                  <td className="py-1.5 px-1 text-right">{fmtValue(p.value, p.value_is_estimated)}</td>
-                  <td className="py-1.5 px-1 text-right">
+                  <td className="py-2 px-1 text-right rb3-num" style={{ color: 'var(--rb3-text-dim)' }}>{fmtValue(p.value, p.value_is_estimated)}</td>
+                  <td className="py-2 px-1 text-right">
                     {p.average_rating != null ? (
-                      <span className="rb2-stat-number" style={{ color: p.average_rating >= 60 ? '#1f8a4c' : p.average_rating < 40 ? '#d1293d' : 'var(--rb2-text-dim)' }}>{fmtRating(p.average_rating)}</span>
+                      <span className="rb3-stat-number" style={{ color: p.average_rating >= 60 ? 'var(--rb3-good)' : p.average_rating < 40 ? 'var(--rb3-danger)' : 'var(--rb3-text-dim)' }}>{fmtRating(p.average_rating)}</span>
                     ) : '—'}
                   </td>
-                  <td className="py-1.5 px-1 text-right">
-                    <button
-                      type="button" disabled={action.disabled} onClick={action.onClick}
-                      className={action.onClick && !action.disabled ? 'rb2-button text-xs' : 'rb2-button rb2-button--ghost text-xs'}
-                      style={{ padding: '4px 6px', whiteSpace: 'normal', width: '100%' }}
-                    >
-                      {action.label}
-                    </button>
+                  <td className="py-2 px-1 text-right">
+                    {mode === 'draft' ? (
+                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <RowDot state={dotState} onClick={action.onClick} title={action.disabled ? action.label : undefined} />
+                      </div>
+                    ) : (
+                      <button
+                        type="button" disabled={action.disabled} onClick={action.onClick}
+                        className="rb3-button rb3-button--ghost text-xs"
+                        style={{ padding: '5px 8px', whiteSpace: 'normal', width: '100%' }}
+                      >
+                        {action.label}
+                      </button>
+                    )}
                   </td>
                 </tr>
               )
@@ -261,12 +298,12 @@ export default function RugbySquadBuilder(props: Props) {
           </tbody>
         </table>
         {sorted.length > 50 && (
-          <p className="text-xs text-center py-3 font-bold" style={{ color: 'var(--rb2-text-faint)' }}>
-            Showing the top 50 of {sorted.length.toLocaleString()} — search or filter to narrow it down.
+          <p className="text-xs text-center py-4 font-medium" style={{ color: 'var(--rb3-text-faint)' }}>
+            Showing the top 50 of {sorted.length.toLocaleString()} — search to narrow it down.
           </p>
         )}
         {sorted.length === 0 && (
-          <p className="text-sm text-center py-8 font-bold" style={{ color: 'var(--rb2-text-faint)' }}>No players match those filters.</p>
+          <p className="text-sm text-center py-10 font-medium" style={{ color: 'var(--rb3-text-faint)' }}>No players match that search.</p>
         )}
       </div>
     </div>

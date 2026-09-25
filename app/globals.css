@@ -1238,3 +1238,110 @@ thead th {
 .rb2-badge--bad { background: #d1293d; color: #fff; border-color: #d1293d; }
 
 .rb2-stat-number { font-family: var(--font-rugby-display), sans-serif; font-variant-numeric: tabular-nums; line-height: 1; }
+
+/* ============================================================
+   Rugby "rb3" concept — Dark Mode First + Kinetic (Kit, 2026-09-25,
+   approved via a Claude Design canvas mockup called "Meridian" before
+   any of this was built). Deliberately a SEPARATE token/class system
+   from rb2- above, not a replacement of it: rb2- still runs the
+   leaderboard page (an earlier, separately-approved concept), and Kit's
+   standing instruction has been "one page at a time" — this is scoped
+   to /rugby/picks (+ its own header/footer in RugbyShell) only, same
+   as rb2- was scoped to leaderboard-then-picks before it.
+
+   Design language, carried over from the approved mockup: near-black
+   ground, warm off-white text, ONE accent (a warm gold) used only for
+   things that are "earned" — progress, the final call to action, a
+   confirmed pick — never as decoration. Colour otherwise stays quiet
+   until the moment something is actually selected, then glows in that
+   choice's own colour (a soft pulsing box-shadow, not a flat fill).
+   Serif display face (Fraunces) for anything that should feel carved/
+   considered; a geometric sans (Space Grotesk) for everything else.
+   ============================================================ */
+:root {
+  --rb3-bg: #0a0b0d;
+  --rb3-bg-2: #101216;
+  --rb3-text: #f2f0ea;
+  --rb3-text-dim: #c9c4b8;
+  --rb3-text-faint: #8a8d94;
+  --rb3-line: #2a2c31;
+  --rb3-gold: #e8a94c;
+  --rb3-danger: #e0344a;
+  --rb3-good: #2fbf74;
+  /* Brightened for visibility as a glow against near-black — England's
+     real home shirt is white, which (unlike on the rb2 white-background
+     concept) works perfectly here without needing a substitute colour. */
+  --rb3-england: #f2f0ea;
+  --rb3-ireland: #2fbf74;
+  --rb3-wales: #e0344a;
+  --rb3-scotland: #3a86ff;
+  --rb3-france: #7c6fe0;
+  --rb3-italy: #2bc4c4;
+}
+
+.rb3-page { background: var(--rb3-bg); color: var(--rb3-text); font-family: var(--font-rb2-body), sans-serif; padding: 28px 20px 48px; }
+.rb3-eyebrow { font-family: var(--font-rb2-body), sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 0.24em; font-size: 11px; color: var(--rb3-text-faint); margin: 0; }
+.rb3-title { font-family: var(--font-rb2-display), serif; font-weight: 500; font-size: clamp(28px, 7vw, 42px); line-height: 1.05; letter-spacing: -0.005em; color: var(--rb3-text); margin: 0; }
+.rb3-subtitle { font-family: var(--font-rb2-display), serif; font-style: italic; font-weight: 500; color: var(--rb3-text-dim); line-height: 1.5; }
+
+.rb3-section { padding: 56px 0; }
+.rb3-section--tint { background: var(--rb3-bg-2); }
+.rb3-divider { width: 56px; height: 2px; background: var(--rb3-gold); box-shadow: 0 0 14px 1px rgba(232,169,76,0.5); border-radius: 2px; }
+
+.rb3-panel { background: var(--rb3-bg-2); border-radius: 20px; }
+.rb3-panel--glow { box-shadow: 0 0 44px 0 rgba(232,169,76,0.10); }
+
+.rb3-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--font-rb2-body), sans-serif; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; font-size: 14px;
+  border: none; border-radius: 999px; cursor: pointer;
+  background: var(--rb3-gold); color: var(--rb3-bg);
+  box-shadow: 0 0 22px 2px rgba(232,169,76,0.35);
+  transition: transform 200ms cubic-bezier(.2,.8,.2,1), box-shadow 250ms ease, opacity 150ms ease;
+}
+.rb3-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 30px 4px rgba(232,169,76,0.5); }
+.rb3-button:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+.rb3-button:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+.rb3-button--ghost { background: transparent; color: var(--rb3-text-dim); box-shadow: none; border: 1.5px solid var(--rb3-line); }
+
+/* The pick itself — quiet outline at rest, a soft breathing glow in the
+   choice's own colour once picked. --glow/--glow-soft are set inline
+   per instance (team colour, or gold for a plain yes/no). */
+.rb3-choice {
+  font-family: var(--font-rb2-body), sans-serif; font-weight: 600; letter-spacing: 0.02em;
+  border-radius: 16px; cursor: pointer; text-align: center;
+  transition: transform 180ms cubic-bezier(.2,.8,.2,1), box-shadow 300ms ease, border-color 300ms ease, background 300ms ease, color 300ms ease;
+}
+.rb3-choice:active { transform: scale(0.97); }
+@keyframes rb3-breathe {
+  0%, 100% { box-shadow: 0 0 0 1.5px var(--glow), 0 0 18px 2px var(--glow-soft); }
+  50% { box-shadow: 0 0 0 1.5px var(--glow), 0 0 28px 6px var(--glow-soft); }
+}
+.rb3-choice--active { animation: rb3-breathe 2.8s ease-in-out infinite; }
+
+.rb3-progress-track { background: var(--rb3-bg-2); height: 3px; border-radius: 2px; overflow: hidden; }
+.rb3-progress-fill { background: var(--rb3-gold); height: 100%; border-radius: 2px; box-shadow: 0 0 8px 1px rgba(232,169,76,0.6); transition: width 0.3s ease; }
+
+.rb3-input {
+  background: transparent; color: var(--rb3-text); border: none; border-bottom: 1.5px solid var(--rb3-line); border-radius: 0;
+  font-family: var(--font-rb2-display), serif;
+}
+.rb3-input::placeholder { color: var(--rb3-text-faint); }
+.rb3-input:focus { outline: none; border-color: var(--rb3-gold); }
+
+.rb3-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-rb2-body), sans-serif; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-size: 11px;
+  border-radius: 999px; padding: 3px 11px; background: var(--rb3-bg-2); color: var(--rb3-text-dim); border: 1px solid var(--rb3-line);
+}
+.rb3-badge--gold { background: rgba(232,169,76,0.15); color: var(--rb3-gold); border-color: rgba(232,169,76,0.4); }
+.rb3-badge--good { background: rgba(47,191,116,0.15); color: var(--rb3-good); border-color: rgba(47,191,116,0.4); }
+.rb3-badge--bad { background: rgba(224,52,74,0.15); color: var(--rb3-danger); border-color: rgba(224,52,74,0.4); }
+
+.rb3-stat-number { font-family: var(--font-rb2-display), serif; font-variant-numeric: tabular-nums; line-height: 1; }
+
+.rb3-table { width: 100%; border-collapse: collapse; }
+.rb3-table th { font-family: var(--font-rb2-body), sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; color: var(--rb3-text-faint); text-align: left; padding: 10px 6px; }
+.rb3-table th.rb3-num { text-align: right; }
+.rb3-table td { padding: 12px 6px; border-top: 1px solid var(--rb3-line); }
+.rb3-table td.rb3-num { text-align: right; font-variant-numeric: tabular-nums; }

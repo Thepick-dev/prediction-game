@@ -23,8 +23,11 @@ type SquadPick = { id: string; player_id: number; active: boolean; is_initial_pi
 
 function RoundHeading({ text, deadline }: { text: string; deadline?: string | null }) {
   return (
-    <div className="rb2-panel rb2-panel--gold p-4 mb-5 flex items-center justify-between gap-3 flex-wrap">
-      <h1 className="rb2-title" style={{ fontSize: 'clamp(26px, 6vw, 38px)' }}>{text}</h1>
+    <div className="flex items-center justify-between gap-3 flex-wrap mb-8">
+      <div>
+        <p className="rb3-eyebrow mb-1">Six Nations</p>
+        <h1 className="rb3-title" style={{ fontSize: 'clamp(26px, 6vw, 38px)' }}>{text}</h1>
+      </div>
       {deadline && <RugbyCountdownClock deadline={deadline} />}
     </div>
   )
@@ -108,10 +111,10 @@ export default async function RugbyPicksPage() {
   // own and blocks nothing by staying set.
   if (!hasKit) {
     return (
-      <div className="rb2-page max-w-2xl mx-auto">
+      <div className="rb3-page max-w-2xl mx-auto">
         <RoundHeading text={headingText} deadline={currentRound?.deadline ?? null} />
-        <div className="rb2-panel rb2-panel--gold p-5 rugby-theme">
-          <h2 className="rb2-eyebrow" style={{ margin: '0 0 12px' }}>Pick Your Kit</h2>
+        <div className="rb3-panel rb3-panel--glow p-6 rugby-theme">
+          <h2 className="rb3-eyebrow" style={{ margin: '0 0 12px' }}>Pick Your Kit</h2>
           <RugbyKitEditor userId={user.id} />
         </div>
       </div>
@@ -132,12 +135,13 @@ export default async function RugbyPicksPage() {
   const picksRequired = !nothingToDo && (!matchComplete || !squadComplete)
 
   return (
-    <div className="rb2-page max-w-2xl mx-auto">
+    <div className="rb3-page max-w-2xl mx-auto">
       <RoundHeading text={headingText} deadline={currentRound?.deadline ?? null} />
 
       {picksRequired && (
-        <div className="rb2-panel p-3 mb-5 text-center" style={{ background: '#d1293d', borderColor: 'var(--rb2-ink)' }}>
-          <p className="font-extrabold uppercase tracking-wide text-sm" style={{ color: '#ffffff', fontFamily: 'var(--font-rugby-cond)' }}>⚠️ Picks required</p>
+        <div className="rb3-panel p-4 mb-6 flex items-center gap-3" style={{ borderLeft: '3px solid var(--rb3-danger)', boxShadow: '0 0 24px 0 rgba(224,52,74,0.15)' }}>
+          <span style={{ color: 'var(--rb3-danger)', fontSize: 10 }}>●</span>
+          <p className="text-sm font-medium" style={{ color: 'var(--rb3-text)' }}>Picks required for this round</p>
         </div>
       )}
 
@@ -159,8 +163,8 @@ export default async function RugbyPicksPage() {
       )}
 
       {showSquadManager && (
-        <div className="rb2-panel rb2-panel--gold p-5 mb-6">
-          <h2 className="rb2-title mb-4" style={{ fontSize: 'clamp(22px, 5vw, 30px)' }}>Dream Team</h2>
+        <div className="rb3-panel rb3-panel--glow p-6 mb-6">
+          <h2 className="rb3-title mb-5" style={{ fontSize: 'clamp(22px, 5vw, 30px)' }}>Dream Team</h2>
           <RugbySquadBuilder
             mode="manage"
             competitionId={competition.id}
@@ -176,13 +180,13 @@ export default async function RugbyPicksPage() {
       )}
 
       {nothingToDo && (
-        <div className="rb2-panel p-5">
-          <p className="rb2-badge rb2-badge--good px-3 py-1.5">Nothing open to pick right now — check back once the next round is set.</p>
+        <div className="rb3-panel p-6">
+          <p className="rb3-badge rb3-badge--good px-3 py-1.5">Nothing open to pick right now — check back once the next round is set.</p>
         </div>
       )}
 
       {!nothingToDo && (
-        <p className="text-xs text-center font-bold" style={{ color: 'var(--rb2-text-faint)' }}>
+        <p className="text-xs text-center font-medium mt-6" style={{ color: 'var(--rb3-text-faint)' }}>
           Change anything above until its deadline.
         </p>
       )}
