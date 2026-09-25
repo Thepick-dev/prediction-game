@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { rugbyTeamColours as teamColours, DRAW_COLOURS } from '../../../lib/rugbyTeamColours'
+import { rugbyTeamColoursV2 as teamColours, DRAW_COLOURS_V2 as DRAW_COLOURS } from '../../../lib/rugbyTeamColours'
 import ChoiceButton from './RugbyChoiceButton'
 
 export type FixtureInfo = { id: number; homeTeam: string; awayTeam: string }
@@ -122,30 +122,30 @@ export default function MatchPredictionCarousel({
   const canAdvance = isStepAnswered(step, fixtures, rows)
 
   return (
-    <div className="rugby-panel rugby-panel--gold p-5">
+    <div className="rb2-panel rb2-panel--gold p-5">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="rugby-cond text-sm uppercase tracking-wide">Round {roundNumber} Match Predictions</h2>
-        <span className="text-[11px] rugby-cond uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>
-          Question {currentIndex + 1} of {steps.length}
+        <h2 className="rb2-eyebrow" style={{ margin: 0 }}>Round {roundNumber} Match Predictions</h2>
+        <span className="rb2-badge rb2-badge--gold" style={{ fontSize: 12 }}>
+          {currentIndex + 1} / {steps.length}
         </span>
       </div>
-      <div className="w-full mb-4" style={{ height: 3, background: 'var(--rugby-ink-3)' }}>
-        <div style={{ height: 3, width: `${((currentIndex + 1) / steps.length) * 100}%`, background: 'var(--rugby-floodlight)', transition: 'width 0.2s ease' }} />
+      <div className="rb2-progress-track w-full mb-4">
+        <div className="rb2-progress-fill" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} />
       </div>
 
       <div
         key={stepKey(step)}
-        className="rugby-panel p-4 mb-4"
-        style={{ background: `linear-gradient(115deg, ${homeC.fill}20, var(--rugby-ink-2) 35%, var(--rugby-ink-2) 65%, ${awayC.fill}20)` }}
+        className="rb2-panel p-4 mb-4"
+        style={{ background: `linear-gradient(115deg, ${homeC.fill}14, var(--rb2-paper) 35%, var(--rb2-paper) 65%, ${awayC.fill}14)`, boxShadow: 'none', border: '2px solid var(--rb2-line)' }}
       >
-        <p className="text-[11px] uppercase tracking-wide mb-3 text-center" style={{ color: 'var(--rugby-text-faint)' }}>
+        <p className="text-xs uppercase tracking-wide mb-3 text-center font-bold" style={{ color: 'var(--rb2-text-faint)' }}>
           Match {step.fixtureIndex + 1} of {fixtures.length}: {fixture.homeTeam} v {fixture.awayTeam}
         </p>
 
         {step.kind === 'winner' && (
           <>
-            <p className="text-sm text-center mb-3" style={{ color: 'var(--rugby-text-dim)' }}>Who wins?</p>
-            <div className="grid grid-cols-3 gap-1.5">
+            <p className="rb2-title text-center mb-4" style={{ fontSize: 'clamp(24px, 6vw, 34px)' }}>Who wins?</p>
+            <div className="grid grid-cols-3 gap-2">
               <ChoiceButton label={fixture.homeTeam} active={r.winner === 'home'} fill={homeC.fill} text={homeC.text}
                 onClick={() => answerAndAdvance(fixture.id, { winner: 'home', margin: r.winner === 'draw' ? '' : r.margin })} />
               <ChoiceButton label="Draw" active={r.winner === 'draw'} fill={DRAW_COLOURS.fill} text={DRAW_COLOURS.text}
@@ -158,16 +158,16 @@ export default function MatchPredictionCarousel({
 
         {step.kind === 'margin' && (
           <div className="text-center">
-            <p className="text-sm mb-3" style={{ color: 'var(--rugby-text-dim)' }}>
+            <p className="text-base font-bold mb-3" style={{ color: 'var(--rb2-text-dim)' }}>
               By how many points do {r.winner === 'home' ? fixture.homeTeam : fixture.awayTeam} win?
             </p>
             <input
               type="number" min="1" placeholder="pts" autoFocus
               value={r.margin}
               onChange={e => updateRow(fixture.id, { margin: e.target.value })}
-              className="rugby-input px-3 py-2 text-lg w-24 text-center"
+              className="rb2-input rb2-stat-number px-3 py-2 text-3xl w-28 text-center"
             />
-            <button type="button" onClick={advance} disabled={!canAdvance} className="rugby-button w-full mt-4 py-2.5 text-sm" style={{ opacity: canAdvance ? 1 : 0.5 }}>
+            <button type="button" onClick={advance} disabled={!canAdvance} className="rb2-button w-full mt-4 py-3 text-sm">
               Next
             </button>
           </div>
@@ -175,42 +175,42 @@ export default function MatchPredictionCarousel({
 
         {step.kind === 'tryBonus' && (
           <>
-            <p className="text-sm text-center mb-3" style={{ color: 'var(--rugby-text-dim)' }}>Will each team score a try bonus (4+ tries)?</p>
+            <p className="text-base font-bold text-center mb-3" style={{ color: 'var(--rb2-text-dim)' }}>Will each team score a try bonus (4+ tries)?</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-[10px] uppercase tracking-wide mb-1 text-center" style={{ color: 'var(--rugby-text-faint)' }}>🏉 {fixture.homeTeam}</p>
+                <p className="text-xs uppercase tracking-wide mb-1.5 text-center font-bold" style={{ color: 'var(--rb2-text-faint)' }}>🏉 {fixture.homeTeam}</p>
                 <div className="flex gap-1.5">
                   <ChoiceButton label="Yes" active={r.homeTryBonus === true} fill="#1f8a4c" text="#ffffff" onClick={() => answerAndAdvance(fixture.id, { homeTryBonus: true })} />
-                  <ChoiceButton label="No" active={r.homeTryBonus === false} fill="#c8342a" text="#ffffff" onClick={() => answerAndAdvance(fixture.id, { homeTryBonus: false })} />
+                  <ChoiceButton label="No" active={r.homeTryBonus === false} fill="#d1293d" text="#ffffff" onClick={() => answerAndAdvance(fixture.id, { homeTryBonus: false })} />
                 </div>
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-wide mb-1 text-center" style={{ color: 'var(--rugby-text-faint)' }}>🏉 {fixture.awayTeam}</p>
+                <p className="text-xs uppercase tracking-wide mb-1.5 text-center font-bold" style={{ color: 'var(--rb2-text-faint)' }}>🏉 {fixture.awayTeam}</p>
                 <div className="flex gap-1.5">
                   <ChoiceButton label="Yes" active={r.awayTryBonus === true} fill="#1f8a4c" text="#ffffff" onClick={() => answerAndAdvance(fixture.id, { awayTryBonus: true })} />
-                  <ChoiceButton label="No" active={r.awayTryBonus === false} fill="#c8342a" text="#ffffff" onClick={() => answerAndAdvance(fixture.id, { awayTryBonus: false })} />
+                  <ChoiceButton label="No" active={r.awayTryBonus === false} fill="#d1293d" text="#ffffff" onClick={() => answerAndAdvance(fixture.id, { awayTryBonus: false })} />
                 </div>
               </div>
             </div>
             {(r.homeTryBonus === null || r.awayTryBonus === null) && (
-              <p className="text-xs text-center mt-3" style={{ color: 'var(--rugby-text-faint)' }}>Answer both to continue.</p>
+              <p className="text-xs text-center mt-3 font-bold" style={{ color: 'var(--rb2-text-faint)' }}>Answer both to continue.</p>
             )}
           </>
         )}
 
         {step.kind === 'confidence' && (
           <>
-            <p className="text-sm text-center mb-3" style={{ color: 'var(--rugby-text-dim)' }}>
+            <p className="text-base font-bold text-center mb-3" style={{ color: 'var(--rb2-text-dim)' }}>
               Make this your one confidence pick for the round? Worth extra on everything you score for it.
             </p>
             <div className="grid grid-cols-2 gap-1.5">
-              <ChoiceButton label="Yes" active={confidenceFixtureId === fixture.id} fill="var(--rugby-floodlight)" text="#241300" onClick={() => {
+              <ChoiceButton label="Yes" active={confidenceFixtureId === fixture.id} fill="var(--rb2-gold)" text="var(--rb2-ink)" onClick={() => {
                 setConfidenceFixtureId(fixture.id)
                 const idx = steps.findIndex(s => stepKey(s) === currentKey)
                 if (idx === steps.length - 1) { onAllAnswered?.(); return }
                 setTimeout(() => setCurrentKey(stepKey(steps[idx + 1])), 150)
               }} />
-              <ChoiceButton label="No" active={confidenceFixtureId !== fixture.id} fill="var(--rugby-ink-3)" text="var(--rugby-text)" onClick={() => {
+              <ChoiceButton label="No" active={confidenceFixtureId !== fixture.id} fill="var(--rb2-ink)" text="#ffffff" onClick={() => {
                 if (confidenceFixtureId === fixture.id) setConfidenceFixtureId(null)
                 const idx = steps.findIndex(s => stepKey(s) === currentKey)
                 if (idx === steps.length - 1) { onAllAnswered?.(); return }
@@ -222,11 +222,11 @@ export default function MatchPredictionCarousel({
       </div>
 
       <div className="flex items-center justify-between gap-2">
-        <button type="button" onClick={() => goTo(currentIndex - 1)} disabled={isFirst} className="rugby-button rugby-button--ghost text-xs px-4 py-2" style={{ opacity: isFirst ? 0.4 : 1 }}>
+        <button type="button" onClick={() => goTo(currentIndex - 1)} disabled={isFirst} className="rb2-button rb2-button--ghost text-xs px-4 py-2.5">
           ← Back
         </button>
         {!isLast && (
-          <button type="button" onClick={advance} disabled={!canAdvance} className="rugby-button rugby-button--ghost text-xs px-4 py-2" style={{ opacity: canAdvance ? 1 : 0.4 }}>
+          <button type="button" onClick={advance} disabled={!canAdvance} className="rb2-button rb2-button--ghost text-xs px-4 py-2.5">
             Next →
           </button>
         )}

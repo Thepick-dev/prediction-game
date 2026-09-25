@@ -12,26 +12,26 @@ export default function RugbyCountdownClock({ deadline }: { deadline: string | n
   if (!time) return null
 
   if (time.expired) {
-    return <span className="rugby-badge rugby-badge--error px-3 py-1.5 text-xs">Deadline passed</span>
+    return <span className="rb2-badge rb2-badge--bad px-3 py-1.5 text-xs">Deadline passed</span>
   }
 
   const units = [
-    { label: 'D', value: time.days, bg: 'var(--rugby-ink-3)', fg: 'var(--rugby-text)' },
-    { label: 'H', value: time.hours, bg: 'var(--rugby-ink-3)', fg: 'var(--rugby-text)' },
-    { label: 'M', value: time.mins, bg: 'var(--rugby-ink-3)', fg: 'var(--rugby-text)' },
-    { label: 'S', value: time.secs, bg: 'var(--rugby-floodlight)', fg: '#241300', pulse: true },
+    { label: 'D', value: time.days, bg: '#ffffff', fg: 'var(--rb2-ink)' },
+    { label: 'H', value: time.hours, bg: '#ffffff', fg: 'var(--rb2-ink)' },
+    { label: 'M', value: time.mins, bg: '#ffffff', fg: 'var(--rb2-ink)' },
+    { label: 'S', value: time.secs, bg: 'var(--rb2-gold)', fg: 'var(--rb2-ink)', pulse: true },
   ]
 
   return (
-    <div className="flex items-center gap-1.5 px-1.5 py-1">
+    <div className="flex items-center gap-1.5">
       {units.map(u => (
         <div
           key={u.label}
-          className={`flex flex-col items-center px-2.5 py-1 leading-tight ${u.pulse ? 'pop-second-tick' : ''}`}
-          style={{ background: u.bg, color: u.fg, borderRadius: 999 }}
+          className={`flex flex-col items-center px-2.5 py-1.5 leading-tight ${u.pulse ? 'pop-second-tick' : ''}`}
+          style={{ background: u.bg, color: u.fg, border: '2.5px solid var(--rb2-ink)' }}
         >
-          <span className="font-mono text-sm font-bold">{String(u.value).padStart(2, '0')}</span>
-          <span className="text-[8px]">{u.label}</span>
+          <span className="rb2-stat-number text-base">{String(u.value).padStart(2, '0')}</span>
+          <span className="text-[8px] font-bold uppercase">{u.label}</span>
         </div>
       ))}
     </div>

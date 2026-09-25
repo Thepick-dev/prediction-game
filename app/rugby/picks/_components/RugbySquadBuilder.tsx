@@ -151,26 +151,31 @@ export default function RugbySquadBuilder(props: Props) {
     return { label: '—', disabled: true }
   }
 
+  const budgetPct = squadBudgetCap ? Math.min(100, (squadValueTotal / squadBudgetCap) * 100) : 0
+
   return (
     <div>
-      <div
-        className="rugby-panel p-3 mb-3 flex items-center justify-between flex-wrap gap-2"
-        style={overBudget ? { borderColor: '#e8574a', boxShadow: '0 0 14px rgba(232,87,74,0.3)' } : undefined}
-      >
-        {mode === 'draft' ? (
-          <span className="rugby-cond text-sm uppercase tracking-wide">Squad: {totalSelected}/6</span>
-        ) : (
-          <span className="rugby-cond text-sm uppercase tracking-wide">
-            Subs used {props.perRound ? 'this round' : 'this competition'}: {props.subsUsed}/{props.maxFreeSubs} free
-          </span>
-        )}
+      <div className="rb2-panel p-4 mb-3" style={overBudget ? { borderColor: '#d1293d', boxShadow: '5px 5px 0 #d1293d' } : undefined}>
+        <div className="flex items-end justify-between flex-wrap gap-3 mb-2">
+          <div>
+            <div className="rb2-eyebrow" style={{ margin: 0 }}>{mode === 'draft' ? 'Squad' : `Subs ${props.perRound ? 'this round' : 'this competition'}`}</div>
+            <div className="rb2-stat-number text-4xl">
+              {mode === 'draft' ? `${totalSelected}/6` : `${props.subsUsed}/${props.maxFreeSubs}`}
+            </div>
+          </div>
+          {squadBudgetCap != null && (
+            <div className="text-right">
+              <div className="rb2-eyebrow" style={{ margin: 0 }}>{overBudget ? 'Over budget' : 'Budget remaining'}</div>
+              <div className="rb2-stat-number text-4xl" style={{ color: overBudget ? '#d1293d' : '#1f8a4c' }}>
+                £{Math.abs(squadBudgetCap - squadValueTotal).toLocaleString()}
+              </div>
+            </div>
+          )}
+        </div>
         {squadBudgetCap != null && (
-          <span className="rugby-cond text-sm uppercase tracking-wide" style={{ color: overBudget ? '#e8574a' : 'var(--rugby-floodlight)' }}>
-            {overBudget
-              ? `£${(squadValueTotal - squadBudgetCap).toLocaleString()} over budget`
-              : `£${(squadBudgetCap - squadValueTotal).toLocaleString()} remaining`}
-            <span className="normal-case tracking-normal" style={{ color: 'var(--rugby-text-faint)', fontWeight: 400 }}> of £{squadBudgetCap.toLocaleString()}</span>
-          </span>
+          <div className="rb2-progress-track" style={{ height: 10 }}>
+            <div className="rb2-progress-fill" style={{ width: `${budgetPct}%`, background: overBudget ? '#d1293d' : '#1f8a4c' }} />
+          </div>
         )}
       </div>
 
@@ -180,10 +185,10 @@ export default function RugbySquadBuilder(props: Props) {
             const p = playerById.get(id)
             if (!p) return null
             return (
-              <span key={id} className="rugby-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span key={id} className="rb2-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 {p.name}
                 {mode === 'draft' && (
-                  <button type="button" onClick={() => props.onRemove(id)} style={{ color: '#e8574a' }}>✕</button>
+                  <button type="button" onClick={() => props.onRemove(id)} style={{ color: '#d1293d' }}>✕</button>
                 )}
               </span>
             )
@@ -192,50 +197,50 @@ export default function RugbySquadBuilder(props: Props) {
       )}
 
       {mode === 'manage' && swappingOutId != null && (
-        <p className="text-xs mb-2" style={{ color: 'var(--rugby-floodlight)' }}>
+        <p className="text-sm font-bold mb-2" style={{ color: 'var(--rb2-ink)' }}>
           Pick a replacement for {playerById.get(swappingOutId)?.name ?? 'this player'} from the same team below.
         </p>
       )}
-      {message && <p className="text-sm mb-2" style={{ color: '#e8574a' }}>{message}</p>}
+      {message && <p className="text-sm font-bold mb-2" style={{ color: '#d1293d' }}>{message}</p>}
 
       <div className="flex flex-wrap gap-2 mb-3 items-center">
         <input
           type="text" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search player or country…" className="rugby-input px-3 py-1.5 text-sm flex-1" style={{ minWidth: 160 }}
+          placeholder="Search player or country…" className="rb2-input px-3 py-1.5 text-sm flex-1" style={{ minWidth: 160 }}
         />
-        <select value={teamFilter} onChange={e => setTeamFilter(e.target.value)} className="rugby-input px-2 py-1.5 text-sm">
+        <select value={teamFilter} onChange={e => setTeamFilter(e.target.value)} className="rb2-input px-2 py-1.5 text-sm">
           <option value="">All countries</option>
           {teams.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        <select value={positionFilter} onChange={e => setPositionFilter(e.target.value)} className="rugby-input px-2 py-1.5 text-sm">
+        <select value={positionFilter} onChange={e => setPositionFilter(e.target.value)} className="rb2-input px-2 py-1.5 text-sm">
           <option value="">All positions</option>
           {positions.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
         {(search || teamFilter || positionFilter) && (
-          <button type="button" onClick={() => { setSearch(''); setTeamFilter(''); setPositionFilter('') }} className="rugby-button rugby-button--ghost text-xs px-3 py-1.5">
+          <button type="button" onClick={() => { setSearch(''); setTeamFilter(''); setPositionFilter('') }} className="rb2-button rb2-button--ghost text-xs px-3 py-1.5">
             Reset
           </button>
         )}
-        <span className="text-xs ml-auto" style={{ color: 'var(--rugby-text-faint)' }}>{sorted.length.toLocaleString()} shown</span>
+        <span className="text-xs ml-auto font-bold" style={{ color: 'var(--rb2-text-faint)' }}>{sorted.length.toLocaleString()} shown</span>
       </div>
 
-      <div className="rugby-panel overflow-x-auto">
-        <table className="w-full text-xs" style={{ borderCollapse: 'collapse', minWidth: 560 }}>
+      <div className="rb2-panel overflow-x-auto">
+        <table className="rb2-table text-xs" style={{ minWidth: 560 }}>
           <thead>
-            <tr style={{ borderBottom: '2px solid var(--rugby-line)' }}>
+            <tr>
               {([
                 ['name', 'Player'], ['team', 'Country'], ['group', 'Position'], ['value', 'Value'], ['average_rating', 'Avg Rating'],
               ] as [SortKey, string][]).map(([key, label]) => (
                 <th
                   key={key}
                   onClick={() => toggleSort(key)}
-                  className="rugby-cond text-left py-2 px-2 uppercase tracking-wide cursor-pointer whitespace-nowrap select-none"
-                  style={{ color: sortKey === key ? 'var(--rugby-floodlight)' : 'var(--rugby-text-faint)' }}
+                  className="cursor-pointer whitespace-nowrap select-none"
+                  style={{ color: sortKey === key ? 'var(--rb2-ink)' : 'var(--rb2-text-faint)' }}
                 >
                   {label}{sortKey === key ? (sortDir === 1 ? ' ▲' : ' ▼') : ''}
                 </th>
               ))}
-              <th className="rugby-cond text-right py-2 px-2 uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }} />
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -243,21 +248,21 @@ export default function RugbySquadBuilder(props: Props) {
               const action = rowAction(p)
               const isSelected = selectedSet.has(p.id)
               return (
-                <tr key={p.id} style={{ borderBottom: '1px solid var(--rugby-line)', background: isSelected ? 'rgba(255,194,46,0.08)' : undefined }}>
-                  <td className="py-1.5 px-2 rugby-cond uppercase tracking-wide whitespace-nowrap">{p.name}</td>
+                <tr key={p.id} style={{ background: isSelected ? 'rgba(255,182,18,0.18)' : undefined }}>
+                  <td className="py-1.5 px-2 font-extrabold uppercase tracking-wide whitespace-nowrap" style={{ fontFamily: 'var(--font-rugby-cond)' }}>{p.name}</td>
                   <td className="py-1.5 px-2 whitespace-nowrap">{p.team}</td>
-                  <td className="py-1.5 px-2 whitespace-nowrap"><span className="rugby-badge">{p.group ?? '?'}</span></td>
+                  <td className="py-1.5 px-2 whitespace-nowrap"><span className="rb2-badge" style={{ fontSize: 10, padding: '2px 8px' }}>{p.group ?? '?'}</span></td>
                   <td className="py-1.5 px-2 text-right whitespace-nowrap">{fmtValue(p.value, p.value_is_estimated)}</td>
                   <td className="py-1.5 px-2 text-right">
                     {p.average_rating != null ? (
-                      <span className="rugby-display" style={{ color: p.average_rating >= 60 ? '#3fa572' : p.average_rating < 40 ? '#e8574a' : 'var(--rugby-text-dim)' }}>{fmtRating(p.average_rating)}</span>
+                      <span className="rb2-stat-number" style={{ color: p.average_rating >= 60 ? '#1f8a4c' : p.average_rating < 40 ? '#d1293d' : 'var(--rb2-text-dim)' }}>{fmtRating(p.average_rating)}</span>
                     ) : '—'}
                   </td>
                   <td className="py-1.5 px-2 text-right">
                     <button
                       type="button" disabled={action.disabled} onClick={action.onClick}
-                      className={action.onClick && !action.disabled ? 'rugby-button text-xs' : 'rugby-button rugby-button--ghost text-xs'}
-                      style={{ padding: '4px 10px', opacity: action.disabled && !isSelected ? 0.5 : 1 }}
+                      className={action.onClick && !action.disabled ? 'rb2-button text-xs' : 'rb2-button rb2-button--ghost text-xs'}
+                      style={{ padding: '5px 10px' }}
                     >
                       {action.label}
                     </button>
@@ -268,12 +273,12 @@ export default function RugbySquadBuilder(props: Props) {
           </tbody>
         </table>
         {sorted.length > 50 && (
-          <p className="text-xs text-center py-3" style={{ color: 'var(--rugby-text-faint)' }}>
+          <p className="text-xs text-center py-3 font-bold" style={{ color: 'var(--rb2-text-faint)' }}>
             Showing the top 50 of {sorted.length.toLocaleString()} — search or filter to narrow it down.
           </p>
         )}
         {sorted.length === 0 && (
-          <p className="text-sm text-center py-8" style={{ color: 'var(--rugby-text-faint)' }}>No players match those filters.</p>
+          <p className="text-sm text-center py-8 font-bold" style={{ color: 'var(--rb2-text-faint)' }}>No players match those filters.</p>
         )}
       </div>
     </div>

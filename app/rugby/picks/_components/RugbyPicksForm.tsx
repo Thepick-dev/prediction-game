@@ -176,9 +176,9 @@ export default function RugbyPicksForm({
       )}
 
       {showSquadDraft && (
-        <div className="rugby-panel rugby-panel--gold p-5" ref={squadSectionRef}>
-          <h2 className="rugby-cond text-sm mb-2 uppercase tracking-wide">Your Dream Team</h2>
-          <p className="text-sm mb-4" style={{ color: 'var(--rugby-text-dim)' }}>
+        <div className="rb2-panel rb2-panel--gold p-5" ref={squadSectionRef}>
+          <h2 className="rb2-title mb-1" style={{ fontSize: 'clamp(24px, 6vw, 34px)' }}>Your Dream Team</h2>
+          <p className="text-sm font-bold mb-4" style={{ color: 'var(--rb2-text-dim)' }}>
             Pick 6 players, at most 2 from any one team.
           </p>
           <RugbySquadBuilder
@@ -193,13 +193,13 @@ export default function RugbyPicksForm({
       )}
 
       {message && (
-        <p className="text-sm text-center" style={{ color: '#e8574a' }}>{message}</p>
+        <p className="text-sm text-center font-bold" style={{ color: '#d1293d' }}>{message}</p>
       )}
 
       <button
         onClick={submit}
         disabled={!allValid || saving}
-        className={`rugby-button w-full py-3 text-base ${justSubmitted ? 'pop-celebrate' : ''}`}
+        className={`rb2-button w-full py-4 text-lg ${justSubmitted ? 'pop-celebrate' : ''}`}
       >
         {saving ? 'Saving…' : justSubmitted ? '✓ Submitted!' : isUpdate ? 'Update My Picks' : 'Confirm My Picks'}
       </button>

@@ -1,28 +1,21 @@
 'use client'
 
-// Toggle button used everywhere in the picks flow for a binary/ternary
-// choice — bold, filled when active, plenty of touch target, no small
-// print. The one shared visual language behind winner picks, try-bonus
-// calls, and the confidence pick, so the whole flow reads as one game,
-// not several forms bolted together.
+// Bold clear and emphatic (Kit, 2026-09-25): outline-on-white when
+// unselected — still visibly tinted in that choice's own colour, never a
+// flat grey box — solid fill with white text once picked. High contrast
+// either way, readable at a glance.
 export default function ChoiceButton({ label, active, fill, text, onClick }: { label: string; active: boolean; fill: string; text: string; onClick: () => void }) {
-  // Even unselected, every choice carries a visible tint of its own team
-  // colour — a wall of identical grey boxes was exactly the "haven't
-  // leant into the theme" problem. Only the active state goes to a full
-  // fill; everything else still reads as belonging to its team at a
-  // glance, not just after you've clicked it.
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rugby-choice-btn ${active ? 'rugby-choice-btn--active' : ''} rugby-cond uppercase tracking-wide w-full py-3 px-2 text-sm text-center`}
+      className="rb2-choice w-full py-4 px-2 text-base"
       style={{
-        background: active ? fill : `linear-gradient(135deg, var(--rugby-ink-3), ${fill}2e)`,
-        color: active ? text : 'var(--rugby-text)',
-        border: active ? `2px solid ${fill}` : `2px solid ${fill}70`,
-        boxShadow: active ? `0 6px 18px ${fill}66` : `0 0 12px ${fill}22`,
-        fontWeight: active ? 900 : 700,
-        letterSpacing: '0.05em',
+        background: active ? fill : '#ffffff',
+        color: active ? text : fill,
+        border: `3px solid ${fill}`,
+        boxShadow: active ? `4px 4px 0 var(--rb2-ink)` : `3px 3px 0 ${fill}55`,
+        fontWeight: 800,
       }}
     >
       {label}

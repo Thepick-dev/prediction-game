@@ -1185,3 +1185,56 @@ thead th {
 .rb2-total { font-family: var(--font-rugby-display), sans-serif; font-size: 17px; }
 .rb2-rank { font-family: var(--font-rugby-display), sans-serif; font-size: 16px; color: var(--rb2-text-faint); }
 .rb2-rank--top { color: var(--rb2-ink); background: var(--rb2-gold); display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 2px solid var(--rb2-ink); }
+
+/* ---- rb2 extensions: Picks page (carousel + squad builder) ----
+   "Bold clear and emphatic... imagine you are 4 pints deep but you still
+   want to look at each page and instantly understand what is going on."
+   (Kit, 2026-09-25). Big numbers, unmissable colour, square edges, hard
+   offset shadows — the same visual language as the leaderboard concept,
+   extended to cover buttons/choices/inputs/progress. */
+
+.rb2-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--font-rugby-cond), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+  border: 3px solid var(--rb2-ink); border-radius: 0; cursor: pointer;
+  background: var(--rb2-gold); color: var(--rb2-ink);
+  box-shadow: 4px 4px 0 var(--rb2-ink);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.rb2-button:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--rb2-ink); }
+.rb2-button:active:not(:disabled) { transform: translate(0, 0); box-shadow: 2px 2px 0 var(--rb2-ink); }
+.rb2-button:disabled { opacity: 0.4; cursor: not-allowed; }
+.rb2-button--ghost { background: var(--rb2-paper); color: var(--rb2-ink); }
+.rb2-button--dark { background: var(--rb2-ink); color: var(--rb2-paper); }
+
+/* Winner/try-bonus/confidence choice — outline-on-white when unselected
+   (still visibly "that team's colour", never a flat grey box), solid
+   fill when selected. High-contrast either way, readable at a glance. */
+.rb2-choice {
+  font-family: var(--font-rugby-cond), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
+  border-radius: 0; cursor: pointer; text-align: center;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.rb2-choice:hover { transform: translateY(-2px); }
+.rb2-choice:active { transform: translateY(0); }
+
+.rb2-progress-track { background: #e4e1d6; border: 2px solid var(--rb2-ink); height: 14px; }
+.rb2-progress-fill { background: var(--rb2-gold); height: 100%; transition: width 0.25s ease; }
+
+.rb2-input {
+  background: var(--rb2-paper); color: var(--rb2-ink); border: 3px solid var(--rb2-ink); border-radius: 0;
+  font-family: var(--font-rugby-body), sans-serif;
+}
+.rb2-input::placeholder { color: #9b9d9f; }
+.rb2-input:focus { outline: none; box-shadow: 3px 3px 0 var(--rb2-gold); }
+
+.rb2-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-rugby-cond), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+  border: 2px solid var(--rb2-ink); border-radius: 0; padding: 3px 10px; background: var(--rb2-paper); color: var(--rb2-ink);
+}
+.rb2-badge--gold { background: var(--rb2-gold); }
+.rb2-badge--good { background: #1f8a4c; color: #fff; border-color: #1f8a4c; }
+.rb2-badge--bad { background: #d1293d; color: #fff; border-color: #d1293d; }
+
+.rb2-stat-number { font-family: var(--font-rugby-display), sans-serif; font-variant-numeric: tabular-nums; line-height: 1; }

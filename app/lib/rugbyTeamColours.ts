@@ -34,3 +34,24 @@ export function rugbyLabelColour(name: string): string {
   if (c.fill.startsWith('#') && relativeLuminance(c.fill) < 0.35) return c.text
   return c.fill
 }
+
+// The "v2" bold-colour-on-white palette (Kit, 2026-09-25 concept + design
+// note) — a separate set from RUGBY_TEAM_COLOURS above, not a replacement:
+// that one is tuned for the dark theme (England = plain white, a bright
+// accent against black, which disappears on a white page). England gets
+// a proper solid colour here for the first time — deep navy, kept
+// distinct from Scotland's brighter Saltire blue.
+export const RUGBY_TEAM_COLOURS_V2: Record<string, { fill: string; text: string }> = {
+  England: { fill: '#1D2D5C', text: '#FFFFFF' },
+  Ireland: { fill: '#169B62', text: '#FFFFFF' },
+  Wales: { fill: '#C8102E', text: '#FFFFFF' },
+  Scotland: { fill: '#0065BD', text: '#FFFFFF' },
+  France: { fill: '#0055A4', text: '#FFFFFF' },
+  Italy: { fill: '#0088CE', text: '#FFFFFF' },
+}
+export const DEFAULT_TEAM_COLOURS_V2 = { fill: '#4B4F57', text: '#FFFFFF' }
+export const DRAW_COLOURS_V2 = { fill: '#FFB612', text: '#14171C' }
+
+export function rugbyTeamColoursV2(name: string): { fill: string; text: string } {
+  return RUGBY_TEAM_COLOURS_V2[name] ?? DEFAULT_TEAM_COLOURS_V2
+}
