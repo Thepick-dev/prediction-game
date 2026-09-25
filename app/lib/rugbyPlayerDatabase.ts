@@ -156,6 +156,7 @@ export type RugbyPlayerSummary = {
   player_id: number
   player: string
   team: string
+  team_id: number
   group: string | null
   value: number | null
   value_is_estimated: boolean
@@ -200,6 +201,7 @@ export async function fetchRugbyPlayerSummaries(supabase: SupabaseClient): Promi
       player_id: p.id,
       player: p.name,
       team: teamName.get(p.team_id) ?? '?',
+      team_id: p.team_id,
       group: p.position ?? null,
       value: p.value ?? null,
       value_is_estimated: estimatedById.get(p.id) ?? false,

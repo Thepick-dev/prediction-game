@@ -1,14 +1,14 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { DEFAULT_RUGBY_SCORING_RULES } from '../../lib/rugbyScoring'
+import { fetchRugbyPlayerSummaries } from '../../lib/rugbyPlayerDatabase'
 import RugbyKitEditor from '../../../components/RugbyKitEditor'
 import RugbyPicksForm from './_components/RugbyPicksForm'
-import RugbySquadManager from '../dream-team/_components/RugbySquadManager'
+import RugbySquadBuilder from './_components/RugbySquadBuilder'
 import RugbyCountdownClock from '../../../components/RugbyCountdownClock'
 import { redirect } from 'next/navigation'
 
 type Competition = { id: string; name: string; season: string }
 type Team = { id: number; name: string }
-type Player = { id: number; team_id: number; name: string; value: number | null; value_is_estimated: boolean }
 type Round = { id: string; number: number; deadline: string }
 type Fixture = { id: number; round_id: string; home_team_id: number; away_team_id: number }
 type MatchPred = {
@@ -45,27 +45,26 @@ export default async function RugbyPicksPage() {
   const { data: entry } = await supabase.schema('rugby').from('competition_entries').select('id').eq('competition_id', competition.id).eq('user_id', user.id).maybeSingle()
   if (!entry) redirect('/rugby')
 
-  const [{ data: kit }, { data: teams }, { data: playersRaw }, { data: rounds }, { data: squadPicks }, { data: rulesRows }] = await Promise.all([
+  const [{ data: kit }, { data: teams }, { data: rounds }, { data: squadPicks }, { data: rulesRows }, playerSummaries] = await Promise.all([
     supabase.schema('rugby').from('player_kits').select('user_id').eq('user_id', user.id).maybeSingle(),
     supabase.schema('rugby').from('teams').select('id, name').eq('active', true).order('name') as unknown as Promise<{ data: Team[] | null }>,
-    supabase.schema('rugby').from('players').select('id, team_id, name').order('name') as unknown as Promise<{ data: Omit<Player, 'value' | 'value_is_estimated'>[] | null }>,
     supabase.schema('rugby').from('rounds').select('id, number, deadline').eq('competition_id', competition.id).order('number') as unknown as Promise<{ data: Round[] | null }>,
     supabase.schema('rugby').from('season_squad_picks').select('id, player_id, active, is_initial_pick, round_acquired').eq('competition_id', competition.id).eq('user_id', user.id) as unknown as Promise<{ data: SquadPick[] | null }>,
     supabase.schema('rugby').from('scoring_rules').select('rule_key, points').eq('competition_id', competition.id),
+    fetchRugbyPlayerSummaries(supabase),
   ])
 
-  // Isolated fetch: value/value_is_estimated are newer, optional columns —
-  // a problem reading them (or not run yet) just means every player shows
-  // no value and the budget cap check below never bites, not that the
-  // whole picks page breaks.
-  const valueById = new Map<number, { value: number | null; value_is_estimated: boolean }>()
-  try {
-    const { data: valueRows } = await supabase.schema('rugby').from('players').select('id, value, value_is_estimated')
-    valueRows?.forEach((r: { id: number; value: number | null; value_is_estimated: boolean }) => valueById.set(r.id, { value: r.value, value_is_estimated: r.value_is_estimated }))
-  } catch { /* columns not added yet */ }
-  const playersList: Player[] = (playersRaw ?? []).map(p => ({ ...p, ...(valueById.get(p.id) ?? { value: null, value_is_estimated: false }) }))
-
   const teamsList = teams ?? []
+  const activeTeamIds = new Set(teamsList.map(t => t.id))
+  // The squad builder only ever offers players from currently-active
+  // teams — fetchRugbyPlayerSummaries covers the full historical roster
+  // (including retired/inactive squads), which matters for the Stats Hub
+  // but would let someone draft a player from a team no longer playing.
+  const squadPlayers = playerSummaries
+    .filter(p => activeTeamIds.has(p.team_id))
+    .map(p => ({ id: p.player_id, name: p.player, team: p.team, team_id: p.team_id, group: p.group, value: p.value, value_is_estimated: p.value_is_estimated, average_rating: p.average_rating }))
+  const playerById = new Map(playerSummaries.map(p => [p.player_id, p]))
+
   const roundsList = rounds ?? []
   const squadPicksList = squadPicks ?? []
   const maxFreeSubs = rulesRows?.find(r => r.rule_key === 'max_free_subs')?.points ?? DEFAULT_RUGBY_SCORING_RULES.max_free_subs
@@ -102,9 +101,6 @@ export default async function RugbyPicksPage() {
   const hasAllCurrentRoundPreds = currentRoundFixtures.length > 0 && currentRoundFixtures.every(f => currentRoundMatchPreds.some(p => p.fixture_id === f.id))
   const hasSquad = squadPicksList.length > 0
 
-  const playersByTeam: Record<number, Player[]> = {}
-  playersList.forEach(p => { if (!playersByTeam[p.team_id]) playersByTeam[p.team_id] = []; playersByTeam[p.team_id].push(p) })
-
   // Nothing below stays hidden just because it's already been answered —
   // every section here can be freely changed until its own deadline
   // (Round 1's for the squad, that round's for match predictions). Only
@@ -126,16 +122,8 @@ export default async function RugbyPicksPage() {
   const showSquadDraft = !round1DeadlinePassed
   const showSquadManager = hasSquad && round1DeadlinePassed
 
-  const squadSelections: Record<number, number[]> = {}
-  let squadPickCount = 0
-  squadPicksList.filter(p => p.active).forEach(pick => {
-    const player = playersList.find(p => p.id === pick.player_id)
-    if (player) {
-      if (!squadSelections[player.team_id]) squadSelections[player.team_id] = []
-      squadSelections[player.team_id].push(pick.player_id)
-      squadPickCount++
-    }
-  })
+  const activeSquadPlayerIds = squadPicksList.filter(p => p.active).map(p => p.player_id)
+  const squadPickCount = activeSquadPlayerIds.filter(id => playerById.has(id)).length
 
   const nothingToDo = !showMatchPredictions && !showSquadDraft && !showSquadManager
 
@@ -157,20 +145,14 @@ export default async function RugbyPicksPage() {
         <div className="mb-6">
           <RugbyPicksForm
             competitionId={competition.id}
-            showSeasonPredictions={false}
-            questions={[]}
-            teams={teamsList}
-            players={playersList}
-            fixtureLabels={fixturesList.map(f => ({ id: f.id, label: `Round ${roundsList.find(r => r.id === f.round_id)?.number} — ${teamName(f.home_team_id)} v ${teamName(f.away_team_id)}` }))}
-            existingAnswers={[]}
             showMatchPredictions={showMatchPredictions}
             roundId={currentRound?.id ?? null}
             roundNumber={currentRound?.number ?? null}
             fixtures={currentRoundFixtures.map(f => ({ id: f.id, homeTeam: teamName(f.home_team_id), awayTeam: teamName(f.away_team_id) }))}
             existingMatchPreds={currentRoundMatchPreds}
             showSquadDraft={showSquadDraft}
-            playersByTeam={playersByTeam}
-            existingSquadSelections={hasSquad ? squadSelections : undefined}
+            squadPlayers={squadPlayers}
+            existingSquadSelections={hasSquad ? activeSquadPlayerIds : undefined}
             squadBudgetCap={squadBudgetCap}
           />
         </div>
@@ -179,22 +161,16 @@ export default async function RugbyPicksPage() {
       {showSquadManager && (
         <div className="rugby-panel rugby-panel--gold p-5 mb-6">
           <h2 className="rugby-cond text-base mb-4 uppercase tracking-wide">Manage Your Dream Team</h2>
-          <RugbySquadManager
+          <RugbySquadBuilder
+            mode="manage"
             competitionId={competition.id}
-            slots={squadPicksList.filter(p => p.active).map(pick => {
-              const player = playersList.find(p => p.id === pick.player_id)
-              const team = player ? teamsList.find(t => t.id === player.team_id) : undefined
-              return {
-                teamId: team?.id ?? 0, teamName: team?.name ?? '?', playerId: pick.player_id, playerName: player?.name ?? '?',
-                value: player?.value ?? null, valueIsEstimated: player?.value_is_estimated ?? false,
-              }
-            }).sort((a, b) => a.teamName.localeCompare(b.teamName))}
-            playersByTeam={playersByTeam}
-            subsUsed={subsUsedCount}
+            players={squadPlayers}
+            selectedIds={activeSquadPlayerIds}
+            squadBudgetCap={squadBudgetCap}
             maxFreeSubs={maxFreeSubs}
+            subsUsed={subsUsedCount}
             perRound={subBudgetMode === 'per_round'}
             canSub={!!currentRound}
-            squadBudgetCap={squadBudgetCap}
           />
         </div>
       )}
