@@ -3,12 +3,12 @@ import { createAdminSupabaseClient } from '../../../../lib/supabase-admin'
 import { requireUser } from '../../../../lib/require-admin'
 import { NextResponse } from 'next/server'
 
-// A substitution always swaps within the same team (the "one player per
-// team" shape must never break) — takes effect from whichever round is
+// A substitution always swaps within the same team (the shape "at most 2
+// per team" must never break) — takes effect from whichever round is
 // currently open, not retroactively. Whether it's free or costs points is
 // decided later, by app/lib/rugbyScoring.ts, purely from how many prior
-// subs this user has made — nothing here needs to know the price at
-// sub-time.
+// subs this user has made. The budget cap, unlike that, IS checked here —
+// a sub that would push the squad over the cap is rejected outright.
 export async function POST(request: Request) {
   const supabase = await createServerSupabaseClient()
   const user = await requireUser(supabase)
@@ -34,11 +34,27 @@ export async function POST(request: Request) {
   }
 
   const [{ data: oldPlayerRow }, { data: newPlayerRow }] = await Promise.all([
-    db.schema('rugby').from('players').select('team_id').eq('id', old_player_id).single(),
-    db.schema('rugby').from('players').select('team_id').eq('id', new_player_id).single(),
+    db.schema('rugby').from('players').select('team_id, value').eq('id', old_player_id).single(),
+    db.schema('rugby').from('players').select('team_id, value').eq('id', new_player_id).single(),
   ])
   if (!oldPlayerRow || !newPlayerRow || oldPlayerRow.team_id !== newPlayerRow.team_id) {
     return NextResponse.json({ error: 'A substitute must be from the same team as the player they replace' }, { status: 400 })
+  }
+
+  // Budget cap is a newer, optional competitions column — null means
+  // uncapped. A sub can't be priced in isolation: it has to be checked
+  // against the whole squad's total, since swapping one player changes
+  // the total even though nothing else moves.
+  const { data: comp } = await db.schema('rugby').from('competitions').select('squad_budget_cap').eq('id', competition_id).maybeSingle()
+  const budgetCap = (comp as { squad_budget_cap?: number | null } | null)?.squad_budget_cap ?? null
+  if (budgetCap != null) {
+    const { data: currentSquad } = await db.schema('rugby').from('season_squad_picks').select('player_id').eq('competition_id', competition_id).eq('user_id', user.id).eq('active', true)
+    const { data: squadPlayerRows } = await db.schema('rugby').from('players').select('id, value').in('id', (currentSquad ?? []).map(p => p.player_id))
+    const currentTotal = (squadPlayerRows ?? []).reduce((sum, p) => sum + (p.value ?? 0), 0)
+    const newTotal = currentTotal - (oldPlayerRow.value ?? 0) + (newPlayerRow.value ?? 0)
+    if (newTotal > budgetCap) {
+      return NextResponse.json({ error: `That substitution would take your squad to £${newTotal.toLocaleString()}, over the £${budgetCap.toLocaleString()} budget` }, { status: 400 })
+    }
   }
 
   // "Currently open" = the earliest round whose deadline hasn't passed —

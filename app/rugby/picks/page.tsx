@@ -8,7 +8,7 @@ import { redirect } from 'next/navigation'
 
 type Competition = { id: string; name: string; season: string }
 type Team = { id: number; name: string }
-type Player = { id: number; team_id: number; name: string }
+type Player = { id: number; team_id: number; name: string; value: number | null; value_is_estimated: boolean }
 type Round = { id: string; number: number; deadline: string }
 type Fixture = { id: number; round_id: string; home_team_id: number; away_team_id: number }
 type QuestionType = { type_key: string; label: string; answer_type: string }
@@ -47,10 +47,10 @@ export default async function RugbyPicksPage() {
   const { data: entry } = await supabase.schema('rugby').from('competition_entries').select('id').eq('competition_id', competition.id).eq('user_id', user.id).maybeSingle()
   if (!entry) redirect('/rugby')
 
-  const [{ data: kit }, { data: teams }, { data: players }, { data: rounds }, { data: questionTypes }, { data: seasonAnswers }, { data: squadPicks }, { data: rulesRows }] = await Promise.all([
+  const [{ data: kit }, { data: teams }, { data: playersRaw }, { data: rounds }, { data: questionTypes }, { data: seasonAnswers }, { data: squadPicks }, { data: rulesRows }] = await Promise.all([
     supabase.schema('rugby').from('player_kits').select('user_id').eq('user_id', user.id).maybeSingle(),
     supabase.schema('rugby').from('teams').select('id, name').eq('active', true).order('name') as unknown as Promise<{ data: Team[] | null }>,
-    supabase.schema('rugby').from('players').select('id, team_id, name').order('name') as unknown as Promise<{ data: Player[] | null }>,
+    supabase.schema('rugby').from('players').select('id, team_id, name').order('name') as unknown as Promise<{ data: Omit<Player, 'value' | 'value_is_estimated'>[] | null }>,
     supabase.schema('rugby').from('rounds').select('id, number, deadline').eq('competition_id', competition.id).order('number') as unknown as Promise<{ data: Round[] | null }>,
     supabase.schema('rugby').from('season_prediction_types').select('type_key, label, answer_type').eq('competition_id', competition.id).eq('active', true) as unknown as Promise<{ data: QuestionType[] | null }>,
     supabase.schema('rugby').from('season_predictions').select('type_key, answer_team_id, answer_player_id, answer_numeric, answer_fixture_id').eq('competition_id', competition.id).eq('user_id', user.id) as unknown as Promise<{ data: SeasonAnswer[] | null }>,
@@ -58,8 +58,18 @@ export default async function RugbyPicksPage() {
     supabase.schema('rugby').from('scoring_rules').select('rule_key, points').eq('competition_id', competition.id),
   ])
 
+  // Isolated fetch: value/value_is_estimated are newer, optional columns —
+  // a problem reading them (or not run yet) just means every player shows
+  // no value and the budget cap check below never bites, not that the
+  // whole picks page breaks.
+  const valueById = new Map<number, { value: number | null; value_is_estimated: boolean }>()
+  try {
+    const { data: valueRows } = await supabase.schema('rugby').from('players').select('id, value, value_is_estimated')
+    valueRows?.forEach((r: { id: number; value: number | null; value_is_estimated: boolean }) => valueById.set(r.id, { value: r.value, value_is_estimated: r.value_is_estimated }))
+  } catch { /* columns not added yet */ }
+  const playersList: Player[] = (playersRaw ?? []).map(p => ({ ...p, ...(valueById.get(p.id) ?? { value: null, value_is_estimated: false }) }))
+
   const teamsList = teams ?? []
-  const playersList = players ?? []
   const roundsList = rounds ?? []
   const questionsList = questionTypes ?? []
   const seasonAnswersList = seasonAnswers ?? []
@@ -71,10 +81,12 @@ export default async function RugbyPicksPage() {
   const currentRound = roundsList.find(r => new Date(r.deadline) > new Date())
   const headingText = currentRound ? `Round ${currentRound.number}` : competition.name
 
-  // Isolated fetch: 'sub_budget_mode' is a newer, optional competitions
-  // column — degrades to 'season' (today's only behaviour) if missing.
-  const { data: competitionModeRow } = await supabase.schema('rugby').from('competitions').select('sub_budget_mode').eq('id', competition.id).maybeSingle()
+  // Isolated fetch: 'sub_budget_mode' and 'squad_budget_cap' are newer,
+  // optional competitions columns — degrade to 'season' mode / no cap
+  // enforced if missing.
+  const { data: competitionModeRow } = await supabase.schema('rugby').from('competitions').select('sub_budget_mode, squad_budget_cap').eq('id', competition.id).maybeSingle()
   const subBudgetMode = (competitionModeRow as { sub_budget_mode?: string } | null)?.sub_budget_mode === 'per_round' ? 'per_round' : 'season'
+  const squadBudgetCap = (competitionModeRow as { squad_budget_cap?: number | null } | null)?.squad_budget_cap ?? null
   const subsUsedCount = subBudgetMode === 'per_round'
     ? squadPicksList.filter(p => !p.is_initial_pick && currentRound && p.round_acquired === currentRound.number).length
     : squadPicksList.filter(p => !p.is_initial_pick).length
@@ -126,11 +138,16 @@ export default async function RugbyPicksPage() {
   const showSquadDraft = !round1DeadlinePassed
   const showSquadManager = hasSquad && round1DeadlinePassed
 
-  const squadSelections: Record<number, number> = {}
+  const squadSelections: Record<number, number[]> = {}
   let squadKickerId: number | undefined
+  let squadPickCount = 0
   squadPicksList.filter(p => p.active).forEach(pick => {
     const player = playersList.find(p => p.id === pick.player_id)
-    if (player) squadSelections[player.team_id] = pick.player_id
+    if (player) {
+      if (!squadSelections[player.team_id]) squadSelections[player.team_id] = []
+      squadSelections[player.team_id].push(pick.player_id)
+      squadPickCount++
+    }
     if (pick.is_kicker) squadKickerId = pick.player_id
   })
 
@@ -138,7 +155,7 @@ export default async function RugbyPicksPage() {
 
   const seasonComplete = !showSeasonPredictions || hasAllSeasonAnswers
   const matchComplete = !showMatchPredictions || (hasAllCurrentRoundPreds && currentRoundMatchPreds.some(p => p.is_confidence_pick))
-  const squadComplete = !showSquadDraft || (teamsList.every(t => squadSelections[t.id]) && squadKickerId != null)
+  const squadComplete = !showSquadDraft || (squadPickCount === 6 && squadKickerId != null)
   const picksRequired = !nothingToDo && (!seasonComplete || !matchComplete || !squadComplete)
 
   return (
@@ -170,6 +187,7 @@ export default async function RugbyPicksPage() {
             playersByTeam={playersByTeam}
             existingSquadSelections={hasSquad ? squadSelections : undefined}
             existingSquadKickerId={squadKickerId}
+            squadBudgetCap={squadBudgetCap}
           />
         </div>
       )}
@@ -182,13 +200,17 @@ export default async function RugbyPicksPage() {
             slots={squadPicksList.filter(p => p.active).map(pick => {
               const player = playersList.find(p => p.id === pick.player_id)
               const team = player ? teamsList.find(t => t.id === player.team_id) : undefined
-              return { teamId: team?.id ?? 0, teamName: team?.name ?? '?', playerId: pick.player_id, playerName: player?.name ?? '?', isKicker: pick.is_kicker }
+              return {
+                teamId: team?.id ?? 0, teamName: team?.name ?? '?', playerId: pick.player_id, playerName: player?.name ?? '?', isKicker: pick.is_kicker,
+                value: player?.value ?? null, valueIsEstimated: player?.value_is_estimated ?? false,
+              }
             }).sort((a, b) => a.teamName.localeCompare(b.teamName))}
             playersByTeam={playersByTeam}
             subsUsed={subsUsedCount}
             maxFreeSubs={maxFreeSubs}
             perRound={subBudgetMode === 'per_round'}
             canSub={!!currentRound}
+            squadBudgetCap={squadBudgetCap}
           />
         </div>
       )}

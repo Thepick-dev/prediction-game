@@ -74,6 +74,16 @@ async function saveSubBudgetMode(formData: FormData) {
   redirect('/admin/rugby/scoring-rules')
 }
 
+async function saveSquadBudgetCap(formData: FormData) {
+  'use server'
+  const supabase = await requireAdminAction()
+  const competitionId = formData.get('competition_id') as string
+  const raw = (formData.get('squad_budget_cap') as string).trim()
+  const cap = raw ? Math.round(Number(raw)) : null
+  await supabase.schema('rugby').from('competitions').update({ squad_budget_cap: cap }).eq('id', competitionId)
+  redirect('/admin/rugby/scoring-rules')
+}
+
 async function saveRules(formData: FormData) {
   'use server'
   const supabase = await requireAdminAction()
@@ -111,15 +121,32 @@ export default async function AdminRugbyScoringRulesPage() {
   const { data: enabledRows, error: enabledError } = await supabase.schema('rugby').from('scoring_rules').select('rule_key, enabled').eq('competition_id', competition.id)
   if (!enabledError) enabledRows?.forEach((r: { rule_key: string; enabled: boolean | null }) => { enabledByKey[r.rule_key] = r.enabled !== false })
 
-  // Isolated fetch: 'sub_budget_mode' is a newer, optional competitions
-  // column — degrades to 'season' (today's only behaviour) if missing.
-  const { data: competitionModeRow } = await supabase.schema('rugby').from('competitions').select('sub_budget_mode').eq('id', competition.id).maybeSingle()
+  // Isolated fetch: 'sub_budget_mode' and 'squad_budget_cap' are newer,
+  // optional competitions columns — degrade to 'season' mode / no cap
+  // shown if missing.
+  const { data: competitionModeRow } = await supabase.schema('rugby').from('competitions').select('sub_budget_mode, squad_budget_cap').eq('id', competition.id).maybeSingle()
   const subBudgetMode = competitionModeRow?.sub_budget_mode === 'per_round' ? 'per_round' : 'season'
+  const squadBudgetCap = (competitionModeRow as { squad_budget_cap?: number | null } | null)?.squad_budget_cap ?? null
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-2">🏉 Rugby Scoring Rules</h1>
       <p className="text-gray-500 text-sm mb-6">{competition.name} — these numbers drive every layer of scoring, and update the Rules page automatically. Change them any time; the next &quot;Calculate Points&quot; run always uses whatever&apos;s here.</p>
+
+      <div className="bg-white border rounded-lg p-6 max-w-lg mb-6">
+        <h2 className="font-bold text-sm mb-1">Squad budget</h2>
+        <p className="text-xs text-gray-500 mb-3">
+          The total £ a player can spend across their 6 Dream Team picks. Leave blank for no cap. Player values live
+          on <a href="/admin/rugby/players" className="underline">Rugby Players</a> — some are real computed values, some are
+          neutral placeholders flagged &quot;estimated&quot; until an admin sets a real one.
+        </p>
+        <form action={saveSquadBudgetCap} className="flex items-center gap-3">
+          <input type="hidden" name="competition_id" value={competition.id} />
+          <span>£</span>
+          <input type="number" name="squad_budget_cap" step="1" defaultValue={squadBudgetCap ?? ''} placeholder="no cap" className="border rounded px-3 py-2 text-sm flex-1" />
+          <button type="submit" className="bg-black text-white rounded px-3 py-1.5 text-sm font-bold">Save</button>
+        </form>
+      </div>
 
       <div className="bg-white border rounded-lg p-6 max-w-lg mb-6">
         <h2 className="font-bold text-sm mb-1">Substitution budget</h2>

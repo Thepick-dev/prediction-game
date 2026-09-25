@@ -7,6 +7,7 @@ import { rugbyTeamColours as teamColours, rugbyLabelColour, DRAW_COLOURS } from 
 type QuestionType = { type_key: string; label: string; answer_type: string }
 type Team = { id: number; name: string }
 type Player = { id: number; name: string }
+type SquadPlayer = { id: number; name: string; value: number | null; value_is_estimated: boolean }
 type FixtureLabel = { id: number; label: string }
 type ExistingAnswer = { type_key: string; answer_team_id: number | null; answer_player_id: number | null; answer_numeric: number | null; answer_fixture_id: number | null }
 
@@ -57,38 +58,75 @@ function ChoiceButton({ label, active, fill, text, onClick }: { label: string; a
   )
 }
 
-function PlayerSearchPicker({
-  team, players, selectedId, onSelect, onClear,
+function formatValue(p: SquadPlayer) {
+  if (p.value == null) return null
+  return `£${p.value.toLocaleString()}${p.value_is_estimated ? ' (est.)' : ''}`
+}
+
+// Up to 2 players from one team, out of a fixed squad of 6 — so "full" for
+// a team panel can mean either that team already has 2, or the whole squad
+// already has its 6 and this team just wasn't one of the teams used.
+function TeamSquadPicker({
+  team, players, selectedIds, squadFull, onAdd, onRemove,
 }: {
-  team: Team; players: Player[]; selectedId: number | ''; onSelect: (id: number) => void; onClear: () => void
+  team: Team; players: SquadPlayer[]; selectedIds: number[]; squadFull: boolean
+  onAdd: (id: number) => void; onRemove: (id: number) => void
 }) {
   const [search, setSearch] = useState('')
-  const selected = players.find(p => p.id === selectedId)
-  const matches = search.trim().length >= 1 ? players.filter(p => p.name.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 8) : []
   const colours = teamColours(team.name)
+  const teamFull = selectedIds.length >= 2
+  const canAdd = !teamFull && !squadFull
+  const matches = canAdd && search.trim().length >= 1
+    ? players.filter(p => !selectedIds.includes(p.id) && p.name.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 8)
+    : []
 
   return (
     <div className="rugby-panel p-3" style={{ borderColor: `${colours.fill}70`, background: `linear-gradient(160deg, var(--rugby-ink-2), ${colours.fill}18)` }}>
-      <p className="rugby-cond text-sm mb-2 uppercase tracking-wide" style={{ color: rugbyLabelColour(team.name) }}>{team.name}</p>
-      {selected ? (
-        <div className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: `${colours.fill}22`, border: `1.5px solid ${colours.fill}` }}>
-          <span className="rugby-cond text-base uppercase tracking-wide">{selected.name}</span>
-          <button type="button" onClick={onClear} className="text-sm shrink-0 ml-2" style={{ color: '#e8574a' }}>✕</button>
-        </div>
-      ) : (
+      <div className="flex items-center justify-between mb-2">
+        <p className="rugby-cond text-sm uppercase tracking-wide" style={{ color: rugbyLabelColour(team.name) }}>{team.name}</p>
+        <span className="text-[10px]" style={{ color: 'var(--rugby-text-faint)' }}>{selectedIds.length}/2</span>
+      </div>
+      <div className="space-y-1.5">
+        {selectedIds.map(id => {
+          const p = players.find(pp => pp.id === id)
+          if (!p) return null
+          const valueLabel = formatValue(p)
+          return (
+            <div key={id} className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: `${colours.fill}22`, border: `1.5px solid ${colours.fill}` }}>
+              <span className="rugby-cond text-base uppercase tracking-wide">
+                {p.name}
+                {valueLabel && <span className="ml-2 text-xs normal-case tracking-normal" style={{ color: 'var(--rugby-text-faint)', fontWeight: 400 }}>{valueLabel}</span>}
+              </span>
+              <button type="button" onClick={() => onRemove(id)} className="text-sm shrink-0 ml-2" style={{ color: '#e8574a' }}>✕</button>
+            </div>
+          )
+        })}
+      </div>
+      {canAdd && (
         <>
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Type a player's name..." className="rugby-input px-3 py-2 text-sm w-full" style={{ borderColor: `${colours.fill}60` }} />
+          <input
+            type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder={selectedIds.length === 0 ? "Type a player's name..." : `+ Add another from ${team.name}...`}
+            className="rugby-input px-3 py-2 text-sm w-full mt-1.5" style={{ borderColor: `${colours.fill}60` }}
+          />
           {matches.length > 0 && (
             <div className="mt-1 rounded overflow-hidden" style={{ border: '1px solid var(--rugby-line)' }}>
-              {matches.map(p => (
-                <button key={p.id} type="button" onClick={() => { onSelect(p.id); setSearch('') }}
-                  className="rugby-cond uppercase tracking-wide block w-full text-left px-3 py-2 text-sm hover:opacity-80" style={{ background: 'var(--rugby-ink-2)', borderBottom: '1px solid var(--rugby-line)' }}>
-                  {p.name}
-                </button>
-              ))}
+              {matches.map(p => {
+                const valueLabel = formatValue(p)
+                return (
+                  <button key={p.id} type="button" onClick={() => { onAdd(p.id); setSearch('') }}
+                    className="rugby-cond uppercase tracking-wide flex items-center justify-between w-full text-left px-3 py-2 text-sm hover:opacity-80" style={{ background: 'var(--rugby-ink-2)', borderBottom: '1px solid var(--rugby-line)' }}>
+                    <span>{p.name}</span>
+                    {valueLabel && <span className="normal-case tracking-normal" style={{ color: 'var(--rugby-text-faint)', fontWeight: 400 }}>{valueLabel}</span>}
+                  </button>
+                )
+              })}
             </div>
           )}
         </>
+      )}
+      {squadFull && !teamFull && selectedIds.length === 0 && (
+        <p className="text-xs mt-1.5" style={{ color: 'var(--rugby-text-faint)' }}>Squad full — remove a player elsewhere to pick from {team.name}.</p>
       )}
     </div>
   )
@@ -111,6 +149,7 @@ export default function RugbyPicksForm({
   playersByTeam,
   existingSquadSelections,
   existingSquadKickerId,
+  squadBudgetCap,
 }: {
   competitionId: string
   showSeasonPredictions: boolean
@@ -125,9 +164,10 @@ export default function RugbyPicksForm({
   fixtures: FixtureInfo[]
   existingMatchPreds: ExistingMatchPred[]
   showSquadDraft: boolean
-  playersByTeam: Record<number, Player[]>
-  existingSquadSelections?: Record<number, number>
+  playersByTeam: Record<number, SquadPlayer[]>
+  existingSquadSelections?: Record<number, number[]>
   existingSquadKickerId?: number
+  squadBudgetCap?: number | null
 }) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
@@ -169,19 +209,29 @@ export default function RugbyPicksForm({
     setRows(prev => ({ ...prev, [fixtureId]: { ...prev[fixtureId], ...patch } }))
   }
 
-  // --- Squad draft state ---
-  const [squadSelections, setSquadSelections] = useState<Record<number, number | ''>>(existingSquadSelections ?? {})
+  // --- Squad draft state --- up to 2 picks per team, 6 total across the
+  // squad (so a legal squad can be as lopsided as 2+2+1+1+0+0).
+  const [squadSelections, setSquadSelections] = useState<Record<number, number[]>>(() => {
+    const init: Record<number, number[]> = {}
+    teams.forEach(t => { init[t.id] = existingSquadSelections?.[t.id] ?? [] })
+    return init
+  })
   const [kickerPlayerId, setKickerPlayerId] = useState<number | ''>(existingSquadKickerId ?? '')
 
-  function selectSquadPlayer(teamId: number, playerId: number) {
-    const next = { ...squadSelections, [teamId]: playerId }
+  const totalSquadCount = Object.values(squadSelections).reduce((sum, ids) => sum + ids.length, 0)
+  const allSquadPlayers = teams.flatMap(t => playersByTeam[t.id] ?? [])
+  const squadValueById = new Map(allSquadPlayers.map(p => [p.id, p.value ?? 0]))
+  const squadValueTotal = Object.values(squadSelections).flat().reduce((sum, id) => sum + (squadValueById.get(id) ?? 0), 0)
+  const overBudget = squadBudgetCap != null && squadValueTotal > squadBudgetCap
+
+  function addSquadPlayer(teamId: number, playerId: number) {
+    const next = { ...squadSelections, [teamId]: [...(squadSelections[teamId] ?? []), playerId] }
     setSquadSelections(next)
     advanceFrom(`squad-${teamId}`, { squadSelections: next })
   }
-  function clearSquadPlayer(teamId: number) {
-    const clearedPlayerId = squadSelections[teamId]
-    setSquadSelections(prev => ({ ...prev, [teamId]: '' as const }))
-    if (kickerPlayerId && kickerPlayerId === clearedPlayerId) setKickerPlayerId('')
+  function removeSquadPlayer(teamId: number, playerId: number) {
+    setSquadSelections(prev => ({ ...prev, [teamId]: (prev[teamId] ?? []).filter(id => id !== playerId) }))
+    if (kickerPlayerId === playerId) setKickerPlayerId('')
   }
 
   // --- "Slide along" auto-advance: completing one item smoothly scrolls
@@ -211,7 +261,7 @@ export default function RugbyPicksForm({
       if (row.winner !== 'draw' && (row.margin === '' || Number(row.margin) < 1)) return false
       return row.homeTryBonus !== null && row.awayTryBonus !== null
     }
-    if (key.startsWith('squad-')) return !!s[Number(key.slice(6))]
+    if (key.startsWith('squad-')) return (s[Number(key.slice(6))] ?? []).length > 0
     return true
   }
   function advanceFrom(key: string, next: { answers?: typeof answers; rows?: typeof rows; squadSelections?: typeof squadSelections }) {
@@ -235,12 +285,12 @@ export default function RugbyPicksForm({
       return r.homeTryBonus !== null && r.awayTryBonus !== null
     }) && confidenceFixtureId != null
   )
-  const squadValid = !showSquadDraft || (teams.every(t => squadSelections[t.id]) && !!kickerPlayerId)
+  const squadValid = !showSquadDraft || (totalSquadCount === 6 && !!kickerPlayerId && !overBudget)
   const allValid = seasonValid && matchValid && squadValid
 
   const hasExistingSeason = showSeasonPredictions && existingAnswers.length > 0
   const hasExistingMatch = showMatchPredictions && existingMatchPreds.length > 0
-  const hasExistingSquad = showSquadDraft && !!existingSquadSelections && Object.keys(existingSquadSelections).length > 0
+  const hasExistingSquad = showSquadDraft && !!existingSquadSelections && Object.values(existingSquadSelections).some(ids => ids.length > 0)
   const isUpdate = hasExistingSeason || hasExistingMatch || hasExistingSquad
 
   async function submit() {
@@ -293,7 +343,7 @@ export default function RugbyPicksForm({
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             competition_id: competitionId,
-            picks: teams.map(t => ({ player_id: squadSelections[t.id] })),
+            picks: Object.values(squadSelections).flat().map(player_id => ({ player_id })),
             kicker_player_id: kickerPlayerId,
           }),
         }).then(r => r.json())
@@ -506,28 +556,41 @@ export default function RugbyPicksForm({
         <div className="rugby-panel rugby-panel--gold p-5">
           <h2 className="rugby-cond text-sm mb-2 uppercase tracking-wide">Your Dream Team</h2>
           <p className="text-sm mb-4" style={{ color: 'var(--rugby-text-dim)' }}>
-            Pick one player from each team — six in total — then mark one as your kicker.
+            Pick 6 players, at most 2 from any one team — then mark one as your kicker.
           </p>
+          <div
+            className="rugby-panel p-3 mb-4 flex items-center justify-between flex-wrap gap-2"
+            style={overBudget ? { borderColor: '#e8574a', boxShadow: '0 0 14px rgba(232,87,74,0.3)' } : undefined}
+          >
+            <span className="rugby-cond text-sm uppercase tracking-wide">Squad: {totalSquadCount}/6</span>
+            {squadBudgetCap != null && (
+              <span className="rugby-cond text-sm uppercase tracking-wide" style={{ color: overBudget ? '#e8574a' : 'var(--rugby-floodlight)' }}>
+                {overBudget
+                  ? `£${(squadValueTotal - squadBudgetCap).toLocaleString()} over budget`
+                  : `£${(squadBudgetCap - squadValueTotal).toLocaleString()} remaining`}
+                <span className="normal-case tracking-normal" style={{ color: 'var(--rugby-text-faint)', fontWeight: 400 }}> of £{squadBudgetCap.toLocaleString()}</span>
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             {teams.map(team => (
               <div key={team.id} ref={registerStep(`squad-${team.id}`)}>
-                <PlayerSearchPicker
+                <TeamSquadPicker
                   team={team}
                   players={playersByTeam[team.id] ?? []}
-                  selectedId={squadSelections[team.id] ?? ''}
-                  onSelect={pid => selectSquadPlayer(team.id, pid)}
-                  onClear={() => clearSquadPlayer(team.id)}
+                  selectedIds={squadSelections[team.id] ?? []}
+                  squadFull={totalSquadCount >= 6}
+                  onAdd={pid => addSquadPlayer(team.id, pid)}
+                  onRemove={pid => removeSquadPlayer(team.id, pid)}
                 />
               </div>
             ))}
           </div>
-          {teams.every(t => squadSelections[t.id]) && (
+          {totalSquadCount === 6 && (
             <div>
               <p className="text-xs uppercase tracking-wide font-bold mb-2" style={{ color: 'var(--rugby-floodlight)' }}>Pick your kicker</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {teams.map(t => {
-                  const pid = squadSelections[t.id]
-                  if (!pid) return null
+                {teams.flatMap(t => (squadSelections[t.id] ?? []).map(pid => {
                   const player = (playersByTeam[t.id] ?? []).find(p => p.id === pid)
                   if (!player) return null
                   return (
@@ -540,7 +603,7 @@ export default function RugbyPicksForm({
                       onClick={() => setKickerPlayerId(pid)}
                     />
                   )
-                })}
+                }))}
               </div>
             </div>
           )}

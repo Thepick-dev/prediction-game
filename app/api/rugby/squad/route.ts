@@ -46,9 +46,10 @@ export async function POST(request: Request) {
   const { data: teams } = await db.schema('rugby').from('teams').select('id').eq('active', true)
   const teamIds = new Set((teams ?? []).map(t => t.id))
 
-  const { data: playerRows } = await db.schema('rugby').from('players').select('id, team_id').in('id', picks.map((p: { player_id: number }) => p.player_id))
+  const { data: playerRows } = await db.schema('rugby').from('players').select('id, team_id, value').in('id', picks.map((p: { player_id: number }) => p.player_id))
   const teamByPlayerId = new Map<number, number>()
-  playerRows?.forEach(p => teamByPlayerId.set(p.id, p.team_id))
+  const valueByPlayerId = new Map<number, number>()
+  playerRows?.forEach(p => { teamByPlayerId.set(p.id, p.team_id); valueByPlayerId.set(p.id, p.value ?? 0) })
 
   // At most 2 picks from any one team, 6 total (checked above) — no
   // longer required to touch every team, so a squad could legally be e.g.
@@ -75,6 +76,17 @@ export async function POST(request: Request) {
   }
   if (!picks.some((p: { player_id: number }) => p.player_id === kicker_player_id)) {
     return NextResponse.json({ error: 'The kicker must be one of your 6 picks' }, { status: 400 })
+  }
+
+  // Budget cap is a newer, optional competitions column — null means
+  // uncapped, so a competition that never set one enforces nothing here.
+  const { data: comp } = await db.schema('rugby').from('competitions').select('squad_budget_cap').eq('id', competition_id).maybeSingle()
+  const budgetCap = (comp as { squad_budget_cap?: number | null } | null)?.squad_budget_cap ?? null
+  if (budgetCap != null) {
+    const totalValue = picks.reduce((sum: number, p: { player_id: number }) => sum + (valueByPlayerId.get(p.player_id) ?? 0), 0)
+    if (totalValue > budgetCap) {
+      return NextResponse.json({ error: `That squad costs £${totalValue.toLocaleString()}, which is over the £${budgetCap.toLocaleString()} budget` }, { status: 400 })
+    }
   }
 
   // Contrarian %: for each pick, how many OTHER active picks (any user)

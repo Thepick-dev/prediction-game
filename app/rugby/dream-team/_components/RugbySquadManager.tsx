@@ -3,7 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-type SquadSlot = { teamId: number; teamName: string; playerId: number; playerName: string; isKicker: boolean }
+type SquadSlot = { teamId: number; teamName: string; playerId: number; playerName: string; isKicker: boolean; value: number | null; valueIsEstimated: boolean }
+type SubPlayer = { id: number; name: string; value: number | null; value_is_estimated: boolean }
+
+function formatValue(value: number | null, estimated: boolean) {
+  if (value == null) return null
+  return `£${value.toLocaleString()}${estimated ? ' (est.)' : ''}`
+}
 
 export default function RugbySquadManager({
   competitionId,
@@ -13,16 +19,20 @@ export default function RugbySquadManager({
   maxFreeSubs,
   perRound = false,
   canSub,
+  squadBudgetCap,
 }: {
   competitionId: string
   slots: SquadSlot[]
-  playersByTeam: Record<number, { id: number; name: string }[]>
+  playersByTeam: Record<number, SubPlayer[]>
   subsUsed: number
   maxFreeSubs: number
   perRound?: boolean
   canSub: boolean
+  squadBudgetCap?: number | null
 }) {
-  const [subbingTeamId, setSubbingTeamId] = useState<number | null>(null)
+  // Keyed by playerId, not teamId — a team can now hold 2 of your 6 picks,
+  // so teamId alone can't tell them apart.
+  const [subbingPlayerId, setSubbingPlayerId] = useState<number | null>(null)
   const [replacementId, setReplacementId] = useState<number | ''>('')
   const [replacementSearch, setReplacementSearch] = useState('')
   const [busy, setBusy] = useState(false)
@@ -30,6 +40,8 @@ export default function RugbySquadManager({
   const router = useRouter()
 
   const subsRemaining = Math.max(0, maxFreeSubs - subsUsed)
+  const squadValueTotal = slots.reduce((sum, s) => sum + (s.value ?? 0), 0)
+  const overBudget = squadBudgetCap != null && squadValueTotal > squadBudgetCap
 
   async function makeKicker(playerId: number) {
     setBusy(true)
@@ -56,7 +68,7 @@ export default function RugbySquadManager({
     if (!res.ok || data.error) {
       setMessage(data.error ?? 'Could not make that substitution')
     } else {
-      setSubbingTeamId(null)
+      setSubbingPlayerId(null)
       setReplacementId('')
     }
     setBusy(false)
@@ -68,16 +80,29 @@ export default function RugbySquadManager({
       <p className="text-sm mb-3" style={{ color: 'var(--rugby-text-dim)' }}>
         Subs used {perRound ? 'this round' : 'this competition'}: {subsUsed} / {maxFreeSubs} free. {subsRemaining === 0 && 'Any further sub will cost you points.'}
       </p>
+      {squadBudgetCap != null && (
+        <p className="text-sm mb-3" style={{ color: overBudget ? '#e8574a' : 'var(--rugby-text-dim)' }}>
+          Squad value: £{squadValueTotal.toLocaleString()} of £{squadBudgetCap.toLocaleString()}
+          {overBudget ? ' — over budget (this shouldn\'t be possible; contact an admin)' : ` (£${(squadBudgetCap - squadValueTotal).toLocaleString()} remaining)`}
+        </p>
+      )}
       {message && <p className="text-sm mb-2" style={{ color: '#e8574a' }}>{message}</p>}
       <div className="space-y-2">
-        {slots.map(slot => (
-          <div key={slot.teamId} className="rugby-panel p-3 flex items-center justify-between flex-wrap gap-2">
+        {slots.map(slot => {
+          const candidate = replacementId ? (playersByTeam[slot.teamId] ?? []).find(p => p.id === replacementId) : null
+          const wouldBeTotal = candidate ? squadValueTotal - (slot.value ?? 0) + (candidate.value ?? 0) : squadValueTotal
+          const subOverBudget = squadBudgetCap != null && wouldBeTotal > squadBudgetCap
+          return (
+          <div key={slot.playerId} className="rugby-panel p-3 flex items-center justify-between flex-wrap gap-2">
             <div>
               <p className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--rugby-floodlight)' }}>{slot.teamName}</p>
               <p className="rugby-cond text-base uppercase tracking-wide">
                 {slot.playerName}
                 {slot.isKicker && <span className="rugby-badge rugby-badge--gold ml-2" style={{ fontSize: '10px', padding: '2px 8px' }}>KICKER</span>}
               </p>
+              {formatValue(slot.value, slot.valueIsEstimated) && (
+                <p className="text-xs" style={{ color: 'var(--rugby-text-faint)' }}>{formatValue(slot.value, slot.valueIsEstimated)}</p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {!slot.isKicker && (
@@ -85,24 +110,34 @@ export default function RugbySquadManager({
                   Make kicker
                 </button>
               )}
-              {canSub && subbingTeamId !== slot.teamId && (
-                <button onClick={() => { setSubbingTeamId(slot.teamId); setReplacementId(''); setReplacementSearch('') }} className="text-xs rugby-button rugby-button--ghost" style={{ padding: '4px 10px' }}>
+              {canSub && subbingPlayerId !== slot.playerId && (
+                <button onClick={() => { setSubbingPlayerId(slot.playerId); setReplacementId(''); setReplacementSearch('') }} className="text-xs rugby-button rugby-button--ghost" style={{ padding: '4px 10px' }}>
                   Substitute
                 </button>
               )}
             </div>
-            {subbingTeamId === slot.teamId && (
+            {subbingPlayerId === slot.playerId && (
               <div className="w-full mt-1">
                 {replacementId ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="rugby-input rugby-cond uppercase tracking-wide px-2 py-1 text-sm flex-1" style={{ display: 'inline-block' }}>
-                      {(playersByTeam[slot.teamId] ?? []).find(p => p.id === replacementId)?.name}
+                      {candidate?.name}
+                      {formatValue(candidate?.value ?? null, candidate?.value_is_estimated ?? false) && (
+                        <span className="normal-case tracking-normal ml-2" style={{ color: 'var(--rugby-text-faint)', fontWeight: 400 }}>
+                          {formatValue(candidate?.value ?? null, candidate?.value_is_estimated ?? false)}
+                        </span>
+                      )}
                     </span>
                     <button onClick={() => setReplacementId('')} className="text-xs" style={{ color: '#e8574a' }}>✕</button>
-                    <button onClick={() => confirmSub(slot.playerId)} disabled={busy} className="rugby-button text-xs" style={{ padding: '4px 10px' }}>
+                    <button onClick={() => confirmSub(slot.playerId)} disabled={busy || subOverBudget} className="rugby-button text-xs" style={{ padding: '4px 10px' }}>
                       Confirm
                     </button>
-                    <button onClick={() => setSubbingTeamId(null)} className="text-xs" style={{ color: 'var(--rugby-text-faint)' }}>Cancel</button>
+                    <button onClick={() => setSubbingPlayerId(null)} className="text-xs" style={{ color: 'var(--rugby-text-faint)' }}>Cancel</button>
+                    {subOverBudget && (
+                      <p className="text-xs w-full" style={{ color: '#e8574a' }}>
+                        That would take your squad to £{wouldBeTotal.toLocaleString()}, over the £{(squadBudgetCap ?? 0).toLocaleString()} budget.
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
@@ -124,22 +159,26 @@ export default function RugbySquadManager({
                                 key={p.id}
                                 type="button"
                                 onClick={() => { setReplacementId(p.id); setReplacementSearch('') }}
-                                className="block w-full text-left px-2 py-1 text-xs hover:opacity-80"
+                                className="flex items-center justify-between w-full text-left px-2 py-1 text-xs hover:opacity-80"
                                 style={{ background: 'var(--rugby-ink-2)', color: 'var(--rugby-text)', borderBottom: '1px solid var(--rugby-line)' }}
                               >
-                                {p.name}
+                                <span>{p.name}</span>
+                                {formatValue(p.value, p.value_is_estimated) && (
+                                  <span style={{ color: 'var(--rugby-text-faint)' }}>{formatValue(p.value, p.value_is_estimated)}</span>
+                                )}
                               </button>
                             ))}
                         </div>
                       )}
                     </div>
-                    <button onClick={() => setSubbingTeamId(null)} className="text-xs" style={{ color: 'var(--rugby-text-faint)' }}>Cancel</button>
+                    <button onClick={() => setSubbingPlayerId(null)} className="text-xs" style={{ color: 'var(--rugby-text-faint)' }}>Cancel</button>
                   </div>
                 )}
               </div>
             )}
           </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
