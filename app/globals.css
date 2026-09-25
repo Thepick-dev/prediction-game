@@ -1129,3 +1129,59 @@ thead th {
 .rugby-lb-rank--top { color: var(--rugby-floodlight); }
 .rugby-lb-name { font-family: var(--font-rugby-cond), sans-serif; font-weight: 700; font-size: 15px; flex: 1; min-width: 0; text-transform: uppercase; letter-spacing: 0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rugby-lb-pts { font-family: var(--font-rugby-display), sans-serif; font-size: 20px; color: var(--rugby-text); font-variant-numeric: tabular-nums; flex: none; }
+
+/* ============================================================
+   Rugby "v2" concept — bold nation colour on white, square edges,
+   emphatic solid-fill boxes. Deliberately isolated under its own rb2-
+   prefix rather than touching any .rugby-* rule above: this is a
+   concept preview confined to ONE page (see app/rugby/leaderboard/
+   page.tsx) so the rest of the site stays exactly as it is until this
+   direction is approved. If approved, these tokens/classes become the
+   real .rugby-theme replacement — nothing here is throwaway.
+   ============================================================ */
+:root {
+  --rb2-ink: #14171c;
+  --rb2-paper: #ffffff;
+  --rb2-paper-2: #f4f3ee;
+  --rb2-line: #14171c;
+  --rb2-gold: #ffb612;
+  --rb2-text-dim: #45484f;
+  --rb2-text-faint: #82858c;
+  /* Six real, distinct nation colours — bold enough to sit as a solid
+     fill on white. England's old dark-theme fill was plain white (a
+     bright accent against black) which disappears here, so it gets a
+     proper solid colour for the first time: a deep navy, distinct from
+     Scotland's brighter Saltire blue. Flagged for Kit to confirm/swap. */
+  --rb2-england: #1d2d5c;
+  --rb2-ireland: #169b62;
+  --rb2-wales: #c8102e;
+  --rb2-scotland: #0065bd;
+  --rb2-france: #0055a4;
+  --rb2-italy: #0088ce;
+}
+
+.rb2-page { background: var(--rb2-paper); color: var(--rb2-ink); padding: 20px; border: 3px solid var(--rb2-ink); }
+.rb2-hero { padding: 22px 0 16px; border-bottom: 4px solid var(--rb2-ink); margin-bottom: 22px; }
+.rb2-eyebrow { font-family: var(--font-rugby-cond), sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; font-size: 12px; color: var(--rb2-text-dim); margin: 0 0 4px; }
+.rb2-title { font-family: var(--font-rugby-display), sans-serif; text-transform: uppercase; font-size: clamp(34px, 7vw, 52px); line-height: 0.95; margin: 0; letter-spacing: 0.005em; }
+
+.rb2-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+.rb2-chip {
+  font-family: var(--font-rugby-cond), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+  font-size: 12px; color: #fff; border: 2px solid var(--rb2-ink); padding: 6px 14px;
+  box-shadow: 3px 3px 0 var(--rb2-ink);
+}
+
+.rb2-panel { background: var(--rb2-paper-2); border: 3px solid var(--rb2-ink); box-shadow: 7px 7px 0 var(--rb2-ink); }
+.rb2-panel--gold { box-shadow: 7px 7px 0 var(--rb2-gold); }
+
+.rb2-table { width: 100%; border-collapse: collapse; }
+.rb2-table th { font-family: var(--font-rugby-cond), sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; color: var(--rb2-text-faint); text-align: left; padding: 10px 8px; border-bottom: 3px solid var(--rb2-ink); }
+.rb2-table th.rb2-num { text-align: right; }
+.rb2-table td { padding: 10px 8px; border-bottom: 1.5px solid #ddd9ce; }
+.rb2-table td.rb2-num { text-align: right; font-variant-numeric: tabular-nums; }
+.rb2-table tr:last-child td { border-bottom: none; }
+.rb2-name { font-family: var(--font-rugby-cond), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; font-size: 14px; }
+.rb2-total { font-family: var(--font-rugby-display), sans-serif; font-size: 17px; }
+.rb2-rank { font-family: var(--font-rugby-display), sans-serif; font-size: 16px; color: var(--rb2-text-faint); }
+.rb2-rank--top { color: var(--rb2-ink); background: var(--rb2-gold); display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 2px solid var(--rb2-ink); }

@@ -106,37 +106,55 @@ export default async function RugbyLeaderboardPage() {
     })
     .sort((a, b) => b.total - a.total)
 
+  // CONCEPT PREVIEW ONLY — this page previews a new "bold nation colour on
+  // white" visual direction (see the rb2-* rules in app/globals.css) ahead
+  // of a possible full site-wide rollout. Nothing else in the rugby site
+  // is touched yet; this is deliberately confined to one page for review.
+  const NATION_COLOURS: Record<string, string> = {
+    England: 'var(--rb2-england)', Ireland: 'var(--rb2-ireland)', Wales: 'var(--rb2-wales)',
+    Scotland: 'var(--rb2-scotland)', France: 'var(--rb2-france)', Italy: 'var(--rb2-italy)',
+  }
+
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6">
-      <div className="rugby-hero-wrap">
-        <p className="rugby-hero-eyebrow">{competition.name}</p>
-        <h1 className="rugby-hero-title">Leaderboard</h1>
+    <div className="rb2-page">
+      <div className="rb2-hero">
+        <p className="rb2-eyebrow">{competition.name} · Design concept</p>
+        <h1 className="rb2-title">Leaderboard</h1>
       </div>
-      <div className="rugby-panel rugby-panel--gold p-3 md:p-5">
+
+      <div className="rb2-legend">
+        {Object.entries(NATION_COLOURS).map(([name, colour]) => (
+          <span key={name} className="rb2-chip" style={{ background: colour }}>{name}</span>
+        ))}
+      </div>
+
+      <div className="rb2-panel rb2-panel--gold p-3 md:p-5">
         {ranked.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--rugby-text-faint)' }}>No one has joined {competition.name} yet.</p>
+          <p className="text-sm" style={{ color: 'var(--rb2-text-faint)' }}>No one has joined {competition.name} yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs md:text-sm" style={{ borderCollapse: 'collapse' }}>
+            <table className="rb2-table text-xs md:text-sm">
               <thead>
-                <tr style={{ borderBottom: '2px solid var(--rugby-line)' }}>
-                  <th className="rugby-cond text-left py-2 px-1 uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>#</th>
-                  <th className="rugby-cond text-left py-2 px-1 uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Player</th>
+                <tr>
+                  <th>#</th>
+                  <th>Player</th>
                   {roundsList.map(r => (
-                    <th key={r.id} className="rugby-cond text-right py-2 px-1.5 whitespace-nowrap uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>R{r.number}</th>
+                    <th key={r.id} className="rb2-num whitespace-nowrap">R{r.number}</th>
                   ))}
-                  <th className="rugby-cond text-right py-2 px-1.5 whitespace-nowrap uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Dream Team</th>
-                  <th className="rugby-cond text-right py-2 px-1.5 whitespace-nowrap uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Matches</th>
-                  <th className="rugby-cond text-right py-2 px-1 uppercase tracking-wide" style={{ color: 'var(--rugby-floodlight)' }}>Total</th>
+                  <th className="rb2-num whitespace-nowrap">Dream Team</th>
+                  <th className="rb2-num whitespace-nowrap">Matches</th>
+                  <th className="rb2-num" style={{ color: 'var(--rb2-ink)' }}>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {ranked.map((row, i) => {
                   const kit = kitById.get(row.userId)
                   return (
-                    <tr key={row.userId} style={{ borderBottom: '1px solid var(--rugby-line)' }}>
-                      <td className="rugby-display py-2 px-1" style={{ color: 'var(--rugby-text-faint)' }}>{i + 1}</td>
-                      <td className="py-2 px-1">
+                    <tr key={row.userId}>
+                      <td>
+                        {i === 0 ? <span className="rb2-rank rb2-rank--top">1</span> : <span className="rb2-rank">{i + 1}</span>}
+                      </td>
+                      <td>
                         <div className="flex items-center gap-2">
                           {kit ? (
                             <RugbyKitPreview
@@ -148,20 +166,20 @@ export default async function RugbyLeaderboardPage() {
                           ) : (
                             <div style={{ width: 24 }} />
                           )}
-                          <span className="rugby-cond text-sm uppercase tracking-wide">{row.name}</span>
+                          <span className="rb2-name">{row.name}</span>
                         </div>
                       </td>
                       {roundsList.map(r => {
                         const pts = row.perRound.get(r.id)
                         return (
-                          <td key={r.id} className="text-right py-2 px-1.5" style={{ color: pts != null && pts < 0 ? '#e8574a' : 'var(--rugby-text-dim)' }}>
+                          <td key={r.id} className="rb2-num" style={{ color: pts != null && pts < 0 ? '#c8102e' : 'var(--rb2-text-dim)' }}>
                             {pts != null ? pts : '—'}
                           </td>
                         )
                       })}
-                      <td className="text-right py-2 px-1.5" style={{ color: 'var(--rugby-text-dim)' }}>{row.squad}</td>
-                      <td className="text-right py-2 px-1.5" style={{ color: row.match < 0 ? '#e8574a' : 'var(--rugby-text-dim)' }}>{row.match}</td>
-                      <td className="rugby-display text-right py-2 px-1" style={{ color: row.total < 0 ? '#e8574a' : 'var(--rugby-floodlight)' }}>{row.total}</td>
+                      <td className="rb2-num" style={{ color: 'var(--rb2-text-dim)' }}>{row.squad}</td>
+                      <td className="rb2-num" style={{ color: row.match < 0 ? '#c8102e' : 'var(--rb2-text-dim)' }}>{row.match}</td>
+                      <td className="rb2-num rb2-total" style={{ color: row.total < 0 ? '#c8102e' : 'var(--rb2-ink)' }}>{row.total}</td>
                     </tr>
                   )
                 })}
