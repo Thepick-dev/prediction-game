@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import Link from 'next/link'
-import { fetchRugbyPlayerPerformances } from '../../lib/rugbyPlayerDatabase'
+import { fetchRugbyPlayerSummaries } from '../../lib/rugbyPlayerDatabase'
 import PlayerDatabaseTab from './_components/PlayerDatabaseTab'
 
 type Competition = { id: string; name: string }
@@ -80,7 +80,7 @@ export default async function RugbyStatsHubPage({ searchParams }: { searchParams
       {tab === 'squads' && <SquadsTab teamsList={teamsList} playersList={playersList} squadPicksList={squadPicksList} squadPointsList={squadPointsList} playerById={playerById} teamById={teamById} />}
       {tab === 'managers' && <ManagersTab userIds={userIds} nameById={nameById} roundsList={roundsList} squadPointsList={squadPointsList} matchPointsList={matchPointsList} />}
       {tab === 'trends' && <TrendsTab squadPicksList={squadPicksList} squadPointsList={squadPointsList} matchPointsList={matchPointsList} nameById={nameById} playerById={playerById} pickById={pickById} roundsList={roundsList} />}
-      {tab === 'database' && <PlayerDatabaseTab rows={await fetchRugbyPlayerPerformances(supabase)} />}
+      {tab === 'database' && <PlayerDatabaseTab players={await fetchRugbyPlayerSummaries(supabase)} />}
     </div>
   )
 }

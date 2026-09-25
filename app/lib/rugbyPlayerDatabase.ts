@@ -143,3 +143,69 @@ export async function fetchRugbyPlayerPerformances(supabase: SupabaseClient): Pr
     }
   })
 }
+
+// One row per PLAYER (not per performance) — a summary line plus every
+// one of their match performances nested underneath, so the Player
+// Database and the Dream Team builder (which reuses this same fetch) can
+// both show "who is this player" at a glance and drill into "how did they
+// actually play" without a second round trip. Covers the FULL live roster,
+// not just the ~296 with historical archive data — someone with zero
+// historical performances still needs to appear here to be draftable, just
+// with appearances: 0 and average_rating: null.
+export type RugbyPlayerSummary = {
+  player_id: number
+  player: string
+  team: string
+  group: string | null
+  value: number | null
+  value_is_estimated: boolean
+  appearances: number
+  average_rating: number | null
+  performances: RugbyPlayerPerformanceRow[]
+}
+
+export async function fetchRugbyPlayerSummaries(supabase: SupabaseClient): Promise<RugbyPlayerSummary[]> {
+  const [performances, teams, rosterRaw] = await Promise.all([
+    fetchRugbyPlayerPerformances(supabase),
+    fetchAllRows<{ id: number; name: string }>(() => supabase.schema('rugby').from('teams').select('id, name')),
+    fetchAllRows<{ id: number; name: string; team_id: number; position: string | null; value: number | null }>(
+      () => supabase.schema('rugby').from('players').select('id, name, team_id, position, value')
+    ),
+  ])
+
+  let estimatedById = new Map<number, boolean>()
+  try {
+    const estimatedRows = await fetchAllRows<{ id: number; value_is_estimated: boolean }>(
+      () => supabase.schema('rugby').from('players').select('id, value_is_estimated')
+    )
+    estimatedById = new Map(estimatedRows.map(r => [r.id, r.value_is_estimated]))
+  } catch { /* column not added yet — every value just reads as non-estimated */ }
+
+  const teamName = new Map(teams.map(t => [t.id, t.name]))
+
+  const performancesByPlayerId = new Map<number, RugbyPlayerPerformanceRow[]>()
+  performances.forEach(p => {
+    if (!performancesByPlayerId.has(p.player_id)) performancesByPlayerId.set(p.player_id, [])
+    performancesByPlayerId.get(p.player_id)!.push(p)
+  })
+
+  return rosterRaw.map(p => {
+    const perfs = (performancesByPlayerId.get(p.id) ?? [])
+      .slice()
+      .sort((a, b) => (b.season - a.season) || (b.round - a.round))
+    const rated = perfs.filter(r => r.rating != null)
+    const averageRating = rated.length ? rated.reduce((sum, r) => sum + (r.rating ?? 0), 0) / rated.length : null
+
+    return {
+      player_id: p.id,
+      player: p.name,
+      team: teamName.get(p.team_id) ?? '?',
+      group: p.position ?? null,
+      value: p.value ?? null,
+      value_is_estimated: estimatedById.get(p.id) ?? false,
+      appearances: perfs.length,
+      average_rating: averageRating,
+      performances: perfs,
+    }
+  })
+}
