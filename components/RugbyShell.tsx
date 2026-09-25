@@ -237,7 +237,9 @@ export default function RugbyShell({
             )}
           </nav>
         </div>
-        {nextDeadline && countdown && !countdown.expired && (
+        {/* Not shown on Picks itself — its own heading already states the
+            same deadline, and Kit asked to cut duplicated information. */}
+        {nextDeadline && countdown && !countdown.expired && pathname !== '/rugby/picks' && (
           <div style={{ background: 'var(--rb2-paper-2)', borderTop: '1px solid var(--rb2-line)' }}>
             <div className="max-w-4xl mx-auto px-4">
               <Link

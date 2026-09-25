@@ -21,7 +21,7 @@ export type BuilderPlayer = {
   average_rating: number | null
 }
 
-type SortKey = 'name' | 'team' | 'group' | 'value' | 'average_rating'
+type SortKey = 'name' | 'value' | 'average_rating'
 
 function fmtValue(value: number | null, estimated: boolean) {
   if (value == null) return '—'
@@ -57,8 +57,6 @@ export default function RugbySquadBuilder(props: Props) {
   const { players, selectedIds, squadBudgetCap, mode } = props
   const router = useRouter()
   const [search, setSearch] = useState('')
-  const [teamFilter, setTeamFilter] = useState('')
-  const [positionFilter, setPositionFilter] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('average_rating')
   const [sortDir, setSortDir] = useState<1 | -1>(-1)
 
@@ -83,24 +81,17 @@ export default function RugbySquadBuilder(props: Props) {
   const squadValueTotal = selectedIds.reduce((sum, id) => sum + (playerById.get(id)?.value ?? 0), 0)
   const overBudget = squadBudgetCap != null && squadValueTotal > squadBudgetCap
 
-  const teams = useMemo(() => Array.from(new Set(players.map(p => p.team))).sort(), [players])
-  const positions = useMemo(() => Array.from(new Set(players.map(p => p.group).filter((g): g is string => !!g))).sort(), [players])
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return players.filter(p => {
-      if (teamFilter && p.team !== teamFilter) return false
-      if (positionFilter && p.group !== positionFilter) return false
-      if (q && !p.name.toLowerCase().includes(q) && !p.team.toLowerCase().includes(q)) return false
-      return true
-    })
-  }, [players, search, teamFilter, positionFilter])
+    if (!q) return players
+    return players.filter(p => p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q))
+  }, [players, search])
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
       let av: string | number, bv: string | number
-      if (sortKey === 'name' || sortKey === 'team' || sortKey === 'group') {
-        av = a[sortKey] ?? ''; bv = b[sortKey] ?? ''
+      if (sortKey === 'name') {
+        av = a.name; bv = b.name
       } else {
         av = a[sortKey] ?? (sortDir === 1 ? Infinity : -Infinity)
         bv = b[sortKey] ?? (sortDir === 1 ? Infinity : -Infinity)
@@ -112,7 +103,7 @@ export default function RugbySquadBuilder(props: Props) {
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir(d => (d === 1 ? -1 : 1))
-    else { setSortKey(key); setSortDir(key === 'name' || key === 'team' || key === 'group' ? 1 : -1) }
+    else { setSortKey(key); setSortDir(key === 'name' ? 1 : -1) }
   }
 
   async function applySwap(newPlayerId: number) {
@@ -203,38 +194,34 @@ export default function RugbySquadBuilder(props: Props) {
       )}
       {message && <p className="text-sm font-bold mb-2" style={{ color: '#d1293d' }}>{message}</p>}
 
-      <div className="flex flex-wrap gap-2 mb-3 items-center">
+      <div className="mb-3">
         <input
           type="text" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search player or country…" className="rb2-input px-3 py-1.5 text-sm flex-1" style={{ minWidth: 160 }}
+          placeholder="Search player or country…" className="rb2-input px-3 py-1.5 text-sm w-full"
         />
-        <select value={teamFilter} onChange={e => setTeamFilter(e.target.value)} className="rb2-input px-2 py-1.5 text-sm">
-          <option value="">All countries</option>
-          {teams.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select value={positionFilter} onChange={e => setPositionFilter(e.target.value)} className="rb2-input px-2 py-1.5 text-sm">
-          <option value="">All positions</option>
-          {positions.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
-        {(search || teamFilter || positionFilter) && (
-          <button type="button" onClick={() => { setSearch(''); setTeamFilter(''); setPositionFilter('') }} className="rb2-button rb2-button--ghost text-xs px-3 py-1.5">
-            Reset
-          </button>
-        )}
-        <span className="text-xs ml-auto font-bold" style={{ color: 'var(--rb2-text-faint)' }}>{sorted.length.toLocaleString()} shown</span>
       </div>
 
-      <div className="rb2-panel overflow-x-auto">
-        <table className="rb2-table text-xs" style={{ minWidth: 560 }}>
+      {/* No overflow-x-auto / minWidth here — a table wide enough to need
+          side-scrolling on mobile is a hard no (Kit: nothing on the site
+          may ever require horizontal scrolling). Every cell wraps instead
+          of forcing width. */}
+      <div className="rb2-panel">
+        <table className="rb2-table text-xs" style={{ tableLayout: 'fixed', width: '100%' }}>
+          <colgroup>
+            <col style={{ width: '46%' }} />
+            <col style={{ width: '24%' }} />
+            <col style={{ width: '15%' }} />
+            <col style={{ width: '15%' }} />
+          </colgroup>
           <thead>
             <tr>
               {([
-                ['name', 'Player'], ['team', 'Country'], ['group', 'Position'], ['value', 'Value'], ['average_rating', 'Avg Rating'],
+                ['name', 'Player'], ['value', 'Value'], ['average_rating', 'Avg'],
               ] as [SortKey, string][]).map(([key, label]) => (
                 <th
                   key={key}
                   onClick={() => toggleSort(key)}
-                  className="cursor-pointer whitespace-nowrap select-none"
+                  className="cursor-pointer select-none"
                   style={{ color: sortKey === key ? 'var(--rb2-ink)' : 'var(--rb2-text-faint)' }}
                 >
                   {label}{sortKey === key ? (sortDir === 1 ? ' ▲' : ' ▼') : ''}
@@ -249,20 +236,21 @@ export default function RugbySquadBuilder(props: Props) {
               const isSelected = selectedSet.has(p.id)
               return (
                 <tr key={p.id} style={{ background: isSelected ? 'rgba(255,182,18,0.18)' : undefined }}>
-                  <td className="py-1.5 px-2 font-extrabold uppercase tracking-wide whitespace-nowrap" style={{ fontFamily: 'var(--font-rugby-cond)' }}>{p.name}</td>
-                  <td className="py-1.5 px-2 whitespace-nowrap">{p.team}</td>
-                  <td className="py-1.5 px-2 whitespace-nowrap"><span className="rb2-badge" style={{ fontSize: 10, padding: '2px 8px' }}>{p.group ?? '?'}</span></td>
-                  <td className="py-1.5 px-2 text-right whitespace-nowrap">{fmtValue(p.value, p.value_is_estimated)}</td>
-                  <td className="py-1.5 px-2 text-right">
+                  <td className="py-1.5 px-1">
+                    <div className="font-extrabold uppercase tracking-wide" style={{ fontFamily: 'var(--font-rugby-cond)' }}>{p.name}</div>
+                    <div style={{ color: 'var(--rb2-text-faint)' }}>{p.team}{p.group ? ` · ${p.group}` : ''}</div>
+                  </td>
+                  <td className="py-1.5 px-1 text-right">{fmtValue(p.value, p.value_is_estimated)}</td>
+                  <td className="py-1.5 px-1 text-right">
                     {p.average_rating != null ? (
                       <span className="rb2-stat-number" style={{ color: p.average_rating >= 60 ? '#1f8a4c' : p.average_rating < 40 ? '#d1293d' : 'var(--rb2-text-dim)' }}>{fmtRating(p.average_rating)}</span>
                     ) : '—'}
                   </td>
-                  <td className="py-1.5 px-2 text-right">
+                  <td className="py-1.5 px-1 text-right">
                     <button
                       type="button" disabled={action.disabled} onClick={action.onClick}
                       className={action.onClick && !action.disabled ? 'rb2-button text-xs' : 'rb2-button rb2-button--ghost text-xs'}
-                      style={{ padding: '5px 10px' }}
+                      style={{ padding: '4px 6px', whiteSpace: 'normal', width: '100%' }}
                     >
                       {action.label}
                     </button>

@@ -118,49 +118,33 @@ export default function MatchPredictionCarousel({
   }
 
   const isFirst = currentIndex === 0
-  const isLast = currentIndex === steps.length - 1
   const canAdvance = isStepAnswered(step, fixtures, rows)
 
   return (
     <div className="rb2-panel rb2-panel--gold p-5">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="rb2-eyebrow" style={{ margin: 0 }}>Round {roundNumber} Match Predictions</h2>
-        <span className="rb2-badge rb2-badge--gold" style={{ fontSize: 12 }}>
-          {currentIndex + 1} / {steps.length}
-        </span>
-      </div>
       <div className="rb2-progress-track w-full mb-4">
         <div className="rb2-progress-fill" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} />
       </div>
 
-      <div
-        key={stepKey(step)}
-        className="rb2-panel p-4 mb-4"
-        style={{ background: `linear-gradient(115deg, ${homeC.fill}14, var(--rb2-paper) 35%, var(--rb2-paper) 65%, ${awayC.fill}14)`, boxShadow: 'none', border: '2px solid var(--rb2-line)' }}
-      >
-        <p className="text-xs uppercase tracking-wide mb-3 text-center font-bold" style={{ color: 'var(--rb2-text-faint)' }}>
-          Match {step.fixtureIndex + 1} of {fixtures.length}: {fixture.homeTeam} v {fixture.awayTeam}
+      <div key={stepKey(step)}>
+        <p className="rb2-title text-center mb-4" style={{ fontSize: 'clamp(22px, 5.5vw, 30px)' }}>
+          {fixture.homeTeam} v {fixture.awayTeam}
         </p>
 
         {step.kind === 'winner' && (
-          <>
-            <p className="rb2-title text-center mb-4" style={{ fontSize: 'clamp(24px, 6vw, 34px)' }}>Who wins?</p>
-            <div className="grid grid-cols-3 gap-2">
-              <ChoiceButton label={fixture.homeTeam} active={r.winner === 'home'} fill={homeC.fill} text={homeC.text}
-                onClick={() => answerAndAdvance(fixture.id, { winner: 'home', margin: r.winner === 'draw' ? '' : r.margin })} />
-              <ChoiceButton label="Draw" active={r.winner === 'draw'} fill={DRAW_COLOURS.fill} text={DRAW_COLOURS.text}
-                onClick={() => answerAndAdvance(fixture.id, { winner: 'draw', margin: '' })} />
-              <ChoiceButton label={fixture.awayTeam} active={r.winner === 'away'} fill={awayC.fill} text={awayC.text}
-                onClick={() => answerAndAdvance(fixture.id, { winner: 'away', margin: r.winner === 'draw' ? '' : r.margin })} />
-            </div>
-          </>
+          <div className="grid grid-cols-3 gap-2">
+            <ChoiceButton label={fixture.homeTeam} active={r.winner === 'home'} fill={homeC.fill} text={homeC.text}
+              onClick={() => answerAndAdvance(fixture.id, { winner: 'home', margin: r.winner === 'draw' ? '' : r.margin })} />
+            <ChoiceButton label="Draw" active={r.winner === 'draw'} fill={DRAW_COLOURS.fill} text={DRAW_COLOURS.text}
+              onClick={() => answerAndAdvance(fixture.id, { winner: 'draw', margin: '' })} />
+            <ChoiceButton label={fixture.awayTeam} active={r.winner === 'away'} fill={awayC.fill} text={awayC.text}
+              onClick={() => answerAndAdvance(fixture.id, { winner: 'away', margin: r.winner === 'draw' ? '' : r.margin })} />
+          </div>
         )}
 
         {step.kind === 'margin' && (
           <div className="text-center">
-            <p className="text-base font-bold mb-3" style={{ color: 'var(--rb2-text-dim)' }}>
-              By how many points do {r.winner === 'home' ? fixture.homeTeam : fixture.awayTeam} win?
-            </p>
+            <p className="text-sm font-bold mb-3" style={{ color: 'var(--rb2-text-dim)' }}>Winning margin</p>
             <input
               type="number" min="1" placeholder="pts" autoFocus
               value={r.margin}
@@ -175,34 +159,29 @@ export default function MatchPredictionCarousel({
 
         {step.kind === 'tryBonus' && (
           <>
-            <p className="text-base font-bold text-center mb-3" style={{ color: 'var(--rb2-text-dim)' }}>Will each team score a try bonus (4+ tries)?</p>
+            <p className="text-sm font-bold text-center mb-3" style={{ color: 'var(--rb2-text-dim)' }}>Try bonus (4+ tries)?</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-xs uppercase tracking-wide mb-1.5 text-center font-bold" style={{ color: 'var(--rb2-text-faint)' }}>🏉 {fixture.homeTeam}</p>
+                <p className="text-xs uppercase tracking-wide mb-1.5 text-center font-bold" style={{ color: 'var(--rb2-text-faint)' }}>{fixture.homeTeam}</p>
                 <div className="flex gap-1.5">
                   <ChoiceButton label="Yes" active={r.homeTryBonus === true} fill="#1f8a4c" text="#ffffff" onClick={() => answerAndAdvance(fixture.id, { homeTryBonus: true })} />
                   <ChoiceButton label="No" active={r.homeTryBonus === false} fill="#d1293d" text="#ffffff" onClick={() => answerAndAdvance(fixture.id, { homeTryBonus: false })} />
                 </div>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wide mb-1.5 text-center font-bold" style={{ color: 'var(--rb2-text-faint)' }}>🏉 {fixture.awayTeam}</p>
+                <p className="text-xs uppercase tracking-wide mb-1.5 text-center font-bold" style={{ color: 'var(--rb2-text-faint)' }}>{fixture.awayTeam}</p>
                 <div className="flex gap-1.5">
                   <ChoiceButton label="Yes" active={r.awayTryBonus === true} fill="#1f8a4c" text="#ffffff" onClick={() => answerAndAdvance(fixture.id, { awayTryBonus: true })} />
                   <ChoiceButton label="No" active={r.awayTryBonus === false} fill="#d1293d" text="#ffffff" onClick={() => answerAndAdvance(fixture.id, { awayTryBonus: false })} />
                 </div>
               </div>
             </div>
-            {(r.homeTryBonus === null || r.awayTryBonus === null) && (
-              <p className="text-xs text-center mt-3 font-bold" style={{ color: 'var(--rb2-text-faint)' }}>Answer both to continue.</p>
-            )}
           </>
         )}
 
         {step.kind === 'confidence' && (
           <>
-            <p className="text-base font-bold text-center mb-3" style={{ color: 'var(--rb2-text-dim)' }}>
-              Make this your one confidence pick for the round? Worth extra on everything you score for it.
-            </p>
+            <p className="text-sm font-bold text-center mb-3" style={{ color: 'var(--rb2-text-dim)' }}>Confidence pick? (scores extra)</p>
             <div className="grid grid-cols-2 gap-1.5">
               <ChoiceButton label="Yes" active={confidenceFixtureId === fixture.id} fill="var(--rb2-gold)" text="var(--rb2-ink)" onClick={() => {
                 setConfidenceFixtureId(fixture.id)
@@ -221,16 +200,11 @@ export default function MatchPredictionCarousel({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-2">
-        <button type="button" onClick={() => goTo(currentIndex - 1)} disabled={isFirst} className="rb2-button rb2-button--ghost text-xs px-4 py-2.5">
+      {!isFirst && (
+        <button type="button" onClick={() => goTo(currentIndex - 1)} className="text-xs font-bold uppercase tracking-wide mt-4" style={{ color: 'var(--rb2-text-faint)', fontFamily: 'var(--font-rugby-cond)' }}>
           ← Back
         </button>
-        {!isLast && (
-          <button type="button" onClick={advance} disabled={!canAdvance} className="rb2-button rb2-button--ghost text-xs px-4 py-2.5">
-            Next →
-          </button>
-        )}
-      </div>
+      )}
     </div>
   )
 }

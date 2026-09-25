@@ -137,7 +137,7 @@ export default async function RugbyPicksPage() {
 
       {picksRequired && (
         <div className="rb2-panel p-3 mb-5 text-center" style={{ background: '#d1293d', borderColor: 'var(--rb2-ink)' }}>
-          <p className="font-extrabold uppercase tracking-wide text-sm" style={{ color: '#ffffff', fontFamily: 'var(--font-rugby-cond)' }}>⚠️ Picks Required — scroll down and complete everything below</p>
+          <p className="font-extrabold uppercase tracking-wide text-sm" style={{ color: '#ffffff', fontFamily: 'var(--font-rugby-cond)' }}>⚠️ Picks required</p>
         </div>
       )}
 
@@ -160,7 +160,7 @@ export default async function RugbyPicksPage() {
 
       {showSquadManager && (
         <div className="rb2-panel rb2-panel--gold p-5 mb-6">
-          <h2 className="rb2-title mb-4" style={{ fontSize: 'clamp(22px, 5vw, 30px)' }}>Manage Your Dream Team</h2>
+          <h2 className="rb2-title mb-4" style={{ fontSize: 'clamp(22px, 5vw, 30px)' }}>Dream Team</h2>
           <RugbySquadBuilder
             mode="manage"
             competitionId={competition.id}
@@ -183,7 +183,7 @@ export default async function RugbyPicksPage() {
 
       {!nothingToDo && (
         <p className="text-xs text-center font-bold" style={{ color: 'var(--rb2-text-faint)' }}>
-          Everything above can be changed as many times as you like until its own deadline.
+          Change anything above until its deadline.
         </p>
       )}
     </div>
