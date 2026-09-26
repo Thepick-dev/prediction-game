@@ -819,22 +819,31 @@ thead th {
    ============================================================ */
 
 .rugby-theme {
-  --rugby-ink: #07090d;
-  --rugby-ink-2: #12161f;
-  --rugby-ink-3: #1b212d;
-  --rugby-line: rgba(255,255,255,0.10);
-  --rugby-text: #f7f5ee;
-  --rugby-text-dim: rgba(247,245,238,0.6);
-  --rugby-text-faint: rgba(247,245,238,0.36);
-  --rugby-floodlight: #ffc22e;
-  --rugby-floodlight-2: #ff7a1a;
+  /* Cyberpunk / glitch redesign (Kit, 2026-09-26) — void black base,
+     electric-green/cyan neon replacing the old gold/orange floodlight
+     pair everywhere that variable is already consumed (buttons, badges,
+     hero glow, nav active state, section-title bar, vs-badge) — a
+     re-theme of the existing shapes/animations, not a rebuild of them. */
+  --rugby-ink: #0a0a0f;
+  --rugby-ink-2: #12121a;
+  --rugby-ink-3: #1c1c2e;
+  --rugby-line: rgba(0,255,136,0.16);
+  --rugby-text: #e0e0e0;
+  --rugby-text-dim: rgba(224,224,224,0.65);
+  --rugby-text-faint: rgba(224,224,224,0.4);
+  --rugby-floodlight: #00ff88;
+  --rugby-floodlight-2: #00d4ff;
+  --rugby-magenta: #ff00ff;
 
-  --rugby-eng: #e8172c; --rugby-eng-2: #8f0a17;
-  --rugby-sco: #16204a; --rugby-sco-2: #060a1c;
-  --rugby-ita: #0d6fbe; --rugby-ita-2: #063a63;
-  --rugby-wal: #d4142a; --rugby-wal-2: #7a0a17;
-  --rugby-ire: #0e9a48; --rugby-ire-2: #054e25;
-  --rugby-fra: #1c3f9e; --rugby-fra-2: #0c1f52;
+  /* Six Nations colour nod — kept at each team's real hue, boosted toward
+     the neon palette's saturation so they still read as "this is rugby"
+     against a cyberpunk backdrop, not washed out by it. */
+  --rugby-eng: #ff1f3d; --rugby-eng-2: #8f0a17;
+  --rugby-sco: #2f4fd6; --rugby-sco-2: #060a1c;
+  --rugby-ita: #0d9bff; --rugby-ita-2: #063a63;
+  --rugby-wal: #ff2244; --rugby-wal-2: #7a0a17;
+  --rugby-ire: #10e668; --rugby-ire-2: #054e25;
+  --rugby-fra: #3d5cff; --rugby-fra-2: #0c1f52;
 
   background: var(--rugby-ink);
   color: var(--rugby-text);
@@ -844,16 +853,33 @@ thead th {
   font-family: var(--font-rugby-body), sans-serif;
 }
 
-/* Crossed floodlight beams + diagonal speed-line texture + bottom
-   vignette — fixed so it reads as one continuous atmosphere behind
-   scrolling content, not a per-section background. */
+/* Neon glow washes + circuit-grid texture + scanline overlay — fixed so
+   it reads as one continuous atmosphere behind scrolling content. The
+   scanline layer is the cyberpunk spec's signature "CRT" texture,
+   deliberately faint (3% alpha) so it never fights with real content. */
 .rugby-theme::before {
   content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    radial-gradient(ellipse 700px 900px at -5% -15%, rgba(255,194,46,0.14), transparent 55%),
-    radial-gradient(ellipse 700px 900px at 105% -15%, rgba(255,122,26,0.11), transparent 55%),
-    radial-gradient(ellipse 1000px 600px at 50% 8%, rgba(255,194,46,0.06), transparent 60%),
-    repeating-linear-gradient(115deg, rgba(255,255,255,0.02) 0 3px, transparent 3px 58px);
+    radial-gradient(ellipse 700px 900px at -5% -15%, rgba(0,255,136,0.12), transparent 55%),
+    radial-gradient(ellipse 700px 900px at 105% -15%, rgba(0,212,255,0.10), transparent 55%),
+    radial-gradient(ellipse 1000px 600px at 50% 8%, rgba(255,0,255,0.05), transparent 60%),
+    linear-gradient(rgba(0,255,136,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,136,0.025) 1px, transparent 1px);
+  background-size: auto, auto, auto, 48px 48px, 48px 48px;
+}
+.rugby-theme::after {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.35) 2px, rgba(0,0,0,0.35) 4px);
+  mix-blend-mode: overlay;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .rugby-hero-title { animation: rugby-glitch-flicker 7s ease-in-out infinite; }
+}
+@keyframes rugby-glitch-flicker {
+  0%, 96%, 100% { transform: translate(0); text-shadow: 0 0 34px rgba(0,255,136,0.3); }
+  97% { transform: translate(-1px, 1px); text-shadow: -2px 0 var(--rugby-magenta), 2px 0 var(--rugby-floodlight-2); }
+  98% { transform: translate(1px, -1px); text-shadow: 2px 0 var(--rugby-magenta), -2px 0 var(--rugby-floodlight-2); }
+  99% { transform: translate(0); text-shadow: 0 0 34px rgba(0,255,136,0.3); }
 }
 .rugby-theme > * { position: relative; z-index: 1; }
 
@@ -884,7 +910,7 @@ thead th {
   color: var(--rugby-text);
   border: 1.5px solid var(--rugby-line);
   border-bottom: 3px solid var(--rugby-line);
-  border-radius: 8px;
+  clip-path: polygon(0 6px, 6px 0, 100% 0, 100% 100%, 0 100%);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .rugby-input:focus {
@@ -935,7 +961,7 @@ thead th {
   position: relative; z-index: 1; font-family: var(--font-rugby-display), sans-serif;
   font-size: clamp(38px, 8vw, 64px); letter-spacing: 0.005em; margin: 0; line-height: 0.94;
   text-transform: uppercase; text-wrap: balance;
-  text-shadow: 0 0 34px rgba(255,194,46,0.28);
+  text-shadow: 0 0 34px rgba(0,255,136,0.28);
 }
 .rugby-hero-sub {
   position: relative; z-index: 1; font-family: var(--font-rugby-cond), sans-serif; font-weight: 600;
@@ -951,7 +977,7 @@ thead th {
 .rugby-panel {
   background: var(--rugby-ink-2);
   border: 1.5px solid var(--rugby-line);
-  border-radius: 4px 20px 4px 20px;
+  clip-path: polygon(0 12px, 12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
   box-shadow: 0 14px 30px -16px rgba(0,0,0,0.7);
   position: relative;
   overflow: hidden;
@@ -962,8 +988,8 @@ thead th {
   opacity: 0.5;
 }
 .rugby-panel--gold {
-  border-color: rgba(255,194,46,0.55);
-  box-shadow: 0 0 22px rgba(255,194,46,0.2), 0 14px 30px -16px rgba(0,0,0,0.7);
+  border-color: rgba(0,255,136,0.55);
+  box-shadow: 0 0 22px rgba(0,255,136,0.2), 0 14px 30px -16px rgba(0,0,0,0.7);
 }
 .rugby-panel--gold::before { opacity: 1; height: 4px; }
 
@@ -974,7 +1000,7 @@ thead th {
 .rugby-section-title::before {
   content: ''; position: absolute; left: 0; top: 0.12em; bottom: 0.12em; width: 5px; border-radius: 3px;
   background: linear-gradient(180deg, var(--rugby-floodlight), var(--rugby-floodlight-2));
-  box-shadow: 0 0 10px rgba(255,194,46,0.5);
+  box-shadow: 0 0 10px rgba(0,255,136,0.5);
 }
 .rugby-section-sub { font-family: var(--font-rugby-cond), sans-serif; font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--rugby-text-faint); margin: 0 0 20px; }
 
@@ -985,18 +1011,19 @@ thead th {
 .rugby-button {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   font-family: var(--font-rugby-cond), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
-  border-radius: 4px 16px 4px 16px; border: 2px solid var(--rugby-floodlight); cursor: pointer;
+  clip-path: polygon(0 8px, 8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  border: 2px solid var(--rugby-floodlight); cursor: pointer;
   position: relative; overflow: hidden;
   background: linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2));
-  color: #241300;
-  box-shadow: 0 6px 18px rgba(255,150,20,0.35);
+  color: #001a12;
+  box-shadow: 0 6px 18px rgba(0,212,255,0.35);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 .rugby-button::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(115deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 40%);
 }
-.rugby-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(255,150,20,0.5); }
+.rugby-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,212,255,0.5); }
 .rugby-button:active:not(:disabled) { transform: translateY(0); }
 .rugby-button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .rugby-button--ghost {
@@ -1004,15 +1031,15 @@ thead th {
   border: 2px solid var(--rugby-line);
 }
 .rugby-button--ghost::after { display: none; }
-.rugby-button--ghost:hover:not(:disabled) { border-color: var(--rugby-floodlight); color: var(--rugby-floodlight); box-shadow: 0 0 14px rgba(255,194,46,0.25); }
+.rugby-button--ghost:hover:not(:disabled) { border-color: var(--rugby-floodlight); color: var(--rugby-floodlight); box-shadow: 0 0 14px rgba(0,255,136,0.25); }
 
 .rugby-badge {
   display: inline-flex; align-items: center; justify-content: center;
   font-family: var(--font-rugby-cond), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
-  border-radius: 3px 11px 3px 11px; line-height: 1;
+  clip-path: polygon(0 5px, 5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%); line-height: 1;
   background: var(--rugby-ink-3); color: var(--rugby-text-dim); border: 1.5px solid var(--rugby-line);
 }
-.rugby-badge--gold { background: linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2)); color: #241300; border: none; box-shadow: 0 3px 10px rgba(255,150,20,0.3); }
+.rugby-badge--gold { background: linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2)); color: #001a12; border: none; box-shadow: 0 3px 10px rgba(0,212,255,0.3); }
 
 /* ---- Shell nav ---- */
 .rugby-nav-link {
@@ -1020,7 +1047,7 @@ thead th {
   color: var(--rugby-text-dim); border-bottom: 2px solid transparent; transition: color 0.12s ease;
 }
 .rugby-nav-link:hover { color: var(--rugby-text); }
-.rugby-nav-link--active { color: var(--rugby-floodlight); border-bottom-color: var(--rugby-floodlight); text-shadow: 0 0 12px rgba(255,194,46,0.45); }
+.rugby-nav-link--active { color: var(--rugby-floodlight); border-bottom-color: var(--rugby-floodlight); text-shadow: 0 0 12px rgba(0,255,136,0.45); }
 
 /* ---- Fixture matchday card ----
    Shape (skew, gradient, sheen) lives in an absolutely-positioned
@@ -1062,11 +1089,11 @@ thead th {
   background: conic-gradient(from 200deg, #232a38, #12161f 40%, #232a38 75%, #12161f);
   border: 2.5px solid var(--rugby-floodlight);
   display: flex; align-items: center; justify-content: center; position: relative;
-  box-shadow: 0 0 0 6px var(--rugby-ink), 0 8px 22px rgba(0,0,0,0.6), 0 0 22px rgba(255,194,46,0.25);
+  box-shadow: 0 0 0 6px var(--rugby-ink), 0 8px 22px rgba(0,0,0,0.6), 0 0 22px rgba(0,255,136,0.25);
 }
 .rugby-vs-badge::before {
   content: ''; position: absolute; inset: -13px; border-radius: 999px;
-  background: repeating-conic-gradient(from 0deg, rgba(255,194,46,0.5) 0deg 2deg, transparent 2deg 18deg);
+  background: repeating-conic-gradient(from 0deg, rgba(0,255,136,0.5) 0deg 2deg, transparent 2deg 18deg);
   -webkit-mask: radial-gradient(circle, transparent 60%, black 62%, black 72%, transparent 74%);
   mask: radial-gradient(circle, transparent 60%, black 62%, black 72%, transparent 74%);
   animation: rugby-vs-spin 14s linear infinite;
@@ -1099,12 +1126,12 @@ thead th {
 .rugby-ft-tag {
   position: absolute; top: 0; left: 50%; transform: translateX(-50%);
   font-family: var(--font-rugby-cond), sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
-  background: linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2)); color: #241300; padding: 5px 16px; border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(255,150,20,0.35); white-space: nowrap;
+  background: linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2)); color: #001a12; padding: 5px 16px; border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0,212,255,0.35); white-space: nowrap;
 }
 .rugby-result-card {
   display: flex; align-items: stretch; gap: 0; margin-top: 10px; flex-wrap: wrap;
-  background: linear-gradient(180deg, var(--rugby-ink-3), var(--rugby-ink-2)); border: 1px solid var(--rugby-line); border-radius: 12px; overflow: hidden;
+  background: linear-gradient(180deg, var(--rugby-ink-3), var(--rugby-ink-2)); border: 1px solid var(--rugby-line); clip-path: polygon(0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); overflow: hidden;
   box-shadow: 0 14px 30px -12px rgba(0,0,0,0.7);
 }
 .rugby-rt-team { flex: 1 1 120px; display: flex; align-items: center; gap: 14px; padding: 18px 20px; min-width: 0; }
@@ -1120,11 +1147,11 @@ thead th {
 .rugby-rt-score .rugby-rt-dash { color: var(--rugby-text-faint); font-size: 19px; }
 
 /* ---- Leaderboard / stat rows ---- */
-.rugby-lb-list { display: flex; flex-direction: column; border: 1px solid var(--rugby-line); border-radius: 12px; overflow: hidden; box-shadow: 0 14px 30px -14px rgba(0,0,0,0.7); }
+.rugby-lb-list { display: flex; flex-direction: column; border: 1px solid var(--rugby-line); clip-path: polygon(0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); overflow: hidden; box-shadow: 0 14px 30px -14px rgba(0,0,0,0.7); }
 .rugby-lb-row { display: flex; align-items: center; gap: 14px; padding: 13px 16px; background: var(--rugby-ink-2); border-bottom: 1px solid var(--rugby-line); }
 .rugby-lb-row:last-child { border-bottom: none; }
 .rugby-lb-row:nth-child(odd) { background: var(--rugby-ink-3); }
-.rugby-lb-row--first { background: linear-gradient(90deg, rgba(255,194,46,0.13), transparent 60%); }
+.rugby-lb-row--first { background: linear-gradient(90deg, rgba(0,255,136,0.13), transparent 60%); }
 .rugby-lb-rank { font-family: var(--font-rugby-display), sans-serif; font-size: 19px; color: var(--rugby-text-faint); width: 26px; text-align: center; flex: none; }
 .rugby-lb-rank--top { color: var(--rugby-floodlight); }
 .rugby-lb-name { font-family: var(--font-rugby-cond), sans-serif; font-weight: 700; font-size: 15px; flex: 1; min-width: 0; text-transform: uppercase; letter-spacing: 0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1358,16 +1385,16 @@ thead th {
    (terminal/monospace) for everything else.
    ============================================================ */
 :root {
-  --rb4-void: #090014;
+  --rb4-void: #0a0a0f;
   --rb4-fg: #e0e0e0;
-  --rb4-card: rgba(26, 16, 60, 0.8);
-  --rb4-card-solid: #1a103c;
+  --rb4-card: rgba(18, 18, 26, 0.85);
+  --rb4-card-solid: #12121a;
   --rb4-magenta: #ff00ff;
-  --rb4-cyan: #00ffff;
-  --rb4-orange: #ff9900;
-  --rb4-border: #2d1b4e;
+  --rb4-cyan: #00d4ff;
+  --rb4-orange: #00ff88;
+  --rb4-border: #1c1c2e;
   --rb4-danger: #ff3366;
-  --rb4-good: #00ffaa;
+  --rb4-good: #00ff88;
 }
 
 .rb4-page {
@@ -1499,11 +1526,11 @@ thead th {
    page's one job is "who's winning" at a glance.
    ============================================================ */
 :root {
-  --rb5-bg: #0d0d1a;
+  --rb5-bg: #0a0a0f;
   --rb5-fg: #ffffff;
-  --rb5-muted: #2d1b4e;
-  --rb5-magenta: #ff3af2;
-  --rb5-cyan: #00f5d4;
+  --rb5-muted: #1c1c2e;
+  --rb5-magenta: #ff00ff;
+  --rb5-cyan: #00d4ff;
   --rb5-yellow: #ffe600;
   --rb5-orange: #ff6b35;
   --rb5-purple: #7b2fff;
@@ -1512,8 +1539,8 @@ thead th {
 @keyframes rb5-float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-14px) rotate(5deg); } }
 @keyframes rb5-wiggle { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
 @keyframes rb5-pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(255,58,242,0.5), 8px 8px 0 var(--rb5-yellow), 16px 16px 0 var(--rb5-magenta); }
-  50% { box-shadow: 0 0 40px rgba(255,58,242,0.8), 0 0 60px rgba(0,245,212,0.5), 8px 8px 0 var(--rb5-yellow), 16px 16px 0 var(--rb5-magenta); }
+  0%, 100% { box-shadow: 0 0 20px rgba(255,0,255,0.5), 8px 8px 0 var(--rb5-yellow), 16px 16px 0 var(--rb5-magenta); }
+  50% { box-shadow: 0 0 40px rgba(255,0,255,0.8), 0 0 60px rgba(0,212,255,0.5), 8px 8px 0 var(--rb5-yellow), 16px 16px 0 var(--rb5-magenta); }
 }
 @keyframes rb5-gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
@@ -1535,8 +1562,8 @@ thead th {
 .rb5-mesh {
   position: absolute; inset: 0; pointer-events: none; z-index: 0;
   background:
-    radial-gradient(ellipse at 15% 20%, rgba(255,58,242,0.18) 0%, transparent 50%),
-    radial-gradient(ellipse at 85% 15%, rgba(0,245,212,0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 15% 20%, rgba(255,0,255,0.18) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 15%, rgba(0,212,255,0.15) 0%, transparent 50%),
     radial-gradient(ellipse at 50% 90%, rgba(123,47,255,0.15) 0%, transparent 55%);
 }
 .rb5-bg-word {

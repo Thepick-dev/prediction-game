@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Bebas_Neue, Anton, Barlow_Condensed, IBM_Plex_Sans, Fraunces, Space_Grotesk, Orbitron, Share_Tech_Mono, Outfit, DM_Sans, Bungee } from 'next/font/google'
+import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Bebas_Neue, Anton, Barlow_Condensed, JetBrains_Mono, Fraunces, Space_Grotesk, Orbitron, Share_Tech_Mono, Outfit, DM_Sans, Bungee } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
@@ -53,7 +53,11 @@ const barlowCondensed = Barlow_Condensed({
   display: 'swap',
 })
 
-const plexSans = IBM_Plex_Sans({
+// Cyberpunk redesign (Kit, 2026-09-26) — swapped from IBM Plex Sans for
+// the spec's "terminal feel": monospace body copy throughout, matching
+// Orbitron/Share Tech Mono (already registered below for rb4) as the
+// site's unified voice.
+const jetBrainsMono = JetBrains_Mono({
   weight: ['400', '500', '600', '700'],
   subsets: ['latin'],
   variable: '--font-rugby-body',
@@ -151,7 +155,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${bebasNeue.variable} ${anton.variable} ${barlowCondensed.variable} ${plexSans.variable} ${fraunces.variable} ${spaceGrotesk.variable} ${orbitron.variable} ${shareTechMono.variable} ${outfit.variable} ${dmSans.variable} ${bungee.variable}`}>
+    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${bebasNeue.variable} ${anton.variable} ${barlowCondensed.variable} ${jetBrainsMono.variable} ${fraunces.variable} ${spaceGrotesk.variable} ${orbitron.variable} ${shareTechMono.variable} ${outfit.variable} ${dmSans.variable} ${bungee.variable}`}>
       <head>
         {/* Preloaded so the loading-screen mascot (logo.png) and its player-photo
             cap patch (mascot-cap-photo.png) are already cached by the time
