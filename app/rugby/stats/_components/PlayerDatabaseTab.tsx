@@ -70,7 +70,6 @@ function PlayerMatchHistory({ performances }: { performances: RugbyPlayerPerform
                       <span>Tackles missed: <b style={{ color: 'var(--rugby-text)' }}>{r.tackles_missed}</b></span>
                       {r.yellow_card > 0 && <span>Yellow cards: <b style={{ color: '#e8574a' }}>{r.yellow_card}</b></span>}
                       {r.red_card > 0 && <span>Red cards: <b style={{ color: '#e8574a' }}>{r.red_card}</b></span>}
-                      <span>Raw score: <b style={{ color: 'var(--rugby-text)' }}>{r.raw_score != null ? r.raw_score.toFixed(2) : '—'}</b></span>
                       <span>{r.is_home ? 'Played at home' : `Played away vs ${r.opponent}`}</span>
                     </div>
                   </td>

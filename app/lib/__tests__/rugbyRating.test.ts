@@ -43,7 +43,9 @@ describe('computeRawScore', () => {
 
   it('penalises missed tackles and cards, can go negative', () => {
     const bad = stats({ tackles_missed: 2, yellow_card: 1 })
-    expect(computeRawScore(bad, 'Fullback')).toBe(-(2 * 0.7) - 5)
+    // Fullback's yellow-card weight is calibrated to that position's own
+    // real median raw score (-7.9), not a flat -5 — see rugbyRating.ts.
+    expect(computeRawScore(bad, 'Fullback')).toBe(-(2 * 0.7) - 7.9)
   })
 
   it('ignores team stats entirely with no teamStats argument (backward compatible)', () => {

@@ -76,6 +76,28 @@ export default async function RugbyRulesPage() {
           </p>
         </section>
 
+        <section className="rugby-panel p-5">
+          <h2 className="rugby-cond text-sm mb-2 uppercase tracking-wide">How Player Ratings Work</h2>
+          <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--rugby-text-dim)' }}>
+            A rating out of 100 isn&apos;t a fixed mark — it&apos;s <strong style={{ color: 'var(--rugby-text)' }}>how that game compared to every other
+            performance we&apos;ve recorded at the same position</strong>. 50 means a typical game for that position; 90+ means one of the best anyone in
+            that position has had. A prop and a winger are never compared to each other directly — only to other props, or other wingers.
+          </p>
+          <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--rugby-text-dim)' }}>
+            A player&apos;s overall rating (and the £ value that comes from it) blends their recent games — the further back a game is, the less it
+            counts, so current form always matters most.
+          </p>
+          <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--rugby-text-dim)' }}>
+            A yellow or red card meaningfully hurts a player&apos;s rating for that game — how much depends on their position, since a quiet game
+            naturally looks different for a prop than for a winger.
+          </p>
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--rugby-text-dim)' }}>
+            We also pull in performances from outside the Six Nations — players&apos; club form, and other international rugby — to build a fuller
+            picture. International rugby is tougher than club rugby, so it counts for more; and a player who&apos;s never played international rugby
+            has their rating held below the very top, however good their club form looks, until they get the chance to prove it at that level.
+          </p>
+        </section>
+
         <section className="rugby-panel rugby-panel--gold p-5">
           <h2 className="rugby-cond text-sm mb-2 uppercase tracking-wide">Underdog Multipliers</h2>
           <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--rugby-text-dim)' }}>

@@ -47,15 +47,28 @@ type WeightSet = {
 
 // Prop and Hooker share one weight set — near-identical role (scrum +
 // tackle, rarely carry or kick). 8 weight sets across the 9 groups.
+//
+// yellow/red WERE a flat -5/-10 for every position — found this session
+// (Kit, 2026-09-26, checking why a 12-tackle Itoje performance still
+// rated 5.8) that this hits positions very unevenly: a flat penalty is
+// a much bigger bite out of a position whose typical raw score is small
+// (a scrum-half's median match is ~1.85) than one where it's large (a
+// wing's is ~12.34) — the SAME card, wildly different real punishment,
+// just because forwards/9s naturally post smaller raw numbers than
+// attacking backs. Recalibrated so a card costs roughly the same
+// proportion of a "typical match" at every position instead: yellow
+// ≈ -1.0x, red ≈ -2.0x that position's real median raw score, measured
+// against the live pool this session (before this fix). Same principle,
+// same real-data-calibration discipline as the pack bonus above.
 const WEIGHTS: Record<string, WeightSet> = {
-  PropHooker: { try: 10, try_assist: 3, clean_break: 3, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.35, tackle_missed: -0.6, yellow: -5, red: -10 },
-  SecondRow: { try: 10, try_assist: 3, clean_break: 2.5, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.3, tackle_missed: -0.6, yellow: -5, red: -10 },
-  BackRow: { try: 10, try_assist: 3, clean_break: 2, offload: 1, meters: 0.06, passes: 0, tackle: 0.25, tackle_missed: -0.5, yellow: -5, red: -10 },
-  ScrumHalf: { try: 10, try_assist: 4, clean_break: 2, offload: 1, meters: 0.05, passes: 0.03, tackle: 0.25, tackle_missed: -0.5, yellow: -5, red: -10 },
-  FlyHalf: { try: 10, try_assist: 4, clean_break: 2, offload: 1.5, meters: 0.06, passes: 0.02, tackle: 0.2, tackle_missed: -0.5, yellow: -5, red: -10 },
-  Centre: { try: 10, try_assist: 3, clean_break: 2.5, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.25, tackle_missed: -0.5, yellow: -5, red: -10 },
-  Wing: { try: 12, try_assist: 3, clean_break: 3, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.2, tackle_missed: -0.5, yellow: -5, red: -10 },
-  Fullback: { try: 10, try_assist: 3, clean_break: 2.5, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.3, tackle_missed: -0.7, yellow: -5, red: -10 },
+  PropHooker: { try: 10, try_assist: 3, clean_break: 3, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.35, tackle_missed: -0.6, yellow: -2.6, red: -5.2 },
+  SecondRow: { try: 10, try_assist: 3, clean_break: 2.5, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.3, tackle_missed: -0.6, yellow: -3.2, red: -6.3 },
+  BackRow: { try: 10, try_assist: 3, clean_break: 2, offload: 1, meters: 0.06, passes: 0, tackle: 0.25, tackle_missed: -0.5, yellow: -4.3, red: -8.6 },
+  ScrumHalf: { try: 10, try_assist: 4, clean_break: 2, offload: 1, meters: 0.05, passes: 0.03, tackle: 0.25, tackle_missed: -0.5, yellow: -1.9, red: -3.8 },
+  FlyHalf: { try: 10, try_assist: 4, clean_break: 2, offload: 1.5, meters: 0.06, passes: 0.02, tackle: 0.2, tackle_missed: -0.5, yellow: -6.0, red: -12.0 },
+  Centre: { try: 10, try_assist: 3, clean_break: 2.5, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.25, tackle_missed: -0.5, yellow: -4.6, red: -9.2 },
+  Wing: { try: 12, try_assist: 3, clean_break: 3, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.2, tackle_missed: -0.5, yellow: -12.3, red: -24.7 },
+  Fullback: { try: 10, try_assist: 3, clean_break: 2.5, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.3, tackle_missed: -0.7, yellow: -7.9, red: -15.7 },
 }
 
 const WEIGHT_KEY_BY_GROUP: Record<RugbyPositionGroup, string> = {
@@ -122,11 +135,19 @@ export function computePackRawScore(teamStats: TeamMatchStatLine): number {
 const FORWARD_GROUPS = new Set<RugbyPositionGroup>(['Prop', 'Hooker', 'Second Row', 'Back Row'])
 
 // A small, deliberately modest nudge for the team's actual match result —
-// applies to every position (unlike the pack bonus, forwards only). Not
-// calibrated against real data the way the weights above are — a
-// starting estimate for Kit to tune by watching real rounds, same caveat
-// already attached to squad_rating_multiplier in rugbyScoring.ts.
-const WIN_LOSS_BONUS = 1.5
+// applies to every position (unlike the pack bonus, forwards only). Was
+// also a single flat 1.5 for every position — same proportionality
+// problem as the card penalties above (a flat nudge is a much bigger
+// relative deal for a scrum-half's typically-small raw score than a
+// wing's typically-large one), fixed the same way: roughly 0.3x each
+// position's real median raw score measured this session. Still a
+// starting estimate for Kit to tune by watching real rounds, same
+// caveat already attached to squad_rating_multiplier in rugbyScoring.ts
+// — the PROPORTIONALITY is the real fix here, not this exact 0.3 figure.
+const WIN_LOSS_BONUS_BY_GROUP: Record<string, number> = {
+  PropHooker: 0.8, SecondRow: 0.9, BackRow: 1.3, ScrumHalf: 0.6,
+  FlyHalf: 1.8, Centre: 1.4, Wing: 3.7, Fullback: 2.4,
+}
 export type MatchResult = 'win' | 'loss' | 'draw'
 
 export function computeRawScore(stats: RugbyMatchStatLine, group: RugbyPositionGroup, teamStats?: TeamMatchStatLine, matchResult?: MatchResult): number {
@@ -139,8 +160,9 @@ export function computeRawScore(stats: RugbyMatchStatLine, group: RugbyPositionG
   if (teamStats && FORWARD_GROUPS.has(group)) {
     raw += computePackRawScore(teamStats)
   }
-  if (matchResult === 'win') raw += WIN_LOSS_BONUS
-  else if (matchResult === 'loss') raw -= WIN_LOSS_BONUS
+  const winLossBonus = WIN_LOSS_BONUS_BY_GROUP[WEIGHT_KEY_BY_GROUP[group]] ?? 1.5
+  if (matchResult === 'win') raw += winLossBonus
+  else if (matchResult === 'loss') raw -= winLossBonus
   return Math.round(raw * 100) / 100
 }
 
@@ -206,12 +228,30 @@ async function fetchAllRows<T>(query: () => any): Promise<T[]> {
 // separate match_events table to derive try/card counts from) and their
 // own match_result, so they build a RatingPoolEntry far more directly.
 type ExternalPerformanceRow = {
-  id: number; player_id: number
+  id: number; player_id: number; external_competition_id: number
   tries: number; conversions: number; penalty_goals: number; drop_goals: number
   yellow_card: number; red_card: number; try_assists: number; clean_breaks: number
   offloads: number; meters_run: number; passes: number; tackles: number; tackles_missed: number
   match_result: MatchResult | null
 }
+
+// Kit, 2026-09-26, after seeing real data confirm club performances
+// systematically out-rank international ones on the same raw formula
+// (Test rugby is tighter/lower-stat by nature, not lower-quality): boost
+// international raw scores before ranking rather than trying to
+// normalize the gap away statistically. 1.4x is a starting estimate
+// (roughly closes the average club/international raw-score gap
+// measured this session), not a settled number. Six Nations fixture-
+// based performances are ALWAYS international; external ones only
+// count if their competition is (rugby.external_competitions.
+// is_international — a newer, optional column, degrades to "nothing is
+// international" if missing rather than breaking the whole recompute).
+const INTERNATIONAL_BONUS = 1.4
+// A player with zero real international appearances anywhere has their
+// rating capped, however good their club form — "clearly good, not yet
+// proven at the top," not literally the best in the pool. Lifts
+// entirely the moment they have one real international performance.
+const CLUB_ONLY_RATING_CAP = 75
 
 export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promise<{ success: true; rows: number } | { error: string }> {
   const [statsRows, players, matchEvents, teamStatsRows, fixtures, externalPerformances] = await Promise.all([
@@ -237,9 +277,19 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
     // performances sit out of this recompute, never that fixture-based
     // ratings (the live game) stop working.
     fetchAllRows<ExternalPerformanceRow>(
-      () => supabase.schema('rugby').from('player_performances').select('id, player_id, tries, conversions, penalty_goals, drop_goals, yellow_card, red_card, try_assists, clean_breaks, offloads, meters_run, passes, tackles, tackles_missed, match_result')
+      () => supabase.schema('rugby').from('player_performances').select('id, player_id, external_competition_id, tries, conversions, penalty_goals, drop_goals, yellow_card, red_card, try_assists, clean_breaks, offloads, meters_run, passes, tackles, tackles_missed, match_result')
     ).catch(() => [] as ExternalPerformanceRow[]),
   ])
+
+  // Isolated fetch: is_international is newer/optional — missing means
+  // every external competition reads as "not international" (no bonus
+  // applied, no player wrongly exempted from the club-only cap), never
+  // that this whole recompute breaks.
+  let isInternationalByExtCompId = new Map<number, boolean>()
+  try {
+    const { data: comps } = await supabase.schema('rugby').from('external_competitions').select('id, is_international')
+    isInternationalByExtCompId = new Map((comps ?? []).map((c: { id: number; is_international: boolean }) => [c.id, !!c.is_international]))
+  } catch { /* column not added yet */ }
 
   const fixtureById = new Map(fixtures.map(f => [f.id, f]))
   function matchResultFor(fixtureId: number, teamId: number | undefined): MatchResult | undefined {
@@ -274,6 +324,16 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
 
   const pool: RatingPoolEntry[] = []
   const rawByEntryId = new Map<string, { fixture_id: number; player_id: number; group: RugbyPositionGroup }>()
+  const entryPlayerId = new Map<string, number>()
+  const hasInternationalByPlayerId = new Set<number>()
+
+  // Six Nations fixtures are always international — recorded up front so
+  // the club-only cap below never wrongly applies to a live-game player,
+  // regardless of the order pool entries happen to build in.
+  statsRows.forEach(s => hasInternationalByPlayerId.add(s.player_id))
+  externalPerformances.forEach(p => {
+    if (isInternationalByExtCompId.get(p.external_competition_id)) hasInternationalByPlayerId.add(p.player_id)
+  })
 
   statsRows.forEach(s => {
     const position = positionByPlayerId.get(s.player_id)
@@ -294,9 +354,11 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
     const teamId = teamIdByPlayerId.get(s.player_id)
     const teamStats = teamId != null ? teamStatsByFixtureAndTeam.get(`${s.fixture_id}::${teamId}`) : undefined
     const matchResult = matchResultFor(s.fixture_id, teamId)
-    const rawScore = computeRawScore(statLine, group, teamStats, matchResult)
+    // Six Nations is always international — the bonus always applies here.
+    const rawScore = computeRawScore(statLine, group, teamStats, matchResult) * INTERNATIONAL_BONUS
     pool.push({ id, group, rawScore })
     rawByEntryId.set(id, { fixture_id: s.fixture_id, player_id: s.player_id, group })
+    entryPlayerId.set(id, s.player_id)
   })
 
   // Domestic/other-international performances (rugby.player_performances)
@@ -316,13 +378,26 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
       meters_run: p.meters_run ?? 0, passes: p.passes ?? 0, tackles: p.tackles ?? 0, tackles_missed: p.tackles_missed ?? 0,
     }
     const id = `ext::${p.id}`
-    const rawScore = computeRawScore(statLine, group, undefined, p.match_result ?? undefined)
+    const isInternational = isInternationalByExtCompId.get(p.external_competition_id)
+    const bonus = isInternational ? INTERNATIONAL_BONUS : 1
+    const rawScore = computeRawScore(statLine, group, undefined, p.match_result ?? undefined) * bonus
     pool.push({ id, group, rawScore })
+    entryPlayerId.set(id, p.player_id)
   })
 
   if (pool.length === 0) return { success: true, rows: 0 }
 
   const ratings = computeRatings(pool)
+  // Cap AFTER ranking, never before — the cap is about the final
+  // comparison number, not about pretending the underlying performance
+  // was worse than it was.
+  pool.forEach(e => {
+    const playerId = entryPlayerId.get(e.id)
+    if (playerId != null && !hasInternationalByPlayerId.has(playerId)) {
+      const capped = Math.min(ratings.get(e.id) ?? 50, CLUB_ONLY_RATING_CAP)
+      ratings.set(e.id, capped)
+    }
+  })
   const fixtureBased = pool.filter(e => !e.id.startsWith('ext::'))
   const rows: RugbyMatchRatingRow[] = fixtureBased.map(e => ({
     fixture_id: rawByEntryId.get(e.id)!.fixture_id,
