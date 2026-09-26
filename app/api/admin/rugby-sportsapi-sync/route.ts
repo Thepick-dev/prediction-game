@@ -131,6 +131,15 @@ export async function POST() {
       if (error) warnings.push(`player_match_stats for fixture ${fixtureId}: ${error.message}`)
       else statRowsApplied += statsToUpsert.length
     }
+    // is_substitute: own separate, best-effort update per row — a
+    // newer/optional column, must never block the core stats write above
+    // if it's not there yet.
+    for (const row of rows) {
+      const playerId = resolvePlayerId(fixture.homeTeamName, fixture.awayTeamName, row.player)
+      if (!playerId) continue
+      await db.schema('rugby').from('player_match_stats')
+        .update({ is_substitute: row.is_substitute }).eq('fixture_id', fixtureId).eq('player_id', playerId)
+    }
   }
 
   return NextResponse.json({

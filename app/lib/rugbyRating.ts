@@ -322,6 +322,20 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
     isInternationalByExtCompId = new Map((comps ?? []).map((c: { id: number; is_international: boolean }) => [c.id, !!c.is_international]))
   } catch { /* column not added yet */ }
 
+  // Isolated fetch: is_substitute on player_match_stats is newer/optional
+  // (Kit, 2026-09-26, asked whether Six Nations subs could get the same
+  // sub-vs-starter pool split external performances already have — the
+  // API states it directly via entry.substitute) — missing means every
+  // fixture-based entry reads as "not a substitute" (the old, ungrouped
+  // behaviour), never that this whole recompute breaks.
+  let isSubstituteByStatsKey = new Map<string, boolean>()
+  try {
+    const subRows = await fetchAllRows<{ fixture_id: number; player_id: number; is_substitute: boolean | null }>(
+      () => supabase.schema('rugby').from('player_match_stats').select('fixture_id, player_id, is_substitute')
+    )
+    isSubstituteByStatsKey = new Map(subRows.map(r => [`${r.fixture_id}::${r.player_id}`, !!r.is_substitute]))
+  } catch { /* column not added yet */ }
+
   const fixtureById = new Map(fixtures.map(f => [f.id, f]))
   function matchResultFor(fixtureId: number, teamId: number | undefined): MatchResult | undefined {
     if (teamId == null) return undefined
@@ -390,7 +404,9 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
     const matchResult = matchResultFor(s.fixture_id, teamId)
     // Six Nations is always international — the bonus always applies here.
     const rawScore = computeRawScore(statLine, group, teamStats, matchResult) * INTERNATIONAL_BONUS
-    pool.push({ id, group, rawScore })
+    const isSub = isSubstituteByStatsKey.get(id) ?? false
+    const poolGroup = isSub ? `${group}::sub` : group
+    pool.push({ id, group: poolGroup, rawScore })
     rawByEntryId.set(id, { fixture_id: s.fixture_id, player_id: s.player_id, group })
     entryPlayerId.set(id, s.player_id)
   })

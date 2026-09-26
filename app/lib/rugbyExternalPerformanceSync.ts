@@ -611,3 +611,199 @@ export async function backfillNationalityFromInternationalAppearances(supabase: 
   }
   return { playersUpdated }
 }
+
+export type SixNationsRecheckSummary = {
+  fixturesChecked: number
+  fixturesMatched: number
+  playersAdded: number
+  newPlayersCreated: number
+  requestsUsed: number
+  stoppedReason: 'done' | 'quota'
+  errors: string[]
+}
+
+// SportsAPI Pro's tournament id for Six Nations, and its season id per
+// year — confirmed live this session via /tournament/423/seasons. Only
+// years with real, already-finished fixtures need a season id here;
+// future/scheduled fixtures (e.g. 2027) are excluded by the `status =
+// finished` filter below before this is ever consulted.
+const SIX_NATIONS_TOURNAMENT_ID = 423
+const SIX_NATIONS_SEASON_ID_BY_YEAR: Record<number, number> = { 2024: 49850, 2025: 59195, 2026: 86339 }
+
+// Kit, 2026-09-26, after a real Guardian match report showed 8 real Wales
+// players (starters included, not just the sub) missing from a fixture we
+// already have archived: the ORIGINAL Six Nations historical build (an
+// earlier session, before any of today's work) under-captured full squads
+// for at least some matches — this isn't a "not yet pulled" gap like the
+// external competitions, it's "already marked finished, but incomplete."
+// Re-fetches player-statistics for EVERY already-finished fixture (not
+// just due ones — rugbySportsApiSync.ts's fetchRugbyResultsFromApi only
+// ever looks at fixtures NOT YET marked finished) and adds whichever real
+// players are missing, without touching anyone already correctly stored.
+//
+// Matches by TEAM PAIR alone against that year's full round-by-round
+// schedule, never by date — confirmed live this session that our stored
+// kickoff_time can be wrong by two whole weeks (the exact flagged Wales v
+// England match), which a date-based ± 1 day search (rugbySportsApiSync.ts's
+// approach, fine for its own newly-due-fixture use case) would have
+// silently missed entirely.
+export async function backfillMissingSixNationsPlayers(
+  supabase: SupabaseClient,
+  apiKey: string,
+  maxRequests: number,
+): Promise<SixNationsRecheckSummary> {
+  const summary: SixNationsRecheckSummary = {
+    fixturesChecked: 0, fixturesMatched: 0, playersAdded: 0, newPlayersCreated: 0,
+    requestsUsed: 0, stoppedReason: 'done', errors: [],
+  }
+
+  const { data: teams } = await supabase.schema('rugby').from('teams').select('id, name')
+  const teamNameById = new Map((teams ?? []).map((t: { id: number; name: string }) => [t.id, t.name]))
+
+  const { data: fixtures } = await supabase.schema('rugby').from('fixtures')
+    .select('id, home_team_id, away_team_id, kickoff_time, status').eq('status', 'finished').order('kickoff_time')
+
+  const playerLookup = await loadPlayerLookup(supabase)
+
+  let requestsLeft = maxRequests
+  // One entry per season year — every round's events fetched once, then
+  // reused for every fixture that year, rather than one lookup per fixture.
+  const seasonEventsCache = new Map<number, any[]>()
+  async function getSeasonEvents(year: number): Promise<any[]> {
+    if (seasonEventsCache.has(year)) return seasonEventsCache.get(year)!
+    const seasonId = SIX_NATIONS_SEASON_ID_BY_YEAR[year]
+    if (!seasonId) { seasonEventsCache.set(year, []); return [] }
+    const events: any[] = []
+    for (let round = 1; round <= 5 && requestsLeft > 0; round++) {
+      try {
+        const body = await sportsApiProGet(`/tournament/${SIX_NATIONS_TOURNAMENT_ID}/season/${seasonId}/events/round/${round}`, apiKey)
+        summary.requestsUsed++
+        requestsLeft--
+        events.push(...(body.data?.events ?? []))
+      } catch (e: any) {
+        summary.requestsUsed++
+        requestsLeft--
+        summary.errors.push(`Six Nations ${year} round ${round}: ${e.message}`)
+        break // a 404 here means past the last real round for that year
+      }
+    }
+    seasonEventsCache.set(year, events)
+    return events
+  }
+  function normTeam(name: string): string {
+    return name.trim().toLowerCase()
+  }
+
+  for (const fixture of fixtures ?? []) {
+    if (requestsLeft <= 0) { summary.stoppedReason = 'quota'; break }
+    summary.fixturesChecked++
+    const homeTeamName = teamNameById.get(fixture.home_team_id) ?? '?'
+    const awayTeamName = teamNameById.get(fixture.away_team_id) ?? '?'
+
+    const year = new Date(fixture.kickoff_time).getFullYear()
+    const events = await getSeasonEvents(year)
+    const apiMatch = events.find(e =>
+      normTeam(e.homeTeam?.name ?? '') === normTeam(homeTeamName) &&
+      normTeam(e.awayTeam?.name ?? '') === normTeam(awayTeamName) &&
+      e.status?.type === 'finished'
+    )
+    if (!apiMatch) continue
+    summary.fixturesMatched++
+
+    if (requestsLeft <= 0) { summary.stoppedReason = 'quota'; break }
+    let statsBody: any
+    try {
+      statsBody = await sportsApiProGet(`/match/${apiMatch.id}/player-statistics`, apiKey)
+      summary.requestsUsed++
+    } catch (e: any) {
+      summary.requestsUsed++
+      summary.errors.push(`Player statistics for ${homeTeamName} v ${awayTeamName}: ${e.message}`)
+      requestsLeft--
+      continue
+    }
+    requestsLeft--
+
+    const entries = extractPlayerStatEntries(statsBody.data ?? {})
+    const existingStatsByPlayer = new Set(
+      ((await supabase.schema('rugby').from('player_match_stats').select('player_id').eq('fixture_id', fixture.id)).data ?? [])
+        .map((r: { player_id: number }) => r.player_id)
+    )
+
+    for (const { side, entry } of entries) {
+      const teamId = side === 'home' ? fixture.home_team_id : fixture.away_team_id
+      const teamName = side === 'home' ? homeTeamName : awayTeamName
+
+      let playerId = playerLookup.byApiId.get(entry.player.id)
+      if (playerId == null) {
+        const byName = playerLookup.byLowerName.get(normalizeNameForMatching(entry.player.name))
+        if (byName != null) {
+          playerId = byName
+          await supabase.schema('rugby').from('players').update({ sportsapi_player_id: entry.player.id }).eq('id', byName)
+          playerLookup.byApiId.set(entry.player.id, byName)
+        }
+      }
+      if (playerId == null) {
+        // Genuinely missing from the squad entirely (confirmed live this
+        // session: several real starters, not just subs) — team_id is
+        // known for certain here (which side of a Six Nations fixture
+        // they appeared on), unlike the external pipeline which has to
+        // infer it from a country field.
+        const jersey = entry.shirtNumber ?? null
+        const position = jersey && jersey >= 1 && jersey <= 23 ? POSITION_BY_JERSEY[jersey] : null
+        const { data: inserted, error } = await supabase.schema('rugby').from('players').insert({
+          name: entry.player.name,
+          team_id: teamId,
+          nationality: teamName,
+          position,
+          position_source: position ? 'pull' : null,
+          sportsapi_player_id: entry.player.id,
+          is_draftable: false,
+          value_is_estimated: true,
+        }).select('id').single()
+        if (error || !inserted) { summary.errors.push(`Could not create ${entry.player.name}: ${error?.message}`); continue }
+        playerId = inserted.id as number
+        summary.newPlayersCreated++
+      }
+      if (playerId == null) continue // couldn't resolve or create — already logged above
+      const resolvedPlayerId: number = playerId
+      playerLookup.byApiId.set(entry.player.id, resolvedPlayerId)
+      playerLookup.byLowerName.set(normalizeNameForMatching(entry.player.name), resolvedPlayerId)
+
+      if (existingStatsByPlayer.has(resolvedPlayerId)) continue // already correctly captured
+      const s = entry.statistics
+      const { error: statsErr } = await supabase.schema('rugby').from('player_match_stats').upsert({
+        fixture_id: fixture.id, player_id: resolvedPlayerId,
+        meters_run: s.metersRun ?? 0, clean_breaks: s.cleanBreaks ?? 0, offloads: s.offloads ?? 0,
+        tackles: s.tackles ?? 0, tackles_missed: s.tacklesMissed ?? 0, try_assists: s.tryAssists ?? 0,
+      }, { onConflict: 'fixture_id,player_id' })
+      if (statsErr) { summary.errors.push(`player_match_stats for ${entry.player.name}: ${statsErr.message}`); continue }
+      // is_substitute: the API states this directly (entry.substitute) —
+      // Kit, 2026-09-26, asked whether shirt number could tell subs apart
+      // for Six Nations data the same way it already does for external
+      // performances. It can (16-23 is the same bench convention already
+      // used for position inference), but the API already says so
+      // outright, so that's what gets stored. Own separate, best-effort
+      // call: a newer/optional column, must never block the stats row
+      // itself if it's not there yet.
+      await supabase.schema('rugby').from('player_match_stats')
+        .update({ is_substitute: entry.substitute ?? false }).eq('fixture_id', fixture.id).eq('player_id', resolvedPlayerId)
+
+      const eventRows: { fixture_id: number; player_id: number; event_type: string; minute: null }[] = []
+      const pushEvents = (eventType: string, count: number) => {
+        for (let i = 0; i < count; i++) eventRows.push({ fixture_id: fixture.id, player_id: resolvedPlayerId, event_type: eventType, minute: null })
+      }
+      pushEvents('try', s.tries ?? 0)
+      pushEvents('conversion', s.conversions ?? 0)
+      pushEvents('penalty_goal', s.penaltyGoals ?? 0)
+      pushEvents('drop_goal', s.dropGoals ?? 0)
+      pushEvents('yellow_card', s.yellowCard ?? 0)
+      pushEvents('red_card', s.redCard ?? 0)
+      if (eventRows.length > 0) await supabase.schema('rugby').from('match_events').insert(eventRows)
+
+      summary.playersAdded++
+    }
+  }
+
+  if (requestsLeft <= 0 && summary.stoppedReason !== 'quota') summary.stoppedReason = 'quota'
+  return summary
+}

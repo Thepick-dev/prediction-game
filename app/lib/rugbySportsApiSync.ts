@@ -47,6 +47,7 @@ export type PlayerStatRow = {
   tackles: number
   tackles_missed: number
   try_assists: number
+  is_substitute: boolean
 }
 
 export type FetchResult = {
@@ -96,6 +97,7 @@ function extractFromPlayerStats(
         round, homeTeam, awayTeam, player: name,
         meters_run: s.metersRun ?? 0, clean_breaks: s.cleanBreaks ?? 0, offloads: s.offloads ?? 0,
         tackles: s.tackles ?? 0, tackles_missed: s.tacklesMissed ?? 0, try_assists: s.tryAssists ?? 0,
+        is_substitute: entry.substitute ?? false,
       })
     })
   })
