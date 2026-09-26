@@ -297,3 +297,64 @@ export async function pullNextBatch(
 export async function checkQuota(apiKey: string) {
   return sportsApiProQuota(apiKey)
 }
+
+export type BackfillSummary = {
+  matchesChecked: number
+  playersUpdated: number
+  requestsUsed: number
+  stoppedReason: 'done' | 'quota'
+  errors: string[]
+}
+
+// One-time-per-competition catch-up: re-fetches player-statistics for
+// matches ALREADY stored (idempotent — never inserts a new
+// player_performances row, only fills in a still-missing position on
+// rugby.players via jersey number) so performances pulled before the
+// bench-number fix (16-23) can be rated retroactively. Kit, 2026-09-26:
+// "yes we need to retroactively pull." Costs real API quota again since
+// jersey number was never stored anywhere the first time.
+export async function backfillMissingPositions(
+  supabase: SupabaseClient,
+  competition: ExternalCompetition,
+  apiKey: string,
+  maxRequests: number,
+): Promise<BackfillSummary> {
+  const summary: BackfillSummary = { matchesChecked: 0, playersUpdated: 0, requestsUsed: 0, stoppedReason: 'done', errors: [] }
+
+  const { data: perfRows } = await supabase.schema('rugby').from('player_performances')
+    .select('sportsapi_match_id').eq('external_competition_id', competition.id)
+  const matchIds = [...new Set((perfRows ?? []).map((r: { sportsapi_match_id: number }) => r.sportsapi_match_id))]
+
+  const { data: playersMissingPosition } = await supabase.schema('rugby').from('players')
+    .select('id, sportsapi_player_id').is('position', null).not('sportsapi_player_id', 'is', null)
+  const idsNeedingPosition = new Set((playersMissingPosition ?? []).map((p: { sportsapi_player_id: number }) => p.sportsapi_player_id))
+  if (idsNeedingPosition.size === 0) return summary
+
+  let requestsLeft = maxRequests
+  for (const matchId of matchIds) {
+    if (requestsLeft <= 0) { summary.stoppedReason = 'quota'; break }
+    let statsBody: any
+    try {
+      statsBody = await sportsApiProGet(`/match/${matchId}/player-statistics`, apiKey)
+      summary.requestsUsed++
+    } catch (e: any) {
+      summary.errors.push(`Match ${matchId}: ${e.message}`)
+      requestsLeft--
+      continue
+    }
+    requestsLeft--
+    summary.matchesChecked++
+
+    const entries = extractPlayerStatEntries(statsBody.data ?? {})
+    for (const { entry } of entries) {
+      if (!idsNeedingPosition.has(entry.player.id)) continue
+      const jersey = entry.player.jerseyNumber ? Number(entry.player.jerseyNumber) : null
+      const position = jersey && jersey >= 1 && jersey <= 23 ? POSITION_BY_JERSEY[jersey] : null
+      if (!position) continue
+      const { error } = await supabase.schema('rugby').from('players')
+        .update({ position }).eq('sportsapi_player_id', entry.player.id).is('position', null)
+      if (!error) { summary.playersUpdated++; idsNeedingPosition.delete(entry.player.id) }
+    }
+  }
+  return summary
+}
