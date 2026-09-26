@@ -170,10 +170,10 @@ export default function RugbyShell({
         fontDisplay: 'var(--font-rb5-display)', titleTransform: 'uppercase' as const, tickerText: '#0d0d1a',
       }
     : {
-        headerBg: 'var(--rb2-paper)', headerBorder: 'var(--rb2-ink)', text: 'var(--rb2-ink)',
-        textFaint: 'var(--rb2-text-faint)', textDim: 'var(--rb2-text-dim)', line: 'var(--rb2-line)',
-        gold: 'var(--rb2-gold)', stripBg: 'var(--rb2-paper-2)', font: 'var(--font-rugby-cond)',
-        fontDisplay: 'var(--font-rugby-display)', titleTransform: 'uppercase' as const, tickerText: 'var(--rb2-ink)',
+        headerBg: 'var(--rugby-ink-2)', headerBorder: 'var(--rugby-floodlight)', text: 'var(--rugby-text)',
+        textFaint: 'var(--rugby-text-faint)', textDim: 'var(--rugby-text-dim)', line: 'var(--rugby-line)',
+        gold: 'var(--rugby-floodlight)', stripBg: 'var(--rugby-ink-3)', font: 'var(--font-rugby-cond)',
+        fontDisplay: 'var(--font-rugby-display)', titleTransform: 'uppercase' as const, tickerText: '#001a12',
       }
   const isReskinned = isPicksTheme || isLeaderboardTheme
   const pageBg = isPicksTheme ? 'var(--rb4-void)' : isLeaderboardTheme ? 'var(--rb5-bg)' : undefined
@@ -197,9 +197,9 @@ export default function RugbyShell({
               <span className="rugby-ball-icon" aria-hidden="true" />
               <span className="inline-flex flex-col items-center leading-none">
                 <span style={{ fontSize: 'clamp(15px, 4vw, 20px)', color: t.text, fontFamily: t.fontDisplay, textTransform: t.titleTransform, fontWeight: isReskinned ? 900 : undefined, filter: isPicksTheme ? 'drop-shadow(0 0 8px rgba(255,255,255,0.3))' : isLeaderboardTheme ? 'drop-shadow(2px 2px 0 var(--rb5-purple))' : undefined }}>
-                  All-Stars <span style={{ color: t.gold, WebkitTextStroke: isReskinned ? undefined : `1px ${t.headerBorder}`, filter: isPicksTheme ? `drop-shadow(0 0 10px ${t.gold})` : undefined }}>Rugby</span>
+                  All-Stars <span style={{ color: t.gold, WebkitTextStroke: isReskinned ? undefined : '1px var(--rugby-ink)', filter: isPicksTheme ? `drop-shadow(0 0 10px ${t.gold})` : isLeaderboardTheme ? undefined : 'drop-shadow(0 0 8px rgba(0,255,136,0.35))' }}>Rugby</span>
                 </span>
-                <span style={{ fontSize: 9, padding: '1px 8px', marginTop: 2, borderRadius: isPicksTheme ? 0 : 999, background: isPicksTheme ? 'rgba(0,255,255,0.1)' : isLeaderboardTheme ? 'var(--rb5-magenta)' : t.gold, color: isPicksTheme ? t.gold : isLeaderboardTheme ? '#ffffff' : t.headerBorder, border: isPicksTheme ? `1.5px solid ${t.gold}` : isLeaderboardTheme ? '2.5px solid var(--rb5-yellow)' : `2px solid ${t.headerBorder}`, fontFamily: t.font, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', transform: isPicksTheme ? 'skewX(-8deg)' : isLeaderboardTheme ? 'rotate(-2deg)' : undefined }}>Six Nations</span>
+                <span style={{ fontSize: 9, padding: '1px 8px', marginTop: 2, borderRadius: isPicksTheme ? 0 : 999, background: isPicksTheme ? 'rgba(0,255,255,0.1)' : isLeaderboardTheme ? 'var(--rb5-magenta)' : t.gold, color: isPicksTheme ? t.gold : isLeaderboardTheme ? '#ffffff' : '#001a12', border: isPicksTheme ? `1.5px solid ${t.gold}` : isLeaderboardTheme ? '2.5px solid var(--rb5-yellow)' : `2px solid ${t.headerBorder}`, fontFamily: t.font, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', transform: isPicksTheme ? 'skewX(-8deg)' : isLeaderboardTheme ? 'rotate(-2deg)' : undefined }}>Six Nations</span>
               </span>
             </Link>
             <div className="flex items-center gap-3 sm:col-start-3 sm:justify-self-end">
