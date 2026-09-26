@@ -115,10 +115,13 @@ export default async function RugbyLeaderboardPage() {
 
   // Real Six Nations colours — kept ONLY here (actual information: which
   // nations are in this competition), not used as the page's decorative
-  // accent system (that's the 5 Maximalism accents, ACCENTS above).
+  // accent system (that's the 5 Maximalism accents, ACCENTS above). Same
+  // --rugby-* custom properties every other page uses for each nation,
+  // not a separate hardcoded set, so a team is never one colour here and
+  // a different one on Results/Picks.
   const NATION_COLOURS: Record<string, string> = {
-    England: '#1D2D5C', Ireland: '#169B62', Wales: '#C8102E',
-    Scotland: '#0065BD', France: '#0055A4', Italy: '#0088CE',
+    England: 'var(--rugby-eng)', Ireland: 'var(--rugby-ire)', Wales: 'var(--rugby-wal)',
+    Scotland: 'var(--rugby-sco)', France: 'var(--rugby-fra)', Italy: 'var(--rugby-ita)',
   }
 
   return (

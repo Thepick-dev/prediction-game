@@ -1104,6 +1104,17 @@ thead th {
 .rugby-fx-meta { display: flex; justify-content: space-between; margin-top: 9px; padding: 0 4px; font-family: var(--font-rugby-cond), sans-serif; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--rugby-text-faint); }
 .rugby-fx-meta .rugby-fx-venue { color: var(--rugby-text-dim); }
 
+/* Quiet upcoming-fixture card — same restrained dark chamfered panel +
+   thin team-colour flagbars as the finished RugbyResultCard, instead of
+   the old full-bleed diagonal team-colour blocks above: a page full of
+   those (every unplayed fixture, every round) read as loud and
+   carnival-ish rather than as part of the same quiet design as
+   everywhere else. */
+.rugby-fx-quiet-mid {
+  display: flex; align-items: center; justify-content: center; padding: 10px 18px; flex: none;
+  border-left: 1px solid var(--rugby-line); border-right: 1px solid var(--rugby-line);
+}
+
 @media (max-width: 620px) {
   .rugby-fx-row { grid-template-columns: 1fr 48px 1fr; height: 76px; }
   .rugby-fx-home .rugby-fx-bg { clip-path: polygon(0 0, 100% 0, 80% 100%, 0% 100%); }

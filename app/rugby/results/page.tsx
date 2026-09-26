@@ -408,13 +408,31 @@ export default async function RugbyResultsPage({
                                 const away = fixture ? team(fixture.away_team_id) : undefined
                                 const pts = predictionPointsByPredictionId.get(pred.id)
                                 const pickLabel = pred.predicted_winner === 'draw' ? 'Draw' : pred.predicted_winner === 'home' ? home?.name : away?.name
+                                const actualMargin = fixture?.home_score != null && fixture?.away_score != null
+                                  ? Math.abs(fixture.home_score - fixture.away_score) : null
+                                const marginError = actualMargin != null && pred.predicted_margin != null
+                                  ? Math.abs(pred.predicted_margin - actualMargin) : null
+                                // Reverse-derived from the stored, authoritative total/multiplier
+                                // (never recomputed from scratch) so this can never drift from
+                                // what the scoring engine actually awarded.
+                                const base = pts && pts.multiplier ? pts.total_points / pts.multiplier : null
                                 return (
                                   <p key={pred.id} style={{ color: 'var(--rugby-text-dim)' }}>
                                     {home?.name} v {away?.name}: picked <strong style={{ color: 'var(--rugby-text)' }}>{pickLabel}</strong>
                                     {pred.predicted_margin != null && ` by ${pred.predicted_margin}`}
                                     {pred.is_confidence_pick && <span className="rugby-badge ml-1" style={{ fontSize: '9px' }}>Confidence</span>}
                                     {pts && pts.multiplier > 1 && <span className="rugby-badge rugby-badge--gold ml-1" style={{ fontSize: '9px' }}>{pts.multiplier.toFixed(2)}x</span>}
-                                    {' — '}
+                                    <br />
+                                    <span style={{ color: 'var(--rugby-text-faint)' }}>
+                                      {pts?.is_correct
+                                        ? (actualMargin != null
+                                          ? `Correct — actual margin ${actualMargin}${marginError != null ? `, you were off by ${marginError}` : ''}. `
+                                          : 'Correct. ')
+                                        : 'Wrong winner — scores 0 regardless of margin. '}
+                                      {base != null && pts && pts.multiplier > 1
+                                        ? <>{fmt1(base)} base pts × {pts.multiplier.toFixed(2)} = </>
+                                        : null}
+                                    </span>
                                     <strong style={{ color: (pts?.total_points ?? 0) < 0 ? '#e8574a' : 'var(--rugby-text)' }}>{pts?.total_points ?? 0} pts</strong>
                                   </p>
                                 )
@@ -438,7 +456,15 @@ export default async function RugbyResultsPage({
                                     {sp.contrarian_bonus > 0 && <span className="rugby-badge ml-1" style={{ fontSize: '9px' }}>Differential +{fmt1(sp.contrarian_bonus)}</span>}
                                     {sp.sub_penalty > 0 && <span className="rugby-badge rugby-badge--error ml-1" style={{ fontSize: '9px' }}>Sub -{fmt1(sp.sub_penalty)}</span>}
                                     {sp.captain_change_penalty > 0 && <span className="rugby-badge rugby-badge--error ml-1" style={{ fontSize: '9px' }}>Captain change -{fmt1(sp.captain_change_penalty)}</span>}
-                                    {' — '}
+                                    <br />
+                                    <span style={{ color: 'var(--rugby-text-faint)' }}>
+                                      {fmt1(sp.rating)} rating → {fmt1(sp.rating_points)} base pts
+                                      {sp.captain_bonus > 0 && ` + ${fmt1(sp.captain_bonus)} captain`}
+                                      {sp.contrarian_bonus > 0 && ` + ${fmt1(sp.contrarian_bonus)} differential`}
+                                      {sp.sub_penalty > 0 && ` − ${fmt1(sp.sub_penalty)} sub`}
+                                      {sp.captain_change_penalty > 0 && ` − ${fmt1(sp.captain_change_penalty)} captain change`}
+                                      {' = '}
+                                    </span>
                                     <strong style={{ color: sp.total_points < 0 ? '#e8574a' : 'var(--rugby-text)' }}>{fmt1(sp.total_points)} pts</strong>
                                   </p>
                                 )

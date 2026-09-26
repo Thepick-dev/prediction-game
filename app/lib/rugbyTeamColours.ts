@@ -56,23 +56,23 @@ export function rugbyTeamColoursV2(name: string): { fill: string; text: string }
   return RUGBY_TEAM_COLOURS_V2[name] ?? DEFAULT_TEAM_COLOURS_V2
 }
 
-// "rb3" Dark Mode First / Kinetic palette (Kit, 2026-09-25, approved via
-// the "Meridian" Claude Design mockup) — brightened specifically for
-// visibility as a soft glow against a near-black ground; unlike V1/V2,
-// England's real home white works fine here (nothing to swap out for).
-// Matches app/globals.css's --rb3-* tokens exactly; kept as its own
-// export/function pair rather than editing V1/V2, same reasoning as V2's
-// own comment above.
+// "rb3" palette, used by the Picks page's match-prediction carousel.
+// Fill values now point at the exact same --rugby-* custom properties
+// the rest of the site (fixture/result cards, badges) uses for each
+// nation, rather than its own separate hardcoded hex set — the two had
+// drifted apart (e.g. England rendered white here, red everywhere
+// else), which is exactly the kind of same-team-different-colour
+// mismatch that reads as "old and new styles blended together."
 export const RUGBY_TEAM_COLOURS_RB3: Record<string, { fill: string; text: string }> = {
-  England: { fill: '#F2F0EA', text: '#0A0B0D' },
-  Ireland: { fill: '#2FBF74', text: '#0A0B0D' },
-  Wales: { fill: '#E0344A', text: '#F2F0EA' },
-  Scotland: { fill: '#3A86FF', text: '#0A0B0D' },
-  France: { fill: '#7C6FE0', text: '#F2F0EA' },
-  Italy: { fill: '#2BC4C4', text: '#0A0B0D' },
+  England: { fill: 'var(--rugby-eng)', text: '#ffffff' },
+  Ireland: { fill: 'var(--rugby-ire)', text: '#0A0B0D' },
+  Wales: { fill: 'var(--rugby-wal)', text: '#ffffff' },
+  Scotland: { fill: 'var(--rugby-sco)', text: '#ffffff' },
+  France: { fill: 'var(--rugby-fra)', text: '#ffffff' },
+  Italy: { fill: 'var(--rugby-ita)', text: '#0A0B0D' },
 }
-export const DEFAULT_TEAM_COLOURS_RB3 = { fill: '#3a3d44', text: '#f2f0ea' }
-export const DRAW_COLOURS_RB3 = { fill: '#00d4ff', text: '#0a0b0d' }
+export const DEFAULT_TEAM_COLOURS_RB3 = { fill: 'var(--rugby-ink-3)', text: '#f2f0ea' }
+export const DRAW_COLOURS_RB3 = { fill: 'var(--rugby-floodlight-2)', text: '#0a0b0d' }
 
 export function rugbyTeamColoursRb3(name: string): { fill: string; text: string } {
   return RUGBY_TEAM_COLOURS_RB3[name] ?? DEFAULT_TEAM_COLOURS_RB3

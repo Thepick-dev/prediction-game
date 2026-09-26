@@ -1,10 +1,11 @@
 import { rugbyTeamGradient } from './rugbyTeamColors'
 
-// The matchday banner: two skewed team-colour panels meeting at a rugby-
-// ball VS badge. Shape lives in .rugby-fx-bg (absolutely positioned,
-// clipped); the team name sits in a normal unclipped box on top, so a
-// long name (SCOTLAND, ENGLAND) can never be sliced by the clip-path —
-// see the rugby-skin-concept artifact for the bug this design avoids.
+// The upcoming-fixture card — deliberately as quiet as the finished
+// RugbyResultCard (dark chamfered panel, thin team-colour flagbars down
+// each edge) rather than the old full-bleed diagonal team-colour blocks:
+// a results page with fifteen of those stacked up, and nothing else to
+// look at yet, read as loud and carnival-ish rather than as part of the
+// same design as the rest of the site.
 export default function RugbyFixtureCard({
   homeName, homeCode, awayName, awayCode, meta, href,
 }: {
@@ -17,16 +18,12 @@ export default function RugbyFixtureCard({
 }) {
   const content = (
     <>
-      <div className="rugby-fx-row">
-        <div className="rugby-fx-side rugby-fx-home">
-          <div className="rugby-fx-bg" style={{ background: rugbyTeamGradient(homeCode) }} />
-          <div className="rugby-fx-label">{homeName}</div>
-        </div>
-        <div className="rugby-fx-mid"><div className="rugby-vs-badge"><span>VS</span></div></div>
-        <div className="rugby-fx-side rugby-fx-away">
-          <div className="rugby-fx-bg" style={{ background: rugbyTeamGradient(awayCode) }} />
-          <div className="rugby-fx-label">{awayName}</div>
-        </div>
+      <div className="rugby-result-card">
+        <span className="rugby-flagbar" style={{ background: rugbyTeamGradient(homeCode) }} />
+        <div className="rugby-rt-team"><span className="rugby-rt-name">{homeName}</span></div>
+        <div className="rugby-fx-quiet-mid"><div className="rugby-vs-badge"><span>VS</span></div></div>
+        <div className="rugby-rt-team rugby-rt-away"><span className="rugby-rt-name">{awayName}</span></div>
+        <span className="rugby-flagbar" style={{ background: rugbyTeamGradient(awayCode) }} />
       </div>
       {meta && (
         <div className="rugby-fx-meta">
