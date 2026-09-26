@@ -93,6 +93,7 @@ async function loadPlayerLookup(supabase: SupabaseClient): Promise<PlayerLookup>
 async function findOrCreatePlayer(
   supabase: SupabaseClient,
   statPlayer: { id: number; name: string; jerseyNumber?: string; country?: { name?: string } },
+  shirtNumber: number | undefined,
   teamNameById: Map<number, string>,
   lookup: PlayerLookup,
 ): Promise<{ playerId: number; created: boolean } | null> {
@@ -120,7 +121,7 @@ async function findOrCreatePlayer(
       if (name === sixNationsName) { teamId = id; break }
     }
   }
-  const jersey = statPlayer.jerseyNumber ? Number(statPlayer.jerseyNumber) : null
+  const jersey = shirtNumber ?? null
   const position = jersey && jersey >= 1 && jersey <= 23 ? POSITION_BY_JERSEY[jersey] : null
 
   const { data: inserted, error } = await supabase.schema('rugby').from('players').insert({
@@ -128,6 +129,7 @@ async function findOrCreatePlayer(
     team_id: teamId,
     nationality: statPlayer.country?.name ?? null,
     position,
+    position_source: position ? 'pull' : null,
     sportsapi_player_id: statPlayer.id,
     is_draftable: false,
     value_is_estimated: true,
@@ -232,7 +234,7 @@ export async function pullNextBatch(
       const awayWon = (awayScore ?? 0) > (homeScore ?? 0)
 
       for (const { side, entry } of entries) {
-        const found = await findOrCreatePlayer(supabase, entry.player, teamNameById, playerLookup)
+        const found = await findOrCreatePlayer(supabase, entry.player, entry.shirtNumber, teamNameById, playerLookup)
         if (!found) { summary.errors.push(`Could not store player ${entry.player.name}`); continue }
         if (found.created) summary.newPlayersCreated++
 
@@ -348,11 +350,11 @@ export async function backfillMissingPositions(
     const entries = extractPlayerStatEntries(statsBody.data ?? {})
     for (const { entry } of entries) {
       if (!idsNeedingPosition.has(entry.player.id)) continue
-      const jersey = entry.player.jerseyNumber ? Number(entry.player.jerseyNumber) : null
+      const jersey = entry.shirtNumber ?? null
       const position = jersey && jersey >= 1 && jersey <= 23 ? POSITION_BY_JERSEY[jersey] : null
       if (!position) continue
       const { error } = await supabase.schema('rugby').from('players')
-        .update({ position }).eq('sportsapi_player_id', entry.player.id).is('position', null)
+        .update({ position, position_source: 'backfill' }).eq('sportsapi_player_id', entry.player.id).is('position', null)
       if (!error) { summary.playersUpdated++; idsNeedingPosition.delete(entry.player.id) }
     }
   }

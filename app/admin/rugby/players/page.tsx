@@ -12,7 +12,7 @@ async function requireAdminAction() {
 }
 
 type Team = { id: number; name: string }
-type RugbyPlayer = { id: number; team_id: number; name: string; position: string | null; value: number | null; value_is_estimated: boolean; value_is_admin_set: boolean }
+type RugbyPlayer = { id: number; team_id: number | null; name: string; position: string | null; position_source: string | null; value: number | null; value_is_estimated: boolean; value_is_admin_set: boolean }
 
 // The exact 9 strings app/lib/rugbyRating.ts's WEIGHT_KEY_BY_GROUP matches
 // against — a typo here doesn't error, it just silently makes a player
@@ -49,7 +49,8 @@ async function updatePlayer(formData: FormData) {
   const supabase = await requireAdminAction()
   const id = Number(formData.get('id'))
   const name = (formData.get('name') as string).trim()
-  const teamId = Number(formData.get('team_id'))
+  const teamIdRaw = formData.get('team_id') as string
+  const teamId = teamIdRaw ? Number(teamIdRaw) : null
   const positionRaw = formData.get('position') as string
   const position = positionRaw ? positionRaw : null
   const valueRaw = formData.get('value') as string
@@ -57,6 +58,11 @@ async function updatePlayer(formData: FormData) {
   await supabase.schema('rugby').from('players').update({ name, team_id: teamId, position, value }).eq('id', id)
   await supabase.schema('rugby').from('players').update({ value_is_estimated: false }).eq('id', id)
   await supabase.schema('rugby').from('players').update({ value_is_admin_set: true }).eq('id', id)
+  // An admin saving a position here is now the source of truth for it —
+  // clears any "auto-filled from shirt number" tag so the page stops
+  // flagging it as needing a human check. Own isolated call: a newer,
+  // optional column, must never block the save above if it's not there yet.
+  await supabase.schema('rugby').from('players').update({ position_source: null }).eq('id', id)
   redirect('/admin/rugby/players')
 }
 
@@ -76,29 +82,65 @@ export default async function AdminRugbyPlayersPage() {
   const supabase = await createServerSupabaseClient()
   const [{ data: teams }, { data: players }] = await Promise.all([
     supabase.schema('rugby').from('teams').select('id, name').order('name') as unknown as Promise<{ data: Team[] | null }>,
-    supabase.schema('rugby').from('players').select('id, team_id, name, position, value').order('name') as unknown as Promise<{ data: Omit<RugbyPlayer, 'value_is_estimated' | 'value_is_admin_set'>[] | null }>,
+    supabase.schema('rugby').from('players').select('id, team_id, name, position, value').order('name') as unknown as Promise<{ data: Omit<RugbyPlayer, 'position_source' | 'value_is_estimated' | 'value_is_admin_set'>[] | null }>,
   ])
 
   // Their own separate queries, deliberately not bundled with the one
-  // above: both are newer, optional columns — a problem reading either
-  // must only mean that one tag/button doesn't show, never that the
-  // whole player list breaks.
+  // above: all newer, optional columns — a problem reading any one must
+  // only mean that one tag/button doesn't show, never that the whole
+  // player list breaks.
   const { data: estimatedRows } = await supabase.schema('rugby').from('players').select('id, value_is_estimated') as unknown as { data: { id: number; value_is_estimated: boolean }[] | null }
   const estimatedById = new Map((estimatedRows ?? []).map(r => [r.id, r.value_is_estimated]))
   const { data: adminSetRows } = await supabase.schema('rugby').from('players').select('id, value_is_admin_set') as unknown as { data: { id: number; value_is_admin_set: boolean }[] | null }
   const adminSetById = new Map((adminSetRows ?? []).map(r => [r.id, r.value_is_admin_set]))
+  const { data: positionSourceRows } = await supabase.schema('rugby').from('players').select('id, position_source') as unknown as { data: { id: number; position_source: string | null }[] | null }
+  const positionSourceById = new Map((positionSourceRows ?? []).map(r => [r.id, r.position_source]))
 
   const teamsList = teams ?? []
   const playersList: RugbyPlayer[] = (players ?? []).map(p => ({
     ...p,
+    position_source: positionSourceById.get(p.id) ?? null,
     value_is_estimated: estimatedById.get(p.id) ?? false,
     value_is_admin_set: adminSetById.get(p.id) ?? false,
   }))
-  const playersByTeam = new Map<number, RugbyPlayer[]>()
+  const playersByTeam = new Map<number | null, RugbyPlayer[]>()
   playersList.forEach(p => {
     if (!playersByTeam.has(p.team_id)) playersByTeam.set(p.team_id, [])
     playersByTeam.get(p.team_id)!.push(p)
   })
+
+  function renderPlayerRow(p: RugbyPlayer) {
+    return (
+      <form key={p.id} action={updatePlayer} className="flex items-center gap-2 flex-wrap text-xs bg-gray-50 border rounded px-3 py-2">
+        <input type="hidden" name="id" value={p.id} />
+        <input type="text" name="name" defaultValue={p.name} className="border rounded px-2 py-1 w-40" />
+        <select name="team_id" defaultValue={p.team_id ?? ''} className="border rounded px-2 py-1">
+          <option value="">No nation</option>
+          {teamsList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        <span className="flex items-center gap-1">
+          <select name="position" defaultValue={p.position ?? ''} className="border rounded px-2 py-1">
+            <option value="">No position</option>
+            {POSITION_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+          </select>
+          {p.position_source === 'pull' && <span className="bg-gray-200 text-gray-700 px-1 rounded font-semibold" title="Set automatically from their shirt number when this match was pulled in — not yet checked by a person.">auto</span>}
+          {p.position_source === 'backfill' && <span className="bg-purple-100 text-purple-800 px-1 rounded font-semibold" title="Filled in later by re-checking shirt numbers on already-pulled matches — not yet checked by a person.">backfilled</span>}
+        </span>
+        <span className="flex items-center gap-1">
+          £<input type="number" name="value" step="1" defaultValue={p.value ?? ''} placeholder="unset" className="border rounded px-2 py-1 w-24" />
+          {p.value_is_estimated && <span className="bg-amber-100 text-amber-800 px-1 rounded font-semibold">estimated</span>}
+          {p.value_is_admin_set && <span className="bg-blue-100 text-blue-800 px-1 rounded font-semibold">admin-set</span>}
+        </span>
+        <button type="submit" className="bg-black text-white rounded px-3 py-1 font-bold">Save</button>
+        {p.value_is_admin_set && (
+          <button type="submit" formAction={revertToAutoValue} className="text-blue-500 hover:text-blue-700 underline">
+            Revert to auto
+          </button>
+        )}
+        <button type="submit" formAction={removePlayer} className="text-red-400 hover:text-red-600 ml-auto">✕ Remove</button>
+      </form>
+    )
+  }
 
   return (
     <div>
@@ -143,34 +185,22 @@ export default async function AdminRugbyPlayersPage() {
               <div key={team.id}>
                 <h3 className="font-semibold text-sm mb-3">{team.name} ({(playersByTeam.get(team.id) ?? []).length})</h3>
                 <div className="space-y-2">
-                  {(playersByTeam.get(team.id) ?? []).map(p => (
-                    <form key={p.id} action={updatePlayer} className="flex items-center gap-2 flex-wrap text-xs bg-gray-50 border rounded px-3 py-2">
-                      <input type="hidden" name="id" value={p.id} />
-                      <input type="text" name="name" defaultValue={p.name} className="border rounded px-2 py-1 w-40" />
-                      <select name="team_id" defaultValue={p.team_id} className="border rounded px-2 py-1">
-                        {teamsList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                      </select>
-                      <select name="position" defaultValue={p.position ?? ''} className="border rounded px-2 py-1">
-                        <option value="">No position</option>
-                        {POSITION_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
-                      </select>
-                      <span className="flex items-center gap-1">
-                        £<input type="number" name="value" step="1" defaultValue={p.value ?? ''} placeholder="unset" className="border rounded px-2 py-1 w-24" />
-                        {p.value_is_estimated && <span className="bg-amber-100 text-amber-800 px-1 rounded font-semibold">estimated</span>}
-                        {p.value_is_admin_set && <span className="bg-blue-100 text-blue-800 px-1 rounded font-semibold">admin-set</span>}
-                      </span>
-                      <button type="submit" className="bg-black text-white rounded px-3 py-1 font-bold">Save</button>
-                      {p.value_is_admin_set && (
-                        <button type="submit" formAction={revertToAutoValue} className="text-blue-500 hover:text-blue-700 underline">
-                          Revert to auto
-                        </button>
-                      )}
-                      <button type="submit" formAction={removePlayer} className="text-red-400 hover:text-red-600 ml-auto">✕ Remove</button>
-                    </form>
-                  ))}
+                  {(playersByTeam.get(team.id) ?? []).map(p => renderPlayerRow(p))}
                 </div>
               </div>
             ))}
+            {(playersByTeam.get(null) ?? []).length > 0 && (
+              <div>
+                <h3 className="font-semibold text-sm mb-1">No nation set ({(playersByTeam.get(null) ?? []).length})</h3>
+                <p className="text-xs text-gray-500 mb-3">
+                  Pulled in from club/international data outside the Six Nations — not tied to one of the 6 teams,
+                  so not part of the live draft unless you assign one.
+                </p>
+                <div className="space-y-2">
+                  {(playersByTeam.get(null) ?? []).map(p => renderPlayerRow(p))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

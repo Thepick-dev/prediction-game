@@ -72,6 +72,11 @@ export async function sportsApiProQuota(apiKey: string): Promise<SportsApiQuota>
 // a Rugby Championship match. One parser for both syncs.
 export type SportsApiPlayerStatEntry = {
   player: { id: number; name: string; jerseyNumber?: string; country?: { name?: string; alpha2?: string } }
+  // The match-specific shirt number. NOT the same as player.jerseyNumber
+  // above, which is that player's stored default/profile number and can be
+  // stale or wrong (confirmed live: showed "0" for a player who actually
+  // wore 2 in this match) — always prefer this field for position inference.
+  shirtNumber?: number
   substitute: boolean
   statistics: {
     points?: number; carries?: number; cleanBreaks?: number; metersRun?: number; offloads?: number
