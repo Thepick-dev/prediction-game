@@ -297,18 +297,47 @@ export async function fetchRugbyPlayerSummaries(supabase: SupabaseClient): Promi
 // should be dynamic and linked to their average player rating."
 // ============================================================
 
-// Linear mapping from average rating (0-100, already percentile-like
-// from the rating engine) onto the £ range set when player values were
-// FIRST computed (the 196 originally-priced players spanned
-// £42,904-£1,000,000) — fixed constants, not re-derived from whatever
-// the current pool's own min/max happens to be, so a player's value
-// stays stable and comparable over time rather than every single
-// player's number shifting whenever the pool's spread changes.
+// £ range set when player values were FIRST computed (the 196
+// originally-priced players spanned £42,904-£1,000,000) — fixed
+// constants, not re-derived from whatever the current pool's own min/max
+// happens to be, so a player's value stays stable and comparable over
+// time rather than every single player's number shifting whenever the
+// pool's spread changes.
 const VALUE_RANGE_MIN = 42904
 const VALUE_RANGE_MAX = 1000000
-export function computeValueFromRating(averageRating: number): number {
-  const clamped = Math.max(0, Math.min(100, averageRating))
-  return Math.round(VALUE_RANGE_MIN + (clamped / 100) * (VALUE_RANGE_MAX - VALUE_RANGE_MIN))
+
+// Kit, 2026-09-26, after real data showed player values only spanned
+// £284k-£804k (median £516k) against a £4m/6-player squad budget — no
+// real scarcity, "just draft the best 6" was a viable strategy. The
+// cause: average_rating is an AVERAGE of many percentile-scored
+// performances, and averaging several roughly-uniform 0-100 draws
+// mathematically compresses toward the middle (regression to the mean)
+// even though any SINGLE match rating spans the full range — a straight
+// linear map from that compressed average onto the £ range inherited the
+// same compression. Fixed the same way ratings themselves already are:
+// rank against the CURRENT POOL (not the raw, compressed average), then
+// apply a deliberately steep curve to that rank before mapping onto £ —
+// guarantees real spread regardless of how compressed the underlying
+// averages are. Exponent 2.5 is Kit's confirmed "steep" choice: the very
+// best in the pool costs close to the max, a median player costs a
+// fraction of it.
+const VALUE_CURVE_EXPONENT = 2.5
+
+export function computeValueFromPercentile(percentile: number): number {
+  const clamped = Math.max(0, Math.min(1, percentile))
+  const curved = Math.pow(clamped, VALUE_CURVE_EXPONENT)
+  return Math.round(VALUE_RANGE_MIN + curved * (VALUE_RANGE_MAX - VALUE_RANGE_MIN))
+}
+
+// Same percentile method computeRatings (rugbyRating.ts) already uses:
+// count how many pool values sit strictly below this one, divide by
+// (pool size - 1) — ties share the same percentile, a lone entry reads
+// as the middle (0.5).
+function percentileRank(value: number, ascendingSortedValues: number[]): number {
+  if (ascendingSortedValues.length <= 1) return 0.5
+  let below = 0
+  for (const v of ascendingSortedValues) { if (v < value) below++; else break }
+  return below / (ascendingSortedValues.length - 1)
 }
 
 // Recomputes every non-admin-pinned player's value from their current
@@ -339,8 +368,15 @@ export async function recomputeAllRugbyPlayerValues(supabase: SupabaseClient): P
 
   const unpinned = summaries.filter(p => !adminSetById.get(p.player_id))
 
+  // Ranked against EVERY rated player, including admin-pinned ones —
+  // they're still real competition for budget purposes even though their
+  // own value stays fixed — never just the unpinned subset, which would
+  // skew percentiles if a disproportionate share of the very best happen
+  // to be pinned.
+  const allRatedValues = summaries.filter(p => p.average_rating != null).map(p => p.average_rating as number).sort((a, b) => a - b)
+
   const withRating = unpinned.filter(p => p.average_rating != null)
-  const realValueById = new Map(withRating.map(p => [p.player_id, computeValueFromRating(p.average_rating as number)]))
+  const realValueById = new Map(withRating.map(p => [p.player_id, computeValueFromPercentile(percentileRank(p.average_rating as number, allRatedValues))]))
 
   const overallMean = withRating.length
     ? Array.from(realValueById.values()).reduce((s, v) => s + v, 0) / realValueById.size

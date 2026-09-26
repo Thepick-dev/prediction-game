@@ -86,10 +86,16 @@ export default async function RugbyRulesPage() {
             naturally means fewer tackles/carries/metres to rack up.
           </p>
           <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--rugby-text-dim)' }}>
-            A player&apos;s <strong style={{ color: 'var(--rugby-text)' }}>Power Ranking</strong> (and the £ value that comes from it) blends their
-            recent games — the further back a game is, the less it counts, so current form always matters most. We call it a Power Ranking rather
-            than an average because of everything else below that shapes it — including a handicap for a short track record: one or two standout
-            games nudges the ranking up, it doesn&apos;t define it outright, until there&apos;s a real body of games behind it.
+            A player&apos;s <strong style={{ color: 'var(--rugby-text)' }}>Power Ranking</strong> blends their recent games — the further back a game
+            is, the less it counts, so current form always matters most. We call it a Power Ranking rather than an average because of everything
+            else below that shapes it — including a handicap for a short track record: one or two standout games nudges the ranking up, it
+            doesn&apos;t define it outright, until there&apos;s a real body of games behind it.
+          </p>
+          <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--rugby-text-dim)' }}>
+            <strong style={{ color: 'var(--rugby-text)' }}>£ value is deliberately steep, not a straight readout of the ranking</strong> — it&apos;s
+            based on where a player sits compared to everyone else, then that gap is stretched: the very best in the game cost close to the maximum,
+            a solidly-good player costs a lot less, and an unproven one is a bargain. That&apos;s what makes the budget a real decision rather than
+            a formality — you genuinely can&apos;t just draft the six best players in the game.
           </p>
           <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--rugby-text-dim)' }}>
             A yellow or red card meaningfully hurts a player&apos;s rating for that game — how much depends on their position, since a quiet game

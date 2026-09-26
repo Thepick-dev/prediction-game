@@ -272,15 +272,17 @@ const INTERNATIONAL_BONUS = 1.4
 // count only when their competition is flagged is_international) — Kit,
 // 2026-09-26: "you can't rely on those players to replicate their
 // existing average" until they've proven it at the top level a handful
-// of times, not just once. 0 caps stays capped hardest; 1-4 caps is
-// capped less harshly (clearly good, some proof, just not much of it);
-// 5+ caps lifts the cap entirely. Caps are only what we've actually
-// pulled — a real senior international with a gap in our specific data
-// window would currently register with fewer caps than they truly have;
-// this self-corrects as more historical data is pulled.
+// of times, not just once. 1-4 caps tightened from 80 to 70 the same
+// day, after real data showed the original 80 still left too much
+// separation from the 0-cap tier's 65 — a handful of caps shouldn't
+// nearly match a fully proven international's ceiling. 5+ caps lifts the
+// cap entirely. Caps are only what we've actually pulled — a real senior
+// international with a gap in our specific data window would currently
+// register with fewer caps than they truly have; this self-corrects as
+// more historical data is pulled.
 function ratingCapForCaps(caps: number): number {
   if (caps === 0) return 65
-  if (caps < 5) return 80
+  if (caps < 5) return 70
   return 100 // no effective cap
 }
 
