@@ -19,9 +19,16 @@ export type BuilderPlayer = {
   value: number | null
   value_is_estimated: boolean
   average_rating: number | null
+  appearances: number
 }
 
-type SortKey = 'name' | 'value' | 'average_rating'
+type SortKey = 'name' | 'value' | 'average_rating' | 'appearances'
+
+// Same forward/back distinction Player Database uses to colour the
+// position badge — Kit, 2026-09-26: "the dream team bit of the picks page
+// [should] more closely resemble the player database so people can see
+// who they are picking."
+const FORWARD_GROUPS = new Set(['Prop', 'Hooker', 'Second Row', 'Back Row'])
 
 function fmtValue(value: number | null, estimated: boolean) {
   if (value == null) return '—'
@@ -282,15 +289,16 @@ export default function RugbySquadBuilder(props: Props) {
         <div className="px-4">
         <table className="rb4-table text-xs" style={{ tableLayout: 'fixed', width: '100%' }}>
           <colgroup>
-            <col style={{ width: '46%' }} />
-            <col style={{ width: '24%' }} />
-            <col style={{ width: '15%' }} />
-            <col style={{ width: '15%' }} />
+            <col style={{ width: '38%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '13%' }} />
           </colgroup>
           <thead>
             <tr>
               {([
-                ['name', 'Player'], ['value', 'Value'], ['average_rating', 'Power'],
+                ['name', 'Player'], ['appearances', 'Apps'], ['value', 'Value'], ['average_rating', 'Power'],
               ] as [SortKey, string][]).map(([key, label]) => (
                 <th
                   key={key}
@@ -309,12 +317,21 @@ export default function RugbySquadBuilder(props: Props) {
               const action = rowAction(p)
               const isSelected = selectedSet.has(p.id)
               const dotState: 'add' | 'picked' | 'off' = isSelected ? 'picked' : action.disabled ? 'off' : 'add'
+              const isFwd = !!(p.group && FORWARD_GROUPS.has(p.group))
               return (
                 <tr key={p.id} style={{ background: isSelected ? 'rgba(255,0,255,0.06)' : undefined }}>
                   <td className="py-2 px-1" style={isSelected ? { boxShadow: 'inset 2px 0 0 var(--rb4-magenta)' } : undefined}>
                     <div style={{ color: 'var(--rb4-fg)' }}>{p.name}</div>
-                    <div style={{ color: 'var(--rb4-fg)', opacity: 0.45 }}>{p.team}{p.group ? ` · ${p.group}` : ''}</div>
+                    <div className="flex items-center gap-1 flex-wrap mt-0.5" style={{ color: 'var(--rb4-fg)', opacity: 0.6 }}>
+                      <span>{p.team}</span>
+                      {p.group && (
+                        <span className="rb4-badge" style={isFwd ? { color: 'var(--rb4-orange)', borderColor: 'var(--rb4-orange)' } : { color: 'var(--rb4-cyan)', borderColor: 'var(--rb4-cyan)' }}>
+                          {p.group}
+                        </span>
+                      )}
+                    </div>
                   </td>
+                  <td className="py-2 px-1 text-right rb4-num" style={{ color: 'var(--rb4-fg)', opacity: 0.5 }}>{p.appearances}</td>
                   <td className="py-2 px-1 text-right rb4-num" style={{ color: 'var(--rb4-fg)', opacity: 0.7 }}>{fmtValue(p.value, p.value_is_estimated)}</td>
                   <td className="py-2 px-1 text-right">
                     {p.average_rating != null ? (

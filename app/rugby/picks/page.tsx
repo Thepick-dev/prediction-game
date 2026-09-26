@@ -58,13 +58,27 @@ export default async function RugbyPicksPage() {
 
   const teamsList = teams ?? []
   const activeTeamIds = new Set(teamsList.map(t => t.id))
-  // The squad builder only ever offers players from currently-active
-  // teams — fetchRugbyPlayerSummaries covers the full historical roster
-  // (including retired/inactive squads), which matters for the Stats Hub
-  // but would let someone draft a player from a team no longer playing.
+
+  // Isolated fetch: is_draftable is a newer, optional column that (until
+  // now) nothing actually read — degrades to "everyone on an active team
+  // is draftable" (today's behaviour) if it can't be read, never breaking
+  // the picks page. Kit, 2026-09-26: one evolving admin-managed list, not
+  // a per-gameweek reset — see /admin/rugby/draftable-players.
+  let draftableById = new Map<number, boolean>()
+  try {
+    const { data: draftableRows } = await supabase.schema('rugby').from('players').select('id, is_draftable')
+    draftableById = new Map((draftableRows ?? []).map((r: { id: number; is_draftable: boolean | null }) => [r.id, r.is_draftable === true]))
+  } catch { /* column not added yet */ }
+
+  // The squad builder only ever offers players from currently-active teams
+  // AND flagged draftable by admin — fetchRugbyPlayerSummaries covers the
+  // full historical roster (including retired/inactive squads and every
+  // club/other-international player pulled in), which matters for the
+  // Stats Hub but would otherwise let someone draft an unreviewed player
+  // or one from a team no longer playing.
   const squadPlayers = playerSummaries
-    .filter(p => activeTeamIds.has(p.team_id))
-    .map(p => ({ id: p.player_id, name: p.player, team: p.team, team_id: p.team_id, group: p.group, value: p.value, value_is_estimated: p.value_is_estimated, average_rating: p.average_rating }))
+    .filter(p => activeTeamIds.has(p.team_id) && (draftableById.size === 0 || draftableById.get(p.player_id) === true))
+    .map(p => ({ id: p.player_id, name: p.player, team: p.team, team_id: p.team_id, group: p.group, value: p.value, value_is_estimated: p.value_is_estimated, average_rating: p.average_rating, appearances: p.appearances }))
   const playerById = new Map(playerSummaries.map(p => [p.player_id, p]))
 
   const roundsList = rounds ?? []

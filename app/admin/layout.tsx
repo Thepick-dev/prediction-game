@@ -162,6 +162,7 @@ export default async function AdminLayout({
                   <a href="/admin/rugby" className="block hover:text-white">Competitions</a>
                   <a href="/admin/rugby/rounds" className="block hover:text-white">Rounds &amp; Deadlines</a>
                   <a href="/admin/rugby/players" className="block hover:text-white">Players</a>
+                  <a href="/admin/rugby/draftable-players" className="block hover:text-white">Draftable Players</a>
                 </div>
               </div>
               <div>
@@ -175,6 +176,7 @@ export default async function AdminLayout({
                 <div className="space-y-1.5">
                   <a href="/admin/rugby/scoring-rules" className="block hover:text-white">Scoring Rules</a>
                   <a href="/admin/rugby/external-competitions" className="block hover:text-white">External Data</a>
+                  <a href="/admin/rugby/six-nations-recheck" className="block hover:text-white">Six Nations Recheck</a>
                 </div>
               </div>
             </div>
