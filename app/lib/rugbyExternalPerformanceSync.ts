@@ -86,13 +86,26 @@ type PlayerLookup = {
   byLowerName: Map<string, number>
 }
 
+// Confirmed live this session: the API returns the SAME real player with
+// inconsistent accents across different pulls/endpoints ("Théo Attissogbe"
+// vs "Théo Attissogbé", "Ciarán Frawley" vs "Ciaran Frawley" — 8 real
+// pairs found, all French/Irish squad members with diacritics) — a plain
+// lowercase compare treats these as different people and creates a
+// duplicate. NFD-normalizing and stripping the combining accent marks
+// before comparing collapses them to the same key; the player's real
+// name (with its correct accents) is still what gets stored/displayed —
+// this is only ever used as a matching key, never written anywhere.
+function normalizeNameForMatching(name: string): string {
+  return name.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
 async function loadPlayerLookup(supabase: SupabaseClient): Promise<PlayerLookup> {
   const { data } = await supabase.schema('rugby').from('players').select('id, name, sportsapi_player_id')
   const byApiId = new Map<number, number>()
   const byLowerName = new Map<string, number>()
   ;(data ?? []).forEach((p: { id: number; name: string; sportsapi_player_id: number | null }) => {
     if (p.sportsapi_player_id != null) byApiId.set(p.sportsapi_player_id, p.id)
-    byLowerName.set(p.name.trim().toLowerCase(), p.id)
+    byLowerName.set(normalizeNameForMatching(p.name), p.id)
   })
   return { byApiId, byLowerName }
 }
@@ -111,7 +124,7 @@ async function findOrCreatePlayer(
   // 2. Fuzzy match by name (case-insensitive) — the same player may exist
   // from the original Six Nations backfill without an sportsapi_player_id
   // yet. Backfill it now so future pulls hit the fast path above.
-  const byName = lookup.byLowerName.get(statPlayer.name.trim().toLowerCase())
+  const byName = lookup.byLowerName.get(normalizeNameForMatching(statPlayer.name))
   if (byName != null) {
     await supabase.schema('rugby').from('players').update({ sportsapi_player_id: statPlayer.id }).eq('id', byName)
     lookup.byApiId.set(statPlayer.id, byName)
@@ -143,7 +156,7 @@ async function findOrCreatePlayer(
   }).select('id').single()
   if (error || !inserted) return null
   lookup.byApiId.set(statPlayer.id, inserted.id)
-  lookup.byLowerName.set(statPlayer.name.trim().toLowerCase(), inserted.id)
+  lookup.byLowerName.set(normalizeNameForMatching(statPlayer.name), inserted.id)
   return { playerId: inserted.id, created: true }
 }
 

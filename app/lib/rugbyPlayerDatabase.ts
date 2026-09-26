@@ -226,6 +226,19 @@ export function seasonWeight(season: number, latestSeason: number): number {
   return 0.65
 }
 
+// Kit, 2026-09-26, after seeing real data: a player with only 1-3 recorded
+// appearances has no OTHER game to blend a big one with, so the
+// international-caps rating cap (rugbyRating.ts) doesn't actually stop a
+// single capped-at-80 game from becoming their ENTIRE Power Ranking —
+// producing a cluster of very-low-appearance players all tied at exactly
+// the cap value, near the top of value. This blends in
+// SAMPLE_SIZE_SHRINKAGE_GAMES worth of a neutral, average (50) performance
+// before averaging — "moderate" per Kit, treated as 4 extra games at full
+// (most-recent-season) weight. A real player with a long track record is
+// barely affected (their own weight dwarfs 4); one or two games gets
+// pulled substantially toward 50 rather than standing on its own.
+const SAMPLE_SIZE_SHRINKAGE_GAMES = 4
+
 export async function fetchRugbyPlayerSummaries(supabase: SupabaseClient): Promise<RugbyPlayerSummary[]> {
   const [performances, teams, rosterRaw] = await Promise.all([
     fetchRugbyPlayerPerformances(supabase),
@@ -260,7 +273,8 @@ export async function fetchRugbyPlayerSummaries(supabase: SupabaseClient): Promi
     const rated = perfs.filter(r => r.rating != null)
     const weightTotal = rated.reduce((sum, r) => sum + seasonWeight(r.season, latestSeason), 0)
     const averageRating = rated.length
-      ? rated.reduce((sum, r) => sum + (r.rating ?? 0) * seasonWeight(r.season, latestSeason), 0) / weightTotal
+      ? (rated.reduce((sum, r) => sum + (r.rating ?? 0) * seasonWeight(r.season, latestSeason), 0) + SAMPLE_SIZE_SHRINKAGE_GAMES * 50)
+        / (weightTotal + SAMPLE_SIZE_SHRINKAGE_GAMES)
       : null
 
     return {
