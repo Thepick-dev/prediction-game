@@ -1443,10 +1443,12 @@ thead th {
 }
 
 /* Terminal window chrome — border-2 cyan glow, a title bar with the
-   classic three coloured dots. */
+   classic three coloured dots. Chamfered corners (not skew) throughout,
+   matching the site-wide clip-path shape language. */
 .rb4-panel {
   position: relative; background: var(--rb4-card); backdrop-filter: blur(6px);
   border: 2px solid var(--rb4-border);
+  clip-path: polygon(0 12px, 12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
 }
 .rb4-panel--terminal { border-color: var(--rb4-cyan); box-shadow: 0 0 24px rgba(0,255,255,0.18); }
 .rb4-titlebar {
@@ -1460,35 +1462,34 @@ thead th {
 .rb4-button {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   font-family: var(--font-rb4-mono), monospace; font-weight: 400; text-transform: uppercase; letter-spacing: 0.08em; font-size: 14px;
-  border: 2px solid var(--rb4-magenta); border-radius: 0; cursor: pointer;
+  border: 2px solid var(--rb4-magenta); cursor: pointer;
   background: var(--rb4-magenta); color: #ffffff;
-  transform: skewX(-8deg);
-  transition: transform 150ms ease, opacity 150ms linear, box-shadow 200ms linear;
+  clip-path: polygon(0 8px, 8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  transition: opacity 150ms linear, box-shadow 200ms linear, transform 150ms ease;
 }
-.rb4-button > span { display: inline-block; transform: skewX(8deg); }
 .rb4-button:hover:not(:disabled) { box-shadow: 0 0 22px var(--rb4-magenta); opacity: 0.92; }
-.rb4-button:active:not(:disabled) { transform: skewX(-8deg) scale(0.96); }
+.rb4-button:active:not(:disabled) { transform: scale(0.96); }
 .rb4-button:disabled { opacity: 0.35; cursor: not-allowed; }
 .rb4-button--ghost { background: transparent; color: var(--rb4-fg); border-color: var(--rb4-border); }
 
-/* The pick itself — a skewed neon tube, quiet at rest (that team's own
-   colour as a thin border/text only), a full colour flood + glow the
-   instant it's picked. --team is set inline per instance. */
+/* The pick itself — quiet at rest (that team's own colour as a thin
+   border/text only), a full colour flood + glow the instant it's
+   picked. --team is set inline per instance. */
 .rb4-choice {
   font-family: var(--font-rb4-mono), monospace; text-transform: uppercase; letter-spacing: 0.05em;
-  border-radius: 0; cursor: pointer; text-align: left;
-  transform: skewX(-6deg);
+  cursor: pointer; text-align: left;
+  clip-path: polygon(0 6px, 6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
   transition: transform 150ms ease, background 150ms linear, color 150ms linear, box-shadow 200ms linear, border-color 150ms linear;
 }
-.rb4-choice > span { display: inline-block; transform: skewX(6deg); }
-.rb4-choice:active { transform: skewX(-6deg) scale(0.98); }
+.rb4-choice:active { transform: scale(0.98); }
 .rb4-choice--active { box-shadow: 0 0 22px var(--glow, var(--rb4-cyan)); }
 
 .rb4-progress-track { background: var(--rb4-border); height: 3px; }
 .rb4-progress-fill { background: linear-gradient(to right, var(--rb4-magenta), var(--rb4-cyan)); height: 100%; box-shadow: 0 0 10px var(--rb4-magenta); transition: width 0.3s linear; }
 
 .rb4-input {
-  background: #000000; color: var(--rb4-cyan); border: none; border-bottom: 2px solid var(--rb4-magenta); border-radius: 0;
+  background: #000000; color: var(--rb4-cyan); border: none; border-bottom: 2px solid var(--rb4-magenta);
+  clip-path: polygon(0 6px, 6px 0, 100% 0, 100% 100%, 0 100%);
   font-family: var(--font-rb4-mono), monospace;
 }
 .rb4-input::placeholder { color: rgba(255,0,255,0.5); }
@@ -1497,7 +1498,8 @@ thead th {
 .rb4-badge {
   display: inline-flex; align-items: center; justify-content: center;
   font-family: var(--font-rb4-mono), monospace; letter-spacing: 0.06em; text-transform: uppercase; font-size: 11px;
-  border-radius: 0; padding: 3px 10px; background: transparent; color: var(--rb4-fg); border: 1.5px solid var(--rb4-border);
+  clip-path: polygon(0 5px, 5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%);
+  padding: 3px 10px; background: transparent; color: var(--rb4-fg); border: 1.5px solid var(--rb4-border);
 }
 .rb4-badge--magenta { color: var(--rb4-magenta); border-color: var(--rb4-magenta); }
 .rb4-badge--good { color: var(--rb4-good); border-color: var(--rb4-good); }
@@ -1577,30 +1579,36 @@ thead th {
 .rb5-title {
   font-family: var(--font-rb5-display), sans-serif; font-weight: 900; text-transform: uppercase;
   letter-spacing: -0.02em; line-height: 0.95; color: var(--rb5-fg); margin: 0;
-  text-shadow: 3px 3px 0 var(--rb5-purple), 6px 6px 0 var(--rb5-magenta), 9px 9px 0 var(--rb5-cyan);
+  text-shadow: 0 0 10px rgba(0,0,0,0.5), 0 0 40px rgba(255,0,255,0.4), 0 0 70px rgba(0,212,255,0.25);
 }
 .rb5-title--gradient {
   background: linear-gradient(90deg, var(--rb5-magenta), var(--rb5-cyan), var(--rb5-yellow), var(--rb5-magenta));
   background-size: 300% 100%; animation: rb5-gradient-shift 4s ease infinite;
   -webkit-background-clip: text; background-clip: text; color: transparent;
-  text-shadow: none; filter: drop-shadow(4px 4px 0 rgba(123,47,255,0.6));
+  text-shadow: none; filter: drop-shadow(0 0 22px rgba(255,0,255,0.45));
 }
 
+/* Chamfered corners in place of pill/rounded shapes, matching the
+   clip-path treatment used site-wide (rugby-panel/rugby-badge etc). */
 .rb5-chip {
   font-family: var(--font-rb5-body), sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
-  font-size: 12px; color: #ffffff; border-radius: 999px; padding: 7px 16px;
+  font-size: 12px; color: #ffffff; padding: 7px 16px;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
 }
 
 .rb5-card {
   position: relative; background: rgba(45,27,78,0.8); backdrop-filter: blur(6px);
-  border-radius: 24px; padding: 18px 18px;
+  padding: 18px 18px;
+  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
 }
 .rb5-card--leader { padding: 22px 20px; }
 
+/* Rank badges stay circular — chamfering a circle reads as a mistake,
+   not a style, same reasoning as rugby-ball-icon/rugby-vs-badge. */
 .rb5-rank {
   font-family: var(--font-rb5-display), sans-serif; font-weight: 900; font-size: 20px; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 38px; height: 38px; border-radius: 999px; flex-shrink: 0;
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
   background: var(--rb5-muted); color: var(--rb5-fg); border: 3px solid var(--rb5-fg);
 }
 .rb5-rank--leader {
@@ -1615,7 +1623,8 @@ thead th {
 .rb5-pill {
   display: inline-flex; align-items: center; justify-content: center;
   font-family: var(--font-rb5-body), sans-serif; font-weight: 700; font-size: 11px; font-variant-numeric: tabular-nums;
-  min-width: 30px; padding: 4px 6px; border-radius: 8px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85);
+  min-width: 30px; padding: 4px 6px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
 }
 
 .rb5-float { animation: rb5-float 6s ease-in-out infinite; }

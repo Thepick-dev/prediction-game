@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createServerSupabaseClient } from '../../lib/supabase-server'
 import RugbyFixtureCard from '../../../components/RugbyFixtureCard'
 import RugbyResultCard from '../../../components/RugbyResultCard'
@@ -267,9 +268,18 @@ export default async function RugbyResultsPage({
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6">
-      {isPreview && (
+      {isPreview ? (
         <div className="rugby-panel p-3 mb-4 text-center" style={{ borderColor: '#e8574a', color: '#e8574a' }}>
           <strong>PREVIEW — not real data.</strong> Every score, pick and player below is made up, for layout review only.
+          <div className="mt-1">
+            <Link href="/rugby/results" className="underline">← Back to the real Results page</Link>
+          </div>
+        </div>
+      ) : (
+        <div className="rugby-panel p-3 mb-4 text-center">
+          <Link href="/rugby/results?preview=1" className="underline" style={{ color: 'var(--rugby-floodlight-2)' }}>
+            See what this page looks like once results start coming in (sample data) →
+          </Link>
         </div>
       )}
       <div className="rugby-hero-wrap">

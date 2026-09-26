@@ -13,9 +13,12 @@ type Round = { id: string; number: number }
 type SquadPointsRow = { user_id: string; round_id: string; total_points: number }
 type MatchPointsRow = { user_id: string; round_id: string; total_points: number }
 
-// The five clashing Maximalism accents — repeated elements (cards,
-// chips) rotate through these systematically via index % 5.
-const ACCENTS = ['#FF3AF2', '#00F5D4', '#FFE600', '#FF6B35', '#7B2FFF']
+// Repeated elements (cards, chips) rotate through these systematically
+// via index % 5 — realigned to the site-wide cyberpunk neon trio
+// (magenta/cyan/green) plus two tasteful secondary neons, so the
+// leaderboard reads as festive but part of the same palette as every
+// other rugby page, not a separate clashing "party" identity.
+const ACCENTS = ['#ff00ff', '#00d4ff', '#00ff88', '#ffe600', '#7b2fff']
 
 export default async function RugbyLeaderboardPage() {
   const supabase = await createServerSupabaseClient()
@@ -121,10 +124,6 @@ export default async function RugbyLeaderboardPage() {
   return (
     <div className="rb5-page">
       <div className="rb5-mesh" />
-      <div className="rb5-bg-word" aria-hidden="true">RUGBY</div>
-      <span className="rb5-float" aria-hidden="true" style={{ position: 'absolute', top: 18, right: 24, fontSize: 36, zIndex: 1 }}>🏆</span>
-      <span className="rb5-wiggle" aria-hidden="true" style={{ position: 'absolute', top: 90, left: 10, fontSize: 26, zIndex: 1 }}>⚡</span>
-      <span className="rb5-float" aria-hidden="true" style={{ position: 'absolute', top: 10, left: '38%', fontSize: 22, zIndex: 1, animationDelay: '1.2s' }}>✨</span>
 
       <div className="relative" style={{ zIndex: 2 }}>
         <p className="rb5-eyebrow mb-2">{competition.name} 🔥 Leaderboard</p>
@@ -135,7 +134,7 @@ export default async function RugbyLeaderboardPage() {
             <span
               key={name}
               className="rb5-chip"
-              style={{ background: colour, border: `3px solid ${ACCENTS[i % ACCENTS.length]}`, transform: `rotate(${i % 2 === 0 ? '-1.5' : '1.5'}deg)` }}
+              style={{ background: colour, border: `3px solid ${ACCENTS[i % ACCENTS.length]}` }}
             >
               {name}
             </span>
@@ -150,7 +149,6 @@ export default async function RugbyLeaderboardPage() {
               const kit = kitById.get(row.userId)
               const border = ACCENTS[i % ACCENTS.length]
               const shadow = ACCENTS[(i + 1) % ACCENTS.length]
-              const rotate = i % 2 === 0 ? '-0.6deg' : '0.6deg'
               const isLeader = i === 0
 
               const cardInner = (
@@ -180,27 +178,33 @@ export default async function RugbyLeaderboardPage() {
                     {roundsList.map(r => {
                       const pts = row.perRound.get(r.id)
                       return (
-                        <span key={r.id} className="rb5-pill" style={pts != null && pts < 0 ? { color: '#FF6B35' } : undefined}>
+                        <span key={r.id} className="rb5-pill" style={pts != null && pts < 0 ? { color: '#ff3366' } : undefined}>
                           R{r.number}: {pts != null ? pts : '—'}
                         </span>
                       )
                     })}
-                    <span className="rb5-pill" style={{ background: 'rgba(0,245,212,0.12)', color: '#00F5D4' }}>Dream Team: {row.squad}</span>
-                    <span className="rb5-pill" style={{ background: 'rgba(255,58,242,0.12)', color: '#FF3AF2' }}>Matches: {row.match}</span>
+                    <span className="rb5-pill" style={{ background: 'rgba(0,212,255,0.12)', color: '#00d4ff' }}>Dream Team: {row.squad}</span>
+                    <span className="rb5-pill" style={{ background: 'rgba(255,0,255,0.12)', color: '#ff00ff' }}>Matches: {row.match}</span>
                   </div>
                 </>
               )
 
               return (
-                <div key={row.userId} style={{ transform: `rotate(${rotate})` }}>
+                <div key={row.userId}>
                   {isLeader ? (
-                    <div style={{ padding: 4, borderRadius: 28, background: 'linear-gradient(135deg, #FFE600, #FF3AF2, #00F5D4)' }} className="rb5-float">
-                      <div className="rb5-card rb5-card--leader" style={{ borderRadius: 24 }}>
+                    <div
+                      style={{
+                        padding: 4,
+                        background: 'linear-gradient(135deg, #ffe600, #ff00ff, #00d4ff)',
+                        clipPath: 'polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px)',
+                      }}
+                    >
+                      <div className="rb5-card rb5-card--leader">
                         {cardInner}
                       </div>
                     </div>
                   ) : (
-                    <div className="rb5-card" style={{ border: `4px solid ${border}`, boxShadow: `8px 8px 0 ${shadow}` }}>
+                    <div className="rb5-card" style={{ border: `2px solid ${border}`, boxShadow: `0 0 22px ${shadow}55` }}>
                       {cardInner}
                     </div>
                   )}

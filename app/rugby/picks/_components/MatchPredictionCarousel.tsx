@@ -15,7 +15,7 @@ export type MatchRowState = {
 // cyan (the system's own interactive accent), "no" floods a quiet
 // muted purple so it still confirms the pick without reading as an
 // alarm.
-const YES_GLOW = '#00ffff'
+const YES_GLOW = '#00d4ff'
 const NO_GLOW = '#5b4a86'
 
 // One question at a time, sliding through every fixture in the round.
@@ -117,8 +117,8 @@ export default function MatchPredictionCarousel({
     <div className="rb4-panel rb4-panel--terminal">
       <div className="rb4-titlebar">
         <span className="rb4-dot" style={{ background: '#ff00ff' }} />
-        <span className="rb4-dot" style={{ background: '#00ffff' }} />
-        <span className="rb4-dot" style={{ background: '#ff9900' }} />
+        <span className="rb4-dot" style={{ background: '#00d4ff' }} />
+        <span className="rb4-dot" style={{ background: '#00ff88' }} />
         <span style={{ marginLeft: 6 }}>MATCH_{String(step.fixtureIndex + 1).padStart(2, '0')}.EXE</span>
       </div>
 

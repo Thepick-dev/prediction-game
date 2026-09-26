@@ -72,7 +72,7 @@ export const RUGBY_TEAM_COLOURS_RB3: Record<string, { fill: string; text: string
   Italy: { fill: '#2BC4C4', text: '#0A0B0D' },
 }
 export const DEFAULT_TEAM_COLOURS_RB3 = { fill: '#3a3d44', text: '#f2f0ea' }
-export const DRAW_COLOURS_RB3 = { fill: '#e8a94c', text: '#0a0b0d' }
+export const DRAW_COLOURS_RB3 = { fill: '#00d4ff', text: '#0a0b0d' }
 
 export function rugbyTeamColoursRb3(name: string): { fill: string; text: string } {
   return RUGBY_TEAM_COLOURS_RB3[name] ?? DEFAULT_TEAM_COLOURS_RB3

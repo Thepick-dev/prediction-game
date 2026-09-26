@@ -176,8 +176,8 @@ export default function RugbyPicksForm({
         <div className="rb4-panel rb4-panel--terminal" ref={squadSectionRef}>
           <div className="rb4-titlebar">
             <span className="rb4-dot" style={{ background: '#ff00ff' }} />
-            <span className="rb4-dot" style={{ background: '#00ffff' }} />
-            <span className="rb4-dot" style={{ background: '#ff9900' }} />
+            <span className="rb4-dot" style={{ background: '#00d4ff' }} />
+            <span className="rb4-dot" style={{ background: '#00ff88' }} />
             <span style={{ marginLeft: 6 }}>DREAM_TEAM.EXE</span>
           </div>
           <div className="p-6">

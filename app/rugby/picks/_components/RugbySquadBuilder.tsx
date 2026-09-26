@@ -282,8 +282,8 @@ export default function RugbySquadBuilder(props: Props) {
       <div className="rb4-panel rb4-panel--terminal">
         <div className="rb4-titlebar">
           <span className="rb4-dot" style={{ background: '#ff00ff' }} />
-          <span className="rb4-dot" style={{ background: '#00ffff' }} />
-          <span className="rb4-dot" style={{ background: '#ff9900' }} />
+          <span className="rb4-dot" style={{ background: '#00d4ff' }} />
+          <span className="rb4-dot" style={{ background: '#00ff88' }} />
           <span style={{ marginLeft: 6 }}>PLAYERS.DB</span>
         </div>
         <div className="px-4">
