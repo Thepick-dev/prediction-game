@@ -77,15 +77,18 @@ export default async function RugbyRulesPage() {
         </section>
 
         <section className="rugby-panel p-5">
-          <h2 className="rugby-cond text-sm mb-2 uppercase tracking-wide">How Player Ratings Work</h2>
+          <h2 className="rugby-cond text-sm mb-2 uppercase tracking-wide">How the Power Ranking Works</h2>
           <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--rugby-text-dim)' }}>
             A rating out of 100 isn&apos;t a fixed mark — it&apos;s <strong style={{ color: 'var(--rugby-text)' }}>how that game compared to every other
             performance we&apos;ve recorded at the same position</strong>. 50 means a typical game for that position; 90+ means one of the best anyone in
-            that position has had. A prop and a winger are never compared to each other directly — only to other props, or other wingers.
+            that position has had. A prop and a winger are never compared to each other directly — only to other props, or other wingers. A
+            substitute&apos;s performance is compared to other substitutes, not to someone who played the full 80 minutes, since fewer minutes
+            naturally means fewer tackles/carries/metres to rack up.
           </p>
           <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--rugby-text-dim)' }}>
-            A player&apos;s overall rating (and the £ value that comes from it) blends their recent games — the further back a game is, the less it
-            counts, so current form always matters most.
+            A player&apos;s <strong style={{ color: 'var(--rugby-text)' }}>Power Ranking</strong> (and the £ value that comes from it) blends their
+            recent games — the further back a game is, the less it counts, so current form always matters most. We call it a Power Ranking rather
+            than an average because of everything else below that shapes it.
           </p>
           <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--rugby-text-dim)' }}>
             A yellow or red card meaningfully hurts a player&apos;s rating for that game — how much depends on their position, since a quiet game
@@ -93,8 +96,10 @@ export default async function RugbyRulesPage() {
           </p>
           <p className="text-sm leading-relaxed" style={{ color: 'var(--rugby-text-dim)' }}>
             We also pull in performances from outside the Six Nations — players&apos; club form, and other international rugby — to build a fuller
-            picture. International rugby is tougher than club rugby, so it counts for more; and a player who&apos;s never played international rugby
-            has their rating held below the very top, however good their club form looks, until they get the chance to prove it at that level.
+            picture. International rugby is tougher than club rugby, so it counts for more. And since you can&apos;t fully rely on someone to repeat
+            club form at Test level until they&apos;ve actually done it: a player with no real international caps has their rating held well below
+            the top regardless of club form, one with only a handful of caps is held a little below the top, and the ceiling lifts entirely once
+            they&apos;ve got a genuine run of international appearances behind them.
           </p>
         </section>
 
@@ -112,6 +117,49 @@ export default async function RugbyRulesPage() {
             fewer than <strong style={{ color: 'var(--rugby-text)' }}>{rules.match_underdog_threshold_pct}%</strong> of players picked the winning side you
             backed, your points for that match are multiplied by <strong style={{ color: 'var(--rugby-text)' }}>{rules.match_underdog_multiplier}x</strong>.
           </p>
+        </section>
+
+        <section className="rugby-panel p-5">
+          <h2 className="rugby-cond text-sm mb-3 uppercase tracking-wide">Picking a Good Dream Team Squad</h2>
+          <ul className="text-sm leading-relaxed space-y-2.5" style={{ color: 'var(--rugby-text-dim)' }}>
+            <li>
+              <strong style={{ color: 'var(--rugby-text)' }}>Your total is a sum, not a top score.</strong> All six players&apos; ratings get added
+              together, so one big star can&apos;t carry five weak links. Spreading your budget across six genuinely solid picks beats blowing it on
+              two superstars and filling the rest with the cheapest names available.
+            </li>
+            <li>
+              <strong style={{ color: 'var(--rugby-text)' }}>Proven internationals have no ceiling — fringe players do.</strong> Someone with a
+              real run of caps behind them can rate as high as their game deserves. Someone uncapped or barely-capped is cheaper for a reason:
+              however well they play, their rating&apos;s held back until they&apos;ve proven it at Test level. A promising rookie is a lower-floor,
+              lower-ceiling pick, not a hidden bargain.
+            </li>
+            <li>
+              <strong style={{ color: 'var(--rugby-text)' }}>Form is current, not permanent.</strong> Recent games count for more than old ones, so
+              a slow start doesn&apos;t define a player all tournament, and someone hitting form right now shows it in their rating quickly. Worth
+              checking who&apos;s trending up before a deadline, not just who&apos;s cheap.
+            </li>
+            <li>
+              <strong style={{ color: 'var(--rugby-text)' }}>Different positions score differently.</strong> Wingers and full-backs live and die on
+              tries and breaks — high ceiling, less consistent. Front-row forwards score more off sheer workrate and their team&apos;s set-piece — a
+              steadier floor, rarely a huge round. A squad of six boom-or-bust backs is a riskier bet than mixing in a couple of reliable forwards.
+            </li>
+            <li>
+              <strong style={{ color: 'var(--rugby-text)' }}>The team matters too, not just the player.</strong> A win nudges every one of that
+              team&apos;s players&apos; ratings up a little; a loss nudges them down. For forwards specifically, their own team&apos;s scrum and
+              lineout performance that match feeds into their rating as well. A strong side having a good day lifts everyone in it slightly.
+            </li>
+            <li>
+              <strong style={{ color: 'var(--rugby-text)' }}>Being different from the crowd pays off.</strong> If fewer than{' '}
+              {rules.player_ownership_threshold_pct}% of managers also own a player you pick, their rating points are worth{' '}
+              {rules.player_ownership_multiplier}x that round. Two similarly-good players aren&apos;t equal picks if one&apos;s owned by everyone
+              and the other isn&apos;t.
+            </li>
+            <li>
+              <strong style={{ color: 'var(--rugby-text)' }}>Save your free substitutions.</strong> You only get {rules.max_free_subs} for the
+              whole competition. Chasing this week&apos;s form with a swap feels good, but an injury or a rough run of fixtures later in the
+              tournament is when a free sub is worth the most.
+            </li>
+          </ul>
         </section>
 
         <p className="text-xs text-center" style={{ color: 'var(--rugby-text-faint)' }}>

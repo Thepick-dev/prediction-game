@@ -252,7 +252,7 @@ export default function RugbySquadBuilder(props: Props) {
           <thead>
             <tr>
               {([
-                ['name', 'Player'], ['value', 'Value'], ['average_rating', 'Avg'],
+                ['name', 'Player'], ['value', 'Value'], ['average_rating', 'Power'],
               ] as [SortKey, string][]).map(([key, label]) => (
                 <th
                   key={key}

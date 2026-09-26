@@ -2,7 +2,7 @@ import { createServerSupabaseClient } from '../../../lib/supabase-server'
 import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { requireAdmin } from '../../../lib/require-admin'
 import { redirect } from 'next/navigation'
-import { pullNextBatch, pullNextPaginatedBatch, isSixNationsSeniorMatch, checkQuota, backfillMissingPositions, type ExternalCompetition } from '../../../lib/rugbyExternalPerformanceSync'
+import { pullNextBatch, pullNextPaginatedBatch, isSixNationsSeniorMatch, checkQuota, backfillMissingPositions, backfillNationalityFromInternationalAppearances, type ExternalCompetition } from '../../../lib/rugbyExternalPerformanceSync'
 
 // Int. Friendly Games (SportsAPI Pro tournament 876) is a single global
 // feed of every nation's friendlies — Kit only wants the 6 Six Nations
@@ -53,6 +53,14 @@ async function pullCompetition(formData: FormData) {
     const summary = competition.pull_mode === 'pages'
       ? await pullNextPaginatedBatch(supabase, competition, apiKey, budget, isFriendlies ? isSixNationsSeniorMatch : undefined, isFriendlies ? FRIENDLIES_MIN_YEAR : undefined)
       : await pullNextBatch(supabase, competition, apiKey, budget)
+
+    // Kit, 2026-09-26: extrapolate nationality (and, where relevant,
+    // team_id) from repeated international appearances before recomputing
+    // ratings/values, so a newly-resolved nationality's international-caps
+    // count is correct the very same pull, not a run behind.
+    if (summary.playerRowsStored > 0) {
+      await backfillNationalityFromInternationalAppearances(supabase)
+    }
 
     // Kit, 2026-09-25: ratings and values must update automatically as
     // part of every pull, never a separate manual step.

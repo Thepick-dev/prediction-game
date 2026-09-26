@@ -148,7 +148,7 @@ export default function PlayerDatabaseTab({ players }: { players: RugbyPlayerSum
         </div>
         <div className="rugby-panel px-4 py-2 text-center flex-1" style={{ minWidth: 110 }}>
           <div className="rugby-display text-xl">{fmt1(avgRating)}</div>
-          <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Avg rating</div>
+          <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--rugby-text-faint)' }}>Avg Power Ranking</div>
         </div>
       </div>
 
@@ -180,7 +180,7 @@ export default function PlayerDatabaseTab({ players }: { players: RugbyPlayerSum
             <tr style={{ borderBottom: '2px solid var(--rugby-line)' }}>
               {([
                 ['player', 'Player'], ['team', 'Country'], ['group', 'Position'],
-                ['appearances', 'Apps'], ['value', 'Value'], ['average_rating', 'Avg Rating'],
+                ['appearances', 'Apps'], ['value', 'Value'], ['average_rating', 'Power Ranking'],
               ] as [SortKey, string][]).map(([key, label]) => (
                 <th
                   key={key}

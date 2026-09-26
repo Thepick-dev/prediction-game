@@ -545,3 +545,56 @@ export async function backfillMissingPositions(
   }
   return summary
 }
+
+export type NationalityBackfillSummary = { playersUpdated: number }
+
+// Some players get created without a nationality at all (the API returns
+// an empty country object for them) — Kit, 2026-09-26: "where a player
+// doesn't have a nationality can you extrapolate this where they've been
+// involved in more than 1 international match?" A player's team_name in
+// an international-flagged performance IS their nation, so 2+ consistent
+// appearances for the same one is a safe signal (a single appearance
+// isn't — could be a one-off data quirk). Also backfills team_id when
+// that nation turns out to be one of the 6 and team_id is still null,
+// same as if we'd known their nationality at creation time.
+export async function backfillNationalityFromInternationalAppearances(supabase: SupabaseClient): Promise<NationalityBackfillSummary> {
+  const { data: nullNatPlayers } = await supabase.schema('rugby').from('players')
+    .select('id, team_id').is('nationality', null)
+  if (!nullNatPlayers || nullNatPlayers.length === 0) return { playersUpdated: 0 }
+
+  const { data: comps } = await supabase.schema('rugby').from('external_competitions').select('id, is_international')
+  const intlCompIds = new Set((comps ?? []).filter((c: { is_international: boolean }) => c.is_international).map((c: { id: number }) => c.id))
+  if (intlCompIds.size === 0) return { playersUpdated: 0 }
+
+  const { data: teams } = await supabase.schema('rugby').from('teams').select('id, name')
+  const teamIdByName = new Map((teams ?? []).map((t: { id: number; name: string }) => [t.name, t.id]))
+
+  const { data: perfs } = await supabase.schema('rugby').from('player_performances')
+    .select('player_id, team_name, external_competition_id')
+  const namesByPlayer = new Map<number, string[]>()
+  ;(perfs ?? []).forEach((p: { player_id: number; team_name: string; external_competition_id: number }) => {
+    if (!intlCompIds.has(p.external_competition_id)) return
+    if (!namesByPlayer.has(p.player_id)) namesByPlayer.set(p.player_id, [])
+    namesByPlayer.get(p.player_id)!.push(p.team_name)
+  })
+
+  let playersUpdated = 0
+  for (const p of nullNatPlayers as { id: number; team_id: number | null }[]) {
+    const names = namesByPlayer.get(p.id) ?? []
+    if (names.length < 2) continue
+    const counts = new Map<string, number>()
+    names.forEach(n => counts.set(n, (counts.get(n) ?? 0) + 1))
+    const [topName, topCount] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]
+    if (topCount < 2) continue
+
+    const update: { nationality: string; team_id?: number } = { nationality: topName }
+    if (p.team_id == null) {
+      const sixNationsName = SIX_NATIONS_BY_NAME[topName.trim().toLowerCase()]
+      const teamId = sixNationsName ? teamIdByName.get(sixNationsName) : undefined
+      if (teamId != null) update.team_id = teamId
+    }
+    const { error } = await supabase.schema('rugby').from('players').update(update).eq('id', p.id)
+    if (!error) playersUpdated++
+  }
+  return { playersUpdated }
+}

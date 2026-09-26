@@ -179,7 +179,13 @@ export function computeRawScore(stats: RugbyMatchStatLine, group: RugbyPositionG
   return Math.round(raw * 100) / 100
 }
 
-export type RatingPoolEntry = { id: string; group: RugbyPositionGroup; rawScore: number }
+// group is a plain RugbyPositionGroup for almost every entry — widened to
+// string so external (player_performances) substitute entries can use a
+// compound key ("Wing::sub") to rank against OTHER subs at that position
+// rather than full-match starters (see recomputeAllRugbyRatings) without
+// computeRatings itself needing to know anything special; it only ever
+// treats this as an opaque grouping key.
+export type RatingPoolEntry = { id: string; group: string; rawScore: number }
 
 // Ranks every entry against every OTHER entry in the same group — the
 // "ever-growing historical pool" that establishes what an average/good/bad
@@ -246,6 +252,7 @@ type ExternalPerformanceRow = {
   yellow_card: number; red_card: number; try_assists: number; clean_breaks: number
   offloads: number; meters_run: number; passes: number; tackles: number; tackles_missed: number
   match_result: MatchResult | null
+  is_substitute: boolean | null
 }
 
 // Kit, 2026-09-26, after seeing real data confirm club performances
@@ -260,11 +267,22 @@ type ExternalPerformanceRow = {
 // is_international — a newer, optional column, degrades to "nothing is
 // international" if missing rather than breaking the whole recompute).
 const INTERNATIONAL_BONUS = 1.4
-// A player with zero real international appearances anywhere has their
-// rating capped, however good their club form — "clearly good, not yet
-// proven at the top," not literally the best in the pool. Lifts
-// entirely the moment they have one real international performance.
-const CLUB_ONLY_RATING_CAP = 75
+// Graduated by how many international appearances a player actually has
+// in our data (Six Nations fixtures always count; external performances
+// count only when their competition is flagged is_international) — Kit,
+// 2026-09-26: "you can't rely on those players to replicate their
+// existing average" until they've proven it at the top level a handful
+// of times, not just once. 0 caps stays capped hardest; 1-4 caps is
+// capped less harshly (clearly good, some proof, just not much of it);
+// 5+ caps lifts the cap entirely. Caps are only what we've actually
+// pulled — a real senior international with a gap in our specific data
+// window would currently register with fewer caps than they truly have;
+// this self-corrects as more historical data is pulled.
+function ratingCapForCaps(caps: number): number {
+  if (caps === 0) return 65
+  if (caps < 5) return 80
+  return 100 // no effective cap
+}
 
 export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promise<{ success: true; rows: number } | { error: string }> {
   const [statsRows, players, matchEvents, teamStatsRows, fixtures, externalPerformances] = await Promise.all([
@@ -290,7 +308,7 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
     // performances sit out of this recompute, never that fixture-based
     // ratings (the live game) stop working.
     fetchAllRows<ExternalPerformanceRow>(
-      () => supabase.schema('rugby').from('player_performances').select('id, player_id, external_competition_id, tries, conversions, penalty_goals, drop_goals, yellow_card, red_card, try_assists, clean_breaks, offloads, meters_run, passes, tackles, tackles_missed, match_result')
+      () => supabase.schema('rugby').from('player_performances').select('id, player_id, external_competition_id, tries, conversions, penalty_goals, drop_goals, yellow_card, red_card, try_assists, clean_breaks, offloads, meters_run, passes, tackles, tackles_missed, match_result, is_substitute')
     ).catch(() => [] as ExternalPerformanceRow[]),
   ])
 
@@ -338,14 +356,17 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
   const pool: RatingPoolEntry[] = []
   const rawByEntryId = new Map<string, { fixture_id: number; player_id: number; group: RugbyPositionGroup }>()
   const entryPlayerId = new Map<string, number>()
-  const hasInternationalByPlayerId = new Set<number>()
+  const internationalCapsByPlayerId = new Map<number, number>()
+  function addCap(playerId: number) {
+    internationalCapsByPlayerId.set(playerId, (internationalCapsByPlayerId.get(playerId) ?? 0) + 1)
+  }
 
-  // Six Nations fixtures are always international — recorded up front so
-  // the club-only cap below never wrongly applies to a live-game player,
-  // regardless of the order pool entries happen to build in.
-  statsRows.forEach(s => hasInternationalByPlayerId.add(s.player_id))
+  // Six Nations fixtures are always international — counted up front so
+  // the graduated cap below sees every real cap regardless of the order
+  // pool entries happen to build in.
+  statsRows.forEach(s => addCap(s.player_id))
   externalPerformances.forEach(p => {
-    if (isInternationalByExtCompId.get(p.external_competition_id)) hasInternationalByPlayerId.add(p.player_id)
+    if (isInternationalByExtCompId.get(p.external_competition_id)) addCap(p.player_id)
   })
 
   statsRows.forEach(s => {
@@ -394,7 +415,16 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
     const isInternational = isInternationalByExtCompId.get(p.external_competition_id)
     const bonus = isInternational ? INTERNATIONAL_BONUS : 1
     const rawScore = computeRawScore(statLine, group, undefined, p.match_result ?? undefined) * bonus
-    pool.push({ id, group, rawScore })
+    // Kit, 2026-09-26: confirmed live that substitutes score ~20-30 points
+    // lower than starters at EVERY position (not just backs) — not a real
+    // quality gap, just fewer minutes to rack up counting stats, with no
+    // minutes-played field available to normalize by instead. Ranking a
+    // sub's performance against ONLY other subs at that position (rather
+    // than full-match starters) fixes the comparison itself. Fixture-based
+    // (Six Nations) entries have no is_substitute data at all, so they
+    // stay in the plain, ungrouped position pool as before.
+    const poolGroup = p.is_substitute ? `${group}::sub` : group
+    pool.push({ id, group: poolGroup, rawScore })
     entryPlayerId.set(id, p.player_id)
   })
 
@@ -406,8 +436,10 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
   // was worse than it was.
   pool.forEach(e => {
     const playerId = entryPlayerId.get(e.id)
-    if (playerId != null && !hasInternationalByPlayerId.has(playerId)) {
-      const capped = Math.min(ratings.get(e.id) ?? 50, CLUB_ONLY_RATING_CAP)
+    if (playerId == null) return
+    const cap = ratingCapForCaps(internationalCapsByPlayerId.get(playerId) ?? 0)
+    if (cap < 100) {
+      const capped = Math.min(ratings.get(e.id) ?? 50, cap)
       ratings.set(e.id, capped)
     }
   })
