@@ -2,7 +2,14 @@ import { createServerSupabaseClient } from '../../../lib/supabase-server'
 import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { requireAdmin } from '../../../lib/require-admin'
 import { redirect } from 'next/navigation'
-import { pullNextBatch, checkQuota, backfillMissingPositions, type ExternalCompetition } from '../../../lib/rugbyExternalPerformanceSync'
+import { pullNextBatch, pullNextPaginatedBatch, isSixNationsSeniorMatch, checkQuota, backfillMissingPositions, type ExternalCompetition } from '../../../lib/rugbyExternalPerformanceSync'
+
+// Int. Friendly Games (SportsAPI Pro tournament 876) is a single global
+// feed of every nation's friendlies — Kit only wants the 6 Six Nations
+// senior sides' games out of it, so this one competition gets the name
+// filter; every other paginated competition (e.g. Nations Championship,
+// where every team in it is relevant) gets none.
+const INT_FRIENDLY_GAMES_TOURNAMENT_ID = 876
 import { recomputeAllRugbyRatings } from '../../../lib/rugbyRating'
 import { recomputeAllRugbyPlayerValues } from '../../../lib/rugbyPlayerDatabase'
 
@@ -38,7 +45,10 @@ async function pullCompetition(formData: FormData) {
     const quota = await checkQuota(apiKey)
     const budget = Math.max(0, Math.min(quota.remaining - 10, SAFE_DAILY_BUDGET))
 
-    const summary = await pullNextBatch(supabase, comp as ExternalCompetition, apiKey, budget)
+    const competition = comp as ExternalCompetition
+    const summary = competition.pull_mode === 'pages'
+      ? await pullNextPaginatedBatch(supabase, competition, apiKey, budget, competition.sportsapi_tournament_id === INT_FRIENDLY_GAMES_TOURNAMENT_ID ? isSixNationsSeniorMatch : undefined)
+      : await pullNextBatch(supabase, competition, apiKey, budget)
 
     // Kit, 2026-09-25: ratings and values must update automatically as
     // part of every pull, never a separate manual step.
@@ -117,7 +127,7 @@ export default async function ExternalCompetitionsPage() {
               <div>
                 <div className="font-bold">{c.name}</div>
                 <div className="text-xs text-gray-500">
-                  {c.fully_pulled ? 'Fully pulled' : `Up to round ${c.last_pulled_round}`}
+                  {c.fully_pulled ? 'Fully pulled' : c.pull_mode === 'pages' ? `Up to page ${c.last_pulled_round}` : `Up to round ${c.last_pulled_round}`}
                   {' · '}{c.is_actively_pulling ? 'Actively pulling' : 'Paused'}
                   {c.last_pull_at && <span> · last ran {new Date(c.last_pull_at).toLocaleString('en-GB')}</span>}
                 </div>

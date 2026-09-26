@@ -37,7 +37,7 @@ describe('computeRawScore', () => {
 
   it('gives Prop/Hooker the highest tackle weight of any group', () => {
     const tackling = stats({ tackles: 10 })
-    expect(computeRawScore(tackling, 'Prop')).toBe(3.5) // 10 * 0.35
+    expect(computeRawScore(tackling, 'Prop')).toBe(5.25) // 10 * 0.525
     expect(computeRawScore(tackling, 'Wing')).toBe(2) // 10 * 0.2
   })
 

@@ -60,10 +60,19 @@ type WeightSet = {
 // ≈ -1.0x, red ≈ -2.0x that position's real median raw score, measured
 // against the live pool this session (before this fix). Same principle,
 // same real-data-calibration discipline as the pack bonus above.
+// Forward tackle weight (both made and missed) raised ×1.5 here — found
+// this session (Kit, 2026-09-26: a 12-tackle/1-missed Itoje performance
+// still rated 5.5) that an individually excellent tackling shift could be
+// swamped by the team-wide pack score below (see PACK_SCALE) whenever the
+// team had a bad set-piece/discipline day, even though the two are largely
+// independent facts about the match. Raising tackle credit AND trimming
+// PACK_SCALE together (tested against real matches before shipping) lets
+// personal defensive work count for more without erasing the team pack's
+// own real value.
 const WEIGHTS: Record<string, WeightSet> = {
-  PropHooker: { try: 10, try_assist: 3, clean_break: 3, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.35, tackle_missed: -0.6, yellow: -2.6, red: -5.2 },
-  SecondRow: { try: 10, try_assist: 3, clean_break: 2.5, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.3, tackle_missed: -0.6, yellow: -3.2, red: -6.3 },
-  BackRow: { try: 10, try_assist: 3, clean_break: 2, offload: 1, meters: 0.06, passes: 0, tackle: 0.25, tackle_missed: -0.5, yellow: -4.3, red: -8.6 },
+  PropHooker: { try: 10, try_assist: 3, clean_break: 3, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.525, tackle_missed: -0.9, yellow: -2.6, red: -5.2 },
+  SecondRow: { try: 10, try_assist: 3, clean_break: 2.5, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.45, tackle_missed: -0.9, yellow: -3.2, red: -6.3 },
+  BackRow: { try: 10, try_assist: 3, clean_break: 2, offload: 1, meters: 0.06, passes: 0, tackle: 0.375, tackle_missed: -0.75, yellow: -4.3, red: -8.6 },
   ScrumHalf: { try: 10, try_assist: 4, clean_break: 2, offload: 1, meters: 0.05, passes: 0.03, tackle: 0.25, tackle_missed: -0.5, yellow: -1.9, red: -3.8 },
   FlyHalf: { try: 10, try_assist: 4, clean_break: 2, offload: 1.5, meters: 0.06, passes: 0.02, tackle: 0.2, tackle_missed: -0.5, yellow: -6.0, red: -12.0 },
   Centre: { try: 10, try_assist: 3, clean_break: 2.5, offload: 1.5, meters: 0.06, passes: 0, tackle: 0.25, tackle_missed: -0.5, yellow: -4.6, red: -9.2 },
@@ -100,13 +109,17 @@ const KICKING_WEIGHT = { conversion: 1.5, penalty: 2, dropgoal: 3.5 }
 //
 // Mean/stdev below are calibrated against the real 45-match 2024-2026
 // Six Nations pool (90 team-match observations) pulled from SportsAPI Pro.
-// PACK_SCALE=4 is tuned so this pillar's spread is roughly 40% of a
-// forward's individual-stats raw score spread (stdev ~4.3 across the same
-// real pool) — a real third factor in the rating, not a rounding error,
-// not a takeover.
+// PACK_SCALE was 4 (this pillar's spread ~40% of a forward's individual
+// raw score spread) — trimmed to 2.5 this session (Kit, 2026-09-26) after
+// confirming live that a bad team-wide set-piece/discipline day could
+// swamp an individually excellent tackling performance (e.g. -3.7 pack
+// swing vs +3.3 of personal tackle credit, on a match where the forward's
+// own defensive work was genuinely praised in the press). Still a real
+// third factor in the rating, just no longer able to outweigh a player's
+// own defensive work on its own.
 const PACK_STATS_MEAN = { scrumPct: 85.8, lineoutPct: 89.98, turnoversWon: 5.24, turnoversConceded: 13.93, penaltiesConceded: 9.14 }
 const PACK_STATS_STDEV = { scrumPct: 16.59, lineoutPct: 9.58, turnoversWon: 2.35, turnoversConceded: 4.54, penaltiesConceded: 3.05 }
-const PACK_SCALE = 4
+const PACK_SCALE = 2.5
 
 export type TeamMatchStatLine = {
   scrums_won: number | null

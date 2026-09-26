@@ -53,6 +53,13 @@ export type ExternalCompetition = {
   fully_pulled: boolean
   is_actively_pulling: boolean
   draftable_by_default: boolean
+  // Not every competition in SportsAPI Pro exposes a round-based fixture
+  // list — confirmed live this session that Nations Championship and
+  // Int. Friendly Games both 404 on /events/round/N and only work via
+  // the paginated "most recent finished matches" feed instead
+  // (/events/last/N). 'rounds' (the default/original shape) uses
+  // pullNextBatch; 'pages' uses pullNextPaginatedBatch below.
+  pull_mode?: 'rounds' | 'pages'
 }
 
 export type PullSummary = {
@@ -140,6 +147,63 @@ async function findOrCreatePlayer(
   return { playerId: inserted.id, created: true }
 }
 
+// Shared by both puller shapes below (round-based and paginated) — the
+// "given a match + its already-fetched player-statistics, find/create
+// each player and store their performance row" step is identical either
+// way; only how matches are DISCOVERED differs (see pullNextPaginatedBatch).
+async function storeMatchPerformances(
+  supabase: SupabaseClient,
+  match: { id: number; homeTeam?: { name?: string }; awayTeam?: { name?: string }; startTimestamp?: number; homeScore?: { current?: number }; awayScore?: { current?: number } },
+  statsBody: any,
+  competition: ExternalCompetition,
+  roundLabel: string,
+  teamNameById: Map<number, string>,
+  playerLookup: PlayerLookup,
+  summary: { playerRowsStored: number; newPlayersCreated: number; matchesPulled: number; errors: string[] },
+): Promise<void> {
+  const entries = extractPlayerStatEntries(statsBody.data ?? {})
+  const matchDate = match.startTimestamp ? new Date(match.startTimestamp * 1000).toISOString() : null
+  const homeName = match.homeTeam?.name ?? '?'
+  const awayName = match.awayTeam?.name ?? '?'
+  const homeScore = match.homeScore?.current ?? null
+  const awayScore = match.awayScore?.current ?? null
+  const homeWon = (homeScore ?? 0) > (awayScore ?? 0)
+  const awayWon = (awayScore ?? 0) > (homeScore ?? 0)
+
+  for (const { side, entry } of entries) {
+    const found = await findOrCreatePlayer(supabase, entry.player, entry.shirtNumber, teamNameById, playerLookup)
+    if (!found) { summary.errors.push(`Could not store player ${entry.player.name}`); continue }
+    if (found.created) summary.newPlayersCreated++
+
+    const isHome = side === 'home'
+    const result = homeWon === awayWon ? 'draw' : (isHome ? (homeWon ? 'win' : 'loss') : (awayWon ? 'win' : 'loss'))
+    const s = entry.statistics
+
+    const { error: insertErr } = await supabase.schema('rugby').from('player_performances').insert({
+      sportsapi_match_id: match.id,
+      external_competition_id: competition.id,
+      player_id: found.playerId,
+      season: new Date(matchDate ?? Date.now()).getFullYear(),
+      round_label: roundLabel,
+      match_date: matchDate,
+      team_name: isHome ? homeName : awayName,
+      opponent_name: isHome ? awayName : homeName,
+      is_home: isHome,
+      match_result: result,
+      team_score: isHome ? homeScore : awayScore,
+      opponent_score: isHome ? awayScore : homeScore,
+      tries: s.tries ?? 0, conversions: s.conversions ?? 0, penalty_goals: s.penaltyGoals ?? 0,
+      drop_goals: s.dropGoals ?? 0, yellow_card: s.yellowCard ?? 0, red_card: s.redCard ?? 0,
+      try_assists: s.tryAssists ?? 0, clean_breaks: s.cleanBreaks ?? 0, offloads: s.offloads ?? 0,
+      meters_run: s.metersRun ?? 0, passes: s.passes ?? 0, tackles: s.tackles ?? 0,
+      tackles_missed: s.tacklesMissed ?? 0, is_substitute: entry.substitute ?? false, points: s.points ?? null,
+    })
+    if (insertErr) summary.errors.push(`Storing ${entry.player.name}: ${insertErr.message}`)
+    else summary.playerRowsStored++
+  }
+  summary.matchesPulled++
+}
+
 export async function pullNextBatch(
   supabase: SupabaseClient,
   competition: ExternalCompetition,
@@ -224,47 +288,7 @@ export async function pullNextBatch(
       }
       requestsLeft--
 
-      const entries = extractPlayerStatEntries(statsBody.data ?? {})
-      const matchDate = match.startTimestamp ? new Date(match.startTimestamp * 1000).toISOString() : null
-      const homeName = match.homeTeam?.name ?? '?'
-      const awayName = match.awayTeam?.name ?? '?'
-      const homeScore = match.homeScore?.current ?? null
-      const awayScore = match.awayScore?.current ?? null
-      const homeWon = (homeScore ?? 0) > (awayScore ?? 0)
-      const awayWon = (awayScore ?? 0) > (homeScore ?? 0)
-
-      for (const { side, entry } of entries) {
-        const found = await findOrCreatePlayer(supabase, entry.player, entry.shirtNumber, teamNameById, playerLookup)
-        if (!found) { summary.errors.push(`Could not store player ${entry.player.name}`); continue }
-        if (found.created) summary.newPlayersCreated++
-
-        const isHome = side === 'home'
-        const result = homeWon === awayWon ? 'draw' : (isHome ? (homeWon ? 'win' : 'loss') : (awayWon ? 'win' : 'loss'))
-        const s = entry.statistics
-
-        const { error: insertErr } = await supabase.schema('rugby').from('player_performances').insert({
-          sportsapi_match_id: match.id,
-          external_competition_id: competition.id,
-          player_id: found.playerId,
-          season: new Date(matchDate ?? Date.now()).getFullYear(),
-          round_label: `Round ${round}`,
-          match_date: matchDate,
-          team_name: isHome ? homeName : awayName,
-          opponent_name: isHome ? awayName : homeName,
-          is_home: isHome,
-          match_result: result,
-          team_score: isHome ? homeScore : awayScore,
-          opponent_score: isHome ? awayScore : homeScore,
-          tries: s.tries ?? 0, conversions: s.conversions ?? 0, penalty_goals: s.penaltyGoals ?? 0,
-          drop_goals: s.dropGoals ?? 0, yellow_card: s.yellowCard ?? 0, red_card: s.redCard ?? 0,
-          try_assists: s.tryAssists ?? 0, clean_breaks: s.cleanBreaks ?? 0, offloads: s.offloads ?? 0,
-          meters_run: s.metersRun ?? 0, passes: s.passes ?? 0, tackles: s.tackles ?? 0,
-          tackles_missed: s.tacklesMissed ?? 0, is_substitute: entry.substitute ?? false, points: s.points ?? null,
-        })
-        if (insertErr) summary.errors.push(`Storing ${entry.player.name}: ${insertErr.message}`)
-        else summary.playerRowsStored++
-      }
-      summary.matchesPulled++
+      await storeMatchPerformances(supabase, match, statsBody, competition, `Round ${round}`, teamNameById, playerLookup, summary)
     }
 
     if (unfinished.length > 0) {
@@ -285,6 +309,121 @@ export async function pullNextBatch(
 
     await supabase.schema('rugby').from('external_competitions').update({ last_pulled_round: round }).eq('id', competition.id)
     round++
+  }
+
+  if (requestsLeft <= 0) summary.stoppedReason = 'quota'
+
+  await supabase.schema('rugby').from('external_competitions').update({
+    fully_pulled: summary.fullyPulled,
+  }).eq('id', competition.id)
+
+  return summary
+}
+
+// Six Nations senior sides only, exact name match — deliberately excludes
+// "England A"/"Ireland A"/second-string "XV" sides that also turn up in
+// the international-friendlies feed (see below): Kit wants the senior
+// team's friendlies, not development fixtures.
+const SIX_NATIONS_TEAM_NAMES = new Set(['England', 'France', 'Ireland', 'Italy', 'Scotland', 'Wales'])
+export function isSixNationsSeniorMatch(homeName: string, awayName: string): boolean {
+  return SIX_NATIONS_TEAM_NAMES.has(homeName) || SIX_NATIONS_TEAM_NAMES.has(awayName)
+}
+
+// For competitions with no round structure in SportsAPI Pro (confirmed
+// live this session: Nations Championship and Int. Friendly Games both
+// 404 on /events/round/N) — walks the "most recently finished matches"
+// feed instead, a page at a time, oldest-within-the-page-set eventually
+// reached once a page comes back empty. last_pulled_round doubles as
+// "next page to fetch" here; there's no real notion of a round to name it
+// after, just successive pages walking backward through the season.
+export async function pullNextPaginatedBatch(
+  supabase: SupabaseClient,
+  competition: ExternalCompetition,
+  apiKey: string,
+  maxRequests: number,
+  teamNameFilter?: (homeName: string, awayName: string) => boolean,
+): Promise<PullSummary> {
+  const summary: PullSummary = {
+    competition: competition.name, roundsChecked: 0, matchesPulled: 0, playerRowsStored: 0,
+    newPlayersCreated: 0, requestsUsed: 0, fullyPulled: competition.fully_pulled,
+    stoppedReason: 'quota', errors: [],
+  }
+
+  if (!competition.current_season_id) {
+    summary.stoppedReason = 'no_competition'
+    return summary
+  }
+  if (competition.fully_pulled) {
+    summary.stoppedReason = 'end_of_season'
+    return summary
+  }
+
+  const { data: teams } = await supabase.schema('rugby').from('teams').select('id, name')
+  const teamNameById = new Map((teams ?? []).map((t: { id: number; name: string }) => [t.id, t.name]))
+  const playerLookup = await loadPlayerLookup(supabase)
+
+  let page = competition.last_pulled_round
+  let requestsLeft = maxRequests
+
+  while (requestsLeft > 0) {
+    let events: any[]
+    try {
+      const body = await sportsApiProGet(`/tournament/${competition.sportsapi_tournament_id}/season/${competition.current_season_id}/events/last/${page}`, apiKey)
+      events = body.data?.events ?? []
+      summary.requestsUsed++
+    } catch (e: any) {
+      summary.errors.push(`Page ${page}: ${e.message}`)
+      requestsLeft--
+      break
+    }
+    requestsLeft--
+    summary.roundsChecked++
+
+    if (events.length === 0) {
+      summary.fullyPulled = true
+      summary.stoppedReason = 'end_of_season'
+      break
+    }
+
+    const relevant = teamNameFilter
+      ? events.filter(e => teamNameFilter(e.homeTeam?.name ?? '', e.awayTeam?.name ?? ''))
+      : events
+    const finished = relevant.filter(e => e.status?.type === 'finished')
+
+    // Same reasoning as pullNextBatch: don't advance the page cursor past
+    // one that had any failure, or those specific matches never get
+    // retried.
+    let pageHadFailure = false
+
+    for (const match of finished) {
+      if (requestsLeft <= 0) { pageHadFailure = true; break }
+      const { data: existing } = await supabase.schema('rugby').from('player_performances')
+        .select('id').eq('sportsapi_match_id', match.id).limit(1)
+      if (existing && existing.length > 0) continue // already pulled, idempotent
+
+      let statsBody: any
+      try {
+        statsBody = await sportsApiProGet(`/match/${match.id}/player-statistics`, apiKey)
+        summary.requestsUsed++
+      } catch (e: any) {
+        summary.errors.push(`Match ${match.homeTeam?.name} v ${match.awayTeam?.name}: ${e.message}`)
+        requestsLeft--
+        pageHadFailure = true
+        continue
+      }
+      requestsLeft--
+
+      const label = match.startTimestamp ? new Date(match.startTimestamp * 1000).toISOString().slice(0, 10) : `Page ${page}`
+      await storeMatchPerformances(supabase, match, statsBody, competition, label, teamNameById, playerLookup, summary)
+    }
+
+    if (pageHadFailure) {
+      summary.stoppedReason = 'quota'
+      break
+    }
+
+    await supabase.schema('rugby').from('external_competitions').update({ last_pulled_round: page + 1 }).eq('id', competition.id)
+    page++
   }
 
   if (requestsLeft <= 0) summary.stoppedReason = 'quota'
