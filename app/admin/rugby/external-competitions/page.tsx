@@ -8,8 +8,11 @@ import { pullNextBatch, pullNextPaginatedBatch, isSixNationsSeniorMatch, checkQu
 // feed of every nation's friendlies — Kit only wants the 6 Six Nations
 // senior sides' games out of it, so this one competition gets the name
 // filter; every other paginated competition (e.g. Nations Championship,
-// where every team in it is relevant) gets none.
+// where every team in it is relevant) gets none. Kit, 2026-09-26: "going
+// back 3 years if possible" — only this competition rolls back through
+// past seasons once its current one is exhausted.
 const INT_FRIENDLY_GAMES_TOURNAMENT_ID = 876
+const FRIENDLIES_MIN_YEAR = new Date().getFullYear() - 3
 import { recomputeAllRugbyRatings } from '../../../lib/rugbyRating'
 import { recomputeAllRugbyPlayerValues } from '../../../lib/rugbyPlayerDatabase'
 
@@ -46,8 +49,9 @@ async function pullCompetition(formData: FormData) {
     const budget = Math.max(0, Math.min(quota.remaining - 10, SAFE_DAILY_BUDGET))
 
     const competition = comp as ExternalCompetition
+    const isFriendlies = competition.sportsapi_tournament_id === INT_FRIENDLY_GAMES_TOURNAMENT_ID
     const summary = competition.pull_mode === 'pages'
-      ? await pullNextPaginatedBatch(supabase, competition, apiKey, budget, competition.sportsapi_tournament_id === INT_FRIENDLY_GAMES_TOURNAMENT_ID ? isSixNationsSeniorMatch : undefined)
+      ? await pullNextPaginatedBatch(supabase, competition, apiKey, budget, isFriendlies ? isSixNationsSeniorMatch : undefined, isFriendlies ? FRIENDLIES_MIN_YEAR : undefined)
       : await pullNextBatch(supabase, competition, apiKey, budget)
 
     // Kit, 2026-09-25: ratings and values must update automatically as

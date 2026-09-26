@@ -336,12 +336,22 @@ export function isSixNationsSeniorMatch(homeName: string, awayName: string): boo
 // reached once a page comes back empty. last_pulled_round doubles as
 // "next page to fetch" here; there's no real notion of a round to name it
 // after, just successive pages walking backward through the season.
+//
+// minYear (Kit, 2026-09-26: "going back 3 years if possible" for
+// friendlies) — once the current season's pages run out, looks up that
+// tournament's other seasons and rolls current_season_id back to the
+// next-most-recent one at or after minYear, resetting the page cursor to
+// 0, rather than stopping at "this one season is exhausted." Only marks
+// the competition truly fully_pulled once there's no earlier season left
+// to roll into (or minYear isn't given, matching the old single-season
+// behaviour for Nations Championship, which only has one season so far).
 export async function pullNextPaginatedBatch(
   supabase: SupabaseClient,
   competition: ExternalCompetition,
   apiKey: string,
   maxRequests: number,
   teamNameFilter?: (homeName: string, awayName: string) => boolean,
+  minYear?: number,
 ): Promise<PullSummary> {
   const summary: PullSummary = {
     competition: competition.name, roundsChecked: 0, matchesPulled: 0, playerRowsStored: 0,
@@ -362,24 +372,60 @@ export async function pullNextPaginatedBatch(
   const teamNameById = new Map((teams ?? []).map((t: { id: number; name: string }) => [t.id, t.name]))
   const playerLookup = await loadPlayerLookup(supabase)
 
+  let seasonId = competition.current_season_id
   let page = competition.last_pulled_round
   let requestsLeft = maxRequests
 
   while (requestsLeft > 0) {
     let events: any[]
     try {
-      const body = await sportsApiProGet(`/tournament/${competition.sportsapi_tournament_id}/season/${competition.current_season_id}/events/last/${page}`, apiKey)
+      const body = await sportsApiProGet(`/tournament/${competition.sportsapi_tournament_id}/season/${seasonId}/events/last/${page}`, apiKey)
       events = body.data?.events ?? []
       summary.requestsUsed++
     } catch (e: any) {
-      summary.errors.push(`Page ${page}: ${e.message}`)
-      requestsLeft--
-      break
+      // Confirmed live this session: this endpoint 404s once you page
+      // past the last available page, rather than returning an empty
+      // events array (unlike the round-based endpoint) — treat that
+      // exactly like "no more events," not a real failure. Any other
+      // error (rate limit, 503, etc.) is still a genuine stop.
+      if (!/\b404\b/.test(e.message ?? '')) {
+        summary.errors.push(`Season ${seasonId} page ${page}: ${e.message}`)
+        requestsLeft--
+        break
+      }
+      events = []
+      summary.requestsUsed++
     }
     requestsLeft--
     summary.roundsChecked++
 
     if (events.length === 0) {
+      // This season's pages are exhausted — try rolling back to the next
+      // older season within the requested lookback window.
+      let rolledOver = false
+      if (minYear != null && requestsLeft > 0) {
+        let seasonsBody: any
+        try {
+          seasonsBody = await sportsApiProGet(`/tournament/${competition.sportsapi_tournament_id}/seasons`, apiKey)
+          summary.requestsUsed++
+        } catch (e: any) {
+          summary.errors.push(`Looking up earlier seasons: ${e.message}`)
+        }
+        requestsLeft--
+        const seasons: { id: number; year: string }[] = seasonsBody?.data?.seasons ?? []
+        const currentYear = Number(seasons.find(s => s.id === seasonId)?.year)
+        const olderSeasons = seasons
+          .filter(s => Number(s.year) < (Number.isFinite(currentYear) ? currentYear : Infinity) && Number(s.year) >= minYear)
+          .sort((a, b) => Number(b.year) - Number(a.year))
+        if (olderSeasons.length > 0) {
+          seasonId = olderSeasons[0].id
+          page = 0
+          await supabase.schema('rugby').from('external_competitions')
+            .update({ current_season_id: seasonId, last_pulled_round: 0 }).eq('id', competition.id)
+          rolledOver = true
+        }
+      }
+      if (rolledOver) continue
       summary.fullyPulled = true
       summary.stoppedReason = 'end_of_season'
       break
