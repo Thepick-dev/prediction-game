@@ -16,10 +16,9 @@ type MatchPred = {
   predicted_winner: 'home' | 'away' | 'draw'
   predicted_margin: number | null
   is_confidence_pick: boolean
-  predicted_home_try_bonus: boolean | null
-  predicted_away_try_bonus: boolean | null
 }
 type SquadPick = { id: string; player_id: number; active: boolean; is_initial_pick: boolean; round_acquired: number }
+type CaptainSelectionRow = { id: string; player_id: number; round_effective_from: number; created_at: string }
 
 function RoundHeading({ text, deadline }: { text: string; deadline?: string | null }) {
   return (
@@ -94,10 +93,30 @@ export default async function RugbyPicksPage() {
   let currentRoundMatchPreds: MatchPred[] = []
   if (currentRound) {
     const { data } = await supabase.schema('rugby').from('match_predictions')
-      .select('fixture_id, predicted_winner, predicted_margin, is_confidence_pick, predicted_home_try_bonus, predicted_away_try_bonus')
+      .select('fixture_id, predicted_winner, predicted_margin, is_confidence_pick')
       .eq('round_id', currentRound.id).eq('user_id', user.id) as unknown as { data: MatchPred[] | null }
     currentRoundMatchPreds = data ?? []
   }
+
+  // Isolated fetch: captain_selections is a brand-new table — degrades to
+  // "no captain yet" (captainId null, free change still available) rather
+  // than breaking the whole page while it's being rolled out.
+  let captainSelections: CaptainSelectionRow[] = []
+  try {
+    const { data } = await supabase.schema('rugby').from('captain_selections')
+      .select('id, player_id, round_effective_from, created_at').eq('competition_id', competition.id).eq('user_id', user.id)
+    captainSelections = (data ?? []) as CaptainSelectionRow[]
+  } catch { /* table not created yet */ }
+  const orderedCaptainSelections = [...captainSelections].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  const currentCaptainId = orderedCaptainSelections.length
+    ? orderedCaptainSelections.reduce((latest, s) => (s.round_effective_from > latest.round_effective_from ? s : latest)).player_id
+    : null
+  // The first selection is the initial pick, never a "change" — everything
+  // after it is a change, so the free budget (max_free_captain_changes,
+  // default 1) is used up once (selections - 1) reaches it.
+  const maxFreeCaptainChanges = rulesRows?.find(r => r.rule_key === 'max_free_captain_changes')?.points ?? DEFAULT_RUGBY_SCORING_RULES.max_free_captain_changes
+  const freeCaptainChangeUsed = orderedCaptainSelections.length - 1 >= maxFreeCaptainChanges
+  const captainChangePenalty = rulesRows?.find(r => r.rule_key === 'captain_change_penalty')?.points ?? DEFAULT_RUGBY_SCORING_RULES.captain_change_penalty
 
   const hasKit = !!kit
   const currentRoundFixtures = currentRound ? fixturesList.filter(f => f.round_id === currentRound.id) : []
@@ -193,6 +212,9 @@ export default async function RugbyPicksPage() {
                 subsUsed={subsUsedCount}
                 perRound={subBudgetMode === 'per_round'}
                 canSub={!!currentRound}
+                captainId={currentCaptainId}
+                freeCaptainChangeUsed={freeCaptainChangeUsed}
+                captainChangePenalty={captainChangePenalty}
               />
             </div>
           </div>

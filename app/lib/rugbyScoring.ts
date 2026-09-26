@@ -3,10 +3,18 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // Isolated, pure-function-first design mirroring app/lib/scoring.ts (the
 // football engine): calculation has zero DB access so it's directly
 // testable, and the orchestrator at the bottom just wires DB reads/writes
-// around it. This file only covers the season-long 6-player squad layer
-// (one player per team, one designated kicker, subs, red-card penalty,
-// a differential/"contrarian" bonus per pick) — match-score predictions
-// and season prop bets are a separate, not-yet-built layer.
+// around it. This file covers the season-long 6-player squad layer (rated
+// on the 0-100 match rating from app/lib/rugbyRating.ts, a captain with a
+// change-limit, subs, a differential/"contrarian" bonus per pick) and the
+// weekly match-prediction layer (winner + margin, one confidence pick per
+// round, a sliding-scale underdog bonus) — season prop bets are separate.
+//
+// Kit, 2026-09-26: simplified deliberately. The old per-stat-category
+// breakdown (try/kick/card/tackle/etc. points) was computed and stored but
+// never fed the real total once the 0-100 rating took over, and no page
+// ever displayed it — pure dead weight, now removed rather than carried
+// along. Same for is_kicker: never set true anywhere in the codebase, so
+// the whole kicking-points concept is gone with it.
 
 export type RugbyScoringRules = Record<string, number>
 
@@ -15,53 +23,44 @@ export type RugbyScoringRules = Record<string, number>
 // column" in this codebase: a missing admin config shouldn't break scoring,
 // just fall back to a reasonable default until admin sets it properly.
 export const DEFAULT_RUGBY_SCORING_RULES: RugbyScoringRules = {
-  squad_try_points: 10,
-  squad_conversion_points: 2,
-  squad_penalty_points: 3,
-  squad_dropgoal_points: 5,
-  squad_red_card_penalty: 15,
-  // Magnitude/count categories from full match player-statistics, on top of
-  // the discrete try/kick/card events above — apply to ANY of the 6 picks,
-  // not just the designated kicker (unlike kicking points). Calibrated
-  // against a real Six Nations match's full player stats so an average
-  // forward's tackle+carry haul and an average back's carry+tackle haul
-  // come out close to level (~2.4-2.5pts each), not lopsided toward either.
-  squad_try_assist_points: 3,
-  squad_clean_break_points: 2,
-  squad_offload_points: 1,
-  squad_meters_run_points: 0.05,
-  squad_tackle_points: 0.2,
-  squad_tackle_missed_penalty: 0.5,
-  squad_yellow_card_penalty: 5,
-  // The actual live scoring mechanism now: each pick's 0-100 match rating
-  // (app/lib/rugbyRating.ts — already accounts for tries/kicks/tackles/
-  // cards/etc. on its own scale) summed across the squad, times this
-  // multiplier. The squad_try_points-and-friends values above stay
-  // computed and shown for transparency but no longer feed the total,
-  // to avoid double-counting what the rating already covers. 0.5 is a
-  // starting estimate for a roughly comparable scale to Match
-  // Predictions' own points, not a guaranteed 50/50 — tune by watching
-  // real rounds.
+  // The scoring mechanism: each pick's 0-100 match rating (app/lib/
+  // rugbyRating.ts) times this multiplier, then the captain/ownership
+  // bonuses and sub/captain-change penalties below are layered on top.
   squad_rating_multiplier: 0.5,
-  max_free_subs: 6,
+  max_free_subs: 10,
   extra_sub_penalty: 10,
-  // A player picked by few managers earns a multiplier on their try+kicking
+  // A player picked by few managers earns a multiplier on their rating
   // points for the round they were acquired — e.g. a threshold of 25 and a
   // multiplier of 1.5 means anyone picked by under 25% of the field that
-  // round has those points multiplied by 1.5.
+  // round has those points multiplied by 1.5. One-time, at acquisition —
+  // deliberately NOT the same sliding scale as the match-prediction
+  // underdog bonus below (Kit scoped that ask to Match Predictions).
   player_ownership_threshold_pct: 25,
   player_ownership_multiplier: 1.5,
-  // Weekly match predictions: winner + margin (not exact score), a single
-  // admin-tunable base per outcome, one confidence pick per round, and an
-  // underdog multiplier for a widely-missed correct winner call.
-  match_win_base: 50,
+  // Captain: picked at squad creation, gets this multiplier on their rating
+  // points every round they're captain (not one-time). The first change
+  // after the initial pick is free; every change beyond that costs
+  // captain_change_penalty, charged the round the change is made.
+  captain_multiplier: 1.5,
+  max_free_captain_changes: 1,
+  captain_change_penalty: 15,
+  // Weekly match predictions: winner + margin (not exact score). A correct
+  // winner call is always worth at least match_winner_points, however
+  // wrong the margin guess is — Kit: "picking a win in itself shouldn't be
+  // worth loads... but picking a winner is worth something." The rest
+  // (match_margin_max_points) decays 1 point lost per point of margin
+  // error, floors at 0 on its own. A draw has no margin to be off by, so
+  // it's a single flat (and higher) base instead.
+  match_winner_points: 15,
+  match_margin_max_points: 35,
   match_draw_base: 75,
   match_confidence_multiplier: 1.5,
+  // Underdog bonus: a sliding scale, not a cliff-edge — scales linearly
+  // from 1x at match_underdog_threshold_pct% of the field (or above) up to
+  // match_underdog_max_multiplier at 0% (literally nobody else picked that
+  // side).
   match_underdog_threshold_pct: 25,
-  match_underdog_multiplier: 1.5,
-  // Per-team try-bonus (4+ tries) call, one for each side per fixture —
-  // shares the match's own confidence/underdog multiplier state.
-  try_bonus_points: 20,
+  match_underdog_max_multiplier: 2,
   // Season-long prop-bet layer — same underdog-multiplier principle,
   // applied to that question's own admin-set points value.
   season_underdog_threshold_pct: 25,
@@ -89,7 +88,6 @@ export type SeasonSquadPick = {
   id: string
   user_id: string
   player_id: number
-  is_kicker: boolean
   is_initial_pick: boolean
   active: boolean
   contrarian_pct_at_pick: number | null
@@ -98,51 +96,39 @@ export type SeasonSquadPick = {
   created_at: string
 }
 
-export type RugbyMatchEvent = { player_id: number | null; event_type: string; fixture_id: number }
 export type RugbyFixtureRef = { id: number; round_id: string; home_team_id: number; away_team_id: number }
 export type RugbyPlayerRef = { id: number; team_id: number }
 
-// One row per player per fixture — magnitude/count categories that aren't
-// a discrete moment in time (unlike tries/kicks/cards, which stay in
-// match_events). Applies to whichever of a user's 6 squad picks played
-// that fixture, regardless of is_kicker.
-export type RugbyPlayerMatchStat = {
-  fixture_id: number
-  player_id: number
-  meters_run: number
-  clean_breaks: number
-  offloads: number
-  tackles: number
-  tackles_missed: number
-  try_assists: number
-}
-
 export type RugbyPlayerMatchRating = { fixture_id: number; player_id: number; rating: number }
+
+// One row per user per captain designation event — never mutated in
+// place, always a new row; the current captain for a round is whichever
+// row has the greatest round_effective_from at or before it (same
+// event-log philosophy as round_acquired/round_removed on SeasonSquadPick
+// itself). The first row per user (by created_at) is the initial pick,
+// never a "change".
+export type CaptainSelection = {
+  id: string
+  user_id: string
+  player_id: number
+  round_effective_from: number
+  created_at: string
+}
 
 export type SeasonSquadPointsRow = {
   season_squad_pick_id: string
   user_id: string
   round_id: string
-  try_points: number
-  kicking_points: number
-  try_assist_points: number
-  clean_break_points: number
-  offload_points: number
-  meters_run_points: number
-  tackle_points: number
-  tackle_missed_penalty: number
-  yellow_card_penalty: number
-  red_card_penalty: number
   // The player's real 0-100 rating that round (0 if they have no rating
   // yet — unplayed, unsynced, or no position set — same "no data = zero"
   // convention as an unused pick). rating_points is rating * the admin's
-  // squad_rating_multiplier, and is what total_points is actually built
-  // from now — every field above this comment stays computed for the
-  // transparency breakdown, but no longer feeds the total.
+  // squad_rating_multiplier, and is what total_points is built from.
   rating: number
   rating_points: number
-  sub_penalty: number
+  captain_bonus: number
   contrarian_bonus: number
+  sub_penalty: number
+  captain_change_penalty: number
   total_points: number
 }
 
@@ -186,17 +172,53 @@ export function computeSubPenalties(
   return penaltyByPickId
 }
 
+// Same shape as computeSubPenalties, applied to captain_selections instead
+// of season_squad_picks: the first selection per user (chronologically) is
+// the initial pick and never counts against the budget; every one after
+// that is a "change", and anything beyond max_free_captain_changes is
+// penalized. Returns the penalty keyed by captain_selections.id, so the
+// caller can attribute it to whichever pick/round that specific change
+// landed on.
+export function computeCaptainChangePenalties(
+  selections: CaptainSelection[],
+  rules: RugbyScoringRules
+): Record<string, number> {
+  const penaltyBySelectionId: Record<string, number> = {}
+  const byUser = new Map<string, CaptainSelection[]>()
+  selections.forEach(s => {
+    if (!byUser.has(s.user_id)) byUser.set(s.user_id, [])
+    byUser.get(s.user_id)!.push(s)
+  })
+  for (const userSelections of byUser.values()) {
+    const ordered = [...userSelections].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    const changes = ordered.slice(1) // first pick is initial, never a "change"
+    changes.forEach((s, i) => {
+      if (i >= rules.max_free_captain_changes) penaltyBySelectionId[s.id] = rules.captain_change_penalty
+    })
+  }
+  return penaltyBySelectionId
+}
+
+// The current captain for a user in a given round: the selection with the
+// greatest round_effective_from at or before roundNumber. Pure lookup, no
+// DB access — callers build the per-user list once and reuse it.
+function currentCaptainPlayerId(selections: CaptainSelection[], roundNumber: number): number | null {
+  const applicable = selections.filter(s => s.round_effective_from <= roundNumber)
+  if (applicable.length === 0) return null
+  return applicable.reduce((latest, s) => (s.round_effective_from > latest.round_effective_from ? s : latest)).player_id
+}
+
 export function computeSeasonSquadRoundPoints(
   picks: SeasonSquadPick[],
   roundNumber: number,
   roundId: string,
   fixtures: RugbyFixtureRef[],
   players: RugbyPlayerRef[],
-  matchEvents: RugbyMatchEvent[],
   rules: RugbyScoringRules,
   subPenaltyByPickId: Record<string, number>,
-  playerMatchStats: RugbyPlayerMatchStat[] = [],
-  playerMatchRatings: RugbyPlayerMatchRating[] = []
+  playerMatchRatings: RugbyPlayerMatchRating[] = [],
+  captainSelections: CaptainSelection[] = [],
+  captainChangePenaltyBySelectionId: Record<string, number> = {}
 ): SeasonSquadPointsRow[] {
   const teamIdByPlayerId = new Map<number, number>()
   players.forEach(p => teamIdByPlayerId.set(p.id, p.team_id))
@@ -207,19 +229,14 @@ export function computeSeasonSquadRoundPoints(
     fixtureByTeamId.set(f.away_team_id, f)
   })
 
-  const eventsByFixtureAndPlayer = new Map<string, RugbyMatchEvent[]>()
-  matchEvents.forEach(e => {
-    if (e.player_id == null) return
-    const key = `${e.fixture_id}::${e.player_id}`
-    if (!eventsByFixtureAndPlayer.has(key)) eventsByFixtureAndPlayer.set(key, [])
-    eventsByFixtureAndPlayer.get(key)!.push(e)
-  })
-
-  const statsByFixtureAndPlayer = new Map<string, RugbyPlayerMatchStat>()
-  playerMatchStats.forEach(s => statsByFixtureAndPlayer.set(`${s.fixture_id}::${s.player_id}`, s))
-
   const ratingByFixtureAndPlayer = new Map<string, number>()
   playerMatchRatings.forEach(r => ratingByFixtureAndPlayer.set(`${r.fixture_id}::${r.player_id}`, r.rating))
+
+  const captainSelectionsByUser = new Map<string, CaptainSelection[]>()
+  captainSelections.forEach(s => {
+    if (!captainSelectionsByUser.has(s.user_id)) captainSelectionsByUser.set(s.user_id, [])
+    captainSelectionsByUser.get(s.user_id)!.push(s)
+  })
 
   const rows: SeasonSquadPointsRow[] = []
 
@@ -227,33 +244,6 @@ export function computeSeasonSquadRoundPoints(
     if (!pickCoversRound(pick, roundNumber)) continue
     const teamId = teamIdByPlayerId.get(pick.player_id)
     const fixture = teamId != null ? fixtureByTeamId.get(teamId) : undefined
-    const events = fixture ? (eventsByFixtureAndPlayer.get(`${fixture.id}::${pick.player_id}`) ?? []) : []
-
-    const tryCount = events.filter(e => e.event_type === 'try').length
-    const tryPoints = tryCount * rules.squad_try_points
-
-    let kickingPoints = 0
-    if (pick.is_kicker) {
-      const conversionCount = events.filter(e => e.event_type === 'conversion').length
-      const penaltyCount = events.filter(e => e.event_type === 'penalty_goal').length
-      const dropgoalCount = events.filter(e => e.event_type === 'drop_goal').length
-      kickingPoints = conversionCount * rules.squad_conversion_points
-        + penaltyCount * rules.squad_penalty_points
-        + dropgoalCount * rules.squad_dropgoal_points
-    }
-
-    const hasRedCard = events.some(e => e.event_type === 'red_card')
-    const redCardPenalty = hasRedCard ? rules.squad_red_card_penalty : 0
-    const hasYellowCard = events.some(e => e.event_type === 'yellow_card')
-    const yellowCardPenalty = hasYellowCard ? rules.squad_yellow_card_penalty : 0
-
-    const stat = fixture ? statsByFixtureAndPlayer.get(`${fixture.id}::${pick.player_id}`) : undefined
-    const tryAssistPoints = round2((stat?.try_assists ?? 0) * rules.squad_try_assist_points)
-    const cleanBreakPoints = round2((stat?.clean_breaks ?? 0) * rules.squad_clean_break_points)
-    const offloadPoints = round2((stat?.offloads ?? 0) * rules.squad_offload_points)
-    const metersRunPoints = round2((stat?.meters_run ?? 0) * rules.squad_meters_run_points)
-    const tacklePoints = round2((stat?.tackles ?? 0) * rules.squad_tackle_points)
-    const tackleMissedPenalty = round2((stat?.tackles_missed ?? 0) * rules.squad_tackle_missed_penalty)
 
     // The real scoring mechanism: this pick's 0-100 rating for this
     // fixture (0 if unrated — unplayed, unsynced, or no position set,
@@ -262,12 +252,19 @@ export function computeSeasonSquadRoundPoints(
     const rating = fixture ? (ratingByFixtureAndPlayer.get(`${fixture.id}::${pick.player_id}`) ?? 0) : 0
     const ratingPoints = round2(rating * rules.squad_rating_multiplier)
 
+    // Captain bonus applies EVERY round this pick is the user's current
+    // captain (not one-time, unlike the ownership bonus below) — kept as
+    // the EXTRA amount the multiplier contributes, so rating_points stays
+    // its raw, unmultiplied value.
+    const userCaptainSelections = captainSelectionsByUser.get(pick.user_id) ?? []
+    const isCaptain = currentCaptainPlayerId(userCaptainSelections, roundNumber) === pick.player_id
+    const captainBonus = isCaptain ? round2(ratingPoints * (rules.captain_multiplier - 1)) : 0
+
     // Both one-off charges/bonuses only ever apply in the specific round
     // the pick was acquired — never repeated on later rounds' recalcs. A
     // rarely-held player multiplies their rating points rather than
     // adding a flat bonus; contrarian_bonus is kept as the EXTRA amount
-    // that multiplier contributes, so rating_points stays its raw,
-    // unmultiplied value for anything reading it directly.
+    // that multiplier contributes.
     const isAcquisitionRound = roundNumber === pick.round_acquired
     const isUnderdogPick = isAcquisitionRound && pick.contrarian_pct_at_pick != null && pick.contrarian_pct_at_pick < rules.player_ownership_threshold_pct
     const contrarianBonus = isUnderdogPick
@@ -275,30 +272,25 @@ export function computeSeasonSquadRoundPoints(
       : 0
     const subPenalty = isAcquisitionRound ? (subPenaltyByPickId[pick.id] ?? 0) : 0
 
-    // Red/yellow cards are already priced into the rating itself
-    // (app/lib/rugbyRating.ts's own yellow/red weights) — redCardPenalty/
-    // yellowCardPenalty below are kept computed for the transparency
-    // breakdown only, deliberately NOT subtracted again here.
-    const totalPoints = round2(ratingPoints + contrarianBonus - subPenalty)
+    // Captain-change penalty: charged in the round a paid change lands in,
+    // attributed to the player who became captain via that specific
+    // change (their captain_selections row's round_effective_from equals
+    // this round).
+    const changeThisRound = userCaptainSelections.find(s => s.round_effective_from === roundNumber && s.player_id === pick.player_id)
+    const captainChangePenalty = changeThisRound ? (captainChangePenaltyBySelectionId[changeThisRound.id] ?? 0) : 0
+
+    const totalPoints = round2(ratingPoints + captainBonus + contrarianBonus - subPenalty - captainChangePenalty)
 
     rows.push({
       season_squad_pick_id: pick.id,
       user_id: pick.user_id,
       round_id: roundId,
-      try_points: tryPoints,
-      kicking_points: kickingPoints,
-      try_assist_points: tryAssistPoints,
-      clean_break_points: cleanBreakPoints,
-      offload_points: offloadPoints,
       rating,
       rating_points: ratingPoints,
-      meters_run_points: metersRunPoints,
-      tackle_points: tacklePoints,
-      tackle_missed_penalty: tackleMissedPenalty,
-      yellow_card_penalty: yellowCardPenalty,
-      red_card_penalty: redCardPenalty,
-      sub_penalty: subPenalty,
+      captain_bonus: captainBonus,
       contrarian_bonus: contrarianBonus,
+      sub_penalty: subPenalty,
+      captain_change_penalty: captainChangePenalty,
       total_points: totalPoints,
     })
   }
@@ -335,19 +327,6 @@ export async function calculateSeasonSquadRoundScoring(
   const playersList = (players ?? []) as RugbyPlayerRef[]
 
   const fixtureIds = fixturesList.filter(f => f.round_id === roundId).map(f => f.id)
-  const { data: matchEvents } = fixtureIds.length
-    ? await supabase.schema('rugby').from('match_events').select('player_id, event_type, fixture_id').in('fixture_id', fixtureIds)
-    : { data: [] as RugbyMatchEvent[] }
-
-  // Isolated fetch: player_match_stats is a brand-new table — degrade to []
-  // if it doesn't exist yet rather than failing try/kick/card scoring too.
-  let statsRows: RugbyPlayerMatchStat[] = []
-  if (fixtureIds.length) {
-    const { data: statsData, error: statsError } = await supabase.schema('rugby').from('player_match_stats')
-      .select('fixture_id, player_id, meters_run, clean_breaks, offloads, tackles, tackles_missed, try_assists')
-      .in('fixture_id', fixtureIds)
-    if (!statsError && statsData) statsRows = statsData as RugbyPlayerMatchStat[]
-  }
 
   // Isolated fetch: sub_budget_mode is a newer, optional competitions
   // column — degrades to 'season' (today's only behaviour) if missing.
@@ -369,10 +348,21 @@ export async function calculateSeasonSquadRoundScoring(
     if (!ratingsError && ratingsData) ratingRows = ratingsData as RugbyPlayerMatchRating[]
   }
 
+  // Isolated fetch: captain_selections is a brand-new table — degrades to
+  // [] (nobody has a captain yet) rather than breaking scoring for
+  // everyone else while it's being rolled out.
+  let captainSelections: CaptainSelection[] = []
+  try {
+    const { data } = await supabase.schema('rugby').from('captain_selections')
+      .select('id, user_id, player_id, round_effective_from, created_at').eq('competition_id', round.competition_id)
+    captainSelections = (data ?? []) as CaptainSelection[]
+  } catch { /* table not created yet */ }
+  const captainChangePenaltyBySelectionId = computeCaptainChangePenalties(captainSelections, rules)
+
   const subPenaltyByPickId = computeSubPenalties(allPicks, rules, subBudgetMode)
 
   const rows = computeSeasonSquadRoundPoints(
-    allPicks, round.number, roundId, fixturesList, playersList, (matchEvents ?? []) as RugbyMatchEvent[], rules, subPenaltyByPickId, statsRows, ratingRows
+    allPicks, round.number, roundId, fixturesList, playersList, rules, subPenaltyByPickId, ratingRows, captainSelections, captainChangePenaltyBySelectionId
   )
 
   if (rows.length === 0) return { success: true, rows: 0 }
@@ -384,10 +374,12 @@ export async function calculateSeasonSquadRoundScoring(
 }
 
 // ============================================================
-// Weekly match predictions: winner + margin (not an exact score), one
-// admin-tunable base per outcome, one confidence pick per round, an
-// underdog multiplier for a widely-missed correct winner call, and a
-// per-team try-bonus (4+ tries) call sharing that same multiplier state.
+// Weekly match predictions: winner + margin (not an exact score). A
+// correct winner call is always worth match_winner_points, however wrong
+// the margin guess is — margin accuracy tops it up, decaying to 0 on its
+// own but never taking the whole pick down with it. One confidence pick
+// per round, and a sliding-scale underdog bonus (not a cliff-edge) for a
+// widely-missed correct winner call.
 // ============================================================
 
 export type MatchPrediction = {
@@ -398,36 +390,11 @@ export type MatchPrediction = {
   predicted_winner: 'home' | 'away' | 'draw'
   predicted_margin: number | null // null when predicted_winner is 'draw'
   is_confidence_pick: boolean
-  predicted_home_try_bonus: boolean | null
-  predicted_away_try_bonus: boolean | null
 }
 
 export type FinishedFixture = { id: number; home_score: number | null; away_score: number | null }
 
 export type RugbyFixtureTeams = { id: number; home_team_id: number; away_team_id: number }
-
-// Whether each side actually scored a try bonus (4+ tries) — derived from
-// match_events, never a separate admin input, so there's nothing extra to
-// enter beyond the scorer events already logged for the squad-picks layer.
-export function computeTryBonusActuals(
-  fixtures: RugbyFixtureTeams[],
-  players: RugbyPlayerRef[],
-  matchEvents: RugbyMatchEvent[]
-): Record<number, { home: boolean; away: boolean }> {
-  const teamByPlayerId = new Map(players.map(p => [p.id, p.team_id]))
-  const result: Record<number, { home: boolean; away: boolean }> = {}
-  for (const fixture of fixtures) {
-    let homeTries = 0
-    let awayTries = 0
-    matchEvents.filter(e => e.fixture_id === fixture.id && e.event_type === 'try').forEach(e => {
-      const teamId = e.player_id != null ? teamByPlayerId.get(e.player_id) : undefined
-      if (teamId === fixture.home_team_id) homeTries += 1
-      else if (teamId === fixture.away_team_id) awayTries += 1
-    })
-    result[fixture.id] = { home: homeTries >= 4, away: awayTries >= 4 }
-  }
-  return result
-}
 
 export type MatchPredictionPointsRow = {
   match_prediction_id: string
@@ -437,8 +404,6 @@ export type MatchPredictionPointsRow = {
   is_correct: boolean
   multiplier: number
   match_points: number
-  home_try_bonus_points: number
-  away_try_bonus_points: number
   total_points: number
 }
 
@@ -467,7 +432,6 @@ export function computeMatchPredictionScores(
   predictions: MatchPrediction[],
   fixtures: FinishedFixture[],
   sidePctByFixtureId: Record<number, number>,
-  tryBonusActualsByFixtureId: Record<number, { home: boolean; away: boolean }>,
   rules: RugbyScoringRules
 ): MatchPredictionPointsRow[] {
   const fixtureById = new Map(fixtures.map(f => [f.id, f]))
@@ -483,46 +447,40 @@ export function computeMatchPredictionScores(
     const isCorrect = pred.predicted_winner === actualSide
 
     // Never negative — a wrong winner call (including a missed draw, or a
-    // wrongly-called draw) simply scores zero, no penalty.
+    // wrongly-called draw) simply scores zero, no penalty. A correct
+    // winner call is always worth at least match_winner_points, however
+    // wrong the margin guess is — only the margin-accuracy TOP-UP can
+    // decay to 0 on its own.
     let base = 0
     if (isCorrect) {
       if (actualSide === 'draw') {
         base = rules.match_draw_base
       } else {
         const marginError = Math.abs((pred.predicted_margin ?? 0) - actualMargin)
-        base = Math.max(0, rules.match_win_base - marginError)
+        base = rules.match_winner_points + Math.max(0, rules.match_margin_max_points - marginError)
       }
     }
 
     const sidePct = sidePctByFixtureId[pred.fixture_id]
-    const isUnderdog = sidePct != null && sidePct < rules.match_underdog_threshold_pct
-    // Confidence and underdog each contribute their own "extra" fraction on
-    // top of 1x, additively — e.g. two 1.5x bonuses combine to 2x overall,
-    // not 2.25x. Applies identically to the win/margin points and both
-    // try-bonus calls for this same match.
+    // Sliding scale, not a cliff-edge: 1x at/above the threshold, ramping
+    // linearly up to match_underdog_max_multiplier at 0% (nobody else
+    // picked this side). Confidence and underdog each contribute their own
+    // "extra" fraction on top of 1x, additively — e.g. a 1.5x confidence
+    // pick and a half-way-to-max underdog bonus combine additively, not
+    // multiplicatively.
+    const underdogExtra = sidePct != null && sidePct < rules.match_underdog_threshold_pct
+      ? (1 - sidePct / rules.match_underdog_threshold_pct) * (rules.match_underdog_max_multiplier - 1)
+      : 0
     const multiplier = 1
       + (pred.is_confidence_pick ? rules.match_confidence_multiplier - 1 : 0)
-      + (isUnderdog ? rules.match_underdog_multiplier - 1 : 0)
+      + underdogExtra
 
     const matchPoints = Math.round(base * multiplier)
-
-    const tryActuals = tryBonusActualsByFixtureId[pred.fixture_id]
-    let homeTryBonusPoints = 0
-    let awayTryBonusPoints = 0
-    if (tryActuals) {
-      if (pred.predicted_home_try_bonus != null && pred.predicted_home_try_bonus === tryActuals.home) {
-        homeTryBonusPoints = Math.round(rules.try_bonus_points * multiplier)
-      }
-      if (pred.predicted_away_try_bonus != null && pred.predicted_away_try_bonus === tryActuals.away) {
-        awayTryBonusPoints = Math.round(rules.try_bonus_points * multiplier)
-      }
-    }
 
     rows.push({
       match_prediction_id: pred.id, user_id: pred.user_id, round_id: pred.round_id, fixture_id: pred.fixture_id,
       is_correct: isCorrect, multiplier, match_points: matchPoints,
-      home_try_bonus_points: homeTryBonusPoints, away_try_bonus_points: awayTryBonusPoints,
-      total_points: matchPoints + homeTryBonusPoints + awayTryBonusPoints,
+      total_points: matchPoints,
     })
   }
   return rows
@@ -535,26 +493,18 @@ export async function calculateMatchPredictionRoundScoring(
   const { data: round } = await supabase.schema('rugby').from('rounds').select('id, competition_id').eq('id', roundId).single()
   if (!round) return { error: 'Round not found' }
 
-  const [{ data: rulesRows }, { data: predictions }, { data: fixtures }, { data: players }] = await Promise.all([
+  const [{ data: rulesRows }, { data: predictions }, { data: fixtures }] = await Promise.all([
     supabase.schema('rugby').from('scoring_rules').select('rule_key, points').eq('competition_id', round.competition_id),
     supabase.schema('rugby').from('match_predictions').select('*').eq('round_id', roundId),
     supabase.schema('rugby').from('fixtures').select('id, home_team_id, away_team_id, home_score, away_score').eq('round_id', roundId),
-    supabase.schema('rugby').from('players').select('id, team_id'),
   ])
 
   const rules = rulesWithDefaults(rulesRows ?? [])
   const predictionsList = (predictions ?? []) as MatchPrediction[]
   const fixturesList = (fixtures ?? []) as (FinishedFixture & RugbyFixtureTeams)[]
-  const playersList = (players ?? []) as RugbyPlayerRef[]
-
-  const fixtureIds = fixturesList.map(f => f.id)
-  const { data: matchEvents } = fixtureIds.length
-    ? await supabase.schema('rugby').from('match_events').select('player_id, event_type, fixture_id').in('fixture_id', fixtureIds)
-    : { data: [] as RugbyMatchEvent[] }
 
   const sidePctByFixtureId = computeMatchSideDistribution(predictionsList, fixturesList)
-  const tryBonusActualsByFixtureId = computeTryBonusActuals(fixturesList, playersList, (matchEvents ?? []) as RugbyMatchEvent[])
-  const rows = computeMatchPredictionScores(predictionsList, fixturesList, sidePctByFixtureId, tryBonusActualsByFixtureId, rules)
+  const rows = computeMatchPredictionScores(predictionsList, fixturesList, sidePctByFixtureId, rules)
 
   if (rows.length === 0) return { success: true, rows: 0 }
 

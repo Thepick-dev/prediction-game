@@ -8,8 +8,6 @@ type IncomingPrediction = {
   predicted_winner: 'home' | 'away' | 'draw'
   predicted_margin: number | null
   is_confidence_pick: boolean
-  predicted_home_try_bonus: boolean
-  predicted_away_try_bonus: boolean
 }
 
 // Submitted as one atomic batch (all 3 fixtures together) rather than
@@ -44,9 +42,6 @@ export async function POST(request: Request) {
     if (p.predicted_winner !== 'draw' && (p.predicted_margin == null || p.predicted_margin < 1)) {
       return NextResponse.json({ error: 'Enter a margin of at least 1 point for every match you predict a winner for' }, { status: 400 })
     }
-    if (typeof p.predicted_home_try_bonus !== 'boolean' || typeof p.predicted_away_try_bonus !== 'boolean') {
-      return NextResponse.json({ error: 'Say yes or no to the try bonus for both teams in every match' }, { status: 400 })
-    }
   }
 
   const { data: round } = await db.schema('rugby').from('rounds').select('id, deadline').eq('id', round_id).single()
@@ -68,8 +63,10 @@ export async function POST(request: Request) {
     predicted_winner: p.predicted_winner,
     predicted_margin: p.predicted_winner === 'draw' ? null : p.predicted_margin,
     is_confidence_pick: p.is_confidence_pick,
-    predicted_home_try_bonus: p.predicted_home_try_bonus,
-    predicted_away_try_bonus: p.predicted_away_try_bonus,
+    // Legacy columns, kept harmless (null) rather than dropped — the
+    // try-bonus mechanic itself is gone.
+    predicted_home_try_bonus: null,
+    predicted_away_try_bonus: null,
     updated_at: new Date().toISOString(),
   }))
 

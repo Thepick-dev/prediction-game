@@ -11,48 +11,36 @@ async function requireAdminAction() {
   return createAdminSupabaseClient()
 }
 
-// Every one of these can be switched off entirely by admin, independent of
-// its points value — so a category can be paused without losing whatever
-// number was configured for it. Deliberately just the "real match action"
-// categories, not the structural rules below them (sub budget, ownership
-// multiplier) — those aren't things it makes sense to "turn off".
-const TOGGLEABLE_RULE_KEYS = new Set([
-  'squad_try_points', 'squad_conversion_points', 'squad_penalty_points', 'squad_dropgoal_points', 'squad_red_card_penalty',
-  'squad_try_assist_points', 'squad_clean_break_points', 'squad_offload_points', 'squad_meters_run_points',
-  'squad_tackle_points', 'squad_tackle_missed_penalty', 'squad_yellow_card_penalty',
-])
+// Nothing left in either group is a "real match action category" any
+// more (those — try/kick/tackle/card points — were computed but never fed
+// the real total once the 0-100 rating took over, and have been removed
+// entirely) — so there's nothing left that makes sense to toggle off
+// independently of its points value.
+const TOGGLEABLE_RULE_KEYS = new Set<string>([])
 
 const RULE_GROUPS: { heading: string; rules: Record<string, string> }[] = [
   {
     heading: 'Dream Team',
     rules: {
-      squad_try_points: 'Points per try (any of your 6)',
-      squad_conversion_points: 'Points per conversion (kicker only)',
-      squad_penalty_points: 'Points per penalty goal (kicker only)',
-      squad_dropgoal_points: 'Points per drop goal (kicker only)',
-      squad_red_card_penalty: 'Points lost if one of your 6 gets a red card',
-      squad_try_assist_points: 'Points per try assist',
-      squad_clean_break_points: 'Points per clean break',
-      squad_offload_points: 'Points per offload',
-      squad_meters_run_points: 'Points per meter run (e.g. 0.05 = 5pts per 100m)',
-      squad_tackle_points: 'Points per tackle made',
-      squad_tackle_missed_penalty: 'Points lost per tackle missed',
-      squad_yellow_card_penalty: 'Points lost per yellow card',
+      squad_rating_multiplier: 'Each pick\'s 0-100 match rating is multiplied by this to get their points',
       max_free_subs: 'Free substitutions (per competition, or per round — set by the toggle above)',
       extra_sub_penalty: 'Points lost per substitution beyond the free limit',
-      player_ownership_threshold_pct: 'Below this % of managers owning a player, their points get multiplied',
-      player_ownership_multiplier: 'The multiplier applied to that rarely-owned player\'s try + kicking points',
+      player_ownership_threshold_pct: 'Below this % of managers owning a player, their points get multiplied (one-time, the round they\'re acquired)',
+      player_ownership_multiplier: 'The multiplier applied to that rarely-owned player\'s points, the round they\'re acquired',
+      captain_multiplier: 'Multiplier on the captain\'s points, every round they\'re captain',
+      max_free_captain_changes: 'Free captain changes (after the initial pick) before the penalty below applies',
+      captain_change_penalty: 'Points lost per captain change beyond the free limit',
     },
   },
   {
     heading: 'Weekly Match Predictions',
     rules: {
-      match_win_base: 'Points for correctly picking the winner (before margin is deducted)',
+      match_winner_points: 'Points for correctly picking the winner — always scored, however wrong the margin guess is',
+      match_margin_max_points: 'Extra points for a spot-on margin, lost 1 per point of error (never below 0 on its own)',
       match_draw_base: 'Points for correctly picking a draw (flat — no margin to be off by)',
       match_confidence_multiplier: 'Multiplier for your one confidence pick each round',
-      match_underdog_threshold_pct: 'Below this % of players picking the actual winning side, it counts as an underdog call',
-      match_underdog_multiplier: 'Multiplier applied when your correct winner call was an underdog call',
-      try_bonus_points: 'Points for correctly calling a team\'s try bonus (4+ tries), per team',
+      match_underdog_threshold_pct: 'At or above this % of players picking the actual winning side, no underdog bonus applies',
+      match_underdog_max_multiplier: 'The multiplier at the extreme — literally nobody else picked your (correct) side',
     },
   },
 ]

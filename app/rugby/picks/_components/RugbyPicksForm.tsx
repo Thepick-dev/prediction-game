@@ -10,8 +10,6 @@ type ExistingMatchPred = {
   predicted_winner: Winner
   predicted_margin: number | null
   is_confidence_pick: boolean
-  predicted_home_try_bonus: boolean | null
-  predicted_away_try_bonus: boolean | null
 }
 
 export default function RugbyPicksForm({
@@ -52,8 +50,6 @@ export default function RugbyPicksForm({
       initial[f.id] = {
         winner: e?.predicted_winner ?? '',
         margin: e?.predicted_margin != null ? String(e.predicted_margin) : '',
-        homeTryBonus: e?.predicted_home_try_bonus ?? null,
-        awayTryBonus: e?.predicted_away_try_bonus ?? null,
       }
     })
     return initial
@@ -71,12 +67,14 @@ export default function RugbyPicksForm({
   // squadPlayers list's own team_id/value fields, so this component just
   // needs to hold the selection, not any team-grouping logic.
   const [squadSelections, setSquadSelections] = useState<number[]>(existingSquadSelections ?? [])
+  const [captainId, setCaptainId] = useState<number | null>(null)
 
   function addSquadPlayer(playerId: number) {
     setSquadSelections(prev => [...prev, playerId])
   }
   function removeSquadPlayer(playerId: number) {
     setSquadSelections(prev => prev.filter(id => id !== playerId))
+    setCaptainId(prev => (prev === playerId ? null : prev))
   }
 
   // Once the match-prediction carousel's last question is answered, slide
@@ -97,13 +95,13 @@ export default function RugbyPicksForm({
       const r = rows[f.id]
       if (!r || r.winner === '') return false
       if (r.winner !== 'draw' && (r.margin === '' || Number(r.margin) < 1)) return false
-      return r.homeTryBonus !== null && r.awayTryBonus !== null
+      return true
     }) && confidenceFixtureId != null
   )
   const squadValueById = new Map(squadPlayers.map(p => [p.id, p.value ?? 0]))
   const squadValueTotal = squadSelections.reduce((sum, id) => sum + (squadValueById.get(id) ?? 0), 0)
   const overBudget = squadBudgetCap != null && squadValueTotal > squadBudgetCap
-  const squadValid = !showSquadDraft || (squadSelections.length === 6 && !overBudget)
+  const squadValid = !showSquadDraft || (squadSelections.length === 6 && !overBudget && captainId != null)
   const allValid = matchValid && squadValid
 
   const hasExistingMatch = showMatchPredictions && existingMatchPreds.length > 0
@@ -125,8 +123,6 @@ export default function RugbyPicksForm({
           predicted_winner: r.winner,
           predicted_margin: r.winner === 'draw' ? null : Number(r.margin),
           is_confidence_pick: f.id === confidenceFixtureId,
-          predicted_home_try_bonus: r.homeTryBonus,
-          predicted_away_try_bonus: r.awayTryBonus,
         }
       })
       calls.push(
@@ -144,6 +140,7 @@ export default function RugbyPicksForm({
           body: JSON.stringify({
             competition_id: competitionId,
             picks: squadSelections.map(player_id => ({ player_id })),
+            captain_player_id: captainId,
           }),
         }).then(r => r.json())
       )
@@ -192,6 +189,8 @@ export default function RugbyPicksForm({
               squadBudgetCap={squadBudgetCap}
               onAdd={addSquadPlayer}
               onRemove={removeSquadPlayer}
+              captainId={captainId}
+              onSetCaptain={setCaptainId}
             />
           </div>
         </div>

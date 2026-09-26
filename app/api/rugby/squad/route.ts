@@ -19,10 +19,13 @@ export async function POST(request: Request) {
   }
   const db = createAdminSupabaseClient()
 
-  const { competition_id, picks } = await request.json()
+  const { competition_id, picks, captain_player_id } = await request.json()
 
   if (!competition_id || !Array.isArray(picks) || picks.length !== 6) {
     return NextResponse.json({ error: 'A squad needs exactly 6 players (at most 2 from any one team)' }, { status: 400 })
+  }
+  if (!captain_player_id || !picks.some((p: { player_id: number }) => p.player_id === captain_player_id)) {
+    return NextResponse.json({ error: 'Pick one of your 6 as captain' }, { status: 400 })
   }
 
   const { data: round1 } = await db.schema('rugby').from('rounds').select('id, number, deadline').eq('competition_id', competition_id).eq('number', 1).maybeSingle()
@@ -97,7 +100,7 @@ export async function POST(request: Request) {
       competition_id,
       user_id: user.id,
       player_id: p.player_id,
-      is_kicker: false,
+      is_kicker: false, // legacy column, kept harmless — captaincy replaces this concept entirely
       is_initial_pick: true,
       active: true,
       contrarian_pct_at_pick: pct,
@@ -109,6 +112,18 @@ export async function POST(request: Request) {
   const { error } = await db.schema('rugby').from('season_squad_picks').insert(rowsToInsert)
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // The initial captain pick — always free, never counts against the
+  // captain-change budget (see computeCaptainChangePenalties). A fresh
+  // squad replaces the old one entirely (same reasoning as the pick
+  // delete above), so any prior captain_selections rows are cleared too.
+  await db.schema('rugby').from('captain_selections').delete().eq('competition_id', competition_id).eq('user_id', user.id)
+  const { error: captainError } = await db.schema('rugby').from('captain_selections').insert({
+    competition_id, user_id: user.id, player_id: captain_player_id, round_effective_from: round1.number,
+  })
+  if (captainError) {
+    return NextResponse.json({ error: captainError.message }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })

@@ -9,8 +9,6 @@ export type Winner = 'home' | 'away' | 'draw'
 export type MatchRowState = {
   winner: Winner | ''
   margin: string
-  homeTryBonus: boolean | null
-  awayTryBonus: boolean | null
 }
 
 // A binary yes/no pick doesn't have a "team colour" — "yes" floods
@@ -20,13 +18,7 @@ export type MatchRowState = {
 const YES_GLOW = '#00ffff'
 const NO_GLOW = '#5b4a86'
 
-// One question at a time, sliding through every fixture in the round —
-// Kit's own words: "a series of sliding questions on a carousel. one
-// question at a time. outcome of match; winning margin (n/a for draw);
-// try bonus points; make this my confidence pick." Replaces the old
-// all-fixtures-in-one-scroll block. The margin question only exists for a
-// fixture once a non-draw winner is picked for it.
-//
+// One question at a time, sliding through every fixture in the round.
 // Every handler below computes the NEXT step from a locally-built "what
 // rows will look like after this answer" snapshot, synchronously, rather
 // than reading the `rows` prop after a delay — `updateRow` triggers a
@@ -34,7 +26,7 @@ const NO_GLOW = '#5b4a86'
 // by the time a click handler runs, so reading `rows` itself here would
 // still see the OLD value and could compute the wrong next step (e.g.
 // skip straight past the margin question that answer just created).
-type StepKind = 'winner' | 'margin' | 'tryBonus' | 'confidence'
+type StepKind = 'winner' | 'margin' | 'confidence'
 type Step = { fixtureIndex: number; kind: StepKind }
 function stepKey(s: Step) { return `${s.fixtureIndex}-${s.kind}` }
 
@@ -45,7 +37,6 @@ function buildSteps(fixtures: FixtureInfo[], rowsSnapshot: Record<number, MatchR
     if (rowsSnapshot[f.id]?.winner && rowsSnapshot[f.id].winner !== 'draw') {
       steps.push({ fixtureIndex: i, kind: 'margin' })
     }
-    steps.push({ fixtureIndex: i, kind: 'tryBonus' })
     steps.push({ fixtureIndex: i, kind: 'confidence' })
   })
   return steps
@@ -57,7 +48,6 @@ function isStepAnswered(s: Step, fixtures: FixtureInfo[], rowsSnapshot: Record<n
   if (!row) return false
   if (s.kind === 'winner') return row.winner !== ''
   if (s.kind === 'margin') return row.margin !== '' && Number(row.margin) >= 1
-  if (s.kind === 'tryBonus') return row.homeTryBonus !== null && row.awayTryBonus !== null
   return true // confidence: both "yes" and "no" are valid, explicit answers
 }
 
@@ -99,10 +89,6 @@ export default function MatchPredictionCarousel({
     const freshSteps = buildSteps(fixtures, rowsSnapshot)
     const idx = freshSteps.findIndex(s => stepKey(s) === currentKey)
     if (idx === -1) return
-    // The try-bonus step asks about two teams — one click only answers
-    // half of it, so only advance once THIS step (not just this click)
-    // is actually fully answered. Every other step type is a single
-    // click = fully answered, so this never delays them.
     if (!isStepAnswered(freshSteps[idx], fixtures, rowsSnapshot)) return
     if (idx === freshSteps.length - 1) {
       if (freshSteps.every(s => isStepAnswered(s, fixtures, rowsSnapshot))) onAllAnswered?.()
@@ -170,28 +156,6 @@ export default function MatchPredictionCarousel({
                 <span>Next &gt;</span>
               </button>
             </div>
-          )}
-
-          {step.kind === 'tryBonus' && (
-            <>
-              <p className="rb4-eyebrow text-center mb-3">&gt; Try bonus (4+ tries)?</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-center mb-2" style={{ color: 'var(--rb4-fg)', opacity: 0.6, fontFamily: 'var(--font-rb4-mono)' }}>{fixture.homeTeam}</p>
-                  <div className="flex gap-1.5">
-                    <ChoiceButton label="Yes" active={r.homeTryBonus === true} glow={YES_GLOW} onClick={() => answerAndAdvance(fixture.id, { homeTryBonus: true })} />
-                    <ChoiceButton label="No" active={r.homeTryBonus === false} glow={NO_GLOW} onClick={() => answerAndAdvance(fixture.id, { homeTryBonus: false })} />
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-center mb-2" style={{ color: 'var(--rb4-fg)', opacity: 0.6, fontFamily: 'var(--font-rb4-mono)' }}>{fixture.awayTeam}</p>
-                  <div className="flex gap-1.5">
-                    <ChoiceButton label="Yes" active={r.awayTryBonus === true} glow={YES_GLOW} onClick={() => answerAndAdvance(fixture.id, { awayTryBonus: true })} />
-                    <ChoiceButton label="No" active={r.awayTryBonus === false} glow={NO_GLOW} onClick={() => answerAndAdvance(fixture.id, { awayTryBonus: false })} />
-                  </div>
-                </div>
-              </div>
-            </>
           )}
 
           {step.kind === 'confidence' && (

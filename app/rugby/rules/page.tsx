@@ -33,20 +33,17 @@ export default async function RugbyRulesPage() {
           <h2 className="rugby-cond text-sm mb-2 uppercase tracking-wide">Weekly Match Predictions</h2>
           <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--rugby-text-dim)' }}>
             Each round, predict the winner (or a draw) and the margin of victory — not the exact score — for all
-            three matches before that round&apos;s deadline. A correct winner call scores{' '}
-            <strong style={{ color: 'var(--rugby-text)' }}>{rules.match_win_base} points</strong>, minus 1 point for every point your margin is out by. A
-            correctly predicted draw is a flat <strong style={{ color: 'var(--rugby-text)' }}>{rules.match_draw_base} points</strong> — there&apos;s no
-            margin to be off by. Get the winner wrong (including a missed or wrongly-called draw) and you score{' '}
-            <strong style={{ color: 'var(--rugby-text)' }}>zero</strong> for that match — never negative.
-          </p>
-          <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--rugby-text-dim)' }}>
-            You also pick ONE match each round as your confidence pick, worth{' '}
-            <strong style={{ color: 'var(--rugby-text)' }}>{rules.match_confidence_multiplier}x</strong> on everything you score for it.
+            three matches before that round&apos;s deadline. Calling the right winner is always worth{' '}
+            <strong style={{ color: 'var(--rugby-text)' }}>{rules.match_winner_points} points</strong>, however wrong your margin guess is — a spot-on
+            margin adds up to <strong style={{ color: 'var(--rugby-text)' }}>{rules.match_margin_max_points} more</strong>, losing 1 point for every point
+            you&apos;re out by. A correctly predicted draw is a flat{' '}
+            <strong style={{ color: 'var(--rugby-text)' }}>{rules.match_draw_base} points</strong> — there&apos;s no margin to be off by. Get the winner
+            wrong (including a missed or wrongly-called draw) and you score <strong style={{ color: 'var(--rugby-text)' }}>zero</strong> for that
+            match — never negative.
           </p>
           <p className="text-sm leading-relaxed" style={{ color: 'var(--rugby-text-dim)' }}>
-            For every match you also call whether EACH team will get a try bonus (4+ tries) — worth{' '}
-            <strong style={{ color: 'var(--rugby-text)' }}>{rules.try_bonus_points} points</strong> per correct call, and it shares that match&apos;s own
-            confidence/underdog multiplier.
+            You also pick ONE match each round as your confidence pick, worth{' '}
+            <strong style={{ color: 'var(--rugby-text)' }}>{rules.match_confidence_multiplier}x</strong> on everything you score for it.
           </p>
         </section>
 
@@ -56,16 +53,24 @@ export default async function RugbyRulesPage() {
           <h3 className="rugby-cond text-xs uppercase tracking-wide mb-1.5" style={{ color: 'var(--rugby-floodlight)' }}>Your Squad</h3>
           <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--rugby-text-dim)' }}>
             Before Round 1&apos;s deadline, pick a squad of six players — at most two from any one nation — within
-            your budget.
+            your budget, and name one of them <strong style={{ color: 'var(--rugby-text)' }}>captain</strong>.
           </p>
 
           <h3 className="rugby-cond text-xs uppercase tracking-wide mb-1.5" style={{ color: 'var(--rugby-floodlight)' }}>Scoring</h3>
           <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--rugby-text-dim)' }}>
             Each of your six players is scored on their whole performance in their match that round — tries,
-            tackles, carries, kicking, defence and discipline all feed into one rating out of 100 for that game.
-            Your squad&apos;s round total is the sum of your six players&apos; ratings, scaled by{' '}
-            <strong style={{ color: 'var(--rugby-text)' }}>{rules.squad_rating_multiplier}</strong>. A red or yellow card already pulls a player&apos;s own
-            rating down — there&apos;s no separate penalty stacked on top.
+            tackles, carries, defence and discipline all feed into one rating out of 100 for that game. Your
+            squad&apos;s round total is the sum of your six players&apos; ratings, scaled by{' '}
+            <strong style={{ color: 'var(--rugby-text)' }}>{rules.squad_rating_multiplier}</strong>. Your{' '}
+            <strong style={{ color: 'var(--rugby-text)' }}>captain</strong> scores{' '}
+            <strong style={{ color: 'var(--rugby-text)' }}>{rules.captain_multiplier}x</strong> that round, every round they&apos;re captain. A red or
+            yellow card already pulls a player&apos;s own rating down — there&apos;s no separate penalty stacked on top.
+          </p>
+
+          <h3 className="rugby-cond text-xs uppercase tracking-wide mb-1.5" style={{ color: 'var(--rugby-floodlight)' }}>Captain changes</h3>
+          <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--rugby-text-dim)' }}>
+            Your first change of captain (after the initial pick) is free. Every change after that costs you{' '}
+            <strong style={{ color: 'var(--rugby-text)' }}>{rules.captain_change_penalty} points</strong>, charged the round the change is made.
           </p>
 
           <h3 className="rugby-cond text-xs uppercase tracking-wide mb-1.5" style={{ color: 'var(--rugby-floodlight)' }}>Substitutions</h3>
@@ -116,13 +121,17 @@ export default async function RugbyRulesPage() {
             Picking rarely-picked options is rewarded everywhere in this game, always the same way — your points
             for that pick get multiplied, they&apos;re never just topped up with a flat bonus.
           </p>
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--rugby-text-dim)' }}>
+          <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--rugby-text-dim)' }}>
             Dream Team: if fewer than <strong style={{ color: 'var(--rugby-text)' }}>{rules.player_ownership_threshold_pct}%</strong> of managers also hold a
             player you pick, their rating points that round are multiplied by{' '}
             <strong style={{ color: 'var(--rugby-text)' }}>{rules.player_ownership_multiplier}x</strong> — worked out the moment they join your squad
-            (draft or substitute), and it sticks regardless of their popularity afterwards. Match predictions: if
-            fewer than <strong style={{ color: 'var(--rugby-text)' }}>{rules.match_underdog_threshold_pct}%</strong> of players picked the winning side you
-            backed, your points for that match are multiplied by <strong style={{ color: 'var(--rugby-text)' }}>{rules.match_underdog_multiplier}x</strong>.
+            (draft or substitute), and it sticks regardless of their popularity afterwards.
+          </p>
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--rugby-text-dim)' }}>
+            Match predictions: this one&apos;s a sliding scale, not a flat bonus. At{' '}
+            <strong style={{ color: 'var(--rugby-text)' }}>{rules.match_underdog_threshold_pct}%</strong> or more of the field picking the winning side
+            you backed, there&apos;s no bonus. Below that, the fewer people who picked it, the bigger your multiplier gets — ramping up to{' '}
+            <strong style={{ color: 'var(--rugby-text)' }}>{rules.match_underdog_max_multiplier}x</strong> if literally nobody else picked it.
           </p>
         </section>
 

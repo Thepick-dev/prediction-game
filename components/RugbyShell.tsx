@@ -23,7 +23,6 @@ const KIT_POPUP_MARGIN = 8
 
 const navItems = [
   { label: 'Picks', href: '/rugby/picks' },
-  { label: 'My Dream Team', href: '/rugby/dream-team' },
   { label: 'Leaderboard', href: '/rugby/leaderboard' },
   { label: 'Results', href: '/rugby/results' },
   { label: 'Stats Hub', href: '/rugby/stats' },

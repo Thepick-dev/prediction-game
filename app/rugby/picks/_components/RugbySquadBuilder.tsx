@@ -39,6 +39,8 @@ type DraftProps = {
   squadBudgetCap?: number | null
   onAdd: (playerId: number) => void
   onRemove: (playerId: number) => void
+  captainId: number | null
+  onSetCaptain: (playerId: number) => void
 }
 type ManageProps = {
   mode: 'manage'
@@ -50,6 +52,9 @@ type ManageProps = {
   subsUsed: number
   perRound?: boolean
   canSub: boolean
+  captainId: number | null
+  freeCaptainChangeUsed: boolean
+  captainChangePenalty: number
 }
 type Props = DraftProps | ManageProps
 
@@ -150,6 +155,23 @@ export default function RugbySquadBuilder(props: Props) {
     router.refresh()
   }
 
+  async function applyCaptainChange(playerId: number) {
+    if (mode !== 'manage') return
+    if (playerId === props.captainId) return
+    if (!props.freeCaptainChangeUsed || confirm(`Changing captain again will cost ${props.captainChangePenalty} points. Continue?`)) {
+      setBusy(true)
+      setMessage('')
+      const res = await fetch('/api/rugby/squad/captain', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ competition_id: props.competitionId, player_id: playerId }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) setMessage(data.error ?? 'Could not change captain')
+      setBusy(false)
+      router.refresh()
+    }
+  }
+
   function rowAction(p: BuilderPlayer): { label: string; disabled: boolean; onClick?: () => void } {
     const isSelected = selectedSet.has(p.id)
     if (mode === 'draft') {
@@ -204,9 +226,20 @@ export default function RugbySquadBuilder(props: Props) {
           {selectedIds.map(id => {
             const p = playerById.get(id)
             if (!p) return null
+            const isCaptain = props.captainId === id
             return (
               <span key={id} className="rb4-badge rb4-badge--magenta" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {isCaptain && <span title="Captain — scores extra every round">★</span>}
                 {p.name}
+                <button
+                  type="button"
+                  onClick={() => (mode === 'draft' ? props.onSetCaptain(id) : applyCaptainChange(id))}
+                  disabled={mode === 'manage' && (isCaptain || busy)}
+                  style={{ color: 'var(--rb4-magenta)', opacity: isCaptain ? 1 : 0.6, fontWeight: isCaptain ? 700 : 400 }}
+                  title={isCaptain ? 'Current captain' : 'Make captain'}
+                >
+                  {isCaptain ? 'C' : 'make C'}
+                </button>
                 {mode === 'draft' && (
                   <button type="button" onClick={() => props.onRemove(id)} style={{ color: 'var(--rb4-magenta)', opacity: 0.8 }}>✕</button>
                 )}
@@ -214,6 +247,11 @@ export default function RugbySquadBuilder(props: Props) {
             )
           })}
         </div>
+      )}
+      {mode === 'manage' && !props.freeCaptainChangeUsed && (
+        <p className="text-xs mb-3" style={{ color: 'var(--rb4-fg)', opacity: 0.6, fontFamily: 'var(--font-rb4-mono)' }}>
+          Your first captain change is free. After that, each change costs {props.captainChangePenalty} points.
+        </p>
       )}
 
       {mode === 'manage' && swappingOutId != null && (
