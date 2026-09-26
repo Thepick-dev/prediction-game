@@ -26,16 +26,22 @@ const SIX_NATIONS_BY_NAME: Record<string, string> = {
   scotland: 'Scotland', france: 'France', italy: 'Italy',
 }
 
-// Standard rugby union shirt-number convention — reliable for starters
-// (1-15), not for bench numbers (16+, which vary by squad and don't map
-// to one position). A brand-new player picked up with no inferable
-// position simply can't be rated yet, same as any existing player with
-// position left unset — nothing new to handle there, matches how
-// app/lib/rugbyRating.ts already treats it.
+// Standard rugby union shirt-number convention for starters (1-15),
+// plus the common European bench convention (16-23: 2 front-row cover +
+// 1 second/back-row cover + scrum-half + 2 utility backs) — confirmed
+// this session that 64% of pulled performances (mostly bench players)
+// had no inferable position under 1-15 alone and so couldn't be rated
+// at all. The 16-23 mapping is a best-effort convention, not universal
+// (some squads run a "6-2" forwards-heavy bench instead) — same "can't
+// be rated without a real position" fallback still applies to whatever
+// this doesn't cover, and an admin can always correct a specific
+// player's position from /admin/rugby/players same as before.
 const POSITION_BY_JERSEY: Record<number, string> = {
   1: 'Prop', 2: 'Hooker', 3: 'Prop', 4: 'Second Row', 5: 'Second Row',
   6: 'Back Row', 7: 'Back Row', 8: 'Back Row', 9: 'Scrum-half', 10: 'Fly-half',
   11: 'Wing', 12: 'Centre', 13: 'Centre', 14: 'Wing', 15: 'Fullback',
+  16: 'Hooker', 17: 'Prop', 18: 'Prop', 19: 'Second Row', 20: 'Back Row',
+  21: 'Scrum-half', 22: 'Fly-half', 23: 'Centre',
 }
 
 export type ExternalCompetition = {
@@ -115,7 +121,7 @@ async function findOrCreatePlayer(
     }
   }
   const jersey = statPlayer.jerseyNumber ? Number(statPlayer.jerseyNumber) : null
-  const position = jersey && jersey >= 1 && jersey <= 15 ? POSITION_BY_JERSEY[jersey] : null
+  const position = jersey && jersey >= 1 && jersey <= 23 ? POSITION_BY_JERSEY[jersey] : null
 
   const { data: inserted, error } = await supabase.schema('rugby').from('players').insert({
     name: statPlayer.name,
@@ -188,9 +194,16 @@ export async function pullNextBatch(
 
     const unfinished = events.filter(e => e.status?.type !== 'finished')
     const finished = events.filter(e => e.status?.type === 'finished')
+    // Tracks whether every finished match in THIS round was either
+    // already stored or successfully pulled just now — a round with any
+    // failure must not be marked complete, or those specific matches
+    // would never be retried (last_pulled_round only ever moves forward,
+    // confirmed as a real bug this session: a round that hit nothing but
+    // rate-limit/503 errors still advanced past, permanently skipping it).
+    let roundHadFailure = false
 
     for (const match of finished) {
-      if (requestsLeft <= 0) break
+      if (requestsLeft <= 0) { roundHadFailure = true; break }
       const { data: existing } = await supabase.schema('rugby').from('player_performances')
         .select('id').eq('sportsapi_match_id', match.id).limit(1)
       if (existing && existing.length > 0) continue // already pulled, idempotent
@@ -204,6 +217,7 @@ export async function pullNextBatch(
         // spends real daily quota, so it counts against the budget too.
         summary.errors.push(`Match ${match.homeTeam?.name} v ${match.awayTeam?.name}: ${e.message}`)
         requestsLeft--
+        roundHadFailure = true
         continue
       }
       requestsLeft--
@@ -212,8 +226,10 @@ export async function pullNextBatch(
       const matchDate = match.startTimestamp ? new Date(match.startTimestamp * 1000).toISOString() : null
       const homeName = match.homeTeam?.name ?? '?'
       const awayName = match.awayTeam?.name ?? '?'
-      const homeWon = (match.homeScore?.current ?? 0) > (match.awayScore?.current ?? 0)
-      const awayWon = (match.awayScore?.current ?? 0) > (match.homeScore?.current ?? 0)
+      const homeScore = match.homeScore?.current ?? null
+      const awayScore = match.awayScore?.current ?? null
+      const homeWon = (homeScore ?? 0) > (awayScore ?? 0)
+      const awayWon = (awayScore ?? 0) > (homeScore ?? 0)
 
       for (const { side, entry } of entries) {
         const found = await findOrCreatePlayer(supabase, entry.player, teamNameById, playerLookup)
@@ -235,6 +251,8 @@ export async function pullNextBatch(
           opponent_name: isHome ? awayName : homeName,
           is_home: isHome,
           match_result: result,
+          team_score: isHome ? homeScore : awayScore,
+          opponent_score: isHome ? awayScore : homeScore,
           tries: s.tries ?? 0, conversions: s.conversions ?? 0, penalty_goals: s.penaltyGoals ?? 0,
           drop_goals: s.dropGoals ?? 0, yellow_card: s.yellowCard ?? 0, red_card: s.redCard ?? 0,
           try_assists: s.tryAssists ?? 0, clean_breaks: s.cleanBreaks ?? 0, offloads: s.offloads ?? 0,
@@ -252,6 +270,14 @@ export async function pullNextBatch(
       // should re-check it for newly-finished matches), and don't walk
       // past it into rounds that haven't happened yet either.
       summary.stoppedReason = 'future_fixtures'
+      break
+    }
+
+    if (roundHadFailure) {
+      // Don't advance past a round that had any failure — next run
+      // retries it (already-stored matches are skipped via the idempotent
+      // existence check above, so this only re-attempts what's missing).
+      summary.stoppedReason = 'quota'
       break
     }
 
