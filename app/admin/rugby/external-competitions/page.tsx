@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { requireAdmin } from '../../../lib/require-admin'
 import { redirect } from 'next/navigation'
 import { pullNextBatch, pullNextPaginatedBatch, isSixNationsSeniorMatch, checkQuota, backfillMissingPositions, backfillNationalityFromInternationalAppearances, type ExternalCompetition } from '../../../lib/rugbyExternalPerformanceSync'
+import PullButton from './_components/PullButton'
 
 // Int. Friendly Games (SportsAPI Pro tournament 876) is a single global
 // feed of every nation's friendlies — Kit only wants the 6 Six Nations
@@ -147,15 +148,23 @@ export default async function ExternalCompetitionsPage() {
               <div className="flex gap-2">
                 <form action={pullCompetition}>
                   <input type="hidden" name="competition_id" value={c.id} />
-                  <button type="submit" className="px-3 py-1.5 bg-black text-white rounded text-sm" disabled={!c.current_season_id}>
+                  <PullButton
+                    className="px-3 py-1.5 bg-black text-white rounded text-sm disabled:opacity-50"
+                    disabled={!c.current_season_id}
+                    pendingText="Pulling… (can take a minute, don't close this tab)"
+                  >
                     Pull next batch
-                  </button>
+                  </PullButton>
                 </form>
                 <form action={backfillPositions}>
                   <input type="hidden" name="competition_id" value={c.id} />
-                  <button type="submit" className="px-3 py-1.5 border border-black rounded text-sm" disabled={!c.current_season_id}>
+                  <PullButton
+                    className="px-3 py-1.5 border border-black rounded text-sm disabled:opacity-50"
+                    disabled={!c.current_season_id}
+                    pendingText="Working…"
+                  >
                     Backfill positions
-                  </button>
+                  </PullButton>
                 </form>
               </div>
             </div>

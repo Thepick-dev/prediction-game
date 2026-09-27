@@ -48,11 +48,12 @@ export const DEFAULT_RUGBY_SCORING_RULES: RugbyScoringRules = {
   // winner call is always worth at least match_winner_points, however
   // wrong the margin guess is — Kit: "picking a win in itself shouldn't be
   // worth loads... but picking a winner is worth something." The rest
-  // (match_margin_max_points) decays 1 point lost per point of margin
-  // error, floors at 0 on its own. A draw has no margin to be off by, so
-  // it's a single flat (and higher) base instead.
+  // (match_margin_max_points) decays by match_margin_penalty_per_point for
+  // every point of margin error, floors at 0 on its own. A draw has no
+  // margin to be off by, so it's a single flat (and higher) base instead.
   match_winner_points: 15,
   match_margin_max_points: 35,
+  match_margin_penalty_per_point: 1,
   match_draw_base: 75,
   match_confidence_multiplier: 1.5,
   // Underdog bonus: a sliding scale, not a cliff-edge — scales linearly
@@ -457,7 +458,8 @@ export function computeMatchPredictionScores(
         base = rules.match_draw_base
       } else {
         const marginError = Math.abs((pred.predicted_margin ?? 0) - actualMargin)
-        base = rules.match_winner_points + Math.max(0, rules.match_margin_max_points - marginError)
+        const marginPenalty = marginError * (rules.match_margin_penalty_per_point ?? 1)
+        base = rules.match_winner_points + Math.max(0, rules.match_margin_max_points - marginPenalty)
       }
     }
 

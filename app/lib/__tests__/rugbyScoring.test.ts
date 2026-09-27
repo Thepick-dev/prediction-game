@@ -272,6 +272,15 @@ describe('computeMatchPredictionScores', () => {
     expect(rows[0].match_points).toBe(rules.match_winner_points + (rules.match_margin_max_points - 10))
   })
 
+  it('applies an admin-adjustable penalty rate per point of margin error, not always 1', () => {
+    // Predicted home by 10, actual was by 20 -> off by 10, at 2 points lost per point of error.
+    const pred = makePred({ predicted_winner: 'home', predicted_margin: 10 })
+    const wideFixture: FinishedFixture = { id: 1, home_score: 30, away_score: 10 } // by 20
+    const steeperRules = { ...rules, match_margin_penalty_per_point: 2 }
+    const rows = computeMatchPredictionScores([pred], [wideFixture], {}, steeperRules)
+    expect(rows[0].match_points).toBe(rules.match_winner_points + (rules.match_margin_max_points - 20))
+  })
+
   it('floors at winner_points (never zero) for a correct winner call however wrong the margin is', () => {
     const pred = makePred({ predicted_winner: 'home', predicted_margin: 1 })
     const wideFixture: FinishedFixture = { id: 1, home_score: 100, away_score: 0 } // by 100

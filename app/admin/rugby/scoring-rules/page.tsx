@@ -36,7 +36,8 @@ const RULE_GROUPS: { heading: string; rules: Record<string, string> }[] = [
     heading: 'Weekly Match Predictions',
     rules: {
       match_winner_points: 'Points for correctly picking the winner — always scored, however wrong the margin guess is',
-      match_margin_max_points: 'Extra points for a spot-on margin, lost 1 per point of error (never below 0 on its own)',
+      match_margin_max_points: 'Extra points for a spot-on margin (never below 0 on its own)',
+      match_margin_penalty_per_point: 'Points lost for every point you\'re out on the margin',
       match_draw_base: 'Points for correctly picking a draw (flat — no margin to be off by)',
       match_confidence_multiplier: 'Multiplier for your one confidence pick each round',
       match_underdog_threshold_pct: 'At or above this % of players picking the actual winning side, no underdog bonus applies',
