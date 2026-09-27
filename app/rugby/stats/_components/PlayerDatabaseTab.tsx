@@ -4,32 +4,50 @@ import { Fragment, useMemo, useState } from 'react'
 import type { RugbyPlayerSummary, RugbyPlayerStatAverages, RugbyPlayerPerformanceRow } from '../../../lib/rugbyPlayerDatabase'
 
 const FORWARD_GROUPS = new Set(['Prop', 'Hooker', 'Second Row', 'Back Row'])
-const SORT_KEYS = ['player', 'team', 'group', 'appearances', 'average_rating'] as const
+const SORT_KEYS = ['player', 'team', 'group', 'average_rating'] as const
 type SortKey = typeof SORT_KEYS[number]
 
 function fmt1(n: number) { return (Math.round(n * 10) / 10).toFixed(1) }
 
-const STAT_LABELS: [keyof RugbyPlayerStatAverages, string][] = [
-  ['tries', 'Tries'], ['try_assists', 'Assists'], ['meters_run', 'Metres'],
-  ['tackles', 'Tackles'], ['tackles_missed', 'Tackles Missed'], ['clean_breaks', 'Clean Breaks'],
-  ['offloads', 'Offloads'], ['conversions', 'Conversions'], ['penalty_goals', 'Penalty Goals'],
-  ['drop_goals', 'Drop Goals'], ['yellow_card', 'Yellow Cards'], ['red_card', 'Red Cards'],
+// Kit, 2026-09-27: every stat, averaged per match played ("100 tackles in
+// 5 matches should show as 20"), each its own grid column — one line per
+// player, not a wrapped block of labels.
+const STAT_COLUMNS: [keyof RugbyPlayerStatAverages, string, string][] = [
+  ['tries', 'T', 'Tries per match'], ['try_assists', 'A', 'Assists per match'], ['meters_run', 'M', 'Metres run per match'],
+  ['tackles', 'Tkl', 'Tackles per match'], ['tackles_missed', 'TklM', 'Tackles missed per match'], ['clean_breaks', 'CB', 'Clean breaks per match'],
+  ['offloads', 'Off', 'Offloads per match'], ['conversions', 'Cnv', 'Conversions per match'], ['penalty_goals', 'Pen', 'Penalty goals per match'],
+  ['drop_goals', 'Drop', 'Drop goals per match'], ['yellow_card', 'YC', 'Yellow cards per match'], ['red_card', 'RC', 'Red cards per match'],
 ]
 
-// Kit, 2026-09-27: part of the always-visible top line, not the dropdown —
-// every stat, averaged per match played ("100 tackles in 5 matches should
-// show as 20").
-function PlayerStatAverages({ averages }: { averages: RugbyPlayerStatAverages | null }) {
-  if (!averages) {
-    return <p className="text-xs py-2 px-2" style={{ color: 'var(--rugby-text-faint)' }}>No recorded performances yet.</p>
-  }
-  return (
-    <div className="py-2 px-2 flex flex-wrap gap-x-5 gap-y-1.5 text-[11px]" style={{ color: 'var(--rugby-text-dim)' }}>
-      {STAT_LABELS.map(([key, label]) => (
-        <span key={key}>{label}: <b style={{ color: 'var(--rugby-text)' }}>{fmt1(averages[key])}</b>/match</span>
-      ))}
-    </div>
-  )
+// Flags instead of country names — a fixed Unicode Emoji Tag Sequence for
+// each Home Nation (there's no ISO country code for England/Scotland/
+// Wales), everyone else from their ISO 3166-1 alpha-2 code via regional
+// indicator symbols. Falls back to the plain country text (never blank)
+// for anything not in this list, same defensive-fallback approach as
+// every other optional/newer field on this page.
+const HOME_NATION_FLAGS: Record<string, string> = {
+  england: '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}',
+  scotland: '\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}',
+  wales: '\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}',
+}
+const COUNTRY_ISO2: Record<string, string> = {
+  ireland: 'ie', france: 'fr', italy: 'it',
+  'new zealand': 'nz', australia: 'au', 'south africa': 'za', argentina: 'ar',
+  fiji: 'fj', samoa: 'ws', tonga: 'to', georgia: 'ge', japan: 'jp',
+  usa: 'us', 'united states': 'us', canada: 'ca', uruguay: 'uy', chile: 'cl',
+  romania: 'ro', spain: 'es', portugal: 'pt', namibia: 'na', germany: 'de',
+  netherlands: 'nl', belgium: 'be', poland: 'pl', 'czech republic': 'cz',
+  kenya: 'ke', zimbabwe: 'zw', 'ivory coast': 'ci', "cote d'ivoire": 'ci',
+  'hong kong': 'hk', korea: 'kr', 'south korea': 'kr', brazil: 'br',
+  colombia: 'co', jamaica: 'jm', russia: 'ru', ukraine: 'ua', sweden: 'se',
+  switzerland: 'ch', austria: 'at',
+}
+function countryFlag(name: string): string | null {
+  const key = name.trim().toLowerCase()
+  if (HOME_NATION_FLAGS[key]) return HOME_NATION_FLAGS[key]
+  const iso = COUNTRY_ISO2[key]
+  if (!iso) return null
+  return iso.toUpperCase().split('').map(c => String.fromCodePoint(127397 + c.charCodeAt(0))).join('')
 }
 
 // Kit, 2026-09-27, after an earlier pass wrongly replaced this with
@@ -163,12 +181,11 @@ export default function PlayerDatabaseTab({ players }: { players: RugbyPlayerSum
       </div>
 
       <div className="rugby-panel overflow-x-auto">
-        <table className="w-full text-xs" style={{ borderCollapse: 'collapse', minWidth: 520 }}>
+        <table className="text-xs" style={{ borderCollapse: 'collapse', minWidth: 980 }}>
           <thead>
             <tr style={{ borderBottom: '2px solid var(--rugby-line)' }}>
               {([
-                ['player', 'Player'], ['team', 'Country'], ['group', 'Position'],
-                ['appearances', 'Apps'], ['average_rating', 'Power Ranking'],
+                ['player', 'Player'], ['team', 'Nat'], ['group', 'Position'],
               ] as [SortKey, string][]).map(([key, label]) => (
                 <th
                   key={key}
@@ -179,41 +196,54 @@ export default function PlayerDatabaseTab({ players }: { players: RugbyPlayerSum
                   {label}{sortKey === key ? (sortDir === 1 ? ' ▲' : ' ▼') : ''}
                 </th>
               ))}
+              {STAT_COLUMNS.map(([key, label, title]) => (
+                <th key={key} title={title} className="rugby-cond text-right py-2 px-1.5 uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--rugby-text-faint)' }}>
+                  {label}
+                </th>
+              ))}
+              <th
+                onClick={() => toggleSort('average_rating')}
+                className="rugby-cond text-right py-2 px-2 uppercase tracking-wide cursor-pointer whitespace-nowrap select-none"
+                style={{ color: sortKey === 'average_rating' ? 'var(--rugby-floodlight)' : 'var(--rugby-text-faint)' }}
+              >
+                Power{sortKey === 'average_rating' ? (sortDir === 1 ? ' ▲' : ' ▼') : ''}
+              </th>
             </tr>
           </thead>
           <tbody>
             {sorted.map(p => {
               const isFwd = !!(p.group && FORWARD_GROUPS.has(p.group))
               const open = expandedId === p.player_id
+              const flag = countryFlag(p.team)
+              const colCount = 4 + STAT_COLUMNS.length
               return (
                 <Fragment key={p.player_id}>
                   <tr
                     onClick={() => setExpandedId(open ? null : p.player_id)}
                     className="cursor-pointer"
-                    style={{ background: open ? 'var(--rugby-ink-3)' : undefined }}
+                    style={{ borderBottom: open ? 'none' : '1px solid var(--rugby-line)', background: open ? 'var(--rugby-ink-3)' : undefined }}
                   >
                     <td className="py-1.5 px-2 rugby-cond uppercase tracking-wide whitespace-nowrap">{open ? '▾' : '▸'} {p.player}</td>
-                    <td className="py-1.5 px-2 whitespace-nowrap">{p.team}</td>
+                    <td className="py-1.5 px-2 whitespace-nowrap text-center" title={p.team}>{flag ?? p.team}</td>
                     <td className="py-1.5 px-2 whitespace-nowrap">
                       <span className="rugby-badge" style={isFwd ? { background: 'rgba(255,194,46,0.15)', color: 'var(--rugby-floodlight)', borderColor: 'rgba(255,194,46,0.4)' } : undefined}>
                         {p.group ?? '?'}
                       </span>
                     </td>
-                    <td className="py-1.5 px-2 text-right">{p.appearances}</td>
+                    {STAT_COLUMNS.map(([key]) => (
+                      <td key={key} className="py-1.5 px-1.5 text-right rugby-num" style={{ color: 'var(--rugby-text-dim)' }}>
+                        {p.averages ? fmt1(p.averages[key]) : '—'}
+                      </td>
+                    ))}
                     <td className="py-1.5 px-2 text-right">
                       {p.average_rating != null ? (
                         <span className="rugby-display" style={{ color: p.average_rating >= 60 ? '#3fa572' : p.average_rating < 40 ? '#e8574a' : 'var(--rugby-text-dim)' }}>{fmt1(p.average_rating)}</span>
                       ) : '—'}
                     </td>
                   </tr>
-                  <tr style={{ borderBottom: '1px solid var(--rugby-line)', background: open ? 'var(--rugby-ink-3)' : undefined }}>
-                    <td colSpan={5} style={{ padding: 0 }}>
-                      <PlayerStatAverages averages={p.averages} />
-                    </td>
-                  </tr>
                   {open && (
                     <tr>
-                      <td colSpan={5} style={{ padding: 0, borderBottom: '1px solid var(--rugby-line)' }}>
+                      <td colSpan={colCount} style={{ padding: 0, borderBottom: '1px solid var(--rugby-line)' }}>
                         <p className="text-[10px] uppercase tracking-wide pt-2 px-2" style={{ color: 'var(--rugby-text-faint)' }}>Match by match ({p.appearances})</p>
                         <PlayerMatchList performances={p.performances} />
                       </td>
