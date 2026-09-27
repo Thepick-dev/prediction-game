@@ -891,15 +891,17 @@ thead th {
 
 /* The picks form's team/winner/yes-no choice buttons carry dynamic team
    colours via inline style (fill/text props), so this only supplies the
-   shape + active-state sheen — same asymmetric-corner, glossy-overlay
+   shape + active-state sheen — same chamfered-corner, glossy-overlay
    language as .rugby-button, kept as its own class since the colour
    itself can't live in a static CSS rule here. */
 .rugby-choice-btn {
-  border-radius: 4px 14px 4px 14px;
-  position: relative; overflow: hidden;
+  clip-path: polygon(0 7px, 7px 0, calc(100% - 7px) 0, 100% 7px, 100% calc(100% - 7px), calc(100% - 7px) 100%, 7px 100%, 0 calc(100% - 7px));
+  position: relative; overflow: hidden; text-align: left;
+  font-family: var(--font-rugby-body), monospace; text-transform: uppercase; letter-spacing: 0.04em;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 .rugby-choice-btn:hover { transform: translateY(-1px); }
+.rugby-choice-btn--active { box-shadow: 0 0 22px var(--glow, var(--rugby-floodlight-2)); }
 .rugby-choice-btn.rugby-choice-btn--active::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(115deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 45%);
@@ -910,14 +912,14 @@ thead th {
   color: var(--rugby-text);
   border: 1.5px solid var(--rugby-line);
   border-bottom: 3px solid var(--rugby-line);
-  clip-path: polygon(0 6px, 6px 0, 100% 0, 100% 100%, 0 100%);
+  clip-path: polygon(0 6px, 6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px));
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .rugby-input:focus {
   outline: none;
   border-color: var(--rugby-floodlight);
   border-bottom-color: var(--rugby-floodlight);
-  box-shadow: 0 0 0 3px rgba(255, 194, 46, 0.2);
+  box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.2);
 }
 
 /* Semantic status colours — deliberately NOT the same hues as any nation
@@ -977,7 +979,7 @@ thead th {
 .rugby-panel {
   background: var(--rugby-ink-2);
   border: 1.5px solid var(--rugby-line);
-  clip-path: polygon(0 12px, 12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
+  clip-path: polygon(0 12px, 12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px));
   box-shadow: 0 14px 30px -16px rgba(0,0,0,0.7);
   position: relative;
   overflow: hidden;
@@ -1011,7 +1013,7 @@ thead th {
 .rugby-button {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   font-family: var(--font-rugby-cond), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
-  clip-path: polygon(0 8px, 8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  clip-path: polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px));
   border: 2px solid var(--rugby-floodlight); cursor: pointer;
   position: relative; overflow: hidden;
   background: linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2));
@@ -1036,10 +1038,34 @@ thead th {
 .rugby-badge {
   display: inline-flex; align-items: center; justify-content: center;
   font-family: var(--font-rugby-cond), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
-  clip-path: polygon(0 5px, 5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%); line-height: 1;
+  clip-path: polygon(0 5px, 5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0 calc(100% - 5px)); line-height: 1;
   background: var(--rugby-ink-3); color: var(--rugby-text-dim); border: 1.5px solid var(--rugby-line);
 }
 .rugby-badge--gold { background: linear-gradient(100deg, var(--rugby-floodlight), var(--rugby-floodlight-2)); color: #001a12; border: none; box-shadow: 0 3px 10px rgba(0,212,255,0.3); }
+
+/* Terminal window chrome — a reusable titlebar-with-dots for the "at
+   least one section must feel like a terminal" design-spec signature.
+   Sits as the first child inside a .rugby-panel; the panel's own
+   overflow:hidden clips it to the chamfered shape automatically. */
+.rugby-terminal-bar {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(0,255,136,0.06); border-bottom: 1.5px solid var(--rugby-line);
+  padding: 8px 12px;
+  font-family: var(--font-rb4-mono), monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--rugby-text-dim);
+}
+.rugby-terminal-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+.rugby-stat-number { font-family: var(--font-rugby-display), sans-serif; font-variant-numeric: tabular-nums; line-height: 1; }
+
+.rugby-progress-track { background: var(--rugby-ink-3); height: 3px; }
+.rugby-progress-fill { background: linear-gradient(to right, var(--rugby-magenta), var(--rugby-floodlight-2)); height: 100%; box-shadow: 0 0 10px var(--rugby-magenta); transition: width 0.3s linear; }
+
+.rugby-table { width: 100%; border-collapse: collapse; font-family: var(--font-rugby-body), monospace; }
+.rugby-table th { font-weight: 400; text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; color: var(--rugby-floodlight-2); text-align: left; padding: 8px 6px; }
+.rugby-table th.rugby-num { text-align: right; }
+.rugby-table td { padding: 11px 6px; border-top: 1px solid var(--rugby-line); }
+.rugby-table td.rugby-num { text-align: right; font-variant-numeric: tabular-nums; }
+.rugby-statusbar { border-top: 2px solid var(--rugby-line); background: var(--rugby-ink); color: var(--rugby-text-faint); font-size: 11px; padding: 8px 12px; font-family: var(--font-rugby-body), monospace; text-transform: uppercase; letter-spacing: 0.08em; }
 
 /* ---- Shell nav ---- */
 .rugby-nav-link {
@@ -1142,7 +1168,7 @@ thead th {
 }
 .rugby-result-card {
   display: flex; align-items: stretch; gap: 0; margin-top: 10px; flex-wrap: wrap;
-  background: linear-gradient(180deg, var(--rugby-ink-3), var(--rugby-ink-2)); border: 1px solid var(--rugby-line); clip-path: polygon(0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); overflow: hidden;
+  background: linear-gradient(180deg, var(--rugby-ink-3), var(--rugby-ink-2)); border: 1px solid var(--rugby-line); clip-path: polygon(0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px)); overflow: hidden;
   box-shadow: 0 14px 30px -12px rgba(0,0,0,0.7);
 }
 .rugby-rt-team { flex: 1 1 120px; display: flex; align-items: center; gap: 14px; padding: 18px 20px; min-width: 0; }
@@ -1158,7 +1184,7 @@ thead th {
 .rugby-rt-score .rugby-rt-dash { color: var(--rugby-text-faint); font-size: 19px; }
 
 /* ---- Leaderboard / stat rows ---- */
-.rugby-lb-list { display: flex; flex-direction: column; border: 1px solid var(--rugby-line); clip-path: polygon(0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); overflow: hidden; box-shadow: 0 14px 30px -14px rgba(0,0,0,0.7); }
+.rugby-lb-list { display: flex; flex-direction: column; border: 1px solid var(--rugby-line); clip-path: polygon(0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px)); overflow: hidden; box-shadow: 0 14px 30px -14px rgba(0,0,0,0.7); }
 .rugby-lb-row { display: flex; align-items: center; gap: 14px; padding: 13px 16px; background: var(--rugby-ink-2); border-bottom: 1px solid var(--rugby-line); }
 .rugby-lb-row:last-child { border-bottom: none; }
 .rugby-lb-row:nth-child(odd) { background: var(--rugby-ink-3); }

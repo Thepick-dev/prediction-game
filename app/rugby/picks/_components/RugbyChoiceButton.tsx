@@ -16,7 +16,7 @@ export default function ChoiceButton({ label, active, glow, onClick }: { label: 
     <button
       type="button"
       onClick={onClick}
-      className={`rb4-choice w-full py-4 px-4 text-base border-2 ${active ? 'rb4-choice--active' : ''}`}
+      className={`rugby-choice-btn w-full py-4 px-4 text-base border-2 ${active ? 'rugby-choice-btn--active' : ''}`}
       style={style}
     >
       <span>{label}</span>

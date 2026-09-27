@@ -173,15 +173,15 @@ export default function RugbyPicksForm({
       )}
 
       {showSquadDraft && (
-        <div className="rb4-panel rb4-panel--terminal" ref={squadSectionRef}>
-          <div className="rb4-titlebar">
-            <span className="rb4-dot" style={{ background: '#ff00ff' }} />
-            <span className="rb4-dot" style={{ background: '#00d4ff' }} />
-            <span className="rb4-dot" style={{ background: '#00ff88' }} />
+        <div className="rugby-panel" ref={squadSectionRef}>
+          <div className="rugby-terminal-bar">
+            <span className="rugby-terminal-dot" style={{ background: 'var(--rugby-magenta)' }} />
+            <span className="rugby-terminal-dot" style={{ background: 'var(--rugby-floodlight-2)' }} />
+            <span className="rugby-terminal-dot" style={{ background: 'var(--rugby-floodlight)' }} />
             <span style={{ marginLeft: 6 }}>DREAM_TEAM.EXE</span>
           </div>
           <div className="p-6">
-            <h2 className="rb4-title mb-5" style={{ fontSize: 'clamp(22px, 6vw, 30px)' }}>Dream Team</h2>
+            <h2 className="rugby-display mb-5" style={{ fontSize: 'clamp(22px, 6vw, 30px)' }}>Dream Team</h2>
             <RugbySquadBuilder
               mode="draft"
               players={squadPlayers}
@@ -197,13 +197,13 @@ export default function RugbyPicksForm({
       )}
 
       {message && (
-        <p className="text-sm text-center" style={{ color: 'var(--rb4-danger)', fontFamily: 'var(--font-rb4-mono)' }}>{message}</p>
+        <p className="text-sm text-center" style={{ color: '#ff3366' }}>{message}</p>
       )}
 
       <button
         onClick={submit}
         disabled={!allValid || saving}
-        className={`rb4-button w-full py-4 text-lg ${justSubmitted ? 'pop-celebrate' : ''}`}
+        className={`rugby-button w-full py-4 text-lg ${justSubmitted ? 'pop-celebrate' : ''}`}
       >
         <span>{saving ? 'Saving…' : justSubmitted ? '✓ Submitted!' : isUpdate ? 'Update My Picks' : 'Confirm My Picks'}</span>
       </button>

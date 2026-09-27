@@ -114,22 +114,22 @@ export default function MatchPredictionCarousel({
   const canAdvance = isStepAnswered(step, fixtures, rows)
 
   return (
-    <div className="rb4-panel rb4-panel--terminal">
-      <div className="rb4-titlebar">
-        <span className="rb4-dot" style={{ background: '#ff00ff' }} />
-        <span className="rb4-dot" style={{ background: '#00d4ff' }} />
-        <span className="rb4-dot" style={{ background: '#00ff88' }} />
+    <div className="rugby-panel">
+      <div className="rugby-terminal-bar">
+        <span className="rugby-terminal-dot" style={{ background: 'var(--rugby-magenta)' }} />
+        <span className="rugby-terminal-dot" style={{ background: 'var(--rugby-floodlight-2)' }} />
+        <span className="rugby-terminal-dot" style={{ background: 'var(--rugby-floodlight)' }} />
         <span style={{ marginLeft: 6 }}>MATCH_{String(step.fixtureIndex + 1).padStart(2, '0')}.EXE</span>
       </div>
 
       <div className="p-6">
-        <div className="rb4-progress-track w-full mb-5">
-          <div className="rb4-progress-fill" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} />
+        <div className="rugby-progress-track w-full mb-5">
+          <div className="rugby-progress-fill" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} />
         </div>
 
         <div key={stepKey(step)}>
-          <p className="rb4-title text-center mb-5" style={{ fontSize: 'clamp(20px, 5.5vw, 28px)' }}>
-            {fixture.homeTeam} <span style={{ color: 'var(--rb4-orange)' }}>v</span> {fixture.awayTeam}
+          <p className="rugby-display text-center mb-5" style={{ fontSize: 'clamp(20px, 5.5vw, 28px)' }}>
+            {fixture.homeTeam} <span style={{ color: 'var(--rugby-floodlight)' }}>v</span> {fixture.awayTeam}
           </p>
 
           {step.kind === 'winner' && (
@@ -145,14 +145,14 @@ export default function MatchPredictionCarousel({
 
           {step.kind === 'margin' && (
             <div className="text-center">
-              <p className="rb4-eyebrow mb-3">&gt; Winning margin</p>
+              <p className="rugby-hero-eyebrow mb-3">&gt; Winning margin</p>
               <input
                 type="number" min="1" placeholder="00" autoFocus
                 value={r.margin}
                 onChange={e => updateRow(fixture.id, { margin: e.target.value })}
-                className="rb4-input rb4-stat-number px-3 py-2 text-4xl w-28 text-center"
+                className="rugby-input rugby-stat-number px-3 py-2 text-4xl w-28 text-center"
               />
-              <button type="button" onClick={advance} disabled={!canAdvance} className="rb4-button w-full mt-5 py-3 text-sm">
+              <button type="button" onClick={advance} disabled={!canAdvance} className="rugby-button w-full mt-5 py-3 text-sm">
                 <span>Next &gt;</span>
               </button>
             </div>
@@ -160,7 +160,7 @@ export default function MatchPredictionCarousel({
 
           {step.kind === 'confidence' && (
             <>
-              <p className="rb4-eyebrow text-center mb-3">&gt; Confidence pick? (scores extra)</p>
+              <p className="rugby-hero-eyebrow text-center mb-3">&gt; Confidence pick? (scores extra)</p>
               <div className="grid grid-cols-2 gap-1.5">
                 <ChoiceButton label="Yes" active={confidenceFixtureId === fixture.id} glow={YES_GLOW} onClick={() => {
                   setConfidenceFixtureId(fixture.id)
@@ -180,7 +180,7 @@ export default function MatchPredictionCarousel({
         </div>
 
         {!isFirst && (
-          <button type="button" onClick={() => goTo(currentIndex - 1)} className="text-xs mt-5" style={{ color: 'var(--rb4-cyan)', fontFamily: 'var(--font-rb4-mono)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          <button type="button" onClick={() => goTo(currentIndex - 1)} className="text-xs mt-5" style={{ color: 'var(--rugby-floodlight-2)', fontFamily: 'var(--font-rugby-body)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             &lt; back
           </button>
         )}

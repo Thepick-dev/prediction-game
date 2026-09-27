@@ -149,34 +149,18 @@ export default function RugbyShell({
     return pathname === href || (pathname?.startsWith(href + '/') ?? false)
   }
 
-  // Each reskinned page gets its own header (matching its own body) so
-  // the page reads as one cohesive thing, not a light banner stitched
-  // onto it. Every other rugby page keeps the existing bold-on-white
-  // rb2- header — still "one page at a time," now with two pages done.
-  const isPicksTheme = pathname === '/rugby/picks'
-  const isLeaderboardTheme = pathname === '/rugby/leaderboard'
-  const t = isPicksTheme
-    ? {
-        headerBg: 'var(--rb4-void)', headerBorder: 'var(--rb4-magenta)', text: 'var(--rb4-fg)',
-        textFaint: 'rgba(224,224,224,0.5)', textDim: 'rgba(224,224,224,0.7)', line: 'var(--rb4-border)',
-        gold: 'var(--rb4-cyan)', stripBg: 'var(--rb4-card-solid)', font: 'var(--font-rb4-mono)',
-        fontDisplay: 'var(--font-rb4-display)', titleTransform: 'uppercase' as const, tickerText: '#000000',
-      }
-    : isLeaderboardTheme
-    ? {
-        headerBg: 'var(--rb5-bg)', headerBorder: 'var(--rb5-magenta)', text: 'var(--rb5-fg)',
-        textFaint: 'rgba(255,255,255,0.5)', textDim: 'rgba(255,255,255,0.7)', line: 'var(--rb5-muted)',
-        gold: 'var(--rb5-yellow)', stripBg: 'var(--rb5-muted)', font: 'var(--font-rb5-body)',
-        fontDisplay: 'var(--font-rb5-display)', titleTransform: 'uppercase' as const, tickerText: '#0d0d1a',
-      }
-    : {
-        headerBg: 'var(--rugby-ink-2)', headerBorder: 'var(--rugby-floodlight)', text: 'var(--rugby-text)',
-        textFaint: 'var(--rugby-text-faint)', textDim: 'var(--rugby-text-dim)', line: 'var(--rugby-line)',
-        gold: 'var(--rugby-floodlight)', stripBg: 'var(--rugby-ink-3)', font: 'var(--font-rugby-cond)',
-        fontDisplay: 'var(--font-rugby-display)', titleTransform: 'uppercase' as const, tickerText: '#001a12',
-      }
-  const isReskinned = isPicksTheme || isLeaderboardTheme
-  const pageBg = isPicksTheme ? 'var(--rb4-void)' : isLeaderboardTheme ? 'var(--rb5-bg)' : undefined
+  // One header, one theme, for every rugby page — Picks and Leaderboard
+  // used to carry their own bespoke header (different colours, different
+  // fonts) matching their own bespoke page body. Both now render through
+  // the same shared rugby-theme classes as every other page, so the
+  // header no longer needs a per-page variant at all.
+  const isPicksPage = pathname === '/rugby/picks'
+  const t = {
+    headerBg: 'var(--rugby-ink-2)', headerBorder: 'var(--rugby-floodlight)', text: 'var(--rugby-text)',
+    textFaint: 'var(--rugby-text-faint)', textDim: 'var(--rugby-text-dim)', line: 'var(--rugby-line)',
+    gold: 'var(--rugby-floodlight)', stripBg: 'var(--rugby-ink-3)', font: 'var(--font-rugby-cond)',
+    fontDisplay: 'var(--font-rugby-display)', titleTransform: 'uppercase' as const, tickerText: '#001a12',
+  }
 
   return (
     <div className="rugby-theme min-h-screen">
@@ -196,10 +180,10 @@ export default function RugbyShell({
             <Link href="/rugby" className="flex items-center justify-center gap-2 sm:col-start-2 sm:justify-self-center whitespace-nowrap">
               <span className="rugby-ball-icon" aria-hidden="true" />
               <span className="inline-flex flex-col items-center leading-none">
-                <span style={{ fontSize: 'clamp(15px, 4vw, 20px)', color: t.text, fontFamily: t.fontDisplay, textTransform: t.titleTransform, fontWeight: isReskinned ? 900 : undefined, filter: isPicksTheme ? 'drop-shadow(0 0 8px rgba(255,255,255,0.3))' : isLeaderboardTheme ? 'drop-shadow(0 0 20px rgba(255,0,255,0.4))' : undefined }}>
-                  All-Stars <span style={{ color: t.gold, WebkitTextStroke: isReskinned ? undefined : '1px var(--rugby-ink)', filter: isPicksTheme ? `drop-shadow(0 0 10px ${t.gold})` : isLeaderboardTheme ? undefined : 'drop-shadow(0 0 8px rgba(0,255,136,0.35))' }}>Rugby</span>
+                <span style={{ fontSize: 'clamp(15px, 4vw, 20px)', color: t.text, fontFamily: t.fontDisplay, textTransform: t.titleTransform }}>
+                  All-Stars <span style={{ color: t.gold, WebkitTextStroke: '1px var(--rugby-ink)', filter: 'drop-shadow(0 0 8px rgba(0,255,136,0.35))' }}>Rugby</span>
                 </span>
-                <span style={{ fontSize: 9, padding: '1px 8px', marginTop: 2, clipPath: 'polygon(0 4px, 4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%)', background: isPicksTheme ? 'rgba(0,255,255,0.1)' : isLeaderboardTheme ? 'var(--rb5-magenta)' : t.gold, color: isPicksTheme ? t.gold : isLeaderboardTheme ? '#ffffff' : '#001a12', border: isPicksTheme ? `1.5px solid ${t.gold}` : isLeaderboardTheme ? '2.5px solid var(--rb5-yellow)' : `2px solid ${t.headerBorder}`, fontFamily: t.font, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Six Nations</span>
+                <span style={{ fontSize: 9, padding: '1px 8px', marginTop: 2, clipPath: 'polygon(0 4px, 4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px))', background: t.gold, color: '#001a12', border: `2px solid ${t.headerBorder}`, fontFamily: t.font, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Six Nations</span>
               </span>
             </Link>
             <div className="flex items-center gap-3 sm:col-start-3 sm:justify-self-end">
@@ -267,7 +251,7 @@ export default function RugbyShell({
         </div>
         {/* Not shown on Picks itself — its own heading already states the
             same deadline, and Kit asked to cut duplicated information. */}
-        {nextDeadline && countdown && !countdown.expired && !isPicksTheme && (
+        {nextDeadline && countdown && !countdown.expired && !isPicksPage && (
           <div style={{ background: t.stripBg, borderTop: `1px solid ${t.line}` }}>
             <div className="max-w-4xl mx-auto px-4">
               <Link
@@ -323,10 +307,10 @@ export default function RugbyShell({
           </div>
         )}
       </header>
-      <main className="max-w-4xl mx-auto px-4 py-6" style={pageBg ? { background: pageBg } : undefined}>
+      <main className="max-w-4xl mx-auto px-4 py-6">
         {children}
       </main>
-      <footer className="py-4 mt-8 text-center" style={{ borderTop: `2px solid ${t.line}`, background: pageBg }}>
+      <footer className="py-4 mt-8 text-center" style={{ borderTop: `2px solid ${t.line}` }}>
         <span className="text-xs uppercase tracking-widest font-bold" style={{ color: t.textFaint, fontFamily: t.font }}>Six Nations — a game within All-Stars Rugby</span>
       </footer>
       {kitPopupOpen && kitPopupPos && userId && typeof document !== 'undefined' && createPortal(
