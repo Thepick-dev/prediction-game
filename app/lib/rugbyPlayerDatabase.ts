@@ -70,9 +70,9 @@ async function fetchExternalPlayerPerformances(supabase: SupabaseClient): Promis
         opponent_name: string | null; is_home: boolean | null; tries: number; conversions: number
         penalty_goals: number; drop_goals: number; yellow_card: number; red_card: number; try_assists: number
         clean_breaks: number; offloads: number; meters_run: number; tackles: number; tackles_missed: number
-        raw_score: number | null; rating: number | null
+        raw_score: number | null; rating: number | null; team_score: number | null; opponent_score: number | null
       }>(() => supabase.schema('rugby').from('player_performances').select(
-        'id, player_id, season, round_label, team_name, opponent_name, is_home, tries, conversions, penalty_goals, drop_goals, yellow_card, red_card, try_assists, clean_breaks, offloads, meters_run, tackles, tackles_missed, raw_score, rating'
+        'id, player_id, season, round_label, team_name, opponent_name, is_home, tries, conversions, penalty_goals, drop_goals, yellow_card, red_card, try_assists, clean_breaks, offloads, meters_run, tackles, tackles_missed, raw_score, rating, team_score, opponent_score'
       )),
       fetchAllRows<{ id: number; name: string; position: string | null; value: number | null }>(
         () => supabase.schema('rugby').from('players').select('id, name, position, value')
@@ -81,13 +81,15 @@ async function fetchExternalPlayerPerformances(supabase: SupabaseClient): Promis
     const playerById = new Map(players.map(p => [p.id, p]))
     return perfRows.map(p => {
       const player = playerById.get(p.player_id)
+      const isHome = p.is_home ?? true
       return {
         season: p.season, round: Number(p.round_label?.match(/\d+/)?.[0] ?? 0),
-        home_team: p.is_home ? (p.team_name ?? '?') : (p.opponent_name ?? '?'),
-        away_team: p.is_home ? (p.opponent_name ?? '?') : (p.team_name ?? '?'),
-        home_score: null, away_score: null,
+        home_team: isHome ? (p.team_name ?? '?') : (p.opponent_name ?? '?'),
+        away_team: isHome ? (p.opponent_name ?? '?') : (p.team_name ?? '?'),
+        home_score: isHome ? p.team_score : p.opponent_score,
+        away_score: isHome ? p.opponent_score : p.team_score,
         player_id: p.player_id, player: player?.name ?? `#${p.player_id}`,
-        team: p.team_name ?? '?', opponent: p.opponent_name ?? '?', is_home: p.is_home ?? true,
+        team: p.team_name ?? '?', opponent: p.opponent_name ?? '?', is_home: isHome,
         group: player?.position ?? null,
         value: player?.value ?? null, value_is_estimated: true,
         tries: p.tries, conversions: p.conversions, penalty_goals: p.penalty_goals, drop_goals: p.drop_goals,
@@ -211,6 +213,44 @@ export type RugbyPlayerSummary = {
   appearances: number
   average_rating: number | null
   performances: RugbyPlayerPerformanceRow[]
+  averages: RugbyPlayerStatAverages | null
+}
+
+// Every counting stat the row shape carries, averaged per match played —
+// Kit, 2026-09-27: "if they have 100 tackles and have played 5 matches
+// this should be 20" — for every stat, everywhere a player's totals are
+// shown, not just tackles.
+export type RugbyPlayerStatAverages = {
+  tries: number
+  conversions: number
+  penalty_goals: number
+  drop_goals: number
+  yellow_card: number
+  red_card: number
+  try_assists: number
+  clean_breaks: number
+  offloads: number
+  meters_run: number
+  tackles: number
+  tackles_missed: number
+}
+
+const STAT_AVERAGE_KEYS = [
+  'tries', 'conversions', 'penalty_goals', 'drop_goals', 'yellow_card', 'red_card',
+  'try_assists', 'clean_breaks', 'offloads', 'meters_run', 'tackles', 'tackles_missed',
+] as const
+
+function computeStatAverages(perfs: RugbyPlayerPerformanceRow[]): RugbyPlayerStatAverages | null {
+  if (perfs.length === 0) return null
+  const sums = {
+    tries: 0, conversions: 0, penalty_goals: 0, drop_goals: 0, yellow_card: 0, red_card: 0,
+    try_assists: 0, clean_breaks: 0, offloads: 0, meters_run: 0, tackles: 0, tackles_missed: 0,
+  }
+  perfs.forEach(p => { STAT_AVERAGE_KEYS.forEach(k => { sums[k] += p[k] }) })
+  const n = perfs.length
+  const averages = { ...sums }
+  STAT_AVERAGE_KEYS.forEach(k => { averages[k] = sums[k] / n })
+  return averages
 }
 
 // Recency weighting on a player's average rating — Kit's choice: "light
@@ -243,8 +283,8 @@ export async function fetchRugbyPlayerSummaries(supabase: SupabaseClient): Promi
   const [performances, teams, rosterRaw] = await Promise.all([
     fetchRugbyPlayerPerformances(supabase),
     fetchAllRows<{ id: number; name: string }>(() => supabase.schema('rugby').from('teams').select('id, name')),
-    fetchAllRows<{ id: number; name: string; team_id: number; position: string | null; value: number | null }>(
-      () => supabase.schema('rugby').from('players').select('id, name, team_id, position, value')
+    fetchAllRows<{ id: number; name: string; team_id: number; position: string | null; value: number | null; nationality: string | null }>(
+      () => supabase.schema('rugby').from('players').select('id, name, team_id, position, value, nationality')
     ),
   ])
 
@@ -280,7 +320,7 @@ export async function fetchRugbyPlayerSummaries(supabase: SupabaseClient): Promi
     return {
       player_id: p.id,
       player: p.name,
-      team: teamName.get(p.team_id) ?? '?',
+      team: p.nationality ?? teamName.get(p.team_id) ?? '?',
       team_id: p.team_id,
       group: p.position ?? null,
       value: p.value ?? null,
@@ -288,6 +328,7 @@ export async function fetchRugbyPlayerSummaries(supabase: SupabaseClient): Promi
       appearances: perfs.length,
       average_rating: averageRating,
       performances: perfs,
+      averages: computeStatAverages(perfs),
     }
   })
 }

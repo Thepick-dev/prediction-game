@@ -1,7 +1,8 @@
 'use client'
 
-import { useMemo, useState, type CSSProperties } from 'react'
+import { Fragment, useMemo, useState, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
+import type { RugbyPlayerStatAverages } from '../../../lib/rugbyPlayerDatabase'
 
 // Replaces both the old per-team search picker (initial draft) and the
 // separate substitution manager (post-deadline) with one Player-Database-
@@ -20,6 +21,32 @@ export type BuilderPlayer = {
   value_is_estimated: boolean
   average_rating: number | null
   appearances: number
+  averages: RugbyPlayerStatAverages | null
+}
+
+const STAT_LABELS: [keyof RugbyPlayerStatAverages, string][] = [
+  ['tries', 'Tries'], ['try_assists', 'Assists'], ['meters_run', 'Metres'],
+  ['tackles', 'Tackles'], ['tackles_missed', 'Tackles Missed'], ['clean_breaks', 'Clean Breaks'],
+  ['offloads', 'Offloads'], ['conversions', 'Conversions'], ['penalty_goals', 'Penalty Goals'],
+  ['drop_goals', 'Drop Goals'], ['yellow_card', 'Yellow Cards'], ['red_card', 'Red Cards'],
+]
+
+function fmt1(n: number) { return (Math.round(n * 10) / 10).toFixed(1) }
+
+// Same one-line, per-match-average breakdown as the Stats Hub Player
+// Database — Kit, 2026-09-27: "this should all be available on the dream
+// team section of picks too."
+function PlayerStatAverages({ averages }: { averages: RugbyPlayerStatAverages | null }) {
+  if (!averages) {
+    return <p className="text-sm py-3 px-2" style={{ color: 'var(--rugby-text-faint)' }}>No recorded performances yet.</p>
+  }
+  return (
+    <div className="p-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[11px]" style={{ color: 'var(--rugby-text-dim)' }}>
+      {STAT_LABELS.map(([key, label]) => (
+        <span key={key}>{label}: <b style={{ color: 'var(--rugby-text)' }}>{fmt1(averages[key])}</b>/match</span>
+      ))}
+    </div>
+  )
 }
 
 type SortKey = 'name' | 'value' | 'average_rating' | 'appearances'
@@ -100,6 +127,7 @@ export default function RugbySquadBuilder(props: Props) {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('average_rating')
   const [sortDir, setSortDir] = useState<1 | -1>(-1)
+  const [expandedId, setExpandedId] = useState<number | null>(null)
 
   // manage-mode-only: which currently-squadded player we're finding a
   // same-team replacement for.
@@ -318,42 +346,56 @@ export default function RugbySquadBuilder(props: Props) {
               const isSelected = selectedSet.has(p.id)
               const dotState: 'add' | 'picked' | 'off' = isSelected ? 'picked' : action.disabled ? 'off' : 'add'
               const isFwd = !!(p.group && FORWARD_GROUPS.has(p.group))
+              const open = expandedId === p.id
               return (
-                <tr key={p.id} style={{ background: isSelected ? 'rgba(255,0,255,0.06)' : undefined }}>
-                  <td className="py-2 px-1" style={isSelected ? { boxShadow: 'inset 2px 0 0 var(--rugby-magenta)' } : undefined}>
-                    <div style={{ color: 'var(--rugby-text)' }}>{p.name}</div>
-                    <div className="flex items-center gap-1 flex-wrap mt-0.5" style={{ color: 'var(--rugby-text)', opacity: 0.6 }}>
-                      <span>{p.team}</span>
-                      {p.group && (
-                        <span className="rugby-badge" style={isFwd ? { color: 'var(--rugby-floodlight)', borderColor: 'var(--rugby-floodlight)' } : { color: 'var(--rugby-floodlight-2)', borderColor: 'var(--rugby-floodlight-2)' }}>
-                          {p.group}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-2 px-1 text-right rugby-num" style={{ color: 'var(--rugby-text)', opacity: 0.5 }}>{p.appearances}</td>
-                  <td className="py-2 px-1 text-right rugby-num" style={{ color: 'var(--rugby-text)', opacity: 0.7 }}>{fmtValue(p.value, p.value_is_estimated)}</td>
-                  <td className="py-2 px-1 text-right">
-                    {p.average_rating != null ? (
-                      <span className="rugby-stat-number" style={{ color: p.average_rating >= 60 ? 'var(--rugby-floodlight)' : p.average_rating < 40 ? '#ff3366' : 'var(--rugby-text)' }}>{fmtRating(p.average_rating)}</span>
-                    ) : '—'}
-                  </td>
-                  <td className="py-2 px-1 text-right">
-                    {mode === 'draft' ? (
-                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <RowDot state={dotState} onClick={action.onClick} title={action.disabled ? action.label : undefined} />
+                <Fragment key={p.id}>
+                  <tr style={{ background: isSelected ? 'rgba(255,0,255,0.06)' : undefined }}>
+                    <td
+                      className="py-2 px-1 cursor-pointer"
+                      onClick={() => setExpandedId(open ? null : p.id)}
+                      style={isSelected ? { boxShadow: 'inset 2px 0 0 var(--rugby-magenta)' } : undefined}
+                    >
+                      <div style={{ color: 'var(--rugby-text)' }}>{open ? '▾' : '▸'} {p.name}</div>
+                      <div className="flex items-center gap-1 flex-wrap mt-0.5" style={{ color: 'var(--rugby-text)', opacity: 0.6 }}>
+                        <span>{p.team}</span>
+                        {p.group && (
+                          <span className="rugby-badge" style={isFwd ? { color: 'var(--rugby-floodlight)', borderColor: 'var(--rugby-floodlight)' } : { color: 'var(--rugby-floodlight-2)', borderColor: 'var(--rugby-floodlight-2)' }}>
+                            {p.group}
+                          </span>
+                        )}
                       </div>
-                    ) : (
-                      <button
-                        type="button" disabled={action.disabled} onClick={action.onClick}
-                        className="rugby-button rugby-button--ghost text-xs"
-                        style={{ padding: '5px 8px', whiteSpace: 'normal', width: '100%' }}
-                      >
-                        <span>{action.label}</span>
-                      </button>
-                    )}
-                  </td>
-                </tr>
+                    </td>
+                    <td className="py-2 px-1 text-right rugby-num" style={{ color: 'var(--rugby-text)', opacity: 0.5 }}>{p.appearances}</td>
+                    <td className="py-2 px-1 text-right rugby-num" style={{ color: 'var(--rugby-text)', opacity: 0.7 }}>{fmtValue(p.value, p.value_is_estimated)}</td>
+                    <td className="py-2 px-1 text-right">
+                      {p.average_rating != null ? (
+                        <span className="rugby-stat-number" style={{ color: p.average_rating >= 60 ? 'var(--rugby-floodlight)' : p.average_rating < 40 ? '#ff3366' : 'var(--rugby-text)' }}>{fmtRating(p.average_rating)}</span>
+                      ) : '—'}
+                    </td>
+                    <td className="py-2 px-1 text-right">
+                      {mode === 'draft' ? (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <RowDot state={dotState} onClick={action.onClick} title={action.disabled ? action.label : undefined} />
+                        </div>
+                      ) : (
+                        <button
+                          type="button" disabled={action.disabled} onClick={action.onClick}
+                          className="rugby-button rugby-button--ghost text-xs"
+                          style={{ padding: '5px 8px', whiteSpace: 'normal', width: '100%' }}
+                        >
+                          <span>{action.label}</span>
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  {open && (
+                    <tr>
+                      <td colSpan={5} style={{ padding: 0 }}>
+                        <PlayerStatAverages averages={p.averages} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               )
             })}
           </tbody>

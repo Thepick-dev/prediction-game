@@ -1,85 +1,34 @@
 'use client'
 
 import { Fragment, useMemo, useState } from 'react'
-import type { RugbyPlayerSummary, RugbyPlayerPerformanceRow } from '../../../lib/rugbyPlayerDatabase'
+import type { RugbyPlayerSummary, RugbyPlayerStatAverages } from '../../../lib/rugbyPlayerDatabase'
 
 const FORWARD_GROUPS = new Set(['Prop', 'Hooker', 'Second Row', 'Back Row'])
-const SORT_KEYS = ['player', 'team', 'group', 'appearances', 'value', 'average_rating'] as const
+const SORT_KEYS = ['player', 'team', 'group', 'appearances', 'average_rating'] as const
 type SortKey = typeof SORT_KEYS[number]
 
 function fmt1(n: number) { return (Math.round(n * 10) / 10).toFixed(1) }
 
-// A player's match-by-match history — the exact same "click a row to see
-// the full stat breakdown" interaction the old flat per-performance table
-// used, just nested under a player summary row instead of being the
-// top-level list.
-function PlayerMatchHistory({ performances }: { performances: RugbyPlayerPerformanceRow[] }) {
-  const [openIdx, setOpenIdx] = useState<number | null>(null)
+const STAT_LABELS: [keyof RugbyPlayerStatAverages, string][] = [
+  ['tries', 'Tries'], ['try_assists', 'Assists'], ['meters_run', 'Metres'],
+  ['tackles', 'Tackles'], ['tackles_missed', 'Tackles Missed'], ['clean_breaks', 'Clean Breaks'],
+  ['offloads', 'Offloads'], ['conversions', 'Conversions'], ['penalty_goals', 'Penalty Goals'],
+  ['drop_goals', 'Drop Goals'], ['yellow_card', 'Yellow Cards'], ['red_card', 'Red Cards'],
+]
 
-  if (performances.length === 0) {
+// Kit, 2026-09-27: the top line is name/nationality/position/apps/Power
+// Ranking; every other stat lives here, per match played, on one line —
+// no further drill into individual matches.
+function PlayerStatAverages({ averages }: { averages: RugbyPlayerStatAverages | null }) {
+  if (!averages) {
     return <p className="text-sm py-3 px-2" style={{ color: 'var(--rugby-text-faint)' }}>No recorded performances yet.</p>
   }
-
   return (
-    <table className="w-full text-xs" style={{ borderCollapse: 'collapse' }}>
-      <thead>
-        <tr style={{ borderBottom: '1.5px solid var(--rugby-line)' }}>
-          {['Match', 'T', 'A', 'Metres', 'Tkl', 'Value', 'Rating'].map((label, i) => (
-            <th key={label} className={`rugby-cond text-left py-1.5 px-2 uppercase tracking-wide whitespace-nowrap ${i > 0 ? 'text-right' : ''}`} style={{ color: 'var(--rugby-text-faint)' }}>
-              {label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {performances.map((r, i) => {
-          const open = openIdx === i
-          return (
-            <Fragment key={`${r.season}-${r.round}-${r.player_id}`}>
-              <tr
-                onClick={() => setOpenIdx(open ? null : i)}
-                className="cursor-pointer"
-                style={{ borderBottom: '1px solid var(--rugby-line)', background: open ? 'var(--rugby-ink-3)' : undefined }}
-              >
-                <td className="py-1.5 px-2 whitespace-nowrap" style={{ color: 'var(--rugby-text-faint)', fontFamily: 'var(--font-rugby-cond)' }}>
-                  {r.season} R{r.round}: {r.home_team} {r.home_score ?? '–'}-{r.away_score ?? '–'} {r.away_team}
-                </td>
-                <td className="py-1.5 px-2 text-right">{r.tries}</td>
-                <td className="py-1.5 px-2 text-right">{r.try_assists}</td>
-                <td className="py-1.5 px-2 text-right">{r.meters_run}</td>
-                <td className="py-1.5 px-2 text-right">{r.tackles}</td>
-                <td className="py-1.5 px-2 text-right whitespace-nowrap">
-                  {r.value != null ? `£${r.value.toLocaleString()}` : '—'}
-                  {r.value_is_estimated && <span className="ml-1" style={{ color: 'var(--rugby-text-faint)', fontSize: '9px' }}>(est.)</span>}
-                </td>
-                <td className="py-1.5 px-2 text-right">
-                  {r.rating != null ? (
-                    <span className="rugby-display" style={{ color: r.rating >= 60 ? '#3fa572' : r.rating < 40 ? '#e8574a' : 'var(--rugby-text-dim)' }}>{fmt1(r.rating)}</span>
-                  ) : '—'}
-                </td>
-              </tr>
-              {open && (
-                <tr>
-                  <td colSpan={7} style={{ background: 'var(--rugby-ink-3)', borderBottom: '1px solid var(--rugby-line)' }}>
-                    <div className="p-3 flex flex-wrap gap-x-6 gap-y-1 text-[11px]" style={{ color: 'var(--rugby-text-dim)' }}>
-                      <span>Conversions: <b style={{ color: 'var(--rugby-text)' }}>{r.conversions}</b></span>
-                      <span>Penalty goals: <b style={{ color: 'var(--rugby-text)' }}>{r.penalty_goals}</b></span>
-                      <span>Drop goals: <b style={{ color: 'var(--rugby-text)' }}>{r.drop_goals}</b></span>
-                      <span>Clean breaks: <b style={{ color: 'var(--rugby-text)' }}>{r.clean_breaks}</b></span>
-                      <span>Offloads: <b style={{ color: 'var(--rugby-text)' }}>{r.offloads}</b></span>
-                      <span>Tackles missed: <b style={{ color: 'var(--rugby-text)' }}>{r.tackles_missed}</b></span>
-                      {r.yellow_card > 0 && <span>Yellow cards: <b style={{ color: '#e8574a' }}>{r.yellow_card}</b></span>}
-                      {r.red_card > 0 && <span>Red cards: <b style={{ color: '#e8574a' }}>{r.red_card}</b></span>}
-                      <span>{r.is_home ? 'Played at home' : `Played away vs ${r.opponent}`}</span>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </Fragment>
-          )
-        })}
-      </tbody>
-    </table>
+    <div className="p-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[11px]" style={{ color: 'var(--rugby-text-dim)' }}>
+      {STAT_LABELS.map(([key, label]) => (
+        <span key={key}>{label}: <b style={{ color: 'var(--rugby-text)' }}>{fmt1(averages[key])}</b>/match</span>
+      ))}
+    </div>
   )
 }
 
@@ -175,12 +124,12 @@ export default function PlayerDatabaseTab({ players }: { players: RugbyPlayerSum
       </div>
 
       <div className="rugby-panel overflow-x-auto">
-        <table className="w-full text-xs" style={{ borderCollapse: 'collapse', minWidth: 620 }}>
+        <table className="w-full text-xs" style={{ borderCollapse: 'collapse', minWidth: 520 }}>
           <thead>
             <tr style={{ borderBottom: '2px solid var(--rugby-line)' }}>
               {([
                 ['player', 'Player'], ['team', 'Country'], ['group', 'Position'],
-                ['appearances', 'Apps'], ['value', 'Value'], ['average_rating', 'Power Ranking'],
+                ['appearances', 'Apps'], ['average_rating', 'Power Ranking'],
               ] as [SortKey, string][]).map(([key, label]) => (
                 <th
                   key={key}
@@ -212,10 +161,6 @@ export default function PlayerDatabaseTab({ players }: { players: RugbyPlayerSum
                       </span>
                     </td>
                     <td className="py-1.5 px-2 text-right">{p.appearances}</td>
-                    <td className="py-1.5 px-2 text-right whitespace-nowrap">
-                      {p.value != null ? `£${p.value.toLocaleString()}` : '—'}
-                      {p.value_is_estimated && <span className="ml-1" style={{ color: 'var(--rugby-text-faint)', fontSize: '9px' }}>(est.)</span>}
-                    </td>
                     <td className="py-1.5 px-2 text-right">
                       {p.average_rating != null ? (
                         <span className="rugby-display" style={{ color: p.average_rating >= 60 ? '#3fa572' : p.average_rating < 40 ? '#e8574a' : 'var(--rugby-text-dim)' }}>{fmt1(p.average_rating)}</span>
@@ -224,8 +169,8 @@ export default function PlayerDatabaseTab({ players }: { players: RugbyPlayerSum
                   </tr>
                   {open && (
                     <tr>
-                      <td colSpan={6} style={{ padding: 0 }}>
-                        <PlayerMatchHistory performances={p.performances} />
+                      <td colSpan={5} style={{ padding: 0 }}>
+                        <PlayerStatAverages averages={p.averages} />
                       </td>
                     </tr>
                   )}

@@ -4,6 +4,7 @@ import { requireAdmin } from '../../../lib/require-admin'
 import { redirect } from 'next/navigation'
 import { pullNextBatch, pullNextPaginatedBatch, isSixNationsSeniorMatch, checkQuota, backfillMissingPositions, backfillNationalityFromInternationalAppearances, type ExternalCompetition } from '../../../lib/rugbyExternalPerformanceSync'
 import PullButton from './_components/PullButton'
+import NationalityBackfillButton from './_components/NationalityBackfillButton'
 
 // Int. Friendly Games (SportsAPI Pro tournament 876) is a single global
 // feed of every nation's friendlies — Kit only wants the 6 Six Nations
@@ -82,6 +83,12 @@ async function pullCompetition(formData: FormData) {
   }
 }
 
+async function runNationalityBackfill() {
+  'use server'
+  const supabase = await requireAdminAction()
+  return backfillNationalityFromInternationalAppearances(supabase)
+}
+
 async function backfillPositions(formData: FormData) {
   'use server'
   const supabase = await requireAdminAction()
@@ -132,6 +139,8 @@ export default async function ExternalCompetitionsPage() {
         Player performance data pulled from SportsAPI Pro, outside the live Six Nations game.
         {quota && <span> Today&apos;s quota: {quota.remaining} of {quota.dailyLimit} requests left.</span>}
       </p>
+
+      <NationalityBackfillButton action={runNationalityBackfill} />
 
       <div className="space-y-3">
         {(competitions ?? []).map((c: any) => (
