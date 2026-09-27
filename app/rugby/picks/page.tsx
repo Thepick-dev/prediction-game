@@ -78,7 +78,7 @@ export default async function RugbyPicksPage() {
   // or one from a team no longer playing.
   const squadPlayers = playerSummaries
     .filter(p => activeTeamIds.has(p.team_id) && (draftableById.size === 0 || draftableById.get(p.player_id) === true))
-    .map(p => ({ id: p.player_id, name: p.player, team: p.team, team_id: p.team_id, group: p.group, value: p.value, value_is_estimated: p.value_is_estimated, average_rating: p.average_rating, appearances: p.appearances, averages: p.averages }))
+    .map(p => ({ id: p.player_id, name: p.player, team: p.team, team_id: p.team_id, group: p.group, value: p.value, value_is_estimated: p.value_is_estimated, average_rating: p.average_rating, appearances: p.appearances, averages: p.averages, performances: p.performances }))
   const playerById = new Map(playerSummaries.map(p => [p.player_id, p]))
 
   const roundsList = rounds ?? []

@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useMemo, useState } from 'react'
-import type { RugbyPlayerSummary, RugbyPlayerStatAverages } from '../../../lib/rugbyPlayerDatabase'
+import type { RugbyPlayerSummary, RugbyPlayerStatAverages, RugbyPlayerPerformanceRow } from '../../../lib/rugbyPlayerDatabase'
 
 const FORWARD_GROUPS = new Set(['Prop', 'Hooker', 'Second Row', 'Back Row'])
 const SORT_KEYS = ['player', 'team', 'group', 'appearances', 'average_rating'] as const
@@ -16,18 +16,57 @@ const STAT_LABELS: [keyof RugbyPlayerStatAverages, string][] = [
   ['drop_goals', 'Drop Goals'], ['yellow_card', 'Yellow Cards'], ['red_card', 'Red Cards'],
 ]
 
-// Kit, 2026-09-27: the top line is name/nationality/position/apps/Power
-// Ranking; every other stat lives here, per match played, on one line —
-// no further drill into individual matches.
+// Kit, 2026-09-27: part of the always-visible top line, not the dropdown —
+// every stat, averaged per match played ("100 tackles in 5 matches should
+// show as 20").
 function PlayerStatAverages({ averages }: { averages: RugbyPlayerStatAverages | null }) {
   if (!averages) {
-    return <p className="text-sm py-3 px-2" style={{ color: 'var(--rugby-text-faint)' }}>No recorded performances yet.</p>
+    return <p className="text-xs py-2 px-2" style={{ color: 'var(--rugby-text-faint)' }}>No recorded performances yet.</p>
   }
   return (
-    <div className="p-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[11px]" style={{ color: 'var(--rugby-text-dim)' }}>
+    <div className="py-2 px-2 flex flex-wrap gap-x-5 gap-y-1.5 text-[11px]" style={{ color: 'var(--rugby-text-dim)' }}>
       {STAT_LABELS.map(([key, label]) => (
         <span key={key}>{label}: <b style={{ color: 'var(--rugby-text)' }}>{fmt1(averages[key])}</b>/match</span>
       ))}
+    </div>
+  )
+}
+
+// Kit, 2026-09-27, after an earlier pass wrongly replaced this with
+// averages-only: "you've got rid of the individual match performances —
+// that was not what I asked for! I want those!" — every match a player
+// played, one match to a line (every stat on that one line, no further
+// click into more detail).
+function PlayerMatchLine({ r }: { r: RugbyPlayerPerformanceRow }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-1.5 px-2 text-[11px]" style={{ borderBottom: '1px solid var(--rugby-line)', color: 'var(--rugby-text-dim)' }}>
+      <span className="rugby-cond uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--rugby-text-faint)' }}>
+        {r.season} R{r.round}: {r.home_team} {r.home_score ?? '–'}–{r.away_score ?? '–'} {r.away_team}
+      </span>
+      <span>T <b style={{ color: 'var(--rugby-text)' }}>{r.tries}</b></span>
+      <span>A <b style={{ color: 'var(--rugby-text)' }}>{r.try_assists}</b></span>
+      <span>Conv <b style={{ color: 'var(--rugby-text)' }}>{r.conversions}</b></span>
+      <span>Pen <b style={{ color: 'var(--rugby-text)' }}>{r.penalty_goals}</b></span>
+      <span>Drop <b style={{ color: 'var(--rugby-text)' }}>{r.drop_goals}</b></span>
+      <span>Metres <b style={{ color: 'var(--rugby-text)' }}>{r.meters_run}</b></span>
+      <span>Tkl <b style={{ color: 'var(--rugby-text)' }}>{r.tackles}</b></span>
+      <span>Tkl Missed <b style={{ color: 'var(--rugby-text)' }}>{r.tackles_missed}</b></span>
+      <span>Breaks <b style={{ color: 'var(--rugby-text)' }}>{r.clean_breaks}</b></span>
+      <span>Offloads <b style={{ color: 'var(--rugby-text)' }}>{r.offloads}</b></span>
+      {r.yellow_card > 0 && <span style={{ color: '#e8574a' }}>YC {r.yellow_card}</span>}
+      {r.red_card > 0 && <span style={{ color: '#e8574a' }}>RC {r.red_card}</span>}
+      <span>Rating <b className="rugby-display" style={{ color: r.rating != null && r.rating >= 60 ? '#3fa572' : r.rating != null && r.rating < 40 ? '#e8574a' : 'var(--rugby-text-dim)' }}>{r.rating != null ? fmt1(r.rating) : '—'}</b></span>
+    </div>
+  )
+}
+
+function PlayerMatchList({ performances }: { performances: RugbyPlayerPerformanceRow[] }) {
+  if (performances.length === 0) {
+    return <p className="text-sm py-3 px-2" style={{ color: 'var(--rugby-text-faint)' }}>No recorded performances yet.</p>
+  }
+  return (
+    <div>
+      {performances.map((r, i) => <PlayerMatchLine key={`${r.season}-${r.round}-${i}`} r={r} />)}
     </div>
   )
 }
@@ -151,9 +190,9 @@ export default function PlayerDatabaseTab({ players }: { players: RugbyPlayerSum
                   <tr
                     onClick={() => setExpandedId(open ? null : p.player_id)}
                     className="cursor-pointer"
-                    style={{ borderBottom: '1px solid var(--rugby-line)', background: open ? 'var(--rugby-ink-3)' : undefined }}
+                    style={{ background: open ? 'var(--rugby-ink-3)' : undefined }}
                   >
-                    <td className="py-1.5 px-2 rugby-cond uppercase tracking-wide whitespace-nowrap">{p.player}</td>
+                    <td className="py-1.5 px-2 rugby-cond uppercase tracking-wide whitespace-nowrap">{open ? '▾' : '▸'} {p.player}</td>
                     <td className="py-1.5 px-2 whitespace-nowrap">{p.team}</td>
                     <td className="py-1.5 px-2 whitespace-nowrap">
                       <span className="rugby-badge" style={isFwd ? { background: 'rgba(255,194,46,0.15)', color: 'var(--rugby-floodlight)', borderColor: 'rgba(255,194,46,0.4)' } : undefined}>
@@ -167,10 +206,16 @@ export default function PlayerDatabaseTab({ players }: { players: RugbyPlayerSum
                       ) : '—'}
                     </td>
                   </tr>
+                  <tr style={{ borderBottom: '1px solid var(--rugby-line)', background: open ? 'var(--rugby-ink-3)' : undefined }}>
+                    <td colSpan={5} style={{ padding: 0 }}>
+                      <PlayerStatAverages averages={p.averages} />
+                    </td>
+                  </tr>
                   {open && (
                     <tr>
-                      <td colSpan={5} style={{ padding: 0 }}>
-                        <PlayerStatAverages averages={p.averages} />
+                      <td colSpan={5} style={{ padding: 0, borderBottom: '1px solid var(--rugby-line)' }}>
+                        <p className="text-[10px] uppercase tracking-wide pt-2 px-2" style={{ color: 'var(--rugby-text-faint)' }}>Match by match ({p.appearances})</p>
+                        <PlayerMatchList performances={p.performances} />
                       </td>
                     </tr>
                   )}

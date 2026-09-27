@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
-import type { RugbyPlayerStatAverages } from '../../../lib/rugbyPlayerDatabase'
+import type { RugbyPlayerStatAverages, RugbyPlayerPerformanceRow } from '../../../lib/rugbyPlayerDatabase'
 
 // Replaces both the old per-team search picker (initial draft) and the
 // separate substitution manager (post-deadline) with one Player-Database-
@@ -22,6 +22,7 @@ export type BuilderPlayer = {
   average_rating: number | null
   appearances: number
   averages: RugbyPlayerStatAverages | null
+  performances: RugbyPlayerPerformanceRow[]
 }
 
 const STAT_LABELS: [keyof RugbyPlayerStatAverages, string][] = [
@@ -35,16 +36,54 @@ function fmt1(n: number) { return (Math.round(n * 10) / 10).toFixed(1) }
 
 // Same one-line, per-match-average breakdown as the Stats Hub Player
 // Database — Kit, 2026-09-27: "this should all be available on the dream
-// team section of picks too."
+// team section of picks too." Part of the always-visible top line, not
+// behind a click.
 function PlayerStatAverages({ averages }: { averages: RugbyPlayerStatAverages | null }) {
   if (!averages) {
-    return <p className="text-sm py-3 px-2" style={{ color: 'var(--rugby-text-faint)' }}>No recorded performances yet.</p>
+    return <p className="text-xs py-2 px-2" style={{ color: 'var(--rugby-text-faint)' }}>No recorded performances yet.</p>
   }
   return (
-    <div className="p-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[11px]" style={{ color: 'var(--rugby-text-dim)' }}>
+    <div className="py-2 px-2 flex flex-wrap gap-x-5 gap-y-1.5 text-[11px]" style={{ color: 'var(--rugby-text-dim)' }}>
       {STAT_LABELS.map(([key, label]) => (
         <span key={key}>{label}: <b style={{ color: 'var(--rugby-text)' }}>{fmt1(averages[key])}</b>/match</span>
       ))}
+    </div>
+  )
+}
+
+// Same individual match-by-match list as the Stats Hub Player Database —
+// this is the click-to-expand content; the averages strip above is
+// always visible.
+function PlayerMatchLine({ r }: { r: RugbyPlayerPerformanceRow }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-1.5 px-2 text-[11px]" style={{ borderBottom: '1px solid var(--rugby-line)', color: 'var(--rugby-text-dim)' }}>
+      <span className="rugby-cond uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--rugby-text-faint)' }}>
+        {r.season} R{r.round}: {r.home_team} {r.home_score ?? '–'}–{r.away_score ?? '–'} {r.away_team}
+      </span>
+      <span>T <b style={{ color: 'var(--rugby-text)' }}>{r.tries}</b></span>
+      <span>A <b style={{ color: 'var(--rugby-text)' }}>{r.try_assists}</b></span>
+      <span>Conv <b style={{ color: 'var(--rugby-text)' }}>{r.conversions}</b></span>
+      <span>Pen <b style={{ color: 'var(--rugby-text)' }}>{r.penalty_goals}</b></span>
+      <span>Drop <b style={{ color: 'var(--rugby-text)' }}>{r.drop_goals}</b></span>
+      <span>Metres <b style={{ color: 'var(--rugby-text)' }}>{r.meters_run}</b></span>
+      <span>Tkl <b style={{ color: 'var(--rugby-text)' }}>{r.tackles}</b></span>
+      <span>Tkl Missed <b style={{ color: 'var(--rugby-text)' }}>{r.tackles_missed}</b></span>
+      <span>Breaks <b style={{ color: 'var(--rugby-text)' }}>{r.clean_breaks}</b></span>
+      <span>Offloads <b style={{ color: 'var(--rugby-text)' }}>{r.offloads}</b></span>
+      {r.yellow_card > 0 && <span style={{ color: '#e8574a' }}>YC {r.yellow_card}</span>}
+      {r.red_card > 0 && <span style={{ color: '#e8574a' }}>RC {r.red_card}</span>}
+      <span>Rating <b className="rugby-display" style={{ color: r.rating != null && r.rating >= 60 ? '#3fa572' : r.rating != null && r.rating < 40 ? '#e8574a' : 'var(--rugby-text-dim)' }}>{r.rating != null ? fmt1(r.rating) : '—'}</b></span>
+    </div>
+  )
+}
+
+function PlayerMatchList({ performances }: { performances: RugbyPlayerPerformanceRow[] }) {
+  if (performances.length === 0) {
+    return <p className="text-sm py-3 px-2" style={{ color: 'var(--rugby-text-faint)' }}>No recorded performances yet.</p>
+  }
+  return (
+    <div>
+      {performances.map((r, i) => <PlayerMatchLine key={`${r.season}-${r.round}-${i}`} r={r} />)}
     </div>
   )
 }
@@ -388,10 +427,16 @@ export default function RugbySquadBuilder(props: Props) {
                       )}
                     </td>
                   </tr>
+                  <tr style={{ background: isSelected ? 'rgba(255,0,255,0.06)' : undefined }}>
+                    <td colSpan={5} style={{ padding: 0, borderBottom: '1px solid var(--rugby-line)' }}>
+                      <PlayerStatAverages averages={p.averages} />
+                    </td>
+                  </tr>
                   {open && (
                     <tr>
-                      <td colSpan={5} style={{ padding: 0 }}>
-                        <PlayerStatAverages averages={p.averages} />
+                      <td colSpan={5} style={{ padding: 0, borderBottom: '1px solid var(--rugby-line)' }}>
+                        <p className="text-[10px] uppercase tracking-wide pt-2 px-2" style={{ color: 'var(--rugby-text-faint)' }}>Match by match ({p.appearances})</p>
+                        <PlayerMatchList performances={p.performances} />
                       </td>
                     </tr>
                   )}
