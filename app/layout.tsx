@@ -55,10 +55,14 @@ const barlowCondensed = Barlow_Condensed({
 
 // Cyberpunk redesign (Kit, 2026-09-26) — swapped from IBM Plex Sans for
 // the spec's "terminal feel": monospace body copy throughout, matching
-// Orbitron/Share Tech Mono (already registered below for rb4) as the
-// site's unified voice.
+// Orbitron/Share Tech Mono (already registered below) as the site's
+// unified voice. Requesting discrete static weights here tripped the
+// exact same Turbopack production-build bug documented below on Outfit
+// ("next/font/google queries have exactly one entry") — confirmed
+// failing on Vercel, local `next build` didn't catch it either. Using
+// the variable-font form sidesteps it the same way.
 const jetBrainsMono = JetBrains_Mono({
-  weight: ['400', '500', '600', '700'],
+  weight: 'variable',
   subsets: ['latin'],
   variable: '--font-rugby-body',
   display: 'swap',
