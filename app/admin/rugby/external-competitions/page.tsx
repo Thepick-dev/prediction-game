@@ -2,7 +2,7 @@ import { createServerSupabaseClient } from '../../../lib/supabase-server'
 import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { requireAdmin } from '../../../lib/require-admin'
 import { redirect } from 'next/navigation'
-import { pullNextBatch, pullNextPaginatedBatch, isSixNationsSeniorMatch, checkQuota, backfillMissingPositions, backfillNationalityFromInternationalAppearances, type ExternalCompetition } from '../../../lib/rugbyExternalPerformanceSync'
+import { pullNextBatch, pullNextPaginatedBatch, isSixNationsSeniorMatch, checkQuota, backfillMissingPositions, backfillMissingTeamStats, backfillNationalityFromInternationalAppearances, type ExternalCompetition } from '../../../lib/rugbyExternalPerformanceSync'
 import PullButton from './_components/PullButton'
 import NationalityBackfillButton from './_components/NationalityBackfillButton'
 
@@ -122,6 +122,40 @@ async function backfillPositions(formData: FormData) {
   }
 }
 
+async function backfillTeamStats(formData: FormData) {
+  'use server'
+  const supabase = await requireAdminAction()
+  const id = Number(formData.get('competition_id'))
+  const apiKey = process.env.SPORTS_API_PRO_KEY
+  if (!apiKey) return
+
+  try {
+    const { data: comp } = await supabase.schema('rugby').from('external_competitions').select('*').eq('id', id).single()
+    if (!comp) return
+
+    const quota = await checkQuota(apiKey)
+    const budget = Math.max(0, Math.min(quota.remaining - 10, SAFE_DAILY_BUDGET))
+
+    const summary = await backfillMissingTeamStats(supabase, comp as ExternalCompetition, apiKey, budget)
+
+    // Kit, 2026-09-29: ratings/values update automatically whenever new
+    // data (here: the pack bonus becoming available) changes what can be
+    // rated, same as every other backfill on this page.
+    if (summary.matchesUpdated > 0) {
+      await recomputeAllRugbyRatings(supabase)
+      await recomputeAllRugbyPlayerValues(supabase)
+    }
+
+    await supabase.schema('rugby').from('external_competitions').update({
+      last_team_stats_backfill_summary: summary,
+    }).eq('id', id)
+  } catch (e: any) {
+    await supabase.schema('rugby').from('external_competitions').update({
+      last_team_stats_backfill_summary: { errors: [`Unexpected failure: ${e?.message ?? String(e)}`], matchesChecked: 0, matchesUpdated: 0, requestsUsed: 0, stoppedReason: 'quota' },
+    }).eq('id', id)
+  }
+}
+
 export default async function ExternalCompetitionsPage() {
   const supabase = await createServerSupabaseClient()
   const admin = await requireAdmin(supabase)
@@ -175,6 +209,16 @@ export default async function ExternalCompetitionsPage() {
                     Backfill positions
                   </PullButton>
                 </form>
+                <form action={backfillTeamStats}>
+                  <input type="hidden" name="competition_id" value={c.id} />
+                  <PullButton
+                    className="px-3 py-1.5 border border-black rounded text-sm disabled:opacity-50"
+                    disabled={!c.current_season_id}
+                    pendingText="Working…"
+                  >
+                    Backfill team stats
+                  </PullButton>
+                </form>
               </div>
             </div>
             {c.last_pull_summary && (
@@ -193,6 +237,15 @@ export default async function ExternalCompetitionsPage() {
                 {c.last_backfill_summary.requestsUsed} requests used (stopped: {c.last_backfill_summary.stoppedReason}).
                 {c.last_backfill_summary.errors?.length > 0 && (
                   <div className="text-red-600 mt-1">{c.last_backfill_summary.errors.length} error(s): {c.last_backfill_summary.errors.slice(0, 3).join('; ')}</div>
+                )}
+              </div>
+            )}
+            {c.last_team_stats_backfill_summary && (
+              <div className="mt-2 text-xs text-gray-700 bg-gray-50 rounded p-2">
+                Last team stats backfill: {c.last_team_stats_backfill_summary.matchesChecked} matches checked, {c.last_team_stats_backfill_summary.matchesUpdated} updated,{' '}
+                {c.last_team_stats_backfill_summary.requestsUsed} requests used (stopped: {c.last_team_stats_backfill_summary.stoppedReason}).
+                {c.last_team_stats_backfill_summary.errors?.length > 0 && (
+                  <div className="text-red-600 mt-1">{c.last_team_stats_backfill_summary.errors.length} error(s): {c.last_team_stats_backfill_summary.errors.slice(0, 3).join('; ')}</div>
                 )}
               </div>
             )}

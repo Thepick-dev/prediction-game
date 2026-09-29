@@ -92,3 +92,62 @@ export function extractPlayerStatEntries(data: { home?: any[]; away?: any[] }): 
   ;(data.away ?? []).forEach(entry => out.push({ side: 'away', entry }))
   return out
 }
+
+// Team-level match stats (from /match/{id}/statistics, NOT
+// /player-statistics) — confirmed live this session that this feeds
+// exactly what rugbyRating.ts's pack bonus needs (scrum %, lineout %,
+// turnovers, penalties conceded), and that nothing was ever fetching it.
+export type SportsApiTeamStats = {
+  scrumsWon: number | null
+  scrumsAttempted: number | null
+  lineoutsWon: number | null
+  lineoutsAttempted: number | null
+  turnoversWon: number
+  turnoversConceded: number
+  penaltiesConceded: number
+}
+
+function parseAccuracy(raw: string | undefined): { won: number | null; attempted: number | null } {
+  const m = raw?.match(/(\d+)\/(\d+)/)
+  return m ? { won: Number(m[1]), attempted: Number(m[2]) } : { won: null, attempted: null }
+}
+
+// The response groups stats under named sections (Possession/Scoring/
+// Other/Penalty/...) — looked up by each stat's own `key`, not by which
+// group it's filed under, since group membership isn't guaranteed
+// stable across competitions or sports tiers. Returns null if the
+// response doesn't carry enough for the pack formula (rather than
+// guessing zeroes), so callers can skip storing an empty/wrong row.
+export function extractTeamStats(data: { statistics?: { groups?: { statisticsItems?: any[] }[] }[] }): { home: SportsApiTeamStats; away: SportsApiTeamStats } | null {
+  const groups = data?.statistics?.[0]?.groups
+  if (!groups) return null
+  const byKey = new Map<string, any>()
+  groups.forEach(g => (g.statisticsItems ?? []).forEach(item => byKey.set(item.key, item)))
+
+  const turnoversConceded = byKey.get('turnovers')
+  const turnoversWon = byKey.get('turnoversWon')
+  const penalties = byKey.get('penaltiesConceded')
+  if (!turnoversConceded || !turnoversWon || !penalties) return null
+
+  const scrums = byKey.get('scrumsAccuracy')
+  const lineouts = byKey.get('lineoutsAccuracy')
+  const scrumsHome = parseAccuracy(scrums?.home)
+  const scrumsAway = parseAccuracy(scrums?.away)
+  const lineoutsHome = parseAccuracy(lineouts?.home)
+  const lineoutsAway = parseAccuracy(lineouts?.away)
+
+  return {
+    home: {
+      scrumsWon: scrumsHome.won, scrumsAttempted: scrumsHome.attempted,
+      lineoutsWon: lineoutsHome.won, lineoutsAttempted: lineoutsHome.attempted,
+      turnoversWon: Number(turnoversWon.home ?? 0), turnoversConceded: Number(turnoversConceded.home ?? 0),
+      penaltiesConceded: Number(penalties.home ?? 0),
+    },
+    away: {
+      scrumsWon: scrumsAway.won, scrumsAttempted: scrumsAway.attempted,
+      lineoutsWon: lineoutsAway.won, lineoutsAttempted: lineoutsAway.attempted,
+      turnoversWon: Number(turnoversWon.away ?? 0), turnoversConceded: Number(turnoversConceded.away ?? 0),
+      penaltiesConceded: Number(penalties.away ?? 0),
+    },
+  }
+}

@@ -142,6 +142,27 @@ export async function POST() {
     }
   }
 
+  // ---------- Team stats (scrum/lineout/turnover/penalty %, upsert per team per fixture) ----------
+  // Kit, 2026-09-29: feeds the pack bonus in rugbyRating.ts (forwards
+  // only) — confirmed this session that nothing was ever writing this,
+  // so it's been running on no data for every real fixture.
+  let teamStatRowsApplied = 0
+  for (const row of fetchResult.teamStats) {
+    const fixture = dueFixtures.find(f => f.fixtureId === row.fixtureId)
+    if (!fixture) continue
+    const homeTeamId = teamIdByName.get(fixture.homeTeamName)
+    const awayTeamId = teamIdByName.get(fixture.awayTeamName)
+    const upserts = [
+      homeTeamId != null ? { fixture_id: row.fixtureId, team_id: homeTeamId, scrums_won: row.home.scrumsWon, scrums_attempted: row.home.scrumsAttempted, lineouts_won: row.home.lineoutsWon, lineouts_attempted: row.home.lineoutsAttempted, turnovers_won: row.home.turnoversWon, turnovers_conceded: row.home.turnoversConceded, penalties_conceded: row.home.penaltiesConceded } : null,
+      awayTeamId != null ? { fixture_id: row.fixtureId, team_id: awayTeamId, scrums_won: row.away.scrumsWon, scrums_attempted: row.away.scrumsAttempted, lineouts_won: row.away.lineoutsWon, lineouts_attempted: row.away.lineoutsAttempted, turnovers_won: row.away.turnoversWon, turnovers_conceded: row.away.turnoversConceded, penalties_conceded: row.away.penaltiesConceded } : null,
+    ].filter((r): r is NonNullable<typeof r> => r != null)
+    if (upserts.length) {
+      const { error } = await db.schema('rugby').from('match_team_stats').upsert(upserts, { onConflict: 'fixture_id,team_id' })
+      if (error) warnings.push(`match_team_stats for fixture ${row.fixtureId}: ${error.message}`)
+      else teamStatRowsApplied += upserts.length
+    }
+  }
+
   return NextResponse.json({
     success: true,
     summary: {
@@ -149,6 +170,7 @@ export async function POST() {
       results_applied: fetchResult.results.length,
       scorer_rows_applied: scorerRowsApplied,
       player_match_stats_applied: statRowsApplied,
+      team_stats_applied: teamStatRowsApplied,
     },
     warnings,
   })

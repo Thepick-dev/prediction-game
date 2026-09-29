@@ -1,5 +1,5 @@
 import type { ResultRow, ScorerRow } from './rugbySheetSync'
-import { sportsApiProGet } from './sportsApiProClient'
+import { sportsApiProGet, extractTeamStats, type SportsApiTeamStats } from './sportsApiProClient'
 
 // Pulls real results, scorer events AND full player match stats from
 // SportsAPI Pro (sportsapipro.com) for whichever of our own fixtures have
@@ -50,10 +50,17 @@ export type PlayerStatRow = {
   is_substitute: boolean
 }
 
+export type TeamStatsRow = {
+  fixtureId: number
+  home: SportsApiTeamStats
+  away: SportsApiTeamStats
+}
+
 export type FetchResult = {
   results: ResultRow[]
   scorers: ScorerRow[]
   playerStats: PlayerStatRow[]
+  teamStats: TeamStatsRow[]
   matchedFixtureIds: number[]
   unmatchedFixtures: string[]
   apiErrors: string[]
@@ -107,6 +114,7 @@ export async function fetchRugbyResultsFromApi(apiKey: string, dueFixtures: DueF
   const results: ResultRow[] = []
   const scorers: ScorerRow[] = []
   const playerStats: PlayerStatRow[] = []
+  const teamStats: TeamStatsRow[] = []
   const matchedFixtureIds: number[] = []
   const unmatchedFixtures: string[] = []
   const apiErrors: string[] = []
@@ -174,7 +182,18 @@ export async function fetchRugbyResultsFromApi(apiKey: string, dueFixtures: DueF
     } catch (e: any) {
       apiErrors.push(`Player statistics for ${fixture.homeTeamName} v ${fixture.awayTeamName}: ${e.message}`)
     }
+
+    // Team stats (scrum/lineout/turnover/penalty %) feed the pack bonus
+    // in rugbyRating.ts, forwards only — best-effort, a failure here must
+    // never block the player stats/result already fetched above.
+    try {
+      const teamStatsBody = await apiGet(`/match/${apiMatch.id}/statistics`, apiKey)
+      const parsed = extractTeamStats(teamStatsBody.data ?? {})
+      if (parsed) teamStats.push({ fixtureId: fixture.fixtureId, home: parsed.home, away: parsed.away })
+    } catch (e: any) {
+      apiErrors.push(`Team statistics for ${fixture.homeTeamName} v ${fixture.awayTeamName}: ${e.message}`)
+    }
   }
 
-  return { results, scorers, playerStats, matchedFixtureIds, unmatchedFixtures, apiErrors }
+  return { results, scorers, playerStats, teamStats, matchedFixtureIds, unmatchedFixtures, apiErrors }
 }

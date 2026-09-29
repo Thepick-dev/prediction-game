@@ -263,6 +263,7 @@ async function fetchAllRows<T>(query: () => any): Promise<T[]> {
 // own match_result, so they build a RatingPoolEntry far more directly.
 type ExternalPerformanceRow = {
   id: number; player_id: number; external_competition_id: number
+  sportsapi_match_id: number | null; team_name: string | null
   tries: number; conversions: number; penalty_goals: number; drop_goals: number
   yellow_card: number; red_card: number; try_assists: number; clean_breaks: number
   offloads: number; meters_run: number; passes: number; tackles: number; tackles_missed: number
@@ -334,9 +335,22 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
     // performances sit out of this recompute, never that fixture-based
     // ratings (the live game) stop working.
     fetchAllRows<ExternalPerformanceRow>(
-      () => supabase.schema('rugby').from('player_performances').select('id, player_id, external_competition_id, tries, conversions, penalty_goals, drop_goals, yellow_card, red_card, try_assists, clean_breaks, offloads, meters_run, passes, tackles, tackles_missed, match_result, is_substitute')
+      () => supabase.schema('rugby').from('player_performances').select('id, player_id, external_competition_id, sportsapi_match_id, team_name, tries, conversions, penalty_goals, drop_goals, yellow_card, red_card, try_assists, clean_breaks, offloads, meters_run, passes, tackles, tackles_missed, match_result, is_substitute')
     ).catch(() => [] as ExternalPerformanceRow[]),
   ])
+
+  // Isolated fetch: external_match_team_stats is a brand-new table (this
+  // session) — missing/unreadable degrades to "no pack bonus for any club
+  // performance" (today's behaviour before this table existed), never
+  // that the whole recompute breaks. Keyed by SportsAPI match id + team
+  // name, not team_id — most club teams aren't in rugby.teams at all.
+  let externalTeamStatsByKey = new Map<string, TeamMatchStatLine>()
+  try {
+    const rows = await fetchAllRows<TeamMatchStatLine & { sportsapi_match_id: number; team_name: string }>(
+      () => supabase.schema('rugby').from('external_match_team_stats').select('sportsapi_match_id, team_name, scrums_won, scrums_attempted, lineouts_won, lineouts_attempted, turnovers_won, turnovers_conceded, penalties_conceded')
+    )
+    externalTeamStatsByKey = new Map(rows.map(r => [`${r.sportsapi_match_id}::${r.team_name}`, r]))
+  } catch { /* table not created yet */ }
 
   // Isolated fetch: is_international is newer/optional — missing means
   // every external competition reads as "not international" (no bonus
@@ -429,9 +443,12 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
   // Domestic/other-international performances (rugby.player_performances)
   // join the SAME ever-growing pool, ranked against fixture-based ones on
   // equal footing — computeRawScore/computeRatings are already generic,
-  // nothing to change there. No team-level pack stats available for these
-  // yet (teamStats left undefined — computeRawScore treats that as "no
-  // pack bonus," same as any fixture missing match_team_stats).
+  // nothing to change there. Team stats come from
+  // external_match_team_stats when available (Kit, 2026-09-29 — this
+  // table didn't exist before, so every club performance ran with no
+  // pack bonus regardless of position); still gracefully undefined for
+  // any match not yet enriched (a fresh pull, or one from before this
+  // table existed and hasn't been backfilled).
   externalPerformances.forEach(p => {
     const position = positionByPlayerId.get(p.player_id)
     if (!position || !(position in WEIGHT_KEY_BY_GROUP)) return
@@ -445,7 +462,10 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
     const id = `ext::${p.id}`
     const isInternational = isInternationalByExtCompId.get(p.external_competition_id)
     const bonus = isInternational ? INTERNATIONAL_BONUS : 1
-    const rawScore = computeRawScore(statLine, group, undefined, p.match_result ?? undefined) * bonus
+    const teamStats = p.sportsapi_match_id != null && p.team_name
+      ? externalTeamStatsByKey.get(`${p.sportsapi_match_id}::${p.team_name}`)
+      : undefined
+    const rawScore = computeRawScore(statLine, group, teamStats, p.match_result ?? undefined) * bonus
     // Substitutes are ranked in the same pool as starters at this
     // position (see applySubTax above) — subs naturally post smaller
     // stat lines from fewer minutes, not a real quality gap, but that's

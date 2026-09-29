@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { sportsApiProGet, sportsApiProQuota, extractPlayerStatEntries } from './sportsApiProClient'
+import { sportsApiProGet, sportsApiProQuota, extractPlayerStatEntries, extractTeamStats, type SportsApiTeamStats } from './sportsApiProClient'
 
 // Pulls player performance data from ANY SportsAPI Pro rugby competition
 // (domestic leagues, other internationals) — not just Six Nations, which
@@ -217,6 +217,29 @@ async function storeMatchPerformances(
   summary.matchesPulled++
 }
 
+// Kit, 2026-09-29: the pack bonus in rugbyRating.ts (scrum %, lineout %,
+// turnovers, penalties — forwards only) has been running on nothing for
+// every club performance ever pulled, because nothing fetched or stored
+// team-level stats for these matches — confirmed live this session that
+// /match/{id}/statistics genuinely returns exactly what the formula
+// needs. Own table (external matches have no rugby.fixtures row to hang
+// off, unlike Six Nations' match_team_stats), keyed by the SportsAPI
+// match id + team name rather than a team_id, since most club teams
+// aren't in rugby.teams at all.
+async function storeMatchTeamStats(
+  supabase: SupabaseClient,
+  matchId: number,
+  homeName: string,
+  awayName: string,
+  teamStats: { home: SportsApiTeamStats; away: SportsApiTeamStats },
+): Promise<void> {
+  const rows = [
+    { sportsapi_match_id: matchId, team_name: homeName, scrums_won: teamStats.home.scrumsWon, scrums_attempted: teamStats.home.scrumsAttempted, lineouts_won: teamStats.home.lineoutsWon, lineouts_attempted: teamStats.home.lineoutsAttempted, turnovers_won: teamStats.home.turnoversWon, turnovers_conceded: teamStats.home.turnoversConceded, penalties_conceded: teamStats.home.penaltiesConceded },
+    { sportsapi_match_id: matchId, team_name: awayName, scrums_won: teamStats.away.scrumsWon, scrums_attempted: teamStats.away.scrumsAttempted, lineouts_won: teamStats.away.lineoutsWon, lineouts_attempted: teamStats.away.lineoutsAttempted, turnovers_won: teamStats.away.turnoversWon, turnovers_conceded: teamStats.away.turnoversConceded, penalties_conceded: teamStats.away.penaltiesConceded },
+  ]
+  await supabase.schema('rugby').from('external_match_team_stats').upsert(rows, { onConflict: 'sportsapi_match_id,team_name' })
+}
+
 export async function pullNextBatch(
   supabase: SupabaseClient,
   competition: ExternalCompetition,
@@ -302,6 +325,19 @@ export async function pullNextBatch(
       requestsLeft--
 
       await storeMatchPerformances(supabase, match, statsBody, competition, `Round ${round}`, teamNameById, playerLookup, summary)
+
+      // Team stats are bonus enrichment (the pack bonus, forwards only) —
+      // a failure here must never block the player performances already
+      // stored just above, or mark the round as failed.
+      if (requestsLeft > 0) {
+        requestsLeft--
+        try {
+          const teamStatsBody = await sportsApiProGet(`/match/${match.id}/statistics`, apiKey)
+          summary.requestsUsed++
+          const teamStats = extractTeamStats(teamStatsBody.data ?? {})
+          if (teamStats) await storeMatchTeamStats(supabase, match.id, match.homeTeam?.name ?? '?', match.awayTeam?.name ?? '?', teamStats)
+        } catch { /* best-effort — player performances are already safely stored */ }
+      }
     }
 
     if (unfinished.length > 0) {
@@ -474,6 +510,19 @@ export async function pullNextPaginatedBatch(
 
       const label = match.startTimestamp ? new Date(match.startTimestamp * 1000).toISOString().slice(0, 10) : `Page ${page}`
       await storeMatchPerformances(supabase, match, statsBody, competition, label, teamNameById, playerLookup, summary)
+
+      // Team stats are bonus enrichment (the pack bonus, forwards only) —
+      // a failure here must never block the player performances already
+      // stored just above, or mark the page as failed.
+      if (requestsLeft > 0) {
+        requestsLeft--
+        try {
+          const teamStatsBody = await sportsApiProGet(`/match/${match.id}/statistics`, apiKey)
+          summary.requestsUsed++
+          const teamStats = extractTeamStats(teamStatsBody.data ?? {})
+          if (teamStats) await storeMatchTeamStats(supabase, match.id, match.homeTeam?.name ?? '?', match.awayTeam?.name ?? '?', teamStats)
+        } catch { /* best-effort — player performances are already safely stored */ }
+      }
     }
 
     if (pageHadFailure) {
@@ -554,6 +603,66 @@ export async function backfillMissingPositions(
       const { error } = await supabase.schema('rugby').from('players')
         .update({ position, position_source: 'backfill' }).eq('sportsapi_player_id', entry.player.id).is('position', null)
       if (!error) { summary.playersUpdated++; idsNeedingPosition.delete(entry.player.id) }
+    }
+  }
+  return summary
+}
+
+export type TeamStatsBackfillSummary = {
+  matchesChecked: number
+  matchesUpdated: number
+  requestsUsed: number
+  stoppedReason: 'done' | 'quota'
+  errors: string[]
+}
+
+// Catch-up for every match pulled BEFORE the team-stats fetch existed
+// (see storeMatchTeamStats above) — one request per distinct match still
+// missing from external_match_team_stats, same budget-aware shape as
+// backfillMissingPositions. Never touches player_performances at all.
+export async function backfillMissingTeamStats(
+  supabase: SupabaseClient,
+  competition: ExternalCompetition,
+  apiKey: string,
+  maxRequests: number,
+): Promise<TeamStatsBackfillSummary> {
+  const summary: TeamStatsBackfillSummary = { matchesChecked: 0, matchesUpdated: 0, requestsUsed: 0, stoppedReason: 'done', errors: [] }
+
+  const { data: perfRows } = await supabase.schema('rugby').from('player_performances')
+    .select('sportsapi_match_id, team_name, opponent_name, is_home').eq('external_competition_id', competition.id)
+  const matchIds = [...new Set((perfRows ?? []).map((r: { sportsapi_match_id: number }) => r.sportsapi_match_id))]
+  if (matchIds.length === 0) return summary
+
+  const { data: alreadyHave } = await supabase.schema('rugby').from('external_match_team_stats')
+    .select('sportsapi_match_id').in('sportsapi_match_id', matchIds)
+  const haveSet = new Set((alreadyHave ?? []).map((r: { sportsapi_match_id: number }) => r.sportsapi_match_id))
+  const needed = matchIds.filter(id => !haveSet.has(id))
+  if (needed.length === 0) return summary
+
+  const homeAwayByMatchId = new Map<number, { home: string; away: string }>()
+  ;(perfRows ?? []).forEach((r: { sportsapi_match_id: number; team_name: string | null; opponent_name: string | null; is_home: boolean | null }) => {
+    if (homeAwayByMatchId.has(r.sportsapi_match_id)) return
+    const home = r.is_home ? (r.team_name ?? '?') : (r.opponent_name ?? '?')
+    const away = r.is_home ? (r.opponent_name ?? '?') : (r.team_name ?? '?')
+    homeAwayByMatchId.set(r.sportsapi_match_id, { home, away })
+  })
+
+  let requestsLeft = maxRequests
+  for (const matchId of needed) {
+    if (requestsLeft <= 0) { summary.stoppedReason = 'quota'; break }
+    requestsLeft--
+    try {
+      const teamStatsBody = await sportsApiProGet(`/match/${matchId}/statistics`, apiKey)
+      summary.requestsUsed++
+      summary.matchesChecked++
+      const teamStats = extractTeamStats(teamStatsBody.data ?? {})
+      const names = homeAwayByMatchId.get(matchId)
+      if (teamStats && names) {
+        await storeMatchTeamStats(supabase, matchId, names.home, names.away, teamStats)
+        summary.matchesUpdated++
+      }
+    } catch (e: any) {
+      summary.errors.push(`Match ${matchId}: ${e.message}`)
     }
   }
   return summary
