@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { ratingCapForCaps } from './rugbyRating'
 
 // Feeds the "Player Database" tab on /rugby/stats — every real player
 // performance across the historical archive (2024-2026 Six Nations,
@@ -36,6 +37,12 @@ export type RugbyPlayerPerformanceRow = {
   tackles_missed: number
   raw_score: number | null
   rating: number | null
+  // Six Nations fixtures are always international; an external
+  // performance counts only when its own competition is flagged
+  // is_international — same definition rugbyRating.ts uses for "caps"
+  // (ratingCapForCaps), reused here to cap the AGGREGATE Power Ranking
+  // instead of every individual match rating (Kit, 2026-09-29).
+  is_international: boolean
 }
 
 // Supabase/PostgREST caps an unpaginated select at 1000 rows — this pool
@@ -64,21 +71,26 @@ async function fetchAllRows<T>(query: () => any): Promise<T[]> {
 // page breaks.
 async function fetchExternalPlayerPerformances(supabase: SupabaseClient): Promise<RugbyPlayerPerformanceRow[]> {
   try {
-    const [perfRows, players] = await Promise.all([
+    const [perfRows, players, comps] = await Promise.all([
       fetchAllRows<{
         id: number; player_id: number; season: number; round_label: string | null; team_name: string | null
         opponent_name: string | null; is_home: boolean | null; tries: number; conversions: number
         penalty_goals: number; drop_goals: number; yellow_card: number; red_card: number; try_assists: number
         clean_breaks: number; offloads: number; meters_run: number; tackles: number; tackles_missed: number
         raw_score: number | null; rating: number | null; team_score: number | null; opponent_score: number | null
+        external_competition_id: number
       }>(() => supabase.schema('rugby').from('player_performances').select(
-        'id, player_id, season, round_label, team_name, opponent_name, is_home, tries, conversions, penalty_goals, drop_goals, yellow_card, red_card, try_assists, clean_breaks, offloads, meters_run, tackles, tackles_missed, raw_score, rating, team_score, opponent_score'
+        'id, player_id, season, round_label, team_name, opponent_name, is_home, tries, conversions, penalty_goals, drop_goals, yellow_card, red_card, try_assists, clean_breaks, offloads, meters_run, tackles, tackles_missed, raw_score, rating, team_score, opponent_score, external_competition_id'
       )),
       fetchAllRows<{ id: number; name: string; position: string | null; value: number | null }>(
         () => supabase.schema('rugby').from('players').select('id, name, position, value')
       ),
+      fetchAllRows<{ id: number; is_international: boolean | null }>(
+        () => supabase.schema('rugby').from('external_competitions').select('id, is_international')
+      ),
     ])
     const playerById = new Map(players.map(p => [p.id, p]))
+    const isInternationalByCompId = new Map(comps.map(c => [c.id, !!c.is_international]))
     return perfRows.map(p => {
       const player = playerById.get(p.player_id)
       const isHome = p.is_home ?? true
@@ -97,6 +109,7 @@ async function fetchExternalPlayerPerformances(supabase: SupabaseClient): Promis
         try_assists: p.try_assists, clean_breaks: p.clean_breaks, offloads: p.offloads,
         meters_run: p.meters_run, tackles: p.tackles, tackles_missed: p.tackles_missed,
         raw_score: p.raw_score, rating: p.rating,
+        is_international: isInternationalByCompId.get(p.external_competition_id) ?? false,
       }
     })
   } catch {
@@ -190,6 +203,7 @@ export async function fetchRugbyPlayerPerformances(supabase: SupabaseClient): Pr
       try_assists: s.try_assists ?? 0, clean_breaks: s.clean_breaks ?? 0, offloads: s.offloads ?? 0,
       meters_run: s.meters_run ?? 0, tackles: s.tackles ?? 0, tackles_missed: s.tackles_missed ?? 0,
       raw_score: rating?.raw_score ?? null, rating: rating?.rating ?? null,
+      is_international: true, // Six Nations fixtures are always international
     }
   }).concat(externalPerformances)
 }
@@ -279,6 +293,17 @@ export function seasonWeight(season: number, latestSeason: number): number {
 // pulled substantially toward 50 rather than standing on its own.
 const SAMPLE_SIZE_SHRINKAGE_GAMES = 4
 
+// Kit, 2026-09-29: "it should be the power rating that is capped not the
+// individual performance" — moved from rugbyRating.ts's per-match ratings
+// (now uncapped, both for display and for real Dream Team scoring points)
+// to here, the one place that produces the summary "Power Ranking" number
+// shown everywhere. Applied last, after the shrinkage blend above, so it's
+// a hard ceiling on the final figure rather than on any one game feeding it.
+export function capAverageRating(averageRating: number | null, internationalCaps: number): number | null {
+  if (averageRating == null) return null
+  return Math.min(averageRating, ratingCapForCaps(internationalCaps))
+}
+
 export async function fetchRugbyPlayerSummaries(supabase: SupabaseClient): Promise<RugbyPlayerSummary[]> {
   const [performances, teams, rosterRaw] = await Promise.all([
     fetchRugbyPlayerPerformances(supabase),
@@ -316,6 +341,7 @@ export async function fetchRugbyPlayerSummaries(supabase: SupabaseClient): Promi
       ? (rated.reduce((sum, r) => sum + (r.rating ?? 0) * seasonWeight(r.season, latestSeason), 0) + SAMPLE_SIZE_SHRINKAGE_GAMES * 50)
         / (weightTotal + SAMPLE_SIZE_SHRINKAGE_GAMES)
       : null
+    const internationalCaps = perfs.filter(r => r.is_international).length
 
     return {
       player_id: p.id,
@@ -326,7 +352,7 @@ export async function fetchRugbyPlayerSummaries(supabase: SupabaseClient): Promi
       value: p.value ?? null,
       value_is_estimated: estimatedById.get(p.id) ?? false,
       appearances: perfs.length,
-      average_rating: averageRating,
+      average_rating: capAverageRating(averageRating, internationalCaps),
       performances: perfs,
       averages: computeStatAverages(perfs),
     }

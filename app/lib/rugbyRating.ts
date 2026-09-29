@@ -145,6 +145,21 @@ export function computePackRawScore(teamStats: TeamMatchStatLine): number {
   return Math.round(packZ * PACK_SCALE * 100) / 100
 }
 
+// Kit, 2026-09-29: "I don't think subs should be ranked against subs,
+// maybe they should be taxed a bit tho?" — replaces the old separate
+// sub-only comparison pool. A substitute is now ranked in the SAME pool
+// as starters at their position, then has this flat number of rating
+// points deducted afterward (floored at 0) — simpler, and still accounts
+// for a sub's naturally smaller stat line from fewer minutes without
+// hiding them in their own tiny pool. Starting estimate, not a settled
+// number — tune after watching real rounds, same caveat as every other
+// hand-picked constant in this file.
+const SUB_RATING_TAX = 8
+export function applySubTax(rating: number, isSubstitute: boolean): number {
+  if (!isSubstitute) return rating
+  return Math.max(0, Math.round((rating - SUB_RATING_TAX) * 10) / 10)
+}
+
 const FORWARD_GROUPS = new Set<RugbyPositionGroup>(['Prop', 'Hooker', 'Second Row', 'Back Row'])
 
 // A small, deliberately modest nudge for the team's actual match result —
@@ -280,7 +295,16 @@ const INTERNATIONAL_BONUS = 1.4
 // international with a gap in our specific data window would currently
 // register with fewer caps than they truly have; this self-corrects as
 // more historical data is pulled.
-function ratingCapForCaps(caps: number): number {
+//
+// Kit, 2026-09-29, after reviewing a real match report: this caps the
+// PLAYER'S OVERALL POWER RANKING (the recency-weighted average in
+// rugbyPlayerDatabase.ts's fetchRugbyPlayerSummaries), never an
+// individual match rating — a single brilliant debut should show its
+// true, uncapped percentile in that one match (and in that match's real
+// Dream Team scoring points), with the cap only holding back the
+// SUMMARY number from over-trusting one or two data points. Exported so
+// fetchRugbyPlayerSummaries can apply it after averaging.
+export function ratingCapForCaps(caps: number): number {
   if (caps === 0) return 65
   if (caps < 5) return 70
   return 100 // no effective cap
@@ -372,18 +396,7 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
   const pool: RatingPoolEntry[] = []
   const rawByEntryId = new Map<string, { fixture_id: number; player_id: number; group: RugbyPositionGroup }>()
   const entryPlayerId = new Map<string, number>()
-  const internationalCapsByPlayerId = new Map<number, number>()
-  function addCap(playerId: number) {
-    internationalCapsByPlayerId.set(playerId, (internationalCapsByPlayerId.get(playerId) ?? 0) + 1)
-  }
-
-  // Six Nations fixtures are always international — counted up front so
-  // the graduated cap below sees every real cap regardless of the order
-  // pool entries happen to build in.
-  statsRows.forEach(s => addCap(s.player_id))
-  externalPerformances.forEach(p => {
-    if (isInternationalByExtCompId.get(p.external_competition_id)) addCap(p.player_id)
-  })
+  const isSubById = new Map<string, boolean>()
 
   statsRows.forEach(s => {
     const position = positionByPlayerId.get(s.player_id)
@@ -407,10 +420,10 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
     // Six Nations is always international — the bonus always applies here.
     const rawScore = computeRawScore(statLine, group, teamStats, matchResult) * INTERNATIONAL_BONUS
     const isSub = isSubstituteByStatsKey.get(id) ?? false
-    const poolGroup = isSub ? `${group}::sub` : group
-    pool.push({ id, group: poolGroup, rawScore })
+    pool.push({ id, group, rawScore })
     rawByEntryId.set(id, { fixture_id: s.fixture_id, player_id: s.player_id, group })
     entryPlayerId.set(id, s.player_id)
+    isSubById.set(id, isSub)
   })
 
   // Domestic/other-international performances (rugby.player_performances)
@@ -433,33 +446,25 @@ export async function recomputeAllRugbyRatings(supabase: SupabaseClient): Promis
     const isInternational = isInternationalByExtCompId.get(p.external_competition_id)
     const bonus = isInternational ? INTERNATIONAL_BONUS : 1
     const rawScore = computeRawScore(statLine, group, undefined, p.match_result ?? undefined) * bonus
-    // Kit, 2026-09-26: confirmed live that substitutes score ~20-30 points
-    // lower than starters at EVERY position (not just backs) — not a real
-    // quality gap, just fewer minutes to rack up counting stats, with no
-    // minutes-played field available to normalize by instead. Ranking a
-    // sub's performance against ONLY other subs at that position (rather
-    // than full-match starters) fixes the comparison itself. Fixture-based
-    // (Six Nations) entries have no is_substitute data at all, so they
-    // stay in the plain, ungrouped position pool as before.
-    const poolGroup = p.is_substitute ? `${group}::sub` : group
-    pool.push({ id, group: poolGroup, rawScore })
+    // Substitutes are ranked in the same pool as starters at this
+    // position (see applySubTax above) — subs naturally post smaller
+    // stat lines from fewer minutes, not a real quality gap, but that's
+    // now handled with a flat point deduction after ranking rather than
+    // a separate comparison pool. Fixture-based (Six Nations) entries
+    // are handled the identical way just above.
+    pool.push({ id, group, rawScore })
     entryPlayerId.set(id, p.player_id)
+    isSubById.set(id, !!p.is_substitute)
   })
 
   if (pool.length === 0) return { success: true, rows: 0 }
 
   const ratings = computeRatings(pool)
-  // Cap AFTER ranking, never before — the cap is about the final
-  // comparison number, not about pretending the underlying performance
-  // was worse than it was.
+  // The substitute tax applies to the individual match rating — the caps
+  // ceiling does not (see ratingCapForCaps: it caps the player's overall
+  // Power Ranking in fetchRugbyPlayerSummaries, never a single match).
   pool.forEach(e => {
-    const playerId = entryPlayerId.get(e.id)
-    if (playerId == null) return
-    const cap = ratingCapForCaps(internationalCapsByPlayerId.get(playerId) ?? 0)
-    if (cap < 100) {
-      const capped = Math.min(ratings.get(e.id) ?? 50, cap)
-      ratings.set(e.id, capped)
-    }
+    ratings.set(e.id, applySubTax(ratings.get(e.id) ?? 50, isSubById.get(e.id) ?? false))
   })
   const fixtureBased = pool.filter(e => !e.id.startsWith('ext::'))
   const rows: RugbyMatchRatingRow[] = fixtureBased.map(e => ({

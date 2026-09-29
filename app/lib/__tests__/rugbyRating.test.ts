@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeRawScore, computeRatings, computePackRawScore, type RugbyMatchStatLine, type RatingPoolEntry, type TeamMatchStatLine } from '../rugbyRating'
+import { computeRawScore, computeRatings, computePackRawScore, ratingCapForCaps, applySubTax, type RugbyMatchStatLine, type RatingPoolEntry, type TeamMatchStatLine } from '../rugbyRating'
 
 function stats(overrides: Partial<RugbyMatchStatLine> = {}): RugbyMatchStatLine {
   return {
@@ -158,5 +158,50 @@ describe('computeRatings', () => {
       { id: 'c', group: 'Centre', rawScore: 1 },
     ]
     expect(computeRatings(biggerPool).get('a')).toBeGreaterThan(0)
+  })
+})
+
+describe('ratingCapForCaps', () => {
+  it('caps a player with zero international caps at 65', () => {
+    expect(ratingCapForCaps(0)).toBe(65)
+  })
+
+  it('caps a player with 1-4 caps at 70', () => {
+    expect(ratingCapForCaps(1)).toBe(70)
+    expect(ratingCapForCaps(4)).toBe(70)
+  })
+
+  it('lifts the cap entirely at 5+ caps', () => {
+    expect(ratingCapForCaps(5)).toBe(100)
+    expect(ratingCapForCaps(50)).toBe(100)
+  })
+})
+
+describe('applySubTax', () => {
+  it('leaves a starter rating untouched', () => {
+    expect(applySubTax(72, false)).toBe(72)
+  })
+
+  it('deducts a flat penalty from a substitute rating', () => {
+    expect(applySubTax(72, true)).toBe(64) // 72 - 8
+  })
+
+  it('floors a heavily-taxed low rating at 0, never negative', () => {
+    expect(applySubTax(3, true)).toBe(0)
+  })
+
+  it('taxes subs against the same pool a starter would be ranked in — not a separate one', () => {
+    // A sub and a starter with identical raw scores land in the same
+    // position group and get the same pre-tax rating; only the sub's
+    // final number is reduced afterward.
+    const pool: RatingPoolEntry[] = [
+      { id: 'starter', group: 'Wing', rawScore: 10 },
+      { id: 'sub', group: 'Wing', rawScore: 10 },
+      { id: 'other', group: 'Wing', rawScore: 2 },
+    ]
+    const ratings = computeRatings(pool)
+    expect(ratings.get('starter')).toBe(ratings.get('sub')) // same pool, same rank pre-tax
+    const subFinal = applySubTax(ratings.get('sub')!, true)
+    expect(subFinal).toBeLessThan(ratings.get('starter')!)
   })
 })
