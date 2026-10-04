@@ -206,6 +206,14 @@ function LoginPageInner() {
           >
             Read the Rules
           </button>
+
+          <div className="flex items-center justify-center gap-4 mt-4">
+            {[['Privacy', '/privacy'], ['Terms', '/terms'], ['Cookies', '/cookies']].map(([label, href]) => (
+              <a key={href} href={href} className="text-xs uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                {label}
+              </a>
+            ))}
+          </div>
         </div>
       </div>
 

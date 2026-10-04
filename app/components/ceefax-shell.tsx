@@ -547,6 +547,18 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
         >
           LMS All-Stars Predictions
         </span>
+        <div className="flex items-center justify-center gap-4 mt-2">
+          {[['Privacy', '/privacy'], ['Terms', '/terms'], ['Cookies', '/cookies']].map(([label, href]) => (
+            <a
+              key={href}
+              href={href}
+              className={isPopArt ? 'text-xs uppercase tracking-widest' : 'text-gray-400 text-xs uppercase tracking-widest'}
+              style={isPopArt ? { color: 'rgba(255,255,255,0.35)' } : undefined}
+            >
+              {label}
+            </a>
+          ))}
+        </div>
       </footer>
       {kitPopupOpen && kitPopupPos && user && typeof document !== 'undefined' && createPortal(
         <div
