@@ -85,9 +85,13 @@ function pickFixtureAgainstHigherPlacedOpponent(
  * Rules:
  *  - Team: lowest available ACTIVE team by current league position, respecting
  *    used-team counts and double-use (tier) teams.
- *  - Players: two available players (used < 2 times each), preferring two from
+ *  - Players: the SAME two players for every autopicked user in a given
+ *    gameweek (seeded by gameweek only, never by user), preferring two from
  *    different teams and avoiding anyone injured/suspended/unlikely to play
- *    (chance_of_playing < 50), chosen via seeded shuffle.
+ *    (chance_of_playing < 50). A user who's already used one of those two
+ *    players twice gets the next player in that same shared order
+ *    substituted for just that slot — so even the exception is consistent
+ *    across anyone else in the same situation, not a fresh random pick.
  *  - Double gameweeks (team or player's team playing twice): resolved against
  *    the higher-placed of the two opponents — see
  *    pickFixtureAgainstHigherPlacedOpponent above.
@@ -177,32 +181,34 @@ export async function deriveAutopick(
   const selectedTeam = sortedTeams[0]
   if (!selectedTeam) return null
 
-  const availablePlayers = allPlayers.filter(p => (playerUseCounts[p.id] || 0) < 2)
-  if (availablePlayers.length < 2) return null
+  // One shared priority order for the whole gameweek — fit-and-valuable
+  // players first, then fit-but-cheap, then unfit as a last resort (same
+  // cascade the fallback always used), ranked once per gameweek rather than
+  // reshuffled per user. Every autopicked user walks this exact list and
+  // takes the first two names still available to THEM, which is what makes
+  // everyone's autopick converge on the same duo by default — the only way
+  // one user's differs from another's is personally having already used a
+  // name twice, in which case they fall through to the next name in this
+  // same shared order instead of a fresh random pick.
+  const fitPlayers = allPlayers.filter(p => p.chance_of_playing == null || p.chance_of_playing >= 50)
+  const unfitPlayers = allPlayers.filter(p => !(p.chance_of_playing == null || p.chance_of_playing >= 50))
+  const valuableFit = fitPlayers.filter(p => (valueByPlayerId[p.id] ?? 0) >= MIN_AUTOPICK_PLAYER_VALUE)
+  const cheapFit = fitPlayers.filter(p => (valueByPlayerId[p.id] ?? 0) < MIN_AUTOPICK_PLAYER_VALUE)
 
-  // Avoid players who are injured/suspended/unlikely to feature — same
-  // chance_of_playing scale (0/25/50/75/100, null = fully fit, no doubt)
-  // and the same "reasonably fit" >= 50 threshold Futzy's own picker uses
-  // (botPick.ts). Checked before the value preference below: a pick that
-  // won't even take the field is worse than a merely cheap one. Falls back
-  // to the full available pool if this is too restrictive right now (a
-  // small pool late in the season, or the fitness data isn't populated),
-  // same reasoning as the value fallback.
-  const fitPlayers = availablePlayers.filter(p => p.chance_of_playing == null || p.chance_of_playing >= 50)
-  const fitFilteredPlayers = fitPlayers.length >= 2 ? fitPlayers : availablePlayers
+  const gameweekSeed = hashString(gameweekId)
+  const sharedOrder = [
+    ...seededShuffle(valuableFit, gameweekSeed),
+    ...seededShuffle(cheapFit, gameweekSeed + 1),
+    ...seededShuffle(unfitPlayers, gameweekSeed + 2),
+  ]
 
-  // Prefer players worth at least £5.5m — but if that's too restrictive right
-  // now (a user's own used-twice history can run a small pool dry late in
-  // the season, or the value data isn't populated yet), fall back to the
-  // fitness-filtered pool rather than skipping their autopick entirely.
-  const valuablePlayers = fitFilteredPlayers.filter(p => (valueByPlayerId[p.id] ?? 0) >= MIN_AUTOPICK_PLAYER_VALUE)
-  const candidatePlayers = valuablePlayers.length >= 2 ? valuablePlayers : fitFilteredPlayers
+  const availableForUser = (p: { id: number }) => (playerUseCounts[p.id] || 0) < 2
 
-  const seed = hashString(userId + gameweekId)
-  const shuffled = seededShuffle(candidatePlayers, seed)
-
-  const player1 = shuffled[0]
-  const player2 = shuffled.find(p => p.team_id !== player1.team_id) ?? shuffled[1]
+  const player1 = sharedOrder.find(availableForUser)
+  const player2 = player1
+    ? sharedOrder.find(p => p.id !== player1.id && availableForUser(p) && p.team_id !== player1.team_id)
+      ?? sharedOrder.find(p => p.id !== player1.id && availableForUser(p))
+    : undefined
 
   if (!player1 || !player2 || player1.id === player2.id) return null
 

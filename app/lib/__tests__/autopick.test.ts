@@ -93,6 +93,38 @@ describe('deriveAutopick — player value threshold', () => {
   })
 })
 
+describe('deriveAutopick — shared duo across users', () => {
+  it('gives two different users the exact same player duo for the same gameweek', async () => {
+    const first = await deriveAutopick(fakeFor(), 'user-1', 'gw-1', 'comp-1')
+    const second = await deriveAutopick(fakeFor(), 'user-2', 'gw-1', 'comp-1')
+    expect(first).not.toBeNull()
+    expect(second?.player1_id).toBe(first?.player1_id)
+    expect(second?.player2_id).toBe(first?.player2_id)
+  })
+
+  it("substitutes only the player a user has personally used up twice, keeping the other half of the standard duo the same", async () => {
+    const standard = await deriveAutopick(fakeFor(), 'user-1', 'gw-1', 'comp-1')
+    expect(standard).not.toBeNull()
+    const usedUpId = standard!.player1_id
+    const unaffectedId = standard!.player2_id
+
+    // Exhaust usedUpId for user-2 specifically (two picks, spread across two
+    // other filler players so neither of THEM gets exhausted too) — nothing
+    // here touches user-1's history or the global pool.
+    const supabase = fakeFor({
+      picks: [
+        { team_id: 1, player1_id: usedUpId, player2_id: 103 },
+        { team_id: 1, player1_id: usedUpId, player2_id: 105 },
+      ],
+    })
+    const withOneUsedUp = await deriveAutopick(supabase, 'user-2', 'gw-1', 'comp-1')
+    expect(withOneUsedUp).not.toBeNull()
+    const resultIds = [withOneUsedUp!.player1_id, withOneUsedUp!.player2_id]
+    expect(resultIds).toContain(unaffectedId)
+    expect(resultIds).not.toContain(usedUpId)
+  })
+})
+
 describe('deriveAutopick — double gameweek fixture resolution', () => {
   it("resolves the selected team's fixture to the one against the higher-placed opponent", async () => {
     const supabase = fakeFor({

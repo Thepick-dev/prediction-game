@@ -23,7 +23,8 @@ export const RULES_TEXT = {
     "Admin can see THAT you've picked (so reminders and autopick only ever apply to people who've genuinely missed the deadline), just never what it was, until the same moment it becomes visible to everyone else — when the deadline passes.",
   ],
   autopick: [
-    "Miss the deadline and the site picks for you automatically: the lowest-placed available team in the league table, and two players who haven't already been used twice.",
+    "Miss the deadline and the site picks for you automatically: the lowest-placed available team in the league table, and two players.",
+    "Everyone who misses the same gameweek's deadline gets the same two players. If one of them is already used twice by you specifically, the next name in the same order is substituted just for you — so your autopick stays as close as possible to everyone else's, rather than being its own separate random pick.",
     'Players are drawn from those valued at £5.5m or more on Fantasy Premier League — a deliberately recognisable pool of well-known names, not a random pick from the entire player list.',
     "The site also avoids picking anyone injured, suspended, or otherwise unlikely to play, using the same fitness data Fantasy Premier League itself publishes — though this isn't a guarantee: a player can still pick up an injury after the autopick is made, right up to kick-off.",
     'Autopicks are marked clearly wherever they appear, and a banker is never applied to one.',
