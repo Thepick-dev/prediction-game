@@ -16,9 +16,10 @@ import { computeAvgByGw, computeStreaks } from '../lib/leaderboardBadges'
 import { computeCompetitionAwards, resolveWinners, awardWinnerNames, type CompetitionAward } from '../lib/awards'
 import PersonalSeasonShareCard from '../../components/PersonalSeasonShareCard'
 import LeaderboardShareCard from '../../components/LeaderboardShareCard'
-import { usePopArtTheme } from '../lib/usePopArtTheme'
+import { useSkin } from '../lib/useSkin'
 import { RULES_TEXT } from '../lib/rulesText'
 import PopArtLoading from '../../components/PopArtLoading'
+import { RetroWindow, RetroButton, RetroModal, pad } from '../../components/retro'
 
 type RankedPlayer = {
   user_id: string
@@ -146,7 +147,7 @@ export default function LeaderboardPage() {
   const [topScoreByUser, setTopScoreByUser] = useState<Record<string, number>>({})
 
   const supabase = createClient()
-  const { popArt } = usePopArtTheme(user?.id)
+  const { skin, popArt, retro } = useSkin(user?.id)
 
   useEffect(() => { loadData() }, [])
 
@@ -850,25 +851,24 @@ export default function LeaderboardPage() {
 
   if (loading) {
     return (
-      <Shell active="LEADERBOARD" theme={popArt ? 'pop-art' : 'classic'}>
-        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
+      <Shell active="LEADERBOARD" skin={skin}>
+        <PopArtLoading />
       </Shell>
     )
   }
 
   if (!competition) {
     return (
-      <Shell active="LEADERBOARD" theme={popArt ? 'pop-art' : 'classic'}>
-        {popArt ? (
+      <Shell active="LEADERBOARD" skin={skin}>
+        {retro ? (
+          <RetroWindow title="No Active Competition">
+            <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16 }}>There is no active competition right now.</p>
+          </RetroWindow>
+        ) : (
           <div className="pop-art-theme text-center py-12">
             <p className="pop-headline text-2xl mb-2">No Active Competition</p>
             <p style={{ color: 'rgba(255,255,255,0.5)' }}>There is no active competition right now.</p>
           </div>
-        ) : (
-          <>
-            <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
-            <p className="text-gray-500">There is no active competition right now.</p>
-          </>
         )}
       </Shell>
     )
@@ -889,10 +889,469 @@ export default function LeaderboardPage() {
   // that's expected, not alarming.
   const liveGameweekNumbers = allGameweeks.filter(g => g.status === 'locked').map(g => g.number)
 
+  const rankColour = (index: number) => index === 0 ? 'var(--retro-gold)' : index === 1 ? 'var(--retro-grey-light)' : index === 2 ? 'var(--retro-red-light)' : 'var(--retro-ink)'
+
+  if (retro) {
+    return (
+      <>
+        <Shell active="LEADERBOARD" user={user} displayName={displayName} skin="retro">
+          <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
+            <h1 style={{ fontFamily: 'var(--font-retro-display)', fontSize: 24, color: 'var(--retro-gold)', textShadow: 'var(--retro-px) var(--retro-px) 0 #000' }}>
+              LEADERBOARD
+            </h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              {ranked.length > 0 && (
+                <RetroButton variant="select" onClick={() => setShowShare(true)}>Share Standings</RetroButton>
+              )}
+              <a href="/awards" className="retro-button retro-button--b" style={{ textDecoration: 'none' }}>🏆 Awards</a>
+              <a href="/leaderboard/full" className="retro-button retro-button--a" style={{ textDecoration: 'none' }}>Full Table →</a>
+            </div>
+          </div>
+          <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, color: 'var(--retro-grey-light)', marginBottom: 'calc(var(--retro-px) * 6)' }}>{competition.name}</p>
+
+          {liveGameweekNumbers.length > 0 && (
+            <RetroWindow variant="blue" flat>
+              <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16 }}>
+                <strong style={{ color: 'var(--retro-blue-light)' }}>GW{liveGameweekNumbers.join(', ')} LIVE</strong> — points below update automatically as goals and assists are confirmed. Final once the gameweek's marked complete.
+              </p>
+            </RetroWindow>
+          )}
+
+          <RetroWindow>
+            <table className="w-full" style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 18, borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ fontFamily: 'var(--font-retro-display)', fontSize: 9, color: 'var(--retro-grey-light)', textAlign: 'left', borderBottom: 'var(--retro-px) solid var(--retro-border)' }}>
+                  <th className="py-2 pr-1">#</th>
+                  <th className="py-2 px-1">Player</th>
+                  <th className="py-2 pl-1 text-right">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ranked.map((player, index) => {
+                  const streak = getStreak(player)
+                  const teamsWithAvailability = getTeamsWithAvailability(player.user_id)
+                  const isOwnRow = player.user_id === user?.id
+                  const prevRank = previousRankByUser[player.user_id]
+                  const rankDelta = prevRank != null ? prevRank - (index + 1) : null
+                  return (
+                    <React.Fragment key={player.user_id}>
+                      <tr
+                        onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
+                        style={{ cursor: 'pointer', borderBottom: 'var(--retro-px) solid rgba(255,255,255,0.15)', background: isOwnRow ? 'rgba(248,184,0,0.08)' : undefined }}
+                      >
+                        <td className="py-2 pr-1" style={{ color: rankColour(index) }}>
+                          {pad(index + 1, 2)}
+                          {rankDelta != null && rankDelta !== 0 && (
+                            <div style={{ fontSize: 11, color: rankDelta > 0 ? 'var(--retro-green-light)' : 'var(--retro-red-light)' }}>
+                              {rankDelta > 0 ? '▲' : '▼'}{Math.abs(rankDelta)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2 px-1">
+                          <div className="flex items-center gap-1.5">
+                            {player.is_bot ? <BotAvatar size={28} /> : (
+                              <KitBadge
+                                pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
+                                colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
+                                colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                                colour3={kitByUser[player.user_id]?.colour3}
+                                size={28}
+                              />
+                            )}
+                            <span className="truncate" style={{ textTransform: 'uppercase' }}>
+                              {player.display_name}
+                              {player.is_bot && <FutzyExplainerLink popArt />}
+                            </span>
+                            <span className="flex items-center gap-1 shrink-0" style={{ fontSize: 12 }}>
+                              {isOwnRow && <span style={{ color: 'var(--retro-gold)' }}>YOU</span>}
+                              {player.is_reigning_champ && <CrownIcon size={14} color="var(--retro-green)" />}
+                              {player.is_vibes_champion && <ShadesIcon size={14} />}
+                              {player.in_cash_pool && <PoundCoinIcon size={14} />}
+                              {player.is_sporting_panel && <ScalesIcon size={14} />}
+                              {player.is_minigame_banned && <BlockedIcon size={14} />}
+                              {player.is_peace_prize && <DoveIcon size={14} />}
+                              {currentlySuspendedIds.has(player.user_id) && (
+                                <button onClick={e => { e.stopPropagation(); openDisciplineModal(player.user_id) }} style={{ color: 'var(--retro-red-light)' }} title="Suspended — click for details">
+                                  SUSP
+                                </button>
+                              )}
+                              {((cardCountByUser[player.user_id]?.yellow ?? 0) > 0 || (cardCountByUser[player.user_id]?.red ?? 0) > 0) && (
+                                <button onClick={e => { e.stopPropagation(); openDisciplineModal(player.user_id) }} className="inline-flex items-center gap-0.5" title="Discipline history">
+                                  {(cardCountByUser[player.user_id]?.yellow ?? 0) > 0 && <YellowCardIcon size={13} />}
+                                  {(cardCountByUser[player.user_id]?.red ?? 0) > 0 && <RedCardIcon size={13} />}
+                                </button>
+                              )}
+                              {streak && <FlameIcon size={14} />}
+                              {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
+                                <span className="inline-flex items-center gap-0.5"><TopDogIcon size={14} />{topDogReignWeeks}</span>
+                              )}
+                            </span>
+                            <span className="shrink-0" style={{ color: 'var(--retro-grey-light)' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
+                          </div>
+                        </td>
+                        <td className="py-2 pl-1 text-right" style={{ color: 'var(--retro-green-light)', fontSize: 24 }}>{player.total_points}</td>
+                      </tr>
+                      {expandedUser === player.user_id && (
+                        <tr>
+                          <td colSpan={3} className="py-3" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'calc(var(--retro-px) * 4)' }}>
+                              <div className="flex items-center gap-3">
+                                {player.is_bot ? <BotAvatar size={56} /> : (
+                                  <KitBadge
+                                    pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
+                                    colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
+                                    colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
+                                    colour3={kitByUser[player.user_id]?.colour3}
+                                    stars={kitByUser[player.user_id]?.stars ?? 0}
+                                    earths={kitByUser[player.user_id]?.earths ?? 0}
+                                    size={56}
+                                    starColor="var(--retro-gold)"
+                                    topScore={topScoreByUser[player.user_id] ?? 0}
+                                  />
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-2">
+                                <RetroWindow flat variant="gold">
+                                  <p style={{ fontFamily: 'var(--font-retro-display)', fontSize: 8, color: 'var(--retro-gold)' }}>★ BANKER</p>
+                                  <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16 }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))}/2 left</p>
+                                </RetroWindow>
+                                <RetroWindow flat variant="green">
+                                  <p style={{ fontFamily: 'var(--font-retro-display)', fontSize: 8, color: 'var(--retro-green-light)' }}>AoN</p>
+                                  <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16 }}>{aonUsedByPlayer.has(player.user_id) ? 'Used' : 'Available'}</p>
+                                </RetroWindow>
+                                {showBonusCard && (
+                                  <RetroWindow flat variant="blue">
+                                    <p style={{ fontFamily: 'var(--font-retro-display)', fontSize: 8, color: 'var(--retro-blue-light)' }}>{bonusCardName}</p>
+                                    <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16 }}>
+                                      {bonusCardPlayedByUser.has(player.user_id)
+                                        ? `Used${bonusCardPlayByUser[player.user_id] ? ` GW${allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}` : ''}${bonusCardPlayByUser[player.user_id]?.points != null ? ` +${bonusCardPlayByUser[player.user_id].points}` : ''}`
+                                        : 'Available'}
+                                    </p>
+                                  </RetroWindow>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <RetroButton variant="b" onClick={() => setShowSeasonShareFor(player.user_id)}>
+                                  Share {isOwnRow ? 'My' : `${player.display_name}'s`} Season
+                                </RetroButton>
+                                {isOwnRow && !rivalByUser[player.user_id] && (
+                                  <RetroButton variant="a" onClick={() => setRivalPickerFor(rivalPickerFor === player.user_id ? null : player.user_id)}>
+                                    Pick a Rival
+                                  </RetroButton>
+                                )}
+                              </div>
+
+                              {(rivalByUser[player.user_id] || rivalPickerFor === player.user_id) && (
+                                <div style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 15 }}>
+                                  {rivalByUser[player.user_id] && (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span>
+                                        Rivalry vs <strong>{ranked.find(p => p.user_id === rivalByUser[player.user_id])?.display_name ?? 'Unknown'}</strong>:{' '}
+                                        {(() => {
+                                          const rivalPoints = ranked.find(p => p.user_id === rivalByUser[player.user_id])?.total_points ?? 0
+                                          const diff = player.total_points - rivalPoints
+                                          return <strong style={{ color: diff >= 0 ? 'var(--retro-green-light)' : 'var(--retro-red-light)' }}>{diff >= 0 ? `+${diff}` : diff}</strong>
+                                        })()}
+                                      </span>
+                                      {isOwnRow && (
+                                        <>
+                                          <button onClick={removeRival} disabled={savingRival} style={{ textDecoration: 'underline', color: 'var(--retro-grey-light)' }}>Remove</button>
+                                          <button onClick={() => setRivalPickerFor(rivalPickerFor === player.user_id ? null : player.user_id)} style={{ textDecoration: 'underline', color: 'var(--retro-grey-light)' }}>Change</button>
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                  {rivalPickerFor === player.user_id && (
+                                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                      {ranked.filter(p => p.user_id !== player.user_id).map(p => (
+                                        <button key={p.user_id} onClick={() => setRival(p.user_id)} disabled={savingRival} className="retro-button retro-button--select" style={{ fontSize: 8 }}>
+                                          {p.display_name}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              <p style={{ fontFamily: 'var(--font-retro-display)', fontSize: 9, color: 'var(--retro-blue-light)' }}>PICK HISTORY</p>
+                              {allGameweeks.length === 0 ? (
+                                <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 15 }}>No picks yet.</p>
+                              ) : (
+                                <div style={{ overflowX: 'auto' }}>
+                                <table className="w-full" style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 14 }}>
+                                  <thead>
+                                    <tr style={{ textAlign: 'left', color: 'var(--retro-grey-light)', borderBottom: 'var(--retro-px) solid rgba(255,255,255,0.15)' }}>
+                                      <th className="py-1 pr-1">GW</th>
+                                      <th className="py-1 pr-1">Team</th>
+                                      <th className="py-1 pr-1 text-right">Pts</th>
+                                      <th className="py-1 pr-1">P1</th>
+                                      <th className="py-1 pr-1 text-right">Pts</th>
+                                      <th className="py-1 pr-1">P2</th>
+                                      <th className="py-1 pr-1 text-right">Pts</th>
+                                      <th className="py-1 text-right">Tot</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {buildGwRows(player.user_id).map(row => {
+                                      if (row.kind === 'run') {
+                                        return (
+                                          <tr key={`run-${row.from}-${row.to}`} style={{ borderBottom: 'var(--retro-px) solid rgba(255,255,255,0.08)', color: 'var(--retro-grey-light)' }}>
+                                            <td className="py-1 pr-1">{row.from === row.to ? row.from : `${row.from}-${row.to}`}</td>
+                                            <td className="py-1 pr-1" colSpan={6}>{row.label}</td>
+                                            <td className="py-1 text-right">—</td>
+                                          </tr>
+                                        )
+                                      }
+                                      if (row.kind === 'hidden') {
+                                        return (
+                                          <tr key={row.gw.id} style={{ borderBottom: 'var(--retro-px) solid rgba(255,255,255,0.08)', color: 'var(--retro-grey-light)' }}>
+                                            <td className="py-1 pr-1">{row.gw.number}</td>
+                                            <td className="py-1 pr-1" colSpan={6}>Picked — hidden until deadline</td>
+                                            <td className="py-1 text-right">—</td>
+                                          </tr>
+                                        )
+                                      }
+                                      const gw = row.gw
+                                      const d = pickDetails[player.user_id]?.find(pd => pd.gw === gw.number)!
+                                      return (
+                                        <tr key={gw.id} style={{ borderBottom: 'var(--retro-px) solid rgba(255,255,255,0.08)' }}>
+                                          <td className="py-1 pr-1">{d.gw}</td>
+                                          <td className="py-1 pr-1">
+                                            <div className="flex items-center gap-1">
+                                              <TeamCrest teamId={d.team_id} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
+                                              {teamDisplayName(teamMap[d.team_id])}
+                                              {d.is_banker && <span style={{ color: 'var(--retro-gold)' }}>★</span>}
+                                              {(d.provisional || d.is_autopick) && <span style={{ color: 'var(--retro-grey-light)' }} title="Autopick">AP</span>}
+                                            </div>
+                                            {d.team_detail?.opponent_team_id != null && (
+                                              <div style={{ fontSize: 11, color: 'var(--retro-grey-light)' }}>
+                                                {d.team_detail.is_home ? 'H' : 'A'} vs {teamMap[d.team_detail.opponent_team_id]?.short_code ?? teamMap[d.team_detail.opponent_team_id]?.short_name ?? '?'} (Q{d.team_detail.team_quartile}→Q{d.team_detail.opponent_quartile})
+                                                {d.team_detail.team_score != null ? ` · ${d.team_detail.team_score}-${d.team_detail.opponent_score}` : ' · not played yet'}
+                                              </div>
+                                            )}
+                                          </td>
+                                          <td className="py-1 pr-1 text-right">{d.team_points ?? '—'}</td>
+                                          <td className="py-1 pr-1">
+                                            {d.player1}
+                                            {goalCountByKey[`${d.player1_id}_${gw.id}`] > 0 && <span style={{ color: 'var(--retro-green-light)', marginLeft: 3 }}>{eventLabel('G', goalCountByKey[`${d.player1_id}_${gw.id}`])}</span>}
+                                            {assistCountByKey[`${d.player1_id}_${gw.id}`] > 0 && <span style={{ color: 'var(--retro-blue-light)', marginLeft: 3 }}>{eventLabel('A', assistCountByKey[`${d.player1_id}_${gw.id}`])}</span>}
+                                            {d.aon?.player_id === d.player1_id && (
+                                              <span style={{ marginLeft: 3, color: d.aon.outcome === 'success' ? 'var(--retro-green-light)' : d.aon.outcome === 'failed' ? 'var(--retro-red-light)' : 'var(--retro-blue-light)' }}>AoN</span>
+                                            )}
+                                          </td>
+                                          <td className="py-1 pr-1 text-right">{d.player1_points ?? '—'}</td>
+                                          <td className="py-1 pr-1">
+                                            {d.player2}
+                                            {goalCountByKey[`${d.player2_id}_${gw.id}`] > 0 && <span style={{ color: 'var(--retro-green-light)', marginLeft: 3 }}>{eventLabel('G', goalCountByKey[`${d.player2_id}_${gw.id}`])}</span>}
+                                            {assistCountByKey[`${d.player2_id}_${gw.id}`] > 0 && <span style={{ color: 'var(--retro-blue-light)', marginLeft: 3 }}>{eventLabel('A', assistCountByKey[`${d.player2_id}_${gw.id}`])}</span>}
+                                            {d.aon?.player_id === d.player2_id && (
+                                              <span style={{ marginLeft: 3, color: d.aon.outcome === 'success' ? 'var(--retro-green-light)' : d.aon.outcome === 'failed' ? 'var(--retro-red-light)' : 'var(--retro-blue-light)' }}>AoN</span>
+                                            )}
+                                          </td>
+                                          <td className="py-1 pr-1 text-right">{d.player2_points ?? '—'}</td>
+                                          <td className="py-1 text-right">{d.points ?? '—'}</td>
+                                        </tr>
+                                      )
+                                    })}
+                                    {showBonusCard && (
+                                      <tr style={{ color: 'var(--retro-grey-light)' }}>
+                                        <td className="py-1 pr-1" colSpan={7}>
+                                          {bonusCardName}
+                                          {bonusCardPlayByUser[player.user_id] ? (
+                                            <>{' — '}{bonusCardPlayByUser[player.user_id].playerName}{' — GW'}{allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}</>
+                                          ) : ' — Not yet played'}
+                                        </td>
+                                        <td className="py-1 text-right" style={{ color: 'var(--retro-blue-light)' }}>
+                                          {bonusCardPlayByUser[player.user_id]?.points != null ? `+${bonusCardPlayByUser[player.user_id].points}` : '—'}
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                                </div>
+                              )}
+
+                              <p style={{ fontFamily: 'var(--font-retro-display)', fontSize: 9, color: 'var(--retro-blue-light)' }}>TEAMS USED</p>
+                              <button
+                                type="button"
+                                onClick={() => setTeamsExpandedUsers(prev => {
+                                  const next = new Set(prev)
+                                  if (next.has(player.user_id)) next.delete(player.user_id)
+                                  else next.add(player.user_id)
+                                  return next
+                                })}
+                                className="retro-button retro-button--select w-full"
+                                style={{ justifyContent: 'space-between' }}
+                              >
+                                <span>{teamsExpandedUsers.has(player.user_id) ? '▾' : '▸'} {teamsWithAvailability.length} teams · {teamsWithAvailability.filter(t => t.remaining <= 0).length} used</span>
+                                <span>{teamsExpandedUsers.has(player.user_id) ? 'Hide' : 'View'}</span>
+                              </button>
+                              {teamsExpandedUsers.has(player.user_id) && (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5" style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 14 }}>
+                                  {teamsWithAvailability.map(team => {
+                                    const used = team.remaining <= 0
+                                    return (
+                                      <div key={team.id} className="flex items-center gap-1" style={{ border: 'var(--retro-px) solid var(--retro-border)', padding: 'calc(var(--retro-px) * 1.5)', opacity: used ? 0.4 : 1 }}>
+                                        <TeamCrest teamId={team.id} teamName={team.name} size={14} />
+                                        <span className="truncate flex-1 min-w-0">{teamDisplayName(team)}</span>
+                                        {team.isDouble && !used && team.remaining === 2 && <span style={{ color: 'var(--retro-gold)' }}>×2</span>}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  )
+                })}
+                {ranked.length === 0 && (
+                  <tr><td colSpan={3} className="py-8 text-center" style={{ color: 'var(--retro-grey-light)' }}>No players yet.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </RetroWindow>
+
+          <RetroWindow title="Key">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'calc(var(--retro-px) * 3)', fontFamily: 'var(--font-retro-body)', fontSize: 15 }}>
+              <div className="flex items-center gap-2.5"><CrownIcon size={18} color="var(--retro-green)" /> Reigning champ</div>
+              <div className="flex items-center gap-2.5"><ShadesIcon size={18} /> Vibes champion</div>
+              <div className="flex items-center gap-2.5"><PoundCoinIcon size={18} /> In the cash pool</div>
+              <div className="flex items-center gap-2.5"><ScalesIcon size={18} /> Sporting Panel member</div>
+              <div className="flex items-center gap-2.5"><BlockedIcon size={18} /> Banned from minigame</div>
+              <div className="flex items-center gap-2.5"><DoveIcon size={16} /> LMS Peace Prize</div>
+              <div className="flex items-center gap-2.5"><YellowCardIcon size={16} />/<RedCardIcon size={16} /> Cards this competition — click for details</div>
+              <div className="flex items-center gap-2.5"><FlameIcon size={18} /> On a streak — 3+ weeks above average</div>
+              <div className="flex items-center gap-2.5"><TopDogIcon size={18} /> Top Dog — current leader</div>
+              <div className="flex items-center gap-2.5"><span style={{ color: 'var(--retro-grey-light)' }}>AP</span> Autopick — deadline missed</div>
+              <div className="flex items-center gap-2.5"><span style={{ color: 'var(--retro-gold)' }}>★</span> Banker declared</div>
+              <div className="flex items-center gap-2.5" style={{ color: 'var(--retro-grey-light)' }}>▼ Tap a row to see their week-by-week picks</div>
+            </div>
+          </RetroWindow>
+
+          <RetroWindow title="How Ties Are Split">
+            <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 14, color: 'var(--retro-grey-light)', marginBottom: 'calc(var(--retro-px) * 3)' }}>
+              When two or more players are level, these criteria are applied in order until the tie breaks.
+            </p>
+            <ol style={{ display: 'flex', flexDirection: 'column', gap: 'calc(var(--retro-px) * 2)', fontFamily: 'var(--font-retro-body)', fontSize: 15 }}>
+              {RULES_TEXT.tiebreakers.map((criterion, i) => (
+                <li key={i} className="flex gap-2.5">
+                  <span style={{ color: 'var(--retro-green-light)' }}>{i + 1}.</span>
+                  <span>{criterion}</span>
+                </li>
+              ))}
+            </ol>
+          </RetroWindow>
+        </Shell>
+
+        {showShare && (
+          <LeaderboardShareCard
+            competitionName={competition.name}
+            standings={ranked.map((p, i) => ({
+              name: p.display_name,
+              points: p.total_points,
+              is_bot: p.is_bot,
+              kit: kitByUser[p.user_id] ? {
+                pattern: kitByUser[p.user_id].pattern,
+                colour1: kitByUser[p.user_id].colour1,
+                colour2: kitByUser[p.user_id].colour2,
+                colour3: kitByUser[p.user_id].colour3,
+              } : null,
+              is_reigning_champ: p.is_reigning_champ,
+              is_vibes_champion: p.is_vibes_champion,
+              is_top_dog: topDogUserId === p.user_id && topDogReignWeeks > 0,
+              streak: streakByUser[p.user_id] ?? null,
+              bankers_used: bankersUsedByPlayer[p.user_id] ?? 0,
+              rank_delta: previousRankByUser[p.user_id] != null ? previousRankByUser[p.user_id] - (i + 1) : null,
+            }))}
+            onClose={() => setShowShare(false)}
+            popArt
+          />
+        )}
+
+        {showSeasonShareFor && (() => {
+          const targetIndex = ranked.findIndex(p => p.user_id === showSeasonShareFor)
+          if (targetIndex === -1) return null
+          const target = ranked[targetIndex]
+          const { bestPlayer, bestTeam } = getBestPlayerAndTeam(target.user_id)
+          const wonAwards = awards
+            .filter(a => awardWinnerNames(a).includes(target.display_name))
+            .map(a => ({ emoji: a.emoji, title: a.title }))
+          return (
+            <PersonalSeasonShareCard
+              competitionName={competition.name}
+              displayName={target.display_name}
+              position={targetIndex + 1}
+              totalEntrants={ranked.length}
+              points={target.total_points}
+              isProvisional={competition.status === 'active'}
+              wonAwards={wonAwards}
+              bestPlayer={bestPlayer}
+              bestTeam={bestTeam}
+              onClose={() => setShowSeasonShareFor(null)}
+            />
+          )
+        })()}
+
+        {disciplineModalUserId && (
+          <RetroModal onClose={() => setDisciplineModalUserId(null)} title={`Discipline — ${ranked.find(p => p.user_id === disciplineModalUserId)?.display_name ?? 'Unknown'}`}>
+            {!disciplineModalData ? (
+              <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16 }}>Loading...</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'calc(var(--retro-px) * 5)' }}>
+                {disciplineModalData.suspensions.length > 0 && (
+                  <div>
+                    <p style={{ fontFamily: 'var(--font-retro-display)', fontSize: 9, color: 'var(--retro-red-light)', marginBottom: 'calc(var(--retro-px) * 2)' }}>SUSPENSIONS</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'calc(var(--retro-px) * 2)' }}>
+                      {disciplineModalData.suspensions.map((s, i) => (
+                        <RetroWindow key={i} variant="red" flat>
+                          <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16 }}>
+                            Suspension #{s.suspension_number} — {s.gameweeks_count} gameweek{s.gameweeks_count === 1 ? '' : 's'}
+                            {s.status !== 'active' && <span style={{ color: 'var(--retro-grey-light)' }}> ({s.status.replace('_', ' ')})</span>}
+                          </p>
+                          <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 15 }}>{s.reason}</p>
+                        </RetroWindow>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <p style={{ fontFamily: 'var(--font-retro-display)', fontSize: 9, color: 'var(--retro-grey-light)', marginBottom: 'calc(var(--retro-px) * 2)' }}>CARDS</p>
+                  {disciplineModalData.cards.length === 0 ? (
+                    <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 15 }}>No cards this competition.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'calc(var(--retro-px) * 2)' }}>
+                      {disciplineModalData.cards.map((c, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          {c.card_type === 'yellow' ? <YellowCardIcon size={18} /> : <RedCardIcon size={18} />}
+                          <div>
+                            <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 15 }}>
+                              {c.reason}
+                              {c.status === 'rescinded' && <span style={{ color: 'var(--retro-green-light)', marginLeft: 6 }}>RESCINDED</span>}
+                            </p>
+                            <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 13, color: 'var(--retro-grey-light)' }}>{new Date(c.created_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </RetroModal>
+        )}
+      </>
+    )
+  }
+
   if (popArt) {
     return (
       <>
-        <Shell active="LEADERBOARD" user={user} displayName={displayName} theme="pop-art">
+        <Shell active="LEADERBOARD" user={user} displayName={displayName} skin="pop-art">
           <div className="pop-art-theme">
 
             <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
@@ -1472,310 +1931,5 @@ export default function LeaderboardPage() {
     )
   }
 
-  return (
-    <Shell active="LEADERBOARD" user={user} displayName={displayName}>
-      <HeroPage wide>
-        <div className="w-full text-[#F5ECD9]">
-
-          <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
-            <h1 className="text-3xl font-bold" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>LEADERBOARD</h1>
-            {ranked.length > 0 && (
-              <button
-                onClick={() => setShowShare(true)}
-                className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded border border-[#D9A441]/50 text-[#D9A441] hover:bg-[#D9A441]/10 transition-colors"
-              >
-                📱 Share Standings
-              </button>
-            )}
-          </div>
-          <p className="text-[#D9A441]/70 mb-6 text-sm">{competition.name}</p>
-
-          <div className="bg-white/5 border border-white/10 rounded-lg overflow-hidden">
-            <table className="w-full" style={{ fontSize: '12px' }}>
-              <thead>
-                <tr className="text-left border-b border-white/10 text-[#F5ECD9]/50" style={{ fontSize: '10px' }}>
-                  <th className="py-2 px-1 sm:px-2 uppercase tracking-wider">#</th>
-                  <th className="py-2 px-1 sm:px-2 uppercase tracking-wider">Player</th>
-                  <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider">HW</th>
-                  <th className="py-2 px-1 sm:px-2 text-center uppercase tracking-wider">AW</th>
-                  <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider" title="Best single-gameweek score (tiebreaker #3)">Best</th>
-                  <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Tm</th>
-                  <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Pl</th>
-                  <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider">Bk</th>
-                  <th className="py-2 px-1 sm:px-2 text-right uppercase tracking-wider font-bold">Tot</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ranked.map((player, index) => {
-                  const streak = getStreak(player)
-                  const teamsWithAvailability = getTeamsWithAvailability(player.user_id)
-                  return (
-                    <React.Fragment key={player.user_id}>
-                      <tr
-                        onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
-                        className="border-b border-white/5 cursor-pointer hover:bg-white/5"
-                      >
-                        <td className="py-2 px-1 sm:px-2 text-[#F5ECD9]/40">{index + 1}</td>
-                        <td className="py-2 px-1 sm:px-2 font-bold uppercase">
-                          <div className="flex items-center gap-1.5">
-                            {player.is_bot ? <BotAvatar size={16} /> : (
-                              <KitBadge
-                                pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
-                                colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
-                                colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
-                                colour3={kitByUser[player.user_id]?.colour3}
-                                size={16}
-                              />
-                            )}
-                            <span className="inline-flex flex-col leading-tight">
-                              <span>{player.display_name}</span>
-                              {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
-                                <span className="normal-case font-normal" style={{ fontSize: '8px', letterSpacing: '1px' }}>
-                                  <span style={{ color: '#D9A441' }}>{'★'.repeat(kitByUser[player.user_id]?.stars ?? 0)}</span>
-                                  {'🌍'.repeat(kitByUser[player.user_id]?.earths ?? 0)}
-                                </span>
-                              )}
-                            </span>
-                            {player.is_reigning_champ && <span className="text-[#D9A441]">👑</span>}
-                            {player.is_vibes_champion && <span title="Vibes Champion">😎</span>}
-                            {player.in_cash_pool && <span title="In the cash pool">💷</span>}
-                            {streak && <span title={`${streak} weeks above average`}>🔥</span>}
-                            {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
-                              <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">
-                                🐕<span style={{ fontSize: '9px' }}>{topDogReignWeeks}</span>
-                              </span>
-                            )}
-                            <span className="text-[#F5ECD9]/30" style={{ fontSize: '9px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
-                          </div>
-                        </td>
-                        <td className="py-2 px-1 sm:px-2 text-center text-[#F5ECD9]/60">{player.home_wins}</td>
-                        <td className="py-2 px-1 sm:px-2 text-center text-[#F5ECD9]/60">{player.away_wins}</td>
-                        <td className="py-2 px-1 sm:px-2 text-right text-[#F5ECD9]/60">{player.best_gameweek_score}</td>
-                        <td className="py-2 px-1 sm:px-2 text-right text-[#F5ECD9]/60">{Math.round(player.team_points)}</td>
-                        <td className="py-2 px-1 sm:px-2 text-right text-[#F5ECD9]/60">{Math.round(player.player_points)}</td>
-                        <td className="py-2 px-1 sm:px-2 text-right text-[#F5ECD9]/60">{Math.round(player.banker_points)}</td>
-                        <td className="py-2 px-1 sm:px-2 text-right font-bold" style={{ color: '#D9A441' }}>{player.total_points}</td>
-                      </tr>
-                      {expandedUser === player.user_id && (
-                        <tr>
-                          <td colSpan={9} className="bg-black/20 px-1.5 sm:px-3 py-3">
-                            <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-white/10 flex-wrap">
-                              <KitBadge
-                                pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
-                                colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
-                                colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
-                                colour3={kitByUser[player.user_id]?.colour3}
-                                stars={kitByUser[player.user_id]?.stars ?? 0}
-                                earths={kitByUser[player.user_id]?.earths ?? 0}
-                                size={40}
-                                iconTextClass="text-base sm:text-xl"
-                                topScore={topScoreByUser[player.user_id] ?? 0}
-                              />
-                              <div className="flex items-start gap-4 flex-wrap justify-end">
-                                <div className="text-right">
-                                  <p className="text-[9px] uppercase tracking-widest text-[#F5ECD9]/40 font-bold">Best Gameweek (tiebreaker #3)</p>
-                                  <p className="text-sm font-bold" style={{ color: '#D9A441' }}>{player.best_gameweek_score} pts</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-[9px] uppercase tracking-widest text-[#F5ECD9]/40 font-bold">Bankers Left</p>
-                                  <p className="text-sm font-bold" style={{ color: '#D9A441' }}>{Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} / 2</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-[9px] uppercase tracking-widest text-[#F5ECD9]/40 font-bold">All or Nothing</p>
-                                  <p className="text-sm font-bold" style={{ color: '#D9A441' }}>{aonUsedByPlayer.has(player.user_id) ? 'Used' : 'Available'}</p>
-                                </div>
-                              </div>
-                            </div>
-                            {allGameweeks.length === 0 ? (
-                              <p className="text-[#F5ECD9]/40 mb-3" style={{ fontSize: '10px' }}>No picks yet.</p>
-                            ) : (
-                              <table className="w-full mb-4" style={{ fontSize: '9px' }}>
-                                <thead>
-                                  <tr className="text-left text-[#F5ECD9]/40 border-b border-white/10 uppercase tracking-wider">
-                                    <th className="py-1 pr-1">GW</th>
-                                    <th className="py-1 pr-1">Team</th>
-                                    <th className="py-1 pr-1 text-right">Pts</th>
-                                    <th className="py-1 pr-1">P1</th>
-                                    <th className="py-1 pr-1 text-right">Pts</th>
-                                    <th className="py-1 pr-1">P2</th>
-                                    <th className="py-1 pr-1 text-right">Pts</th>
-                                    <th className="py-1 text-right font-bold">Tot</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {buildGwRows(player.user_id).map(row => {
-                                    if (row.kind === 'run') {
-                                      if (row.from === row.to) {
-                                        return (
-                                          <tr key={`gw-${row.from}`} className="border-b border-white/5 last:border-0 text-[#F5ECD9]/30">
-                                            <td className="py-1 pr-1 font-bold">{row.from}</td>
-                                            <td className="py-1 pr-1 uppercase" colSpan={6}>{row.label}</td>
-                                            <td className="py-1 text-right font-bold">—</td>
-                                          </tr>
-                                        )
-                                      }
-                                      return (
-                                        <tr key={`run-${row.from}-${row.to}`} className="border-b border-white/5 last:border-0 text-[#F5ECD9]/20">
-                                          <td className="py-1 pr-1 font-bold" colSpan={7}>
-                                            GW {row.from}&ndash;{row.to} <span className="normal-case text-[#F5ECD9]/30">({row.to - row.from + 1} gameweeks)</span> &mdash; {row.label}
-                                          </td>
-                                          <td className="py-1 text-right font-bold">—</td>
-                                        </tr>
-                                      )
-                                    }
-                                    if (row.kind === 'hidden') {
-                                      return (
-                                        <tr key={row.gw.id} className="border-b border-white/5 last:border-0 text-[#F5ECD9]/30">
-                                          <td className="py-1 pr-1 font-bold">{row.gw.number}</td>
-                                          <td className="py-1 pr-1 uppercase" colSpan={6}>Picked — hidden until deadline</td>
-                                          <td className="py-1 text-right font-bold">—</td>
-                                        </tr>
-                                      )
-                                    }
-                                    const gw = row.gw
-                                    const d = pickDetails[player.user_id]?.find(pd => pd.gw === gw.number)!
-                                    return (
-                                      <tr key={gw.id} className="border-b border-white/5 last:border-0">
-                                        <td className="py-1 pr-1 font-bold">{d.gw}</td>
-                                        <td className="py-1 pr-1 uppercase">
-                                          <div className="flex items-center gap-1">
-                                            <TeamCrest teamId={d.team_id} teamName={teamMap[d.team_id]?.name ?? ''} size={14} />
-                                            {teamDisplayName(teamMap[d.team_id])}
-                                            {d.is_banker && <span className="bg-[#D9A441] text-[#241a12] px-0.5 rounded font-bold">★</span>}
-                                            {(d.provisional || d.is_autopick) && <span className="bg-white/20 px-0.5 rounded" title="No pick was made in time, so the computer picked automatically">AP</span>}
-                                          </div>
-                                          {d.team_detail?.opponent_team_id != null && (
-                                            <div className="normal-case text-[#F5ECD9]/40" style={{ fontSize: '8px' }}>
-                                              <span
-                                                className={`inline-block px-0.5 rounded font-bold mr-1 ${d.team_detail.is_home ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`}
-                                                title={d.team_detail.is_home ? 'Played at home' : 'Played away'}
-                                              >
-                                                {d.team_detail.is_home ? 'H' : 'A'}
-                                              </span>
-                                              vs {teamMap[d.team_detail.opponent_team_id]?.short_code
-                                                ?? teamMap[d.team_detail.opponent_team_id]?.short_name
-                                                ?? '?'}
-                                              {' '}(Q{d.team_detail.team_quartile}→Q{d.team_detail.opponent_quartile})
-                                              {d.team_detail.team_score != null
-                                                ? <>{' '}· {d.team_detail.team_score}-{d.team_detail.opponent_score}</>
-                                                : <>{' '}· not played yet</>}
-                                            </div>
-                                          )}
-                                        </td>
-                                        <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.team_points ?? '—'}</td>
-                                        <td className="py-1 pr-1 uppercase">
-                                          {d.player1}
-                                          {goalEventKeys.has(`${d.player1_id}_${gw.id}`) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold">G</span>}
-                                          {assistEventKeys.has(`${d.player1_id}_${gw.id}`) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span>}
-                                        </td>
-                                        <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.player1_points ?? '—'}</td>
-                                        <td className="py-1 pr-1 uppercase">
-                                          {d.player2}
-                                          {goalEventKeys.has(`${d.player2_id}_${gw.id}`) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold">G</span>}
-                                          {assistEventKeys.has(`${d.player2_id}_${gw.id}`) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span>}
-                                        </td>
-                                        <td className="py-1 pr-1 text-right text-[#F5ECD9]/50">{d.player2_points ?? '—'}</td>
-                                        <td className="py-1 text-right font-bold">{d.points ?? '—'}</td>
-                                      </tr>
-                                    )
-                                  })}
-                                </tbody>
-                              </table>
-                            )}
-
-                            {showBonusCard && (
-                              <div className="flex items-center gap-2 mb-4 p-2 rounded-lg bg-blue-500/10 border border-blue-500/30">
-                                <img
-                                  src="/bonus-card-player.png"
-                                  alt=""
-                                  style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
-                                  onError={e => { e.currentTarget.style.display = 'none' }}
-                                />
-                                <div style={{ fontSize: '10px' }}>
-                                  <p className="font-bold uppercase text-blue-300">{bonusCardName}</p>
-                                  {bonusCardPlayByUser[player.user_id] ? (
-                                    <p className="text-[#F5ECD9]/70">
-                                      Played {bonusCardPlayByUser[player.user_id].playerName}
-                                      {' — GW'}{allGameweeks.find(g => g.id === bonusCardPlayByUser[player.user_id].gameweek_id)?.number ?? '?'}
-                                      {bonusCardPlayByUser[player.user_id].points != null && ` — ${bonusCardPlayByUser[player.user_id].points} pts`}
-                                    </p>
-                                  ) : (
-                                    <p className="text-[#F5ECD9]/50">Remaining — not yet played</p>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            <div style={{ fontSize: '9px' }}>
-                              <p className="text-[#F5ECD9]/40 uppercase tracking-wider font-bold mb-1.5">
-                                Teams ({teamsWithAvailability.filter(t => t.remaining > 0).length} available)
-                              </p>
-                              {teamsWithAvailability.length === 0 ? (
-                                <p className="text-[#F5ECD9]/40">No teams.</p>
-                              ) : (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
-                                  {teamsWithAvailability.map(team => {
-                                    const used = team.remaining <= 0
-                                    return (
-                                      <div
-                                        key={team.id}
-                                        className={`flex items-center gap-1 rounded px-1.5 py-1 border ${
-                                          used ? 'bg-white/[0.02] border-white/5 opacity-40' : 'bg-white/5 border-white/10'
-                                        }`}
-                                      >
-                                        <TeamCrest teamId={team.id} teamName={team.name} size={14} />
-                                        <span className="uppercase truncate">{teamDisplayName(team)}</span>
-                                        {team.isDouble && !used && team.remaining === 2 && (
-                                          <span className="text-[#D9A441] font-bold shrink-0">×2</span>
-                                        )}
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  )
-                })}
-                {ranked.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="py-8 text-center text-[#F5ECD9]/40 uppercase tracking-wider" style={{ fontSize: '11px' }}>No players yet.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-3 uppercase tracking-wider text-[#F5ECD9]/40" style={{ fontSize: '10px' }}>
-            <span className="font-bold mr-2">Key:</span>
-            👑 Reigning champ
-            <span className="mx-2">·</span>
-            😎 Vibes champion
-            <span className="mx-2">·</span>
-            💷 In the cash pool
-            <span className="mx-2">·</span>
-            🔥 Streak (3+ wks above avg)
-            <span className="mx-2">·</span>
-            🐕 Top Dog (number = weeks leading)
-            <span className="mx-2">·</span>
-            <span className="bg-white/20 px-0.5 rounded">AP</span> Autopick — computer picked it (deadline passed, no pick made)
-            <span className="mx-2">·</span>
-            Click a row to expand
-          </div>
-
-        </div>
-      </HeroPage>
-
-      {showShare && (
-        <LeaderboardShareCard
-          competitionName={competition.name}
-          standings={ranked.map(p => ({ name: p.display_name, points: p.total_points }))}
-          onClose={() => setShowShare(false)}
-        />
-      )}
-    </Shell>
-  )
+  return null
 }
