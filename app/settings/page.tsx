@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
-import HeroPage from '../../components/HeroPage'
 import KitEditor from '../../components/KitEditor'
 import PasswordInput from '../../components/PasswordInput'
 import PopArtLoading from '../../components/PopArtLoading'
 import { SHOW_INSTALL_PROMPT_EVENT } from '../../components/InstallPrompt'
-import { usePopArtTheme } from '../lib/usePopArtTheme'
+import { useSkin } from '../lib/useSkin'
 import { isValidUsername, USERNAME_MAX_LENGTH, USERNAME_RULES_MESSAGE } from '../lib/username'
+import { RetroWindow, RetroButton, RetroSettingsPanel, RetroSkinPreviewControl } from '../../components/retro'
 
 export default function SettingsPage() {
   const [user, setUser] = useState<any>(null)
@@ -33,7 +33,7 @@ export default function SettingsPage() {
   const [passwordMessage, setPasswordMessage] = useState('')
 
   const supabase = createClient()
-  const { popArt } = usePopArtTheme(user?.id)
+  const { skin, popArt, retro, globalSkin, preview, isAdmin, setPreview } = useSkin(user?.id)
 
   useEffect(() => { loadProfile() }, [])
 
@@ -157,15 +157,149 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <Shell active="SETTINGS" theme={popArt ? 'pop-art' : 'classic'}>
-        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
+      <Shell active="SETTINGS" skin={skin}>
+        <PopArtLoading />
+      </Shell>
+    )
+  }
+
+  if (retro) {
+    return (
+      <Shell active="SETTINGS" user={user} displayName={currentName} skin="retro">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'calc(var(--retro-px) * 6)' }}>
+          <h1 style={{ fontFamily: 'var(--font-retro-display)', fontSize: 24, color: 'var(--retro-gold)', textShadow: 'var(--retro-px) var(--retro-px) 0 #000' }}>
+            SETTINGS
+          </h1>
+
+          {isAdmin && (
+            <RetroSkinPreviewControl globalSkin={globalSkin} preview={preview} setPreview={setPreview} />
+          )}
+
+          <RetroSettingsPanel />
+
+          <RetroWindow title="Username">
+            <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, marginBottom: 'calc(var(--retro-px) * 3)' }}>
+              {currentName ? `Currently shown as "${currentName}"` : 'Not set yet'}
+            </p>
+            {pendingRequest && (
+              <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16, color: 'var(--retro-gold)', marginBottom: 'calc(var(--retro-px) * 3)' }}>
+                Waiting on admin approval: &quot;{pendingRequest.requested_name}&quot;
+              </p>
+            )}
+            <input
+              type="text"
+              value={displayName}
+              onChange={e => setDisplayName(e.target.value)}
+              maxLength={USERNAME_MAX_LENGTH}
+              className="retro-input"
+              style={{ width: '100%', marginBottom: 'calc(var(--retro-px) * 3)' }}
+            />
+            {nameMessage && (
+              <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16, color: nameMessage.startsWith('Submitted') ? 'var(--retro-green-light)' : 'var(--retro-red-light)', marginBottom: 'calc(var(--retro-px) * 3)' }}>
+                {nameMessage}
+              </p>
+            )}
+            <RetroButton variant="a" onClick={saveDisplayName} disabled={savingName} style={{ width: '100%' }}>
+              {savingName ? 'Submitting...' : 'Request Change'}
+            </RetroButton>
+          </RetroWindow>
+
+          <RetroWindow title="Email">
+            <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, marginBottom: 'calc(var(--retro-px) * 3)' }}>
+              Used for magic link login and account recovery.
+            </p>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="retro-input"
+              style={{ width: '100%', marginBottom: 'calc(var(--retro-px) * 3)' }}
+            />
+            {emailMessage && (
+              <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16, color: emailMessage.startsWith('Check') ? 'var(--retro-green-light)' : 'var(--retro-red-light)', marginBottom: 'calc(var(--retro-px) * 3)' }}>
+                {emailMessage}
+              </p>
+            )}
+            <RetroButton variant="a" onClick={saveEmail} disabled={savingEmail} style={{ width: '100%' }}>
+              {savingEmail ? 'Saving...' : 'Update Email'}
+            </RetroButton>
+          </RetroWindow>
+
+          <RetroWindow title="Password">
+            <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, marginBottom: 'calc(var(--retro-px) * 3)' }}>
+              Set or change your password to log in with username + password instead of a magic link.
+            </p>
+            <div style={{ marginBottom: 'calc(var(--retro-px) * 3)' }}>
+              <PasswordInput
+                placeholder="New password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                className="retro-input w-full"
+              />
+            </div>
+            {passwordMessage && (
+              <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16, color: passwordMessage.startsWith('Password updated') ? 'var(--retro-green-light)' : 'var(--retro-red-light)', marginBottom: 'calc(var(--retro-px) * 3)' }}>
+                {passwordMessage}
+              </p>
+            )}
+            <RetroButton variant="a" onClick={savePassword} disabled={savingPassword || !newPassword} style={{ width: '100%' }}>
+              {savingPassword ? 'Saving...' : 'Set Password'}
+            </RetroButton>
+          </RetroWindow>
+
+          <RetroWindow title="Your Kit">
+            <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, marginBottom: 'calc(var(--retro-px) * 3)' }}>
+              Shown next to your name on the leaderboard and results.
+            </p>
+            {/* KitEditor hasn't been migrated to retro yet — see the same
+                note in ceefax-shell.tsx's kit popup. */}
+            <div className="pop-art-theme" style={{ background: 'transparent' }}>
+              <KitEditor userId={user.id} theme="pop-art" />
+            </div>
+          </RetroWindow>
+
+          <RetroWindow title="Tier Picks">
+            {tierLocked ? (
+              <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16 }}>
+                Your tier picks are locked for the current competition and can no longer be changed.
+              </p>
+            ) : (
+              <>
+                <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, marginBottom: 'calc(var(--retro-px) * 3)' }}>
+                  {hasTierPicks ? 'You can still change your double-use tier teams until the first gameweek deadline.' : 'You have not set your tier picks yet.'}
+                </p>
+                <a href="/join" className="retro-button retro-button--b" style={{ width: '100%', textAlign: 'center', textDecoration: 'none' }}>
+                  {hasTierPicks ? 'Edit Tier Picks' : 'Set Tier Picks'}
+                </a>
+              </>
+            )}
+          </RetroWindow>
+
+          <RetroWindow title="Install App">
+            <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, marginBottom: 'calc(var(--retro-px) * 3)' }}>
+              Add LMS All-Stars to your home screen for quick access.
+            </p>
+            <RetroButton variant="b" onClick={() => window.dispatchEvent(new Event(SHOW_INSTALL_PROMPT_EVENT))} style={{ width: '100%' }}>
+              Show Install Prompt
+            </RetroButton>
+          </RetroWindow>
+
+          <RetroWindow title="Account">
+            <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, marginBottom: 'calc(var(--retro-px) * 3)' }}>
+              Logged in as {email}
+            </p>
+            <RetroButton variant="select" onClick={logOut} style={{ width: '100%' }}>
+              Log Out
+            </RetroButton>
+          </RetroWindow>
+        </div>
       </Shell>
     )
   }
 
   if (popArt) {
     return (
-      <Shell active="SETTINGS" user={user} displayName={currentName} theme="pop-art">
+      <Shell active="SETTINGS" user={user} displayName={currentName} skin="pop-art">
         <div className="pop-art-theme">
 
           <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-6 mt-2">Settings</h1>
@@ -283,118 +417,5 @@ export default function SettingsPage() {
     )
   }
 
-  const cardClass = "bg-white/5 border border-white/10 rounded-lg p-6"
-  const labelClass = "font-bold mb-1 text-[#D9A441]"
-  const subClass = "text-sm text-[#F5ECD9]/60 mb-4"
-  const inputClass = "w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm mb-3 text-[#F5ECD9] placeholder:text-[#F5ECD9]/40"
-  const btnClass = "w-full rounded px-4 py-2 text-sm font-bold disabled:opacity-50"
-  const btnStyle = { backgroundColor: '#D9A441', color: '#241a12' }
-
-  return (
-    <Shell active="SETTINGS" user={user} displayName={currentName}>
-      <HeroPage>
-        <div className="w-full text-[#F5ECD9]">
-
-          <h1 className="text-3xl font-bold mb-8" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Settings</h1>
-
-          <div className="space-y-6">
-
-            <div className={cardClass}>
-              <h2 className={labelClass}>Username</h2>
-              <p className={subClass}>
-                {currentName ? `Currently shown as "${currentName}"` : 'Not set yet'}
-              </p>
-              {pendingRequest && (
-                <p className="text-sm mb-3 text-yellow-400">
-                  Waiting on admin approval: &quot;{pendingRequest.requested_name}&quot;
-                </p>
-              )}
-              <input
-                type="text"
-                value={displayName}
-                onChange={e => setDisplayName(e.target.value)}
-                maxLength={USERNAME_MAX_LENGTH}
-                className={inputClass}
-              />
-              {nameMessage && (
-                <p className={`text-sm mb-3 ${nameMessage.startsWith('Submitted') ? 'text-green-400' : 'text-red-400'}`}>{nameMessage}</p>
-              )}
-              <button onClick={saveDisplayName} disabled={savingName} className={btnClass} style={btnStyle}>
-                {savingName ? 'Submitting...' : 'Request Username Change'}
-              </button>
-            </div>
-
-            <div className={cardClass}>
-              <h2 className={labelClass}>Email</h2>
-              <p className={subClass}>Used for magic link login and account recovery.</p>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className={inputClass}
-              />
-              {emailMessage && (
-                <p className={`text-sm mb-3 ${emailMessage.startsWith('Check') ? 'text-green-400' : 'text-red-400'}`}>{emailMessage}</p>
-              )}
-              <button onClick={saveEmail} disabled={savingEmail} className={btnClass} style={btnStyle}>
-                {savingEmail ? 'Saving...' : 'Update Email'}
-              </button>
-            </div>
-
-            <div className={cardClass}>
-              <h2 className={labelClass}>Password</h2>
-              <p className={subClass}>
-                Set or change your password to log in with username + password instead of a magic link. Forgotten it? Use a magic link to get back in, then set a new one here.
-              </p>
-              <PasswordInput
-                placeholder="New password"
-                value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                className={inputClass}
-              />
-              {passwordMessage && (
-                <p className={`text-sm mb-3 ${passwordMessage.startsWith('Password updated') ? 'text-green-400' : 'text-red-400'}`}>{passwordMessage}</p>
-              )}
-              <button onClick={savePassword} disabled={savingPassword || !newPassword} className={btnClass} style={btnStyle}>
-                {savingPassword ? 'Saving...' : 'Set Password'}
-              </button>
-            </div>
-
-            <div className={cardClass}>
-              <h2 className={labelClass}>Your Kit</h2>
-              <p className={subClass}>Shown next to your name on the leaderboard and results.</p>
-              <KitEditor userId={user.id} />
-            </div>
-
-            <div className={cardClass}>
-              <h2 className={labelClass}>Tier Picks</h2>
-              {tierLocked ? (
-                <p className={subClass + ' mb-0'}>Your tier picks are locked for the current competition and can no longer be changed.</p>
-              ) : (
-                <>
-                  <p className={subClass}>{hasTierPicks ? 'You can still change your double-use tier teams until the first gameweek deadline.' : 'You have not set your tier picks yet. Choose your double-use teams before the first gameweek deadline.'}</p>
-                  <a href="/join" className={btnClass + ' block text-center'} style={btnStyle}>
-                    {hasTierPicks ? 'Edit Tier Picks' : 'Set Tier Picks'}
-                  </a>
-                </>
-              )}
-            </div>
-
-            <div className={cardClass}>
-              <h2 className={labelClass}>Account</h2>
-              <p className={subClass}>Logged in as {email}</p>
-              <button
-                onClick={logOut}
-                className="w-full border border-white/20 rounded px-4 py-2 text-sm hover:border-[#D9A441] text-[#F5ECD9]"
-              >
-                Log Out
-              </button>
-            </div>
-
-          </div>
-
-        </div>
-      </HeroPage>
-    </Shell>
-  )
+  return null
 }
