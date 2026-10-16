@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import PopArtLoading from '../../components/PopArtLoading'
-import { usePopArtTheme } from '../lib/usePopArtTheme'
+import { useSkin } from '../lib/useSkin'
+import { RetroWindow, RetroButton } from '../../components/retro'
 import KitBadge from '../../components/KitBadge'
 import BotAvatar from '../../components/BotAvatar'
 import StarRating from '../../components/StarRating'
@@ -91,7 +92,7 @@ export default function WallPage() {
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
 
   const supabase = createClient()
-  const { popArt } = usePopArtTheme(user?.id)
+  const { skin, popArt, retro } = useSkin(user?.id)
 
   useEffect(() => { loadData() }, [])
 
@@ -446,28 +447,30 @@ export default function WallPage() {
 
   if (loading) {
     return (
-      <Shell active="THE WALL" theme={popArt ? 'pop-art' : 'classic'}>
-        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
+      <Shell active="THE WALL" skin={skin}>
+        <PopArtLoading />
       </Shell>
     )
   }
 
   if (!competition) {
     return (
-      <Shell active="THE WALL" theme={popArt ? 'pop-art' : 'classic'}>
-        {popArt ? (
+      <Shell active="THE WALL" skin={skin}>
+        {retro ? (
+          <RetroWindow title="No Active Competition">
+            <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16 }}>Check back once a competition is running.</p>
+          </RetroWindow>
+        ) : (
           <div className="pop-art-theme text-center py-12">
             <p className="pop-headline text-2xl mb-2">No Active Competition</p>
           </div>
-        ) : (
-          <p className="text-gray-500">No active competition right now.</p>
         )}
       </Shell>
     )
   }
 
-  const bubbleBg = popArt ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.05)'
-  const ownBubbleBg = popArt ? 'rgba(160,0,250,0.16)' : 'rgba(217,164,65,0.16)'
+  const bubbleBg = 'rgba(255,255,255,0.06)'
+  const ownBubbleBg = 'rgba(160,0,250,0.16)'
   const nothingAtAll = posts.length === 0 && standaloneComments.length === 0
 
   // One merged, truly chronological feed — standalone comments and pick
@@ -490,12 +493,15 @@ export default function WallPage() {
   function AuraBadge({ userId }: { userId: string }) {
     const aura = auraByUser[userId] ?? 0
     if (aura <= 0) return null
+    if (retro) {
+      return (
+        <span style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 14, color: 'var(--retro-blue-light)' }} title="Aura — cumulative peer ratings received">
+          ✨ {aura}
+        </span>
+      )
+    }
     return (
-      <span
-        className={popArt ? 'pop-badge pop-badge--blue px-1.5 py-0.5 text-[8px]' : 'px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide'}
-        style={popArt ? undefined : { background: 'rgba(217,164,65,0.2)', color: '#D9A441' }}
-        title="Aura — cumulative peer ratings received"
-      >
+      <span className="pop-badge pop-badge--blue px-1.5 py-0.5 text-[8px]" title="Aura — cumulative peer ratings received">
         ✨ {aura}
       </span>
     )
@@ -513,7 +519,7 @@ export default function WallPage() {
         earths={starsEarthsByUser[userId]?.earths ?? 0}
         size={size}
         iconTextClass="text-xs sm:text-sm"
-        starColor={popArt ? 'var(--pop-green)' : '#D9A441'}
+        starColor={retro ? 'var(--retro-gold)' : 'var(--pop-green)'}
       />
     )
   }
@@ -826,15 +832,271 @@ export default function WallPage() {
     )
   }
 
-  return (
-    <Shell active="THE WALL" user={user} displayName={displayName} theme={popArt ? 'pop-art' : 'classic'}>
-      <div className={popArt ? 'pop-art-theme' : ''}>
-        {popArt ? (
-          <h1 className="pop-hero pop-hero--green text-5xl sm:text-6xl mb-1">The Wall</h1>
+  // Retro's equivalent to the two render functions above — same data,
+  // genuinely different chrome (each post is its own dialogue window
+  // rather than a chat bubble). StarRating/FutzyReplyButton haven't been
+  // migrated to retro yet, so they're deliberately passed popArt as an
+  // interim choice (same kind of island as KitEditor in ceefax-shell.tsx)
+  // rather than left in their dead classic state.
+  function renderStandaloneCommentRetro(c: StandaloneComment) {
+    const isOwn = c.user_id === user?.id
+    const isPending = c.status === 'pending'
+    return (
+      <RetroWindow key={c.id} variant={isOwn ? 'gold' : 'default'}>
+        <div className="flex items-start gap-2.5">
+          <div className="shrink-0">{authorAvatar(c.user_id, 40)}</div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap" style={{ fontFamily: 'var(--font-retro-display)', fontSize: 9 }}>
+              <span>{nameByUser[c.user_id] ?? 'Unknown'}</span>
+              {authorBadges(c.user_id)}
+              <AuraBadge userId={c.user_id} />
+              {isPending && <span style={{ color: 'var(--retro-gold)' }}>AWAITING APPROVAL</span>}
+              {isAdmin && (
+                <button onClick={() => deleteContent('standalone_comment', c.id)} style={{ color: 'var(--retro-red-light)' }}>
+                  DELETE
+                </button>
+              )}
+            </div>
+            <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, opacity: isPending ? 0.6 : 1 }}>{c.content}</p>
+            {!isPending && (
+              <div className="mt-1.5">
+                <StarRating
+                  average={ratingsByTarget[`standalone_comment:${c.id}`]?.average ?? null}
+                  count={ratingsByTarget[`standalone_comment:${c.id}`]?.count ?? 0}
+                  yourRating={ratingsByTarget[`standalone_comment:${c.id}`]?.yours ?? null}
+                  onRate={n => submitRating('standalone_comment', c.id, n)}
+                  interactive={!isOwn}
+                  popArt
+                />
+              </div>
+            )}
+            {isAdmin && !isPending && (
+              <div className="mt-1.5"><FutzyReplyButton targetType="comment" targetId={c.id} popArt /></div>
+            )}
+
+            {(commentRepliesByComment[c.id] ?? []).filter(r => !deletedIds.has(r.id)).length > 0 && (
+              <div className="mt-2 ml-4 space-y-1.5" style={{ borderLeft: 'var(--retro-px) solid var(--retro-border)', paddingLeft: 'calc(var(--retro-px) * 3)' }}>
+                {commentRepliesByComment[c.id].filter(r => !deletedIds.has(r.id)).map(r => (
+                  <div key={r.id}>
+                    <div style={{ fontFamily: 'var(--font-retro-display)', fontSize: 9 }}>
+                      <span>{nameByUser[r.user_id] ?? 'Unknown'}</span>
+                      {authorBadges(r.user_id)}
+                      {r.status === 'pending' && <span style={{ color: 'var(--retro-gold)', marginLeft: 6 }}>PENDING</span>}
+                      {isAdmin && (
+                        <button onClick={() => deleteContent('standalone_reply', r.id)} style={{ color: 'var(--retro-red-light)', marginLeft: 6 }}>
+                          DELETE
+                        </button>
+                      )}
+                    </div>
+                    <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 15 }}>{r.content}</p>
+                    {r.status !== 'pending' && (
+                      <StarRating
+                        average={ratingsByTarget[`standalone_reply:${r.id}`]?.average ?? null}
+                        count={ratingsByTarget[`standalone_reply:${r.id}`]?.count ?? 0}
+                        yourRating={ratingsByTarget[`standalone_reply:${r.id}`]?.yours ?? null}
+                        onRate={n => submitRating('standalone_reply', r.id, n)}
+                        interactive={r.user_id !== user?.id}
+                        popArt
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {sentCommentReply[c.id] ? (
+              <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 15, color: 'var(--retro-green-light)' }}>Sent.</p>
+            ) : (
+              <div className="flex items-center gap-2 mt-1.5 max-w-sm">
+                <input
+                  type="text"
+                  value={commentReplyDraft[c.id] ?? ''}
+                  onChange={e => setCommentReplyDraft(prev => ({ ...prev, [c.id]: e.target.value }))}
+                  placeholder="Reply..."
+                  maxLength={200}
+                  className="retro-input flex-1"
+                  style={{ fontSize: 14, height: 'calc(var(--retro-px) * 9)' }}
+                />
+                <RetroButton variant="select" onClick={() => postCommentReply(c.id)} disabled={!(commentReplyDraft[c.id] ?? '').trim()}>
+                  Reply
+                </RetroButton>
+              </div>
+            )}
+            {replyError[c.id] && <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 14, color: 'var(--retro-red-light)' }}>{replyError[c.id]}</p>}
+          </div>
+        </div>
+      </RetroWindow>
+    )
+  }
+
+  function renderPickPostRetro(post: Post) {
+    const rating = ratingByUser[post.user_id]
+    const avg = rating && rating.count > 0 ? (rating.total / rating.count).toFixed(1) : null
+    const isOwn = post.user_id === user?.id
+    const q = questionByGw[post.gameweek_id]
+    const answer = answerLabel(q, post.question_answer)
+    const detail = pickDetailsByPickId[post.pick_id]
+    return (
+      <RetroWindow key={post.pick_id} variant={isOwn ? 'gold' : 'default'} title={`GW${gwNumberById[post.gameweek_id] ?? '?'}`}>
+        <div className="flex items-start gap-2.5">
+          <div className="shrink-0">{authorAvatar(post.user_id, 40)}</div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap" style={{ fontFamily: 'var(--font-retro-display)', fontSize: 9 }}>
+              <span>{nameByUser[post.user_id] ?? 'Unknown'}</span>
+              {authorBadges(post.user_id)}
+              <AuraBadge userId={post.user_id} />
+              {avg && <span style={{ color: 'var(--retro-grey-light)' }}>★ {avg} ({rating!.count})</span>}
+            </div>
+
+            {(detail || (answer && q)) && (
+              <div className="mb-2" style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 15, borderBottom: 'var(--retro-px) solid var(--retro-border)', paddingBottom: 'calc(var(--retro-px) * 2)' }}>
+                {detail && (
+                  <div>
+                    <div className="flex items-center gap-1">
+                      <span style={{ color: 'var(--retro-blue-light)' }}>{teamLabelById[detail.team_id] ?? '?'}</span>
+                      {detail.is_banker && <span title="Banker" style={{ color: 'var(--retro-gold)' }}>★</span>}
+                    </div>
+                    <div>{playerDisplayNames[detail.player1_id] ?? '?'}{detail.aon?.player_id === detail.player1_id && ` (AoN: ${detail.aon.outcome})`}</div>
+                    <div>{playerDisplayNames[detail.player2_id] ?? '?'}{detail.aon?.player_id === detail.player2_id && ` (AoN: ${detail.aon.outcome})`}</div>
+                    {detail.bonusCard && <div style={{ color: 'var(--retro-gold)' }}>{bonusCardName}: {playerDisplayNames[detail.bonusCard.player_id] ?? '?'}</div>}
+                  </div>
+                )}
+                {answer && q && (
+                  <div className={detail ? 'mt-1' : ''}>
+                    <div style={{ color: 'var(--retro-gold)' }}>{q.question}</div>
+                    <div>{answer}</div>
+                    <StarRating
+                      average={ratingsByTarget[`question_answer:${post.pick_id}`]?.average ?? null}
+                      count={ratingsByTarget[`question_answer:${post.pick_id}`]?.count ?? 0}
+                      yourRating={ratingsByTarget[`question_answer:${post.pick_id}`]?.yours ?? null}
+                      onRate={n => submitRating('question_answer', post.pick_id, n)}
+                      interactive={!isOwn}
+                      popArt
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {post.comments && !deletedIds.has(post.pick_id) && (
+              <>
+                <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16 }}>{post.comments}</p>
+                <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                  <StarRating
+                    average={ratingsByTarget[`comment:${post.pick_id}`]?.average ?? null}
+                    count={ratingsByTarget[`comment:${post.pick_id}`]?.count ?? 0}
+                    yourRating={ratingsByTarget[`comment:${post.pick_id}`]?.yours ?? null}
+                    onRate={n => submitRating('comment', post.pick_id, n)}
+                    interactive={!isOwn}
+                    popArt
+                  />
+                  {isAdmin && (
+                    <button onClick={() => deleteContent('pick_comment', post.pick_id)} style={{ fontFamily: 'var(--font-retro-display)', fontSize: 9, color: 'var(--retro-red-light)' }}>
+                      DELETE
+                    </button>
+                  )}
+                </div>
+                {isAdmin && <div className="mt-1.5"><FutzyReplyButton targetType="pick" targetId={post.pick_id} popArt /></div>}
+              </>
+            )}
+
+            {(repliesByPick[post.pick_id] ?? []).filter(r => !deletedIds.has(r.id)).length > 0 && (
+              <div className="mt-2 ml-4 space-y-1.5" style={{ borderLeft: 'var(--retro-px) solid var(--retro-border)', paddingLeft: 'calc(var(--retro-px) * 3)' }}>
+                {repliesByPick[post.pick_id].filter(r => !deletedIds.has(r.id)).map(r => (
+                  <div key={r.id}>
+                    <div style={{ fontFamily: 'var(--font-retro-display)', fontSize: 9 }}>
+                      <span>{nameByUser[r.user_id] ?? 'Unknown'}</span>
+                      {authorBadges(r.user_id)}
+                      {isAdmin && (
+                        <button onClick={() => deleteContent('reply', r.id)} style={{ color: 'var(--retro-red-light)', marginLeft: 6 }}>DELETE</button>
+                      )}
+                    </div>
+                    <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 15 }}>{r.content}</p>
+                    <StarRating
+                      average={ratingsByTarget[`reply:${r.id}`]?.average ?? null}
+                      count={ratingsByTarget[`reply:${r.id}`]?.count ?? 0}
+                      yourRating={ratingsByTarget[`reply:${r.id}`]?.yours ?? null}
+                      onRate={n => submitRating('reply', r.id, n)}
+                      interactive={r.user_id !== user?.id}
+                      popArt
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {sentReply[post.pick_id] ? (
+              <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 15, color: 'var(--retro-green-light)' }}>Sent.</p>
+            ) : (
+              <div className="flex items-center gap-2 mt-1.5 max-w-sm">
+                <input
+                  type="text"
+                  value={replyDraft[post.pick_id] ?? ''}
+                  onChange={e => setReplyDraft(prev => ({ ...prev, [post.pick_id]: e.target.value }))}
+                  placeholder="Reply..."
+                  maxLength={200}
+                  className="retro-input flex-1"
+                  style={{ fontSize: 14, height: 'calc(var(--retro-px) * 9)' }}
+                />
+                <RetroButton variant="select" onClick={() => postReply(post.pick_id)} disabled={!(replyDraft[post.pick_id] ?? '').trim()}>
+                  Reply
+                </RetroButton>
+              </div>
+            )}
+            {replyError[post.pick_id] && <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 14, color: 'var(--retro-red-light)' }}>{replyError[post.pick_id]}</p>}
+          </div>
+        </div>
+      </RetroWindow>
+    )
+  }
+
+  if (retro) {
+    return (
+      <Shell active="THE WALL" user={user} displayName={displayName} skin="retro">
+        <h1 style={{ fontFamily: 'var(--font-retro-display)', fontSize: 24, color: 'var(--retro-gold)', textShadow: 'var(--retro-px) var(--retro-px) 0 #000', marginBottom: 'calc(var(--retro-px) * 2)' }}>
+          THE WALL
+        </h1>
+        <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, color: 'var(--retro-grey-light)', marginBottom: 'calc(var(--retro-px) * 6)' }}>
+          {competition.name} — weekly answers and comments reveal automatically once each gameweek&apos;s deadline has passed. Comments need admin approval before they show up.
+        </p>
+
+        <div style={{ marginBottom: 'calc(var(--retro-px) * 8)' }}>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newCommentDraft}
+              onChange={e => setNewCommentDraft(e.target.value)}
+              placeholder="Write a comment..."
+              maxLength={280}
+              className="retro-input flex-1"
+            />
+            <RetroButton variant="a" onClick={postComment} disabled={postingComment || !newCommentDraft.trim()}>
+              {postingComment ? 'Posting...' : 'Post'}
+            </RetroButton>
+          </div>
+          {commentError && (
+            <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 14, color: 'var(--retro-red-light)', marginTop: 'calc(var(--retro-px) * 2)' }}>{commentError}</p>
+          )}
+        </div>
+
+        {nothingAtAll ? (
+          <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, color: 'var(--retro-grey-light)' }}>
+            Nothing on the wall yet — be the first to write a comment above.
+          </p>
         ) : (
-          <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>THE WALL</h1>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'calc(var(--retro-px) * 4)' }}>
+            {feedItems.map(item => item.kind === 'standalone' ? renderStandaloneCommentRetro(item.comment) : renderPickPostRetro(item.post))}
+          </div>
         )}
-        <p className={popArt ? 'font-bold text-sm mb-6' : 'text-sm mb-6'} style={popArt ? { color: 'rgba(255,255,255,0.5)' } : { color: '#D9A44199' }}>
+      </Shell>
+    )
+  }
+
+  return (
+    <Shell active="THE WALL" user={user} displayName={displayName} skin="pop-art">
+      <div className="pop-art-theme">
+        <h1 className="pop-hero pop-hero--green text-5xl sm:text-6xl mb-1">The Wall</h1>
+        <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>
           {competition.name} — weekly answers and comments reveal automatically once each gameweek&apos;s deadline has passed. Comments need admin approval before they show up.
         </p>
 
@@ -846,23 +1108,23 @@ export default function WallPage() {
               onChange={e => setNewCommentDraft(e.target.value)}
               placeholder="Write a comment..."
               maxLength={280}
-              className={popArt ? 'pop-input flex-1 p-2.5 text-sm' : 'flex-1 bg-white/5 border border-white/10 rounded px-3 py-2 text-sm'}
+              className="pop-input flex-1 p-2.5 text-sm"
             />
             <button
               onClick={postComment}
               disabled={postingComment || !newCommentDraft.trim()}
-              className={popArt ? 'pop-button px-4 py-2.5 text-xs' : 'text-xs font-bold uppercase px-4 py-2.5 rounded border border-[#D9A441]/50 text-[#D9A441] disabled:opacity-40'}
+              className="pop-button px-4 py-2.5 text-xs"
             >
               {postingComment ? 'Posting...' : 'Post'}
             </button>
           </div>
           {commentError && (
-            <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>{commentError}</p>
+            <p className="text-xs mt-1.5" style={{ color: 'var(--pop-red)' }}>{commentError}</p>
           )}
         </div>
 
         {nothingAtAll ? (
-          <p className={popArt ? 'text-sm' : 'text-sm text-gray-500'} style={popArt ? { color: 'rgba(255,255,255,0.5)' } : undefined}>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
             Nothing on the wall yet — be the first to write a comment above.
           </p>
         ) : (
