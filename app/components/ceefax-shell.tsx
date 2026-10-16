@@ -9,6 +9,8 @@ import LiveMatchAlerts from '../../components/LiveMatchAlerts'
 import SiteThemeEffects from '../../components/SiteThemeEffects'
 import InstallPrompt from '../../components/InstallPrompt'
 import { useCountdown } from '../lib/useCountdown'
+import { useRetroA11yPrefs } from '../lib/useRetroA11yPrefs'
+import { RetroFutzy, RetroHud, RetroHudStat } from '../../components/retro'
 
 const KIT_POPUP_WIDTH = 288
 const KIT_POPUP_MARGIN = 8
@@ -18,10 +20,14 @@ type Props = {
   active?: string
   user?: any
   displayName?: string
-  // 'pop-art' switches the whole header (title, nav, deadline strip) to
-  // match the Picks page's comic theme toggle — passed down from there,
-  // not stored here, so this component has no theme state of its own and
-  // every other page (which never passes it) renders exactly as before.
+  // 'pop-art' or 'retro' — passed down from the page's own useSkin() call
+  // (app/lib/useSkin.ts), not stored here, so Shell has no theme state of
+  // its own.
+  skin?: 'pop-art' | 'retro'
+  // Deprecated — accepted-but-ignored, purely so pages not yet migrated to
+  // the `skin` prop don't need an immediate edit. Classic itself is gone
+  // (see app/lib/usePopArtTheme.ts); remove this once every call site
+  // passes `skin` instead (grep for `theme={` in app/).
   theme?: 'classic' | 'pop-art'
 }
 
@@ -44,8 +50,10 @@ const navItems = [
   { label: 'SETTINGS', href: '/settings' },
 ]
 
-export default function Shell({ children, active, user, displayName, theme = 'classic' }: Props) {
-  const isPopArt = theme === 'pop-art'
+export default function Shell({ children, active, user, displayName, skin = 'pop-art' }: Props) {
+  const isRetro = skin === 'retro'
+  const isPopArt = !isRetro
+  const { dataAttrs: a11yAttrs } = useRetroA11yPrefs()
   const [menuOpen, setMenuOpen] = useState(false)
   // Each optional piece of the kit is tracked in its own slot rather than
   // one merged object, because the three queries below race each other —
@@ -255,18 +263,198 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
       })
   }, [user?.id])
 
-  const barColor = isPopArt ? 'var(--pop-white)' : '#D9A441'
+  if (isRetro) {
+    return (
+      <div className="retro-theme min-h-screen flex flex-col" {...a11yAttrs}>
+        <div className="retro-crt-layer" aria-hidden="true" />
+        <InstallPrompt />
+        <header className="sticky top-0 z-50" style={{ background: 'var(--retro-bg)', borderBottom: `var(--retro-px) solid var(--retro-border)` }}>
+          {futzySaysLines.length > 0 && (
+            <div
+              className="whitespace-nowrap overflow-hidden text-ellipsis px-4 py-1"
+              style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16, color: 'var(--retro-blue-light)', borderBottom: 'var(--retro-px) solid var(--retro-border)' }}
+            >
+              FUTZY SAYS: {futzySaysLines.join(' • ')}
+            </div>
+          )}
+          <div className="max-w-4xl mx-auto px-4">
+            <div className="flex items-center justify-between h-16 gap-3">
+              <Link href="/" className="flex items-center gap-2 shrink-0">
+                <RetroFutzy size={36} />
+                <span
+                  className="hidden sm:inline"
+                  style={{ fontFamily: 'var(--font-retro-display)', fontSize: 12, color: 'var(--retro-gold)', textShadow: 'var(--retro-px) var(--retro-px) 0 #000' }}
+                >
+                  LMS ALL-STARS
+                </span>
+              </Link>
+
+              <RetroHud className="flex-1 justify-center hidden sm:flex">
+                {nextDeadline && countdown && !countdown.expired && (
+                  <RetroHudStat
+                    label={`GW${nextDeadline.number}`}
+                    value={`${countdown.days > 0 ? `${countdown.days}D ` : ''}${countdown.hours}H ${countdown.mins}M`}
+                  />
+                )}
+              </RetroHud>
+
+              <div className="flex items-center gap-3 shrink-0">
+                {user && kit && (
+                  <button ref={kitTriggerRef} type="button" onClick={openKitPopup} aria-label="Change your kit">
+                    <KitBadge
+                      pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} colour3={kit.colour3}
+                      stars={kit.stars} earths={kit.earths}
+                      size={36} iconTextClass="text-[10px] sm:text-sm"
+                      topScore={topScore}
+                    />
+                  </button>
+                )}
+                <button
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className="md:hidden flex flex-col justify-center items-center w-8 h-8 gap-1.5"
+                  aria-label="Menu"
+                >
+                  <span className="block w-5 h-0.5" style={{ background: 'var(--retro-ink)' }} />
+                  <span className="block w-5 h-0.5" style={{ background: 'var(--retro-ink)' }} />
+                  <span className="block w-5 h-0.5" style={{ background: 'var(--retro-ink)' }} />
+                </button>
+              </div>
+            </div>
+
+            <nav className="hidden md:flex flex-wrap justify-center gap-x-1 pb-2">
+              {navItems.map(item => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="retro-button retro-button--menu"
+                  data-active={active === item.label ? 'true' : 'false'}
+                  style={{ fontSize: 9 }}
+                >
+                  {item.label}
+                </Link>
+              ))}
+              {showRugbyLink && (
+                <a href="/rugby" className="retro-button retro-button--menu" style={{ fontSize: 9, color: 'var(--retro-blue-light)' }}>
+                  RUGBY
+                </a>
+              )}
+              {isAdmin && (
+                <a href="/admin" className="retro-button retro-button--menu" style={{ fontSize: 9, color: 'var(--retro-blue-light)' }}>
+                  ADMIN{pendingCount > 0 ? ` (${pendingCount > 9 ? '9+' : pendingCount})` : ''}
+                </a>
+              )}
+              {user && (
+                <form action="/auth/signout" method="POST">
+                  <button type="submit" className="retro-button retro-button--menu" style={{ fontSize: 9, color: 'var(--retro-red-light)' }}>
+                    LOG OUT
+                  </button>
+                </form>
+              )}
+            </nav>
+          </div>
+
+          {menuOpen && (
+            <div className="md:hidden retro-menu px-4 py-3" style={{ background: 'var(--retro-panel-mid)', borderTop: 'var(--retro-px) solid var(--retro-border)' }}>
+              {navItems.map(item => (
+                <Link key={item.label} href={item.href} onClick={() => setMenuOpen(false)} className="retro-menu-item" data-active={active === item.label ? 'true' : 'false'}>
+                  <span className="retro-menu-cursor" aria-hidden="true">▶</span>
+                  {item.label}
+                </Link>
+              ))}
+              {showRugbyLink && (
+                <a href="/rugby" onClick={() => setMenuOpen(false)} className="retro-menu-item">
+                  <span className="retro-menu-cursor" aria-hidden="true">▶</span>
+                  RUGBY
+                </a>
+              )}
+              {isAdmin && (
+                <a href="/admin" onClick={() => setMenuOpen(false)} className="retro-menu-item">
+                  <span className="retro-menu-cursor" aria-hidden="true">▶</span>
+                  ADMIN{pendingCount > 0 ? ` (${pendingCount > 9 ? '9+' : pendingCount})` : ''}
+                </a>
+              )}
+              {user && (
+                <form action="/auth/signout" method="POST">
+                  <button type="submit" className="retro-menu-item">
+                    <span className="retro-menu-cursor" aria-hidden="true">▶</span>
+                    LOG OUT
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+        </header>
+
+        <main className="max-w-4xl mx-auto px-4 py-6 flex-1 w-full">
+          {children}
+        </main>
+
+        <footer className="py-4 text-center" style={{ borderTop: 'var(--retro-px) solid var(--retro-border)' }}>
+          <span style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 14, color: 'var(--retro-grey-light)' }}>
+            © LMS ALL-STARS
+          </span>
+          <div className="flex items-center justify-center gap-4 mt-2">
+            {[['Privacy', '/privacy'], ['Terms', '/terms'], ['Cookies', '/cookies']].map(([label, href]) => (
+              <a key={href} href={href} style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 14, color: 'var(--retro-grey-light)' }}>
+                {label}
+              </a>
+            ))}
+          </div>
+        </footer>
+
+        {kitPopupOpen && kitPopupPos && user && typeof document !== 'undefined' && createPortal(
+          <div
+            ref={kitPopupRef}
+            className="retro-window fixed z-50"
+            style={{
+              top: kitPopupPos.top,
+              left: kitPopupPos.left,
+              width: KIT_POPUP_WIDTH,
+              maxWidth: `calc(100vw - ${KIT_POPUP_MARGIN * 2}px)`,
+              maxHeight: `calc(100vh - ${KIT_POPUP_MARGIN * 2}px)`,
+              overflowY: 'auto',
+            }}
+          >
+            {/* KitEditor hasn't been migrated to the retro skin yet — it
+                still only knows 'classic'/'pop-art'. Deliberately rendered
+                pop-art-styled inside this retro window for now (same kind
+                of "island" as the Penalty Shootout minigame) rather than
+                half-reskinning it; a real pass is a separate task. */}
+            <div className="pop-art-theme" style={{ background: 'transparent' }}>
+              <h3 className="pop-headline text-lg mb-2">Change Your Kit</h3>
+              <KitEditor
+                userId={user.id}
+                compact
+                theme="pop-art"
+                onSaved={newKit => {
+                  setKitBase({ pattern: newKit.pattern, colour1: newKit.colour1, colour2: newKit.colour2 })
+                  setKitColour3(newKit.colour3 ?? null)
+                  setTimeout(() => setKitPopupOpen(false), 1200)
+                }}
+              />
+            </div>
+            <button onClick={() => setKitPopupOpen(false)} className="retro-button retro-button--select w-full mt-3">
+              Close
+            </button>
+          </div>,
+          document.body
+        )}
+      </div>
+    )
+  }
+
+  const barColor = 'var(--pop-white)'
 
   return (
-    <div className={`min-h-screen ${isPopArt ? 'pop-art-theme' : ''}`}>
-      {isPopArt && <LiveMatchAlerts />}
-      {isPopArt && <SiteThemeEffects />}
-      {isPopArt && <InstallPrompt />}
+    <div className="min-h-screen pop-art-theme">
+      <LiveMatchAlerts />
+      <SiteThemeEffects />
+      <InstallPrompt />
       <header
-        className={isPopArt ? 'sticky top-0 z-50' : 'bg-[#2A1F17] border-b-4 border-[#D9A441] sticky top-0 z-50'}
-        style={isPopArt ? { borderBottom: '2px solid rgba(255,255,255,0.15)' } : undefined}
+        className="sticky top-0 z-50"
+        style={{ borderBottom: '2px solid rgba(255,255,255,0.15)' }}
       >
-        {isPopArt && futzySaysLines.length > 0 && (
+        {futzySaysLines.length > 0 && (
           // Admin-editable, one line each — see /admin/competitions. Full-
           // width and outside the max-w-4xl wrapper below on purpose, so it
           // reads as its own banner rather than being boxed in with the nav.
@@ -292,45 +480,29 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
           <div className="flex sm:grid sm:grid-cols-3 items-center justify-between h-14">
             <Link
               href="/"
-              className={`whitespace-nowrap sm:col-start-2 sm:text-center sm:justify-self-center ${isPopArt ? 'flex items-center justify-center gap-2' : 'text-base sm:text-2xl tracking-wide uppercase'}`}
-              style={isPopArt ? undefined : { fontFamily: 'var(--font-heading), serif', color: '#F5ECD9' }}
+              className="whitespace-nowrap sm:col-start-2 sm:text-center sm:justify-self-center flex items-center justify-center gap-2"
             >
-              {isPopArt ? (
-                <>
-                  <img src="/logo.png" alt="" width={1118} height={960} className="w-[54px] sm:w-9 h-auto" />
-                  <span className="pop-hero pop-hero--pink inline-block text-lg sm:text-2xl tracking-wide uppercase">
-                    LMS All-Stars
-                  </span>
-                </>
-              ) : 'LMS All-Stars'}
+              <img src="/logo.png" alt="" width={1118} height={960} className="w-[54px] sm:w-9 h-auto" />
+              <span className="pop-hero pop-hero--pink inline-block text-lg sm:text-2xl tracking-wide uppercase">
+                LMS All-Stars
+              </span>
             </Link>
             <div className="flex items-center gap-3 sm:col-start-3 sm:justify-self-end">
               {user && (
-                <div className={isPopArt ? 'flex items-center' : 'flex flex-col items-center gap-0.5'}>
+                <div className="flex items-center">
                   {/* Stars and globes flank the shirt (same style as the
                       Leaderboard), sized to fit this narrow bar on mobile
-                      while still growing a bit on wider screens. Pop-art
-                      drops the name label below it — this bar is only 56px
-                      tall, and badge + label together were taller than
-                      that, pushing the badge up against the top edge. */}
+                      while still growing a bit on wider screens. */}
                   {kit && (
                     <button ref={kitTriggerRef} type="button" onClick={openKitPopup} aria-label="Change your kit">
                       <KitBadge
                         pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} colour3={kit.colour3}
                         stars={kit.stars} earths={kit.earths}
-                        size={isPopArt ? 40 : 36} iconTextClass="text-[10px] sm:text-sm"
-                        starColor={isPopArt ? 'var(--pop-green)' : undefined}
+                        size={40} iconTextClass="text-[10px] sm:text-sm"
+                        starColor="var(--pop-green)"
                         topScore={topScore}
                       />
                     </button>
-                  )}
-                  {!isPopArt && (
-                    <span
-                      className="text-[10px] uppercase font-medium tracking-wider leading-none"
-                      style={{ color: '#D9A441' }}
-                    >
-                      {displayName ?? ''}
-                    </span>
                   )}
                 </div>
               )}
@@ -346,78 +518,34 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             </div>
           </div>
           <nav className="hidden md:flex flex-wrap justify-center gap-x-3 pb-2">
-            {isPopArt ? (
-              <>
-                {navItems.map((item, i) => {
-                  const isActive = active === item.label
-                  const accent = popNavAccents[i % popNavAccents.length]
-                  return (
-                    <Link
-                      key={item.label}
-                      href={item.href}
-                      className={`pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase ${isActive ? 'pop-nav-link--active' : ''}`}
-                      style={{ borderBottomColor: isActive ? accent : 'transparent' }}
-                    >
-                      {item.label}
-                    </Link>
-                  )
-                })}
-                {showRugbyLink && (
-                  <a
-                    href="/rugby"
-                    className="pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase"
-                    style={{ color: 'var(--pop-orange)' }}
-                  >
-                    🏉 Rugby
-                  </a>
-                )}
-                {isAdmin && (
-                  <a
-                    href="/admin"
-                    className="pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase inline-flex items-center gap-1"
-                    style={{ color: 'var(--pop-blue)', borderBottomColor: active === 'ADMIN' ? 'var(--pop-blue)' : 'transparent' }}
-                  >
-                    Admin
-                    {pendingCount > 0 && (
-                      <span className="inline-flex items-center justify-center rounded-full bg-red-600 text-white" style={{ width: 16, height: 16, fontSize: 9, fontWeight: 900 }}>
-                        {pendingCount > 9 ? '9+' : pendingCount}
-                      </span>
-                    )}
-                  </a>
-                )}
-                {user && (
-                  <form action="/auth/signout" method="POST">
-                    <button
-                      type="submit"
-                      className="pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase"
-                      style={{ color: 'var(--pop-red)' }}
-                    >
-                      Log Out
-                    </button>
-                  </form>
-                )}
-              </>
-            ) : navItems.map(item => (
-              <Link
-                key={item.label}
-                href={item.href}
-                style={{ color: active === item.label ? '#D9A441' : '#F5ECD9' }}
-                className={`px-2.5 lg:px-3 py-2.5 text-xs font-bold tracking-widest whitespace-nowrap border-b-2 transition-colors uppercase ${
-                  active === item.label
-                    ? 'border-[#D9A441]'
-                    : 'border-transparent opacity-70 hover:opacity-100'
-                }`}
+            {navItems.map((item, i) => {
+              const isActive = active === item.label
+              const accent = popNavAccents[i % popNavAccents.length]
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={`pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase ${isActive ? 'pop-nav-link--active' : ''}`}
+                  style={{ borderBottomColor: isActive ? accent : 'transparent' }}
+                >
+                  {item.label}
+                </Link>
+              )
+            })}
+            {showRugbyLink && (
+              <a
+                href="/rugby"
+                className="pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase"
+                style={{ color: 'var(--pop-orange)' }}
               >
-                {item.label}
-              </Link>
-            ))}
-            {!isPopArt && isAdmin && (
+                🏉 Rugby
+              </a>
+            )}
+            {isAdmin && (
               <a
                 href="/admin"
-                style={{ color: active === 'ADMIN' ? '#D9A441' : '#F5ECD9' }}
-                className={`px-2.5 lg:px-3 py-2.5 text-xs font-bold tracking-widest whitespace-nowrap border-b-2 transition-colors uppercase inline-flex items-center gap-1 ${
-                  active === 'ADMIN' ? 'border-[#D9A441]' : 'border-transparent opacity-70 hover:opacity-100'
-                }`}
+                className="pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase inline-flex items-center gap-1"
+                style={{ color: 'var(--pop-blue)', borderBottomColor: active === 'ADMIN' ? 'var(--pop-blue)' : 'transparent' }}
               >
                 Admin
                 {pendingCount > 0 && (
@@ -427,12 +555,12 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                 )}
               </a>
             )}
-            {!isPopArt && user && (
+            {user && (
               <form action="/auth/signout" method="POST">
                 <button
                   type="submit"
-                  className="px-2.5 lg:px-3 py-2.5 text-xs font-bold tracking-widest whitespace-nowrap border-b-2 border-transparent opacity-70 hover:opacity-100 transition-colors uppercase"
-                  style={{ color: '#F5ECD9' }}
+                  className="pop-nav-link px-1 py-1.5 text-[10px] lg:text-xs font-bold tracking-wide whitespace-nowrap uppercase"
+                  style={{ color: 'var(--pop-red)' }}
                 >
                   Log Out
                 </button>
@@ -440,24 +568,8 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             )}
           </nav>
         </div>
-        {/* Comic Mode drops this strip entirely — the Picks page already
-            has its own big countdown clock front and centre, so this was
-            just a redundant sub-header eating space under the nav. */}
-        {!isPopArt && nextDeadline && countdown && !countdown.expired && (
-          <div className="bg-[#D9A441]/10 border-t border-[#D9A441]/20">
-            <div className="max-w-4xl mx-auto px-4">
-              <Link
-                href="/picks"
-                className="flex items-center justify-center gap-1.5 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#D9A441] hover:text-[#F5ECD9] transition-colors"
-              >
-                <span>⏱</span>
-                GW{nextDeadline.number} picks close in {countdown.days > 0 ? `${countdown.days}d ` : ''}{countdown.hours}h {countdown.mins}m
-              </Link>
-            </div>
-          </div>
-        )}
         {menuOpen && (
-          <div className={isPopArt ? 'md:hidden border-t' : 'md:hidden border-t border-[#D9A441] bg-[#2A1F17] shadow-lg'} style={isPopArt ? { borderColor: 'rgba(255,255,255,0.15)', background: 'var(--pop-surface)' } : undefined}>
+          <div className="md:hidden border-t" style={{ borderColor: 'rgba(255,255,255,0.15)', background: 'var(--pop-surface)' }}>
             {navItems.map((item, i) => {
               const isActive = active === item.label
               const accent = popNavAccents[i % popNavAccents.length]
@@ -466,24 +578,17 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
                   key={item.label}
                   href={item.href}
                   onClick={() => setMenuOpen(false)}
-                  style={isPopArt
-                    ? {
-                        color: isActive ? 'var(--pop-white)' : 'rgba(255,255,255,0.65)',
-                        borderLeft: `4px solid ${isActive ? accent : 'transparent'}`,
-                      }
-                    : {
-                        color: active === item.label ? '#2A1F17' : '#F5ECD9',
-                        backgroundColor: active === item.label ? '#D9A441' : 'transparent'
-                      }}
-                  className={isPopArt
-                    ? 'block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-white/10'
-                    : 'block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-[#3d2f22]'}
+                  style={{
+                    color: isActive ? 'var(--pop-white)' : 'rgba(255,255,255,0.65)',
+                    borderLeft: `4px solid ${isActive ? accent : 'transparent'}`,
+                  }}
+                  className="block px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-white/10"
                 >
                   {item.label}
                 </Link>
               )
             })}
-            {isPopArt && showRugbyLink && (
+            {showRugbyLink && (
               <a
                 href="/rugby"
                 onClick={() => setMenuOpen(false)}
@@ -497,15 +602,8 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
               <a
                 href="/admin"
                 onClick={() => setMenuOpen(false)}
-                style={isPopArt
-                  ? { color: 'var(--pop-blue)', borderLeft: `4px solid ${active === 'ADMIN' ? 'var(--pop-blue)' : 'transparent'}` }
-                  : {
-                      color: active === 'ADMIN' ? '#2A1F17' : '#F5ECD9',
-                      backgroundColor: active === 'ADMIN' ? '#D9A441' : 'transparent'
-                    }}
-                className={isPopArt
-                  ? 'flex items-center gap-2 px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-white/10'
-                  : 'flex items-center gap-2 px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-[#3d2f22]'}
+                style={{ color: 'var(--pop-blue)', borderLeft: `4px solid ${active === 'ADMIN' ? 'var(--pop-blue)' : 'transparent'}` }}
+                className="flex items-center gap-2 px-6 py-4 text-sm font-bold tracking-widest uppercase border-b border-white/10"
               >
                 Admin
                 {pendingCount > 0 && (
@@ -517,14 +615,14 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             )}
             {user && (
               <>
-                <div className={isPopArt ? 'px-6 py-3 text-xs uppercase tracking-wider' : 'px-6 py-3 text-xs text-[#D9A441] uppercase tracking-wider'} style={isPopArt ? { color: 'rgba(255,255,255,0.5)' } : undefined}>
+                <div className="px-6 py-3 text-xs uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>
                   {displayName ?? ''}
                 </div>
                 <form action="/auth/signout" method="POST">
                   <button
                     type="submit"
-                    className={isPopArt ? 'block w-full text-left px-6 py-4 text-sm font-bold tracking-widest uppercase' : 'block w-full text-left px-6 py-4 text-sm font-bold tracking-widest uppercase text-[#F5ECD9]'}
-                    style={isPopArt ? { color: 'var(--pop-red)' } : undefined}
+                    className="block w-full text-left px-6 py-4 text-sm font-bold tracking-widest uppercase"
+                    style={{ color: 'var(--pop-red)' }}
                   >
                     Log Out
                   </button>
@@ -538,12 +636,12 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
         {children}
       </main>
       <footer
-        className={isPopArt ? 'py-4 mt-8 text-center' : 'border-t border-gray-200 py-4 mt-8 text-center'}
-        style={isPopArt ? { borderTop: '2px solid rgba(255,255,255,0.15)' } : undefined}
+        className="py-4 mt-8 text-center"
+        style={{ borderTop: '2px solid rgba(255,255,255,0.15)' }}
       >
         <span
-          className={isPopArt ? 'text-xs uppercase tracking-widest' : 'text-gray-400 text-xs uppercase tracking-widest'}
-          style={isPopArt ? { color: 'rgba(255,255,255,0.5)' } : undefined}
+          className="text-xs uppercase tracking-widest"
+          style={{ color: 'rgba(255,255,255,0.5)' }}
         >
           LMS All-Stars Predictions
         </span>
@@ -552,8 +650,8 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             <a
               key={href}
               href={href}
-              className={isPopArt ? 'text-xs uppercase tracking-widest' : 'text-gray-400 text-xs uppercase tracking-widest'}
-              style={isPopArt ? { color: 'rgba(255,255,255,0.35)' } : undefined}
+              className="text-xs uppercase tracking-widest"
+              style={{ color: 'rgba(255,255,255,0.35)' }}
             >
               {label}
             </a>
@@ -563,7 +661,7 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
       {kitPopupOpen && kitPopupPos && user && typeof document !== 'undefined' && createPortal(
         <div
           ref={kitPopupRef}
-          className={isPopArt ? 'pop-art-theme fixed z-50 rounded-lg p-4' : 'fixed z-50 rounded-lg p-4 border shadow-2xl'}
+          className="pop-art-theme fixed z-50 rounded-lg p-4"
           style={{
             top: kitPopupPos.top,
             left: kitPopupPos.left,
@@ -576,38 +674,28 @@ export default function Shell({ children, active, user, displayName, theme = 'cl
             // cascade than Tailwind's .fixed utility) would silently
             // override this popup's fixed positioning and break it. Same
             // visual look via explicit styles instead.
-            ...(isPopArt
-              ? { background: 'var(--pop-surface)', border: '2px solid rgba(255,255,255,0.15)', boxShadow: '0 8px 30px rgba(0,0,0,0.6)', borderRadius: '16px' }
-              : { backgroundColor: '#1e1914', borderColor: 'rgba(217,164,65,0.3)' }),
+            background: 'var(--pop-surface)', border: '2px solid rgba(255,255,255,0.15)', boxShadow: '0 8px 30px rgba(0,0,0,0.6)', borderRadius: '16px',
           }}
         >
-          <h3
-            className={isPopArt ? 'pop-headline text-lg mb-2' : 'text-xs font-bold uppercase tracking-wider mb-2'}
-            style={isPopArt ? undefined : { color: '#D9A441', fontFamily: 'var(--font-heading), serif' }}
-          >
+          <h3 className="pop-headline text-lg mb-2">
             Change Your Kit
           </h3>
           <KitEditor
             userId={user.id}
             compact
-            theme={theme}
+            theme="pop-art"
             onSaved={newKit => {
               setKitBase({ pattern: newKit.pattern, colour1: newKit.colour1, colour2: newKit.colour2 })
               setKitColour3(newKit.colour3 ?? null)
               // Comic Mode gets a beat to show its "Kit Saved!" celebration
               // before the popup vanishes — closing instantly would mean
               // nobody ever sees it.
-              if (isPopArt) {
-                setTimeout(() => setKitPopupOpen(false), 1200)
-              } else {
-                setKitPopupOpen(false)
-              }
+              setTimeout(() => setKitPopupOpen(false), 1200)
             }}
           />
           <button
             onClick={() => setKitPopupOpen(false)}
-            className={isPopArt ? 'pop-button pop-button--blue w-full mt-3 py-1.5 text-xs' : 'w-full mt-3 rounded-lg py-1.5 text-xs font-bold uppercase tracking-wider'}
-            style={isPopArt ? undefined : { backgroundColor: 'rgba(245,236,217,0.1)', color: '#F5ECD9' }}
+            className="pop-button pop-button--blue w-full mt-3 py-1.5 text-xs"
           >
             Close
           </button>
