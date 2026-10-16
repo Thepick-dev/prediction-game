@@ -306,6 +306,35 @@ export default function SettingsPage() {
 
           <div className="space-y-5">
 
+            {isAdmin && (
+              <div className="pop-panel pop-panel--blue p-5">
+                <h2 className="pop-headline text-sm mb-1">🕹️ Admin Preview</h2>
+                <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Global skin for everyone right now: <strong>{globalSkin === 'retro' ? 'Retro' : 'Pop Art'}</strong>.
+                  Previewing changes only what you see, on this browser.
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => setPreview('pop-art')}
+                    className={`pop-button ${preview === 'pop-art' ? 'pop-button--yellow' : ''} text-xs py-2 px-3`}
+                  >
+                    Preview Pop Art
+                  </button>
+                  <button
+                    onClick={() => setPreview('retro')}
+                    className={`pop-button ${preview === 'retro' ? 'pop-button--yellow' : ''} text-xs py-2 px-3`}
+                  >
+                    Preview Retro
+                  </button>
+                  {preview && (
+                    <button onClick={() => setPreview(null)} className="pop-button pop-button--blue text-xs py-2 px-3">
+                      Clear override
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="pop-panel p-5">
               <h2 className="pop-headline text-sm mb-1">Username</h2>
               <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
