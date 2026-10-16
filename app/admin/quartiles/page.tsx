@@ -81,13 +81,29 @@ export default async function QuartilesPage() {
       .delete()
       .eq('competition_id', competitionId)
 
-    const { data: positions } = await supabase
+    // team_league_positions keeps one row per sync, not one row per team
+    // (see app/api/sync/standings/route.ts) — ordering straight by position
+    // with no regard for recorded_at pulls in whichever snapshot happened
+    // to have the lowest number for each team across the whole season,
+    // not today's actual table. Take each team's most recent snapshot
+    // first (same pattern app/lib/autopick.ts uses), then rank those.
+    const { data: positionRows } = await supabase
       .from('team_league_positions')
-      .select('team_id, position')
-      .order('position', { ascending: true })
-      .limit(20)
+      .select('team_id, position, recorded_at')
+      .order('recorded_at', { ascending: false })
 
-    if (!positions || positions.length === 0) {
+    const seenTeams = new Set<number>()
+    const latestPositions: { team_id: number; position: number }[] = []
+    positionRows?.forEach(row => {
+      if (!seenTeams.has(row.team_id)) {
+        seenTeams.add(row.team_id)
+        latestPositions.push({ team_id: row.team_id, position: row.position })
+      }
+    })
+
+    const positions = latestPositions.sort((a, b) => a.position - b.position).slice(0, 20)
+
+    if (positions.length === 0) {
       redirect('/admin/quartiles')
     }
 
