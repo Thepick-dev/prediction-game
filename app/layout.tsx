@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Bebas_Neue, Anton, Barlow_Condensed, JetBrains_Mono, Fraunces, Space_Grotesk, Orbitron, Share_Tech_Mono, Outfit, DM_Sans, Bungee } from 'next/font/google'
+import { Alfa_Slab_One, Lora, IBM_Plex_Mono, Bebas_Neue, Anton, Barlow_Condensed, JetBrains_Mono, Fraunces, Space_Grotesk, Orbitron, Share_Tech_Mono, Outfit, DM_Sans, Bungee, Press_Start_2P, Pixelify_Sans, VT323, Silkscreen } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
@@ -133,6 +133,50 @@ const bungee = Bungee({
   display: 'swap',
 })
 
+// The retro (16-bit/SNES) skin — a second, admin-toggleable football
+// identity alongside pop-art (see globals.css .retro-theme, app/lib/useSkin.ts).
+// Own vars again, same isolation reasoning as rugby's fonts above: never
+// touches pop-art's or rugby's defaults.
+//
+// Press Start 2P is the genuine pixel-grid display face, used sparingly for
+// short hero/headline text only. `block` here deliberately, not `swap` —
+// swapping a fallback font in and then snapping to this blocky geometric
+// face a moment later reads as a visible glitch on short display text,
+// worse than a brief invisible flash while the real font loads.
+const pressStart2P = Press_Start_2P({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-retro-display',
+  display: 'block',
+})
+
+// Readable pixel-styled face for body copy and UI text — Press Start 2P is
+// too chunky to read at normal sizes, this is what the spec calls for
+// instead wherever text needs to actually be read, not just looked at.
+const pixelifySans = Pixelify_Sans({
+  subsets: ['latin'],
+  weight: 'variable',
+  variable: '--font-retro-body',
+  display: 'swap',
+})
+
+// Terminal/HUD readout face — scores, countdowns, stat numbers.
+const vt323 = VT323({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-retro-mono',
+  display: 'swap',
+})
+
+// Secondary display face for badges/buttons where Press Start 2P would be
+// too tall/narrow a fit.
+const silkscreen = Silkscreen({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-retro-accent',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
   title: 'LMS All-Stars Predictions',
   description: 'The Premier League Prediction Game',
@@ -159,7 +203,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${bebasNeue.variable} ${anton.variable} ${barlowCondensed.variable} ${jetBrainsMono.variable} ${fraunces.variable} ${spaceGrotesk.variable} ${orbitron.variable} ${shareTechMono.variable} ${outfit.variable} ${dmSans.variable} ${bungee.variable}`}>
+    <html lang="en" className={`${alfaSlabOne.variable} ${lora.variable} ${plexMono.variable} ${bebasNeue.variable} ${anton.variable} ${barlowCondensed.variable} ${jetBrainsMono.variable} ${fraunces.variable} ${spaceGrotesk.variable} ${orbitron.variable} ${shareTechMono.variable} ${outfit.variable} ${dmSans.variable} ${bungee.variable} ${pressStart2P.variable} ${pixelifySans.variable} ${vt323.variable} ${silkscreen.variable}`}>
       <head>
         {/* Preloaded so the loading-screen mascot (logo.png) and its player-photo
             cap patch (mascot-cap-photo.png) are already cached by the time

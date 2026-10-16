@@ -807,6 +807,63 @@ thead th {
 }
 
 /* ============================================================
+   RETRO THEME — 16-bit/SNES console skin, a second admin-toggleable
+   football identity alongside pop-art above (see app/lib/useSkin.ts for
+   how a page picks one). Hard corners, no border-radius, chunky bevels,
+   everything sized in multiples of --retro-px so it scales in integer
+   steps and never blurs. Classes are not nested under .retro-theme via a
+   descendant selector, for the same reason pop-art's aren't above: it
+   doesn't match when both classes land on the same element.
+
+   Token skeleton only for now — component classes (.retro-window,
+   .retro-button, etc.) land alongside the components/retro/* primitive
+   library in the next phase of this build.
+   ============================================================ */
+.retro-theme {
+  --retro-px: 2px;
+  --retro-tile: calc(var(--retro-px) * 8);
+
+  --retro-bg: #1a1038;
+  --retro-panel-top: #3850d8;
+  --retro-panel-mid: #2030b0;
+  --retro-panel-base: #101878;
+  --retro-border: #fcfcfc;
+  --retro-ink: #fcfcfc;
+  --retro-ink-muted: #a4a4c8;
+
+  --retro-red: #f83800;
+  --retro-red-light: #f87858;
+  --retro-red-dark: #a81000;
+  --retro-gold: #f8b800;
+  --retro-gold-light: #fce0a8;
+  --retro-green: #00a800;
+  --retro-green-light: #b8f818;
+  --retro-blue: #3cbcfc;
+  --retro-blue-light: #a4e4fc;
+  --retro-grey: #7c7c7c;
+  --retro-grey-light: #bcbcbc;
+
+  --font-retro-display: 'Press Start 2P', monospace;
+  --font-retro-body: 'Pixelify Sans', sans-serif;
+  --font-retro-mono: 'VT323', monospace;
+  --font-retro-accent: 'Silkscreen', monospace;
+
+  background: var(--retro-bg);
+  color: var(--retro-ink);
+  color-scheme: dark;
+  overflow-x: hidden;
+}
+
+/* Integer pixel-unit scaling, never fluid — bumped at breakpoints rather
+   than interpolated, so pixel art is always drawn on a whole-pixel grid. */
+@media (min-width: 640px) {
+  .retro-theme { --retro-px: 3px; }
+}
+@media (min-width: 1024px) {
+  .retro-theme { --retro-px: 4px; }
+}
+
+/* ============================================================
    RUGBY MATCHDAY THEME — a completely separate visual identity from
    football's pop-art theme above, built for the Six Nations game only.
    "Broadcast graphics at a stadium at night": dark ground with crossed

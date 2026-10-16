@@ -71,6 +71,25 @@ async function setFutzySaysText(formData: FormData) {
 // recent" — admin chooses, so an old season can be revisited deliberately
 // too), so switching away from Celebration clears it rather than leaving a
 // stale id sitting around unused.
+// Switches which football visual skin every player sees, site-wide.
+// Independent of site_theme above (that's seasonal decoration layered on
+// top of a skin — a different concept) and of each admin's own personal
+// preview override (see app/lib/useSkin.ts) — this is the one value that's
+// true for every signed-out visitor and every regular player.
+async function setActiveSkin(formData: FormData) {
+  'use server'
+  const supabase = await requireAdminAction()
+  const activeSkin = formData.get('active_skin') as string
+  const { error } = await supabase
+    .from('site_skin')
+    .update({ active_skin: activeSkin, updated_at: new Date().toISOString() })
+    .eq('id', 'singleton')
+  if (error) {
+    redirect(`/admin?skinError=${encodeURIComponent(error.message)}#site-skin`)
+  }
+  redirect('/admin#site-skin')
+}
+
 async function setSiteTheme(formData: FormData) {
   'use server'
   const supabase = await requireAdminAction()
@@ -92,8 +111,8 @@ async function setSiteTheme(formData: FormData) {
   redirect('/admin#site-theme')
 }
 
-export default async function AdminPage({ searchParams }: { searchParams: Promise<{ themeError?: string }> }) {
-  const { themeError } = await searchParams
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ themeError?: string; skinError?: string }> }) {
+  const { themeError, skinError } = await searchParams
   const supabase = await createServerSupabaseClient()
 
   const [{ data: competition }, { data: gameweeks }, { data: entries }, pending] = await Promise.all([
@@ -118,6 +137,18 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   } catch {
     // site_theme migration not run yet, or a transient error — the form
     // below just renders with "Default" pre-selected either way.
+  }
+
+  // Isolated the same way — site_skin is a brand new table, not created
+  // until the handed-off SQL is run. A missing table shouldn't take the
+  // whole dashboard down; the section below just falls back to "Pop Art".
+  let siteSkin: { active_skin: string } | null = null
+  try {
+    const { data } = await supabase.from('site_skin').select('active_skin').eq('id', 'singleton').maybeSingle()
+    siteSkin = data
+  } catch {
+    // site_skin migration not run yet — the form below just renders with
+    // "Pop Art" pre-selected either way.
   }
 
   // Same isolation reasoning — only needed to populate the Bonus Card
@@ -260,6 +291,38 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             </select>
           </div>
           <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Save theme</button>
+        </form>
+      </div>
+
+      <div id="site-skin" className="bg-white border rounded-lg p-6 mb-8">
+        <h2 className="font-bold mb-1">🕹️ Site Skin</h2>
+        <p className="text-xs text-gray-500 mb-3">
+          Switches the whole look of the football site (Picks, Leaderboard, Wall, etc. — not the admin section)
+          for every player. This is a trial, not a permanent switch — plan is to decide which one wins later in
+          the season. You can preview either skin for yourself on the Settings page without changing what anyone
+          else sees.
+        </p>
+        {skinError && (
+          <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5 mb-3">
+            Couldn&apos;t save: {skinError}
+          </p>
+        )}
+        <form action={setActiveSkin} className="flex items-center gap-4 text-sm">
+          {[
+            { value: 'pop-art', label: '🎨 Pop Art' },
+            { value: 'retro', label: '🕹️ Retro (16-bit)' },
+          ].map(opt => (
+            <label key={opt.value} className="flex items-center gap-1.5">
+              <input
+                type="radio"
+                name="active_skin"
+                value={opt.value}
+                defaultChecked={opt.value === 'pop-art' ? (!siteSkin || siteSkin.active_skin === 'pop-art') : siteSkin?.active_skin === opt.value}
+              />
+              {opt.label}
+            </label>
+          ))}
+          <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Save skin</button>
         </form>
       </div>
 
