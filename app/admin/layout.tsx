@@ -165,6 +165,7 @@ export default async function AdminLayout({
                   <a href="/admin/dispatch" className="block hover:text-white">News</a>
                   <a href="/admin/archive" className="block hover:text-white">Archive</a>
                   <a href="/admin/futzy" className="block hover:text-white">🤖 Futzy</a>
+                  <a href="/admin/marketing" className="block hover:text-white">Marketing Consent</a>
                 </div>
               </div>
             </div>

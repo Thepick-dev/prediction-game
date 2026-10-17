@@ -53,6 +53,9 @@ function LoginPageInner() {
   // gate is enforced server-side in complete-signup regardless.
   const [signupMode, setSignupMode] = useState<'open' | 'invite_only' | 'closed'>('open')
 
+  const [marketingQuestions, setMarketingQuestions] = useState<{ id: string; question_text: string }[]>([])
+  const [marketingAnswers, setMarketingAnswers] = useState<Record<string, boolean>>({})
+
   const supabase = createClient()
 
   useEffect(() => {
@@ -60,6 +63,12 @@ function LoginPageInner() {
       try {
         const { data } = await supabase.from('signup_settings').select('mode').eq('id', 'singleton').maybeSingle()
         if (data?.mode === 'invite_only' || data?.mode === 'closed') setSignupMode(data.mode)
+      } catch {}
+      // Unticked by default — never pre-checked, never shown to anyone who
+      // already has an account (only ever reachable via the Join form).
+      try {
+        const { data } = await supabase.from('marketing_consent_questions').select('id, question_text').eq('active', true).order('display_order', { ascending: true })
+        setMarketingQuestions(data ?? [])
       } catch {}
     }
     load()
@@ -148,6 +157,22 @@ function LoginPageInner() {
       autoApproved = !!completeData.autoApproved
     }
 
+    // Best-effort — the account's already created either way, so a
+    // problem saving these should never block the signup from
+    // completing. Only possible with a session already in place (see
+    // the comment on needsConfirmation below for when there isn't one).
+    if (data.session && marketingQuestions.length > 0) {
+      try {
+        await fetch('/api/marketing-consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            answers: marketingQuestions.map(q => ({ questionId: q.id, consented: !!marketingAnswers[q.id] })),
+          }),
+        })
+      } catch {}
+    }
+
     if (data.session) {
       // A valid invite code skips the pending queue entirely — go
       // straight in, same as a normal login, instead of /pending.
@@ -231,6 +256,21 @@ function LoginPageInner() {
                       ? "A valid code lets you in straight away — no waiting on approval."
                       : "An admin needs to approve your account before you can play — you'll be able to log in as soon as they do."}
                   </p>
+                  {marketingQuestions.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      {marketingQuestions.map(q => (
+                        <label key={q.id} className="flex items-start gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                          <input
+                            type="checkbox"
+                            checked={!!marketingAnswers[q.id]}
+                            onChange={e => setMarketingAnswers(prev => ({ ...prev, [q.id]: e.target.checked }))}
+                            className="mt-0.5"
+                          />
+                          <span>{q.question_text}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                   <button onClick={handleJoin} disabled={loading || !username || !email || !password} className="pop-button w-full py-2.5 text-sm">
                     {loading ? 'Creating account...' : 'Create Account'}
                   </button>

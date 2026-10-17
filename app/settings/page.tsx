@@ -40,6 +40,11 @@ export default function SettingsPage() {
   const [inviteMessage, setInviteMessage] = useState('')
   const [copiedCode, setCopiedCode] = useState('')
 
+  const [marketingQuestions, setMarketingQuestions] = useState<{ id: string; question_text: string }[]>([])
+  const [marketingAnswers, setMarketingAnswers] = useState<Record<string, boolean>>({})
+  const [savingMarketing, setSavingMarketing] = useState(false)
+  const [marketingMessage, setMarketingMessage] = useState('')
+
   const supabase = createClient()
   const { skin, popArt, retro, globalSkin, preview, isAdmin, setPreview } = useSkin(user?.id)
 
@@ -105,7 +110,42 @@ export default function SettingsPage() {
       }
     } catch {}
 
+    // Active questions are public-read, so fetched directly; existing
+    // answers need the caller's own session, hence the API route.
+    try {
+      const { data: questions } = await supabase.from('marketing_consent_questions').select('id, question_text').eq('active', true).order('display_order', { ascending: true })
+      setMarketingQuestions(questions ?? [])
+
+      if (questions && questions.length > 0) {
+        const res = await fetch('/api/marketing-consent')
+        if (res.ok) {
+          const data = await res.json()
+          const answers: Record<string, boolean> = {}
+          data.answers?.forEach((a: { question_id: string; consented: boolean }) => { answers[a.question_id] = a.consented })
+          setMarketingAnswers(answers)
+        }
+      }
+    } catch {}
+
     setLoading(false)
+  }
+
+  async function saveMarketingPreferences() {
+    setSavingMarketing(true)
+    setMarketingMessage('')
+    try {
+      const res = await fetch('/api/marketing-consent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          answers: marketingQuestions.map(q => ({ questionId: q.id, consented: !!marketingAnswers[q.id] })),
+        }),
+      })
+      setMarketingMessage(res.ok ? 'Preferences saved' : 'Something went wrong')
+    } catch {
+      setMarketingMessage('Something went wrong')
+    }
+    setSavingMarketing(false)
   }
 
   async function generateInvite() {
@@ -358,6 +398,32 @@ export default function SettingsPage() {
             </RetroWindow>
           )}
 
+          {marketingQuestions.length > 0 && (
+            <RetroWindow title="Marketing Preferences">
+              {marketingMessage && (
+                <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16, color: marketingMessage === 'Preferences saved' ? 'var(--retro-green-light)' : 'var(--retro-red-light)', marginBottom: 'calc(var(--retro-px) * 3)' }}>
+                  {marketingMessage}
+                </p>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'calc(var(--retro-px) * 3)', marginBottom: 'calc(var(--retro-px) * 3)' }}>
+                {marketingQuestions.map(q => (
+                  <label key={q.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 'calc(var(--retro-px) * 2)', fontFamily: 'var(--font-retro-body)', fontSize: 16 }}>
+                    <input
+                      type="checkbox"
+                      checked={!!marketingAnswers[q.id]}
+                      onChange={e => setMarketingAnswers(prev => ({ ...prev, [q.id]: e.target.checked }))}
+                      style={{ marginTop: 4 }}
+                    />
+                    <span>{q.question_text}</span>
+                  </label>
+                ))}
+              </div>
+              <RetroButton variant="a" onClick={saveMarketingPreferences} disabled={savingMarketing} style={{ width: '100%' }}>
+                {savingMarketing ? 'Saving...' : 'Save Preferences'}
+              </RetroButton>
+            </RetroWindow>
+          )}
+
           <RetroWindow title="Install App">
             <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, marginBottom: 'calc(var(--retro-px) * 3)' }}>
               Add LMS All-Stars to your home screen for quick access.
@@ -532,6 +598,31 @@ export default function SettingsPage() {
                   className="pop-button pop-button--yellow w-full py-2.5 text-sm"
                 >
                   {generatingInvite ? 'Generating...' : 'Generate New Invite Link'}
+                </button>
+              </div>
+            )}
+
+            {marketingQuestions.length > 0 && (
+              <div className="pop-panel p-5">
+                <h2 className="pop-headline text-sm mb-1">📬 Marketing Preferences</h2>
+                {marketingMessage && (
+                  <p className={`pop-badge ${marketingMessage === 'Preferences saved' ? 'pop-badge--green' : 'pop-badge--red'} px-2.5 py-1 text-xs mb-3 inline-block`}>{marketingMessage}</p>
+                )}
+                <div className="space-y-2 mb-3">
+                  {marketingQuestions.map(q => (
+                    <label key={q.id} className="flex items-start gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                      <input
+                        type="checkbox"
+                        checked={!!marketingAnswers[q.id]}
+                        onChange={e => setMarketingAnswers(prev => ({ ...prev, [q.id]: e.target.checked }))}
+                        className="mt-0.5"
+                      />
+                      <span>{q.question_text}</span>
+                    </label>
+                  ))}
+                </div>
+                <button onClick={saveMarketingPreferences} disabled={savingMarketing} className="pop-button pop-button--yellow w-full py-2.5 text-sm">
+                  {savingMarketing ? 'Saving...' : 'Save Preferences'}
                 </button>
               </div>
             )}
