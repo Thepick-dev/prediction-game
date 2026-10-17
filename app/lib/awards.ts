@@ -254,9 +254,9 @@ export function computeCompetitionAwards(input: CompetitionAwardsInput): {
   }
 
   const awards: CompetitionAward[] = [
-    { key: 'teamPicker', emoji: '🏟️', title: 'Best Team Picker', explainer: 'Most points earned from team picks alone, across the whole competition (Banker doubles included).', ...teamPicker },
-    { key: 'playerPicker', emoji: '🎽', title: 'Best Player Picker', explainer: 'Most points earned from player picks alone, across the whole competition (Banker doubles included).', ...playerPicker },
     { key: 'champion', emoji: '🏆', title: 'Champion', explainer: 'Most total points across the whole competition.', ...champion },
+    { key: 'teamPicker', emoji: '🏟️', title: 'Best Team Picker', explainer: 'Most points earned from team picks alone, across the whole competition (Banker doubles included).', ...teamPicker },
+    { key: 'playerPicker', emoji: '👤', title: 'Best Player Picker', explainer: 'Most points earned from player picks alone, across the whole competition (Banker doubles included).', ...playerPicker },
     { key: 'goldenBoot', emoji: '⚽', title: 'Golden Boot', explainer: 'Most goals scored by your picked players all season.', ...goldenBoot },
     { key: 'goldenAssist', emoji: '🎯', title: 'Golden Assist', explainer: 'Most assists from your picked players all season.', ...goldenAssist },
     { key: 'ironNerve', emoji: '🛡️', title: 'Iron Nerve', explainer: 'Most points earned specifically from Banker doubles.', ...ironNerve },
