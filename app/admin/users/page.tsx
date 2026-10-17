@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { createAdminSupabaseClient } from '../../lib/supabase-admin'
 import { requireAdmin } from '../../lib/require-admin'
 import { generateResetCode as makeResetCode, hashResetCode, RESET_CODE_TTL_HOURS } from '../../lib/auth-identifier'
+import { generateInviteCode } from '../../lib/inviteCodes'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import ConfirmDeleteButton from '../components/confirm-delete-button'
@@ -449,13 +450,8 @@ export default async function UsersPage({
     const maxUsesRaw = (formData.get('max_uses') as string)?.trim()
     const maxUses = maxUsesRaw ? Number(maxUsesRaw) : null
 
-    // A short, human-typeable code when admin doesn't set their own —
-    // uppercase so it reads clearly out loud or over text, no 0/O/1/I
-    // (the classic ambiguous-character set) since this is meant to be
-    // handed to a real person, not pasted as a link.
-    const code = customCode || Array.from({ length: 8 }, () =>
-      'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 33)]
-    ).join('')
+    // A short, human-typeable code when admin doesn't set their own.
+    const code = customCode || generateInviteCode()
 
     const { error } = await admin.from('signup_invite_codes').insert({
       code,

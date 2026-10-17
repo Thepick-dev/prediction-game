@@ -35,14 +35,15 @@ export default function LoginPage() {
 function LoginPageInner() {
   const searchParams = useSearchParams()
   const nextPath = safeNextPath(searchParams.get('next'))
-  const [mode, setMode] = useState<Mode>('login')
+  const inviteFromLink = searchParams.get('invite')
+  const [mode, setMode] = useState<Mode>(inviteFromLink ? 'join' : 'login')
   const [showRules, setShowRules] = useState(false)
 
   const [identifier, setIdentifier] = useState('')
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [inviteCode, setInviteCode] = useState('')
+  const [inviteCode, setInviteCode] = useState(inviteFromLink ?? '')
 
   const [needsConfirmation, setNeedsConfirmation] = useState(false)
   const [loading, setLoading] = useState(false)

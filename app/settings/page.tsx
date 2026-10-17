@@ -10,6 +10,7 @@ import { SHOW_INSTALL_PROMPT_EVENT } from '../../components/InstallPrompt'
 import { useSkin } from '../lib/useSkin'
 import { isValidUsername, USERNAME_MAX_LENGTH, USERNAME_RULES_MESSAGE } from '../lib/username'
 import { isValidPassword, PASSWORD_RULES_MESSAGE } from '../lib/password'
+import { isInviteCodeUsable } from '../lib/inviteCodes'
 import { RetroWindow, RetroButton, RetroSettingsPanel, RetroSkinPreviewControl } from '../../components/retro'
 
 export default function SettingsPage() {
@@ -32,6 +33,12 @@ export default function SettingsPage() {
   const [nameMessage, setNameMessage] = useState('')
   const [emailMessage, setEmailMessage] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
+
+  const [inviteSettings, setInviteSettings] = useState<{ enabled: boolean; cap: number } | null>(null)
+  const [myInviteCodes, setMyInviteCodes] = useState<{ id: string; code: string; max_uses: number | null; uses_count: number; active: boolean }[]>([])
+  const [generatingInvite, setGeneratingInvite] = useState(false)
+  const [inviteMessage, setInviteMessage] = useState('')
+  const [copiedCode, setCopiedCode] = useState('')
 
   const supabase = createClient()
   const { skin, popArt, retro, globalSkin, preview, isAdmin, setPreview } = useSkin(user?.id)
@@ -86,7 +93,47 @@ export default function SettingsPage() {
       }
     }
 
+    // Isolated and defensive — a brand new, feature-flagged endpoint;
+    // a problem here should just mean "no invite section", never break
+    // the rest of Settings.
+    try {
+      const res = await fetch('/api/invites')
+      if (res.ok) {
+        const data = await res.json()
+        setInviteSettings({ enabled: data.enabled, cap: data.cap })
+        setMyInviteCodes(data.codes ?? [])
+      }
+    } catch {}
+
     setLoading(false)
+  }
+
+  async function generateInvite() {
+    setGeneratingInvite(true)
+    setInviteMessage('')
+    try {
+      const res = await fetch('/api/invites', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        setInviteMessage(data.error ?? 'Something went wrong')
+      } else {
+        setMyInviteCodes(prev => [data.code, ...prev])
+      }
+    } catch {
+      setInviteMessage('Something went wrong')
+    }
+    setGeneratingInvite(false)
+  }
+
+  async function copyInviteLink(code: string) {
+    const link = `${window.location.origin}/login?invite=${code}`
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopiedCode(code)
+      setTimeout(() => setCopiedCode(''), 2000)
+    } catch {
+      setInviteMessage('Could not copy automatically — select the link above and copy it manually')
+    }
   }
 
   // Username changes no longer take effect immediately — they go into a
@@ -276,6 +323,41 @@ export default function SettingsPage() {
             )}
           </RetroWindow>
 
+          {inviteSettings?.enabled && (
+            <RetroWindow title="Invite a Mate">
+              <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, marginBottom: 'calc(var(--retro-px) * 3)' }}>
+                Know someone who&apos;d enjoy this? Generate a link — whoever uses it skips the waiting list and gets straight in. Up to {inviteSettings.cap} outstanding at once.
+              </p>
+              {inviteMessage && (
+                <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16, color: 'var(--retro-red-light)', marginBottom: 'calc(var(--retro-px) * 3)' }}>
+                  {inviteMessage}
+                </p>
+              )}
+              {myInviteCodes.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'calc(var(--retro-px) * 2)', marginBottom: 'calc(var(--retro-px) * 3)' }}>
+                  {myInviteCodes.map(c => (
+                    <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'calc(var(--retro-px) * 2)' }}>
+                      <span style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16 }}>
+                        {c.code} — {!isInviteCodeUsable(c) && c.uses_count > 0 ? 'Used' : !c.active ? 'Deactivated' : 'Available'}
+                      </span>
+                      <RetroButton variant="b" onClick={() => copyInviteLink(c.code)}>
+                        {copiedCode === c.code ? 'Copied!' : 'Copy Link'}
+                      </RetroButton>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <RetroButton
+                variant="a"
+                onClick={generateInvite}
+                disabled={generatingInvite || myInviteCodes.filter(isInviteCodeUsable).length >= inviteSettings.cap}
+                style={{ width: '100%' }}
+              >
+                {generatingInvite ? 'Generating...' : 'Generate New Invite Link'}
+              </RetroButton>
+            </RetroWindow>
+          )}
+
           <RetroWindow title="Install App">
             <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, marginBottom: 'calc(var(--retro-px) * 3)' }}>
               Add LMS All-Stars to your home screen for quick access.
@@ -417,6 +499,42 @@ export default function SettingsPage() {
                 </>
               )}
             </div>
+
+            {inviteSettings?.enabled && (
+              <div className="pop-panel p-5">
+                <h2 className="pop-headline text-sm mb-1">🤝 Invite a Mate</h2>
+                <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Know someone who&apos;d enjoy this? Generate a link — whoever uses it skips the waiting list and gets straight in. Up to {inviteSettings.cap} outstanding at once.
+                </p>
+                {inviteMessage && (
+                  <p className="pop-badge pop-badge--red px-2.5 py-1 text-xs mb-3 inline-block">{inviteMessage}</p>
+                )}
+                {myInviteCodes.length > 0 && (
+                  <div className="space-y-2 mb-3">
+                    {myInviteCodes.map(c => (
+                      <div key={c.id} className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold">
+                          {c.code}
+                          <span className="ml-2 text-xs font-normal" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                            {!isInviteCodeUsable(c) && c.uses_count > 0 ? 'Used' : !c.active ? 'Deactivated' : 'Available'}
+                          </span>
+                        </span>
+                        <button onClick={() => copyInviteLink(c.code)} className="pop-button text-xs py-1.5 px-3 shrink-0">
+                          {copiedCode === c.code ? 'Copied!' : 'Copy Link'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={generateInvite}
+                  disabled={generatingInvite || myInviteCodes.filter(isInviteCodeUsable).length >= inviteSettings.cap}
+                  className="pop-button pop-button--yellow w-full py-2.5 text-sm"
+                >
+                  {generatingInvite ? 'Generating...' : 'Generate New Invite Link'}
+                </button>
+              </div>
+            )}
 
             <div className="pop-panel p-5">
               <h2 className="pop-headline text-sm mb-1">📲 Install App</h2>

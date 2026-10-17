@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isInviteCodeUsable } from '../inviteCodes'
+import { isInviteCodeUsable, generateInviteCode } from '../inviteCodes'
 
 describe('isInviteCodeUsable', () => {
   it('rejects a deactivated code regardless of its use count', () => {
@@ -24,5 +24,18 @@ describe('isInviteCodeUsable', () => {
 
   it('accepts a single-use code that has not been used yet', () => {
     expect(isInviteCodeUsable({ active: true, max_uses: 1, uses_count: 0 })).toBe(true)
+  })
+})
+
+describe('generateInviteCode', () => {
+  it('generates an 8-character uppercase code with no ambiguous characters', () => {
+    const code = generateInviteCode()
+    expect(code).toHaveLength(8)
+    expect(code).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]+$/)
+  })
+
+  it('does not reliably repeat across calls', () => {
+    const codes = new Set(Array.from({ length: 20 }, () => generateInviteCode()))
+    expect(codes.size).toBeGreaterThan(1)
   })
 })
