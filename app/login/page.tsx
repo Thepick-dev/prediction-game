@@ -176,8 +176,11 @@ function LoginPageInner() {
 
     if (data.session) {
       // A valid invite code skips the pending queue entirely — go
-      // straight in, same as a normal login, instead of /pending.
-      window.location.href = autoApproved ? (nextPath ?? '/picks') : '/pending'
+      // straight in, same as a normal login, instead of /pending. A
+      // non-code signup gets the first-run explainer first — someone
+      // arriving cold off the street has had no one to explain any of
+      // this, unlike an invite code which came from a mate.
+      window.location.href = autoApproved ? (nextPath ?? '/picks') : '/welcome'
     } else {
       // Only reachable if the Supabase project still has "Confirm email"
       // switched on — there's no session yet until that link is clicked.
