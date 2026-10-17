@@ -1,5 +1,6 @@
 import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { isValidUsername, USERNAME_RULES_MESSAGE } from '../../../lib/username'
+import { checkRateLimit, getClientIp } from '../../../lib/rateLimit'
 import { NextResponse } from 'next/server'
 
 // Setting the new player's username/approval fields has to happen here,
@@ -24,6 +25,18 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminSupabaseClient()
+
+  // Same reasoning as login/reset — generous for a real person retrying
+  // after a typo or browser hiccup (see the comment below on why retries
+  // are deliberately allowed), a real obstacle for a script trying to
+  // mass-create accounts. The actual supabase.auth.signUp() call already
+  // happened client-side before this route is ever reached, so this isn't
+  // a complete defence against that specifically — just the best one
+  // available from this side.
+  const allowed = await checkRateLimit(admin, `signup:${getClientIp(request)}`, { max: 5, windowSeconds: 3600 })
+  if (!allowed) {
+    return NextResponse.json({ error: 'Too many attempts — please wait a while and try again' }, { status: 429 })
+  }
 
   // No session to check here (see the comment above — there may genuinely
   // be none yet), so this route can't tell "the same person retrying" from
