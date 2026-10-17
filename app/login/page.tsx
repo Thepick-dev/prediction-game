@@ -7,6 +7,7 @@ import { createClient } from '../lib/supabase'
 import RulesModal from '../../components/RulesModal'
 import PasswordInput from '../../components/PasswordInput'
 import { isValidUsername, USERNAME_MAX_LENGTH, USERNAME_RULES_MESSAGE } from '../lib/username'
+import { isValidPassword, PASSWORD_RULES_MESSAGE } from '../lib/password'
 
 type Mode = 'login' | 'join'
 
@@ -99,7 +100,7 @@ function LoginPageInner() {
     if (!isValidUsername(username)) { setError(USERNAME_RULES_MESSAGE); setLoading(false); return }
     if (!email.trim()) { setError('Please enter your email'); setLoading(false); return }
     if (!password) { setError('Please set a password'); setLoading(false); return }
-    if (password.length < 4) { setError('Password must be at least 4 characters'); setLoading(false); return }
+    if (!isValidPassword(password)) { setError(PASSWORD_RULES_MESSAGE); setLoading(false); return }
 
     const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
 

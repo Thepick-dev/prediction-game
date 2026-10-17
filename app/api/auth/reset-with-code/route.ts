@@ -1,5 +1,6 @@
 import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { resolveIdentifier, hashResetCode } from '../../../lib/auth-identifier'
+import { isValidPassword, PASSWORD_RULES_MESSAGE } from '../../../lib/password'
 import { NextResponse } from 'next/server'
 
 // Public, unauthenticated — this IS the "I'm locked out" recovery path.
@@ -12,8 +13,8 @@ export async function POST(request: Request) {
   if (!identifier || !code || !newPassword) {
     return NextResponse.json({ error: 'Fill in every field' }, { status: 400 })
   }
-  if (newPassword.length < 4) {
-    return NextResponse.json({ error: 'Password must be at least 4 characters' }, { status: 400 })
+  if (!isValidPassword(newPassword)) {
+    return NextResponse.json({ error: PASSWORD_RULES_MESSAGE }, { status: 400 })
   }
 
   const genericError = NextResponse.json({ error: 'That code is invalid or has expired — ask the admin for a new one' }, { status: 400 })

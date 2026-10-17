@@ -9,6 +9,7 @@ import PopArtLoading from '../../components/PopArtLoading'
 import { SHOW_INSTALL_PROMPT_EVENT } from '../../components/InstallPrompt'
 import { useSkin } from '../lib/useSkin'
 import { isValidUsername, USERNAME_MAX_LENGTH, USERNAME_RULES_MESSAGE } from '../lib/username'
+import { isValidPassword, PASSWORD_RULES_MESSAGE } from '../lib/password'
 import { RetroWindow, RetroButton, RetroSettingsPanel, RetroSkinPreviewControl } from '../../components/retro'
 
 export default function SettingsPage() {
@@ -135,7 +136,7 @@ export default function SettingsPage() {
   }
 
   async function savePassword() {
-    if (newPassword.length < 4) { setPasswordMessage('Password must be at least 4 characters'); return }
+    if (!isValidPassword(newPassword)) { setPasswordMessage(PASSWORD_RULES_MESSAGE); return }
     setSavingPassword(true)
     setPasswordMessage('')
 

@@ -5,6 +5,7 @@ import { createClient } from '../../lib/supabase'
 import RugbyKitEditor from '../../../components/RugbyKitEditor'
 import PasswordInput from '../../../components/PasswordInput'
 import { isValidUsername, USERNAME_MAX_LENGTH, USERNAME_RULES_MESSAGE } from '../../lib/username'
+import { isValidPassword, PASSWORD_RULES_MESSAGE } from '../../lib/password'
 
 // Username/email/password are shared identity, not rugby-specific — same
 // profiles.display_name + username_change_requests queue + Supabase Auth
@@ -89,7 +90,7 @@ export default function RugbySettingsPage() {
   }
 
   async function savePassword() {
-    if (newPassword.length < 4) { setPasswordMessage('Password must be at least 4 characters'); return }
+    if (!isValidPassword(newPassword)) { setPasswordMessage(PASSWORD_RULES_MESSAGE); return }
     setSavingPassword(true)
     setPasswordMessage('')
     const { error } = await supabase.auth.updateUser({ password: newPassword })
