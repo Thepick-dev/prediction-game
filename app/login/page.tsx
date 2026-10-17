@@ -36,7 +36,7 @@ function LoginPageInner() {
   const searchParams = useSearchParams()
   const nextPath = safeNextPath(searchParams.get('next'))
   const inviteFromLink = searchParams.get('invite')
-  const [mode, setMode] = useState<Mode>(inviteFromLink ? 'join' : 'login')
+  const [mode, setMode] = useState<Mode>((inviteFromLink || searchParams.get('join')) ? 'join' : 'login')
   const [showRules, setShowRules] = useState(false)
 
   const [identifier, setIdentifier] = useState('')

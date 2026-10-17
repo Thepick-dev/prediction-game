@@ -37,8 +37,12 @@ export async function proxy(request: NextRequest) {
   const isPublicPath = publicPaths.some(p => pathname.startsWith(p))
   const isAdminPath = pathname.startsWith('/admin')
   const isApiPath = pathname.startsWith('/api')
+  // Exact match only — '/' isn't a prefix check like the others above,
+  // or every path on the site would match it. app/page.tsx itself decides
+  // whether a logged-out visitor sees the landing page or /login.
+  const isRootPath = pathname === '/'
 
-  if (isApiPath || isPublicPath) {
+  if (isApiPath || isPublicPath || isRootPath) {
     return supabaseResponse
   }
 

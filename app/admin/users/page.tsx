@@ -133,9 +133,9 @@ export default async function UsersPage({
   // since both the table and these specific columns are brand new. A
   // missing row/table just falls back to today's behaviour: open signup,
   // no player invites.
-  let signupSettings: { mode: string; player_invites_enabled: boolean; player_invite_cap: number } | null = null
+  let signupSettings: { mode: string; player_invites_enabled: boolean; player_invite_cap: number; landing_page_enabled: boolean } | null = null
   try {
-    const { data } = await supabase.from('signup_settings').select('mode, player_invites_enabled, player_invite_cap').eq('id', 'singleton').maybeSingle()
+    const { data } = await supabase.from('signup_settings').select('mode, player_invites_enabled, player_invite_cap, landing_page_enabled').eq('id', 'singleton').maybeSingle()
     signupSettings = data
   } catch {}
 
@@ -437,10 +437,12 @@ export default async function UsersPage({
     const mode = formData.get('mode') as string
     const playerInvitesEnabled = formData.get('player_invites_enabled') === 'on'
     const playerInviteCap = Number(formData.get('player_invite_cap')) || 5
+    const landingPageEnabled = formData.get('landing_page_enabled') === 'on'
     await admin.from('signup_settings').update({
       mode,
       player_invites_enabled: playerInvitesEnabled,
       player_invite_cap: playerInviteCap,
+      landing_page_enabled: landingPageEnabled,
     }).eq('id', 'singleton')
     redirect('/admin/users')
   }
@@ -556,6 +558,10 @@ export default async function UsersPage({
               className="border rounded px-3 py-1.5 text-sm w-24"
             />
           </div>
+          <label className="flex items-center gap-2 text-sm pt-2 border-t">
+            <input type="checkbox" name="landing_page_enabled" defaultChecked={signupSettings?.landing_page_enabled ?? false} />
+            Show the public landing page to logged-out visitors at the site&apos;s home address (off = straight to Login, same as today)
+          </label>
           <button type="submit" className="bg-black text-white rounded px-4 py-2 text-sm">Save</button>
         </form>
       </div>
