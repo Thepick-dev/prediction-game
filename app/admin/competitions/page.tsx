@@ -113,6 +113,7 @@ export default async function CompetitionsPage({
       bonus_card_points_multiplier: Number(formData.get('bonus_card_points_multiplier')) || 1,
       bonus_card_max_plays: Number(formData.get('bonus_card_max_plays')) || 1,
       bonus_card_player_use_cap: Number(formData.get('bonus_card_player_use_cap')) || 1,
+      halve_autopick_points: formData.get('halve_autopick_points') === 'on',
     }
 
     let { data: comp, error } = await supabase
@@ -521,6 +522,18 @@ export default async function CompetitionsPage({
               <p className="text-xs text-gray-500 mt-2">
                 Whether the Bonus Card is on at all, and who it&apos;s nominated for, are set below
                 once the competition exists (and can be changed any time).
+              </p>
+            </div>
+
+            <div className="border rounded p-3 col-span-2">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input type="checkbox" name="halve_autopick_points" />
+                Halve points earned on autopicks
+              </label>
+              <p className="text-xs text-gray-500 mt-1">
+                If someone misses a deadline and the site picks for them, that pick scores half the
+                usual points for team + both players. Off by default — picks made in time always
+                score in full either way.
               </p>
             </div>
           </div>

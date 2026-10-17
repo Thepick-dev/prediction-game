@@ -34,6 +34,7 @@ export default function RulesPage() {
   const [bankerMultiplier, setBankerMultiplier] = useState(2)
   const [allOrNothingEnabled, setAllOrNothingEnabled] = useState(true)
   const [bonusCardMaxPlays, setBonusCardMaxPlays] = useState(1)
+  const [halveAutopickPoints, setHalveAutopickPoints] = useState(false)
   const [botEnabled, setBotEnabled] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showTLDR, setShowTLDR] = useState(false)
@@ -74,13 +75,14 @@ export default function RulesPage() {
       // to the numbers every competition used before this feature existed.
       const { data: mechanicsComp } = await supabase
         .from('competitions')
-        .select('banker_enabled, banker_multiplier, all_or_nothing_enabled, bonus_card_max_plays')
+        .select('banker_enabled, banker_multiplier, all_or_nothing_enabled, bonus_card_max_plays, halve_autopick_points')
         .eq('id', competition.id)
         .single()
       setBankerEnabled(mechanicsComp?.banker_enabled ?? true)
       setBankerMultiplier(mechanicsComp?.banker_multiplier ?? 2)
       setAllOrNothingEnabled(mechanicsComp?.all_or_nothing_enabled ?? true)
       setBonusCardMaxPlays(mechanicsComp?.bonus_card_max_plays ?? 1)
+      setHalveAutopickPoints(mechanicsComp?.halve_autopick_points ?? false)
       const [{ data: rules }, { data: playerRules }] = await Promise.all([
         supabase.from('competition_scoring_rules').select('result_type, quartile_diff, points').eq('competition_id', competition.id),
         supabase.from('player_scoring_rules').select('event_type, points').eq('competition_id', competition.id),
@@ -235,6 +237,13 @@ export default function RulesPage() {
               <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[2]}</p>
               <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[3]}</p>
               <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[4]}</p>
+              {halveAutopickPoints && (
+                <p className="text-sm leading-relaxed mt-2 font-bold" style={{ color: 'var(--pop-orange)' }}>
+                  In this competition, an autopick scores half the usual points — team and both players — even
+                  when it would otherwise count as a banker-free, ordinary pick. Making your own pick in time
+                  always scores in full.
+                </p>
+              )}
             </section>
 
             <section className="pop-panel p-5">

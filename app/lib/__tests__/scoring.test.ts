@@ -12,6 +12,7 @@ function makePick(overrides: Partial<Pick> = {}): Pick {
     player1_fixture_id: null,
     player2_fixture_id: null,
     is_banker: false,
+    is_autopick: false,
     competition_id: 'comp-1',
     ...overrides,
   }
@@ -265,6 +266,38 @@ describe('computePickScores — configurable Banker multiplier', () => {
     const pick = makePick({ team_id: 1, fixture_id: fixture.id, is_banker: false })
     const [row] = computePickScores('gw-1', [pick], [fixture], quartileMap, homeWinScoringRules, [], [], [], 3)
     expect(row.team_points).toBe(25)
+  })
+})
+
+describe('computePickScores — toggleable "halve autopick points" rule', () => {
+  const quartileMap = { 1: 3, 2: 3 }
+
+  it('defaults to scoring an autopick in full when no multiplier is passed (existing competitions keep working unchanged)', () => {
+    const fixture = makeFixture({ home_score: 2, away_score: 0 })
+    const pick = makePick({ team_id: 1, fixture_id: fixture.id, is_autopick: true })
+    const [row] = computePickScores('gw-1', [pick], [fixture], quartileMap, homeWinScoringRules, [], [])
+    expect(row.team_points).toBe(25)
+  })
+
+  it('halves an autopicked pick\'s points when the competition has the rule on', () => {
+    const fixture = makeFixture({ home_score: 2, away_score: 0 })
+    const pick = makePick({ team_id: 1, fixture_id: fixture.id, is_autopick: true })
+    const [row] = computePickScores('gw-1', [pick], [fixture], quartileMap, homeWinScoringRules, [], [], [], 2, 0.5)
+    expect(row.team_points).toBe(13) // round(25 * 0.5) = round(12.5) = 13
+  })
+
+  it('never halves a pick that was genuinely made in time, regardless of the configured multiplier', () => {
+    const fixture = makeFixture({ home_score: 2, away_score: 0 })
+    const pick = makePick({ team_id: 1, fixture_id: fixture.id, is_autopick: false })
+    const [row] = computePickScores('gw-1', [pick], [fixture], quartileMap, homeWinScoringRules, [], [], [], 2, 0.5)
+    expect(row.team_points).toBe(25)
+  })
+
+  it('a banker always takes priority over the autopick multiplier (never both at once, but banker wins if it ever happened)', () => {
+    const fixture = makeFixture({ home_score: 2, away_score: 0 })
+    const pick = makePick({ team_id: 1, fixture_id: fixture.id, is_banker: true, is_autopick: true })
+    const [row] = computePickScores('gw-1', [pick], [fixture], quartileMap, homeWinScoringRules, [], [], [], 2, 0.5)
+    expect(row.team_points).toBe(50) // 25 * 2 (banker), not 25 * 0.5
   })
 })
 
