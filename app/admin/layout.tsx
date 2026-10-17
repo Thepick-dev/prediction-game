@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '../lib/supabase-server'
+import { createAdminSupabaseClient } from '../lib/supabase-admin'
 import { pastDeadlineGameweekIds } from '../lib/pastDeadlineGameweeks'
 import { redirect } from 'next/navigation'
 
@@ -38,16 +39,30 @@ export default async function AdminLayout({
   // reveals that at least one pick has been made there before the deadline
   // — scoped the same way the Wall moderation queue and pending-count API
   // already are, for consistency.
-  const pastGwIds = await pastDeadlineGameweekIds(supabase)
-  const [{ count: pendingApprovals }, { count: pendingResets }, { count: pendingWallComments }, { count: pendingWallReplies }] = await Promise.all([
-    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('approved', false),
-    supabase.from('password_reset_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+  //
+  // Service-role client, not the session one — every table here belongs
+  // to OTHER users (another player's pending profile, their reset
+  // request, their Wall comment), and RLS scopes all of them to "your own
+  // row or an approved one." The session client silently returns 0 for
+  // all of it, same bug class already fixed on /admin/wall and
+  // /admin/page.tsx's own pending summary — this file was the one place
+  // that never got the same fix, so this badge could under-report pending
+  // Wall items specifically even though the real moderation queue and its
+  // approve/discard actions work correctly.
+  const admin = createAdminSupabaseClient()
+  const pastGwIds = await pastDeadlineGameweekIds(admin)
+  const [{ count: pendingApprovals }, { count: pendingResets }, { count: pendingWallComments }, { count: pendingWallReplies }, { count: pendingStandaloneComments }, { count: pendingStandaloneReplies }] = await Promise.all([
+    admin.from('profiles').select('id', { count: 'exact', head: true }).eq('approved', false),
+    admin.from('password_reset_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     pastGwIds.length
-      ? supabase.from('picks').select('id', { count: 'exact', head: true }).eq('wall_status', 'pending').not('comments', 'is', null).neq('comments', '').in('gameweek_id', pastGwIds)
+      ? admin.from('picks').select('id', { count: 'exact', head: true }).eq('wall_status', 'pending').not('comments', 'is', null).neq('comments', '').in('gameweek_id', pastGwIds)
       : Promise.resolve({ count: 0 }),
-    supabase.from('wall_replies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    admin.from('wall_replies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    admin.from('wall_comments').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    admin.from('wall_comment_replies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
   ])
-  const notificationCount = (pendingApprovals ?? 0) + (pendingResets ?? 0) + (pendingWallComments ?? 0) + (pendingWallReplies ?? 0)
+  const pendingWallTotal = (pendingWallComments ?? 0) + (pendingWallReplies ?? 0) + (pendingStandaloneComments ?? 0) + (pendingStandaloneReplies ?? 0)
+  const notificationCount = (pendingApprovals ?? 0) + (pendingResets ?? 0) + pendingWallTotal
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -115,9 +130,9 @@ export default async function AdminLayout({
                   <a href="/admin/discipline" className="block hover:text-white">🟨🟥 Discipline</a>
                   <a href="/admin/wall" className="hover:text-white inline-flex items-center gap-1.5">
                     The Wall
-                    {((pendingWallComments ?? 0) + (pendingWallReplies ?? 0)) > 0 && (
+                    {pendingWallTotal > 0 && (
                       <span className="inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-bold leading-none" style={{ minWidth: 16, height: 16, padding: '0 4px' }}>
-                        {(pendingWallComments ?? 0) + (pendingWallReplies ?? 0)}
+                        {pendingWallTotal}
                       </span>
                     )}
                   </a>

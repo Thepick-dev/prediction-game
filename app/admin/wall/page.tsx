@@ -24,7 +24,8 @@ async function requireAdminAction() {
   return createAdminSupabaseClient()
 }
 
-export default async function WallModerationPage() {
+export default async function WallModerationPage({ searchParams }: { searchParams: Promise<{ wallError?: string }> }) {
+  const { wallError } = await searchParams
   const supabase = await createServerSupabaseClient()
   const admin = await requireAdmin(supabase)
   if (!admin) redirect('/')
@@ -98,13 +99,15 @@ export default async function WallModerationPage() {
     const userId = formData.get('user_id') as string
     const rating = Math.max(1, Math.min(7, parseInt(formData.get('rating') as string) || 1))
 
-    await admin.from('picks').update({ wall_status: 'approved', wall_rating: rating }).eq('id', pickId)
+    const { error } = await admin.from('picks').update({ wall_status: 'approved', wall_rating: rating }).eq('id', pickId)
+    if (error) redirect(`/admin/wall?wallError=${encodeURIComponent(error.message)}`)
 
     const { data: profile } = await admin.from('profiles').select('wall_rating_total, wall_rating_count').eq('id', userId).single()
-    await admin.from('profiles').update({
+    const { error: ratingError } = await admin.from('profiles').update({
       wall_rating_total: (profile?.wall_rating_total ?? 0) + rating,
       wall_rating_count: (profile?.wall_rating_count ?? 0) + 1,
     }).eq('id', userId)
+    if (ratingError) redirect(`/admin/wall?wallError=${encodeURIComponent(ratingError.message)}`)
 
     redirect('/admin/wall')
   }
@@ -113,7 +116,8 @@ export default async function WallModerationPage() {
     'use server'
     const admin = await requireAdminAction()
     const pickId = formData.get('pick_id') as string
-    await admin.from('picks').update({ wall_status: 'discarded' }).eq('id', pickId)
+    const { error } = await admin.from('picks').update({ wall_status: 'discarded' }).eq('id', pickId)
+    if (error) redirect(`/admin/wall?wallError=${encodeURIComponent(error.message)}`)
     redirect('/admin/wall')
   }
 
@@ -121,7 +125,8 @@ export default async function WallModerationPage() {
     'use server'
     const admin = await requireAdminAction()
     const replyId = formData.get('reply_id') as string
-    await admin.from('wall_replies').update({ status: 'approved' }).eq('id', replyId)
+    const { error } = await admin.from('wall_replies').update({ status: 'approved' }).eq('id', replyId)
+    if (error) redirect(`/admin/wall?wallError=${encodeURIComponent(error.message)}`)
     redirect('/admin/wall')
   }
 
@@ -129,7 +134,8 @@ export default async function WallModerationPage() {
     'use server'
     const admin = await requireAdminAction()
     const replyId = formData.get('reply_id') as string
-    await admin.from('wall_replies').update({ status: 'discarded' }).eq('id', replyId)
+    const { error } = await admin.from('wall_replies').update({ status: 'discarded' }).eq('id', replyId)
+    if (error) redirect(`/admin/wall?wallError=${encodeURIComponent(error.message)}`)
     redirect('/admin/wall')
   }
 
@@ -137,7 +143,8 @@ export default async function WallModerationPage() {
     'use server'
     const admin = await requireAdminAction()
     const commentId = formData.get('comment_id') as string
-    await admin.from('wall_comments').update({ status: 'approved' }).eq('id', commentId)
+    const { error } = await admin.from('wall_comments').update({ status: 'approved' }).eq('id', commentId)
+    if (error) redirect(`/admin/wall?wallError=${encodeURIComponent(error.message)}`)
     redirect('/admin/wall')
   }
 
@@ -145,7 +152,8 @@ export default async function WallModerationPage() {
     'use server'
     const admin = await requireAdminAction()
     const commentId = formData.get('comment_id') as string
-    await admin.from('wall_comments').update({ status: 'discarded' }).eq('id', commentId)
+    const { error } = await admin.from('wall_comments').update({ status: 'discarded' }).eq('id', commentId)
+    if (error) redirect(`/admin/wall?wallError=${encodeURIComponent(error.message)}`)
     redirect('/admin/wall')
   }
 
@@ -153,7 +161,8 @@ export default async function WallModerationPage() {
     'use server'
     const admin = await requireAdminAction()
     const replyId = formData.get('reply_id') as string
-    await admin.from('wall_comment_replies').update({ status: 'approved' }).eq('id', replyId)
+    const { error } = await admin.from('wall_comment_replies').update({ status: 'approved' }).eq('id', replyId)
+    if (error) redirect(`/admin/wall?wallError=${encodeURIComponent(error.message)}`)
     redirect('/admin/wall')
   }
 
@@ -161,7 +170,8 @@ export default async function WallModerationPage() {
     'use server'
     const admin = await requireAdminAction()
     const replyId = formData.get('reply_id') as string
-    await admin.from('wall_comment_replies').update({ status: 'discarded' }).eq('id', replyId)
+    const { error } = await admin.from('wall_comment_replies').update({ status: 'discarded' }).eq('id', replyId)
+    if (error) redirect(`/admin/wall?wallError=${encodeURIComponent(error.message)}`)
     redirect('/admin/wall')
   }
 
@@ -172,6 +182,12 @@ export default async function WallModerationPage() {
         Nothing appears on the public Wall until approved here. Rate each comment 1-7 stars when you approve it —
         it adds to that player&apos;s running total, which carries over between competitions.
       </p>
+
+      {wallError && (
+        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2 mb-6">
+          Couldn&apos;t save: {wallError}
+        </p>
+      )}
 
       <div className="bg-white border rounded-lg p-6 mb-8">
         <h2 className="font-bold mb-4">Pending Comments ({pendingPicks?.length ?? 0})</h2>
