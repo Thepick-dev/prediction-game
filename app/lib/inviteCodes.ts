@@ -19,8 +19,10 @@ export function isInviteCodeUsable(row: InviteCodeRow): boolean {
 // be handed to a real person, read aloud or typed in, not just pasted as
 // a link. Shared by admin-issued and player-generated codes so both read
 // the same way.
+const INVITE_CODE_CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
 export function generateInviteCode(): string {
   return Array.from({ length: 8 }, () =>
-    'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 33)]
+    INVITE_CODE_CHARSET[Math.floor(Math.random() * INVITE_CODE_CHARSET.length)]
   ).join('')
 }

@@ -148,6 +148,15 @@ export default async function UsersPage({
     inviteCodes = data ?? []
   } catch {}
 
+  // Which user each code actually brought in — its own isolated fetch,
+  // same reasoning as everything else new here: a problem reading it
+  // should just mean the code list loses this detail, not break the page.
+  let inviteCodeUses: { code_id: string; user_id: string }[] = []
+  try {
+    const { data } = await admin.from('signup_invite_code_uses').select('code_id, user_id')
+    inviteCodeUses = data ?? []
+  } catch {}
+
   // auth.admin.* endpoints need the service role key — the regular client
   // above (anon key + cookies) doesn't have permission to call them, which
   // is why this silently returned nothing before.
@@ -577,23 +586,32 @@ export default async function UsersPage({
           <p className="text-sm text-gray-400">No invite codes yet.</p>
         ) : (
           <div className="divide-y">
-            {inviteCodes.map(c => (
-              <div key={c.id} className="flex items-center justify-between py-2 text-sm">
-                <div>
-                  <span className="font-mono font-bold">{c.code}</span>
-                  <span className="text-gray-500 ml-2">{c.uses_count} / {c.max_uses ?? '∞'} used</span>
-                  {c.note && <span className="text-gray-400 ml-2">— {c.note}</span>}
-                  {!c.active && <span className="text-red-500 ml-2 text-xs uppercase font-bold">Deactivated</span>}
+            {inviteCodes.map(c => {
+              const usedBy = inviteCodeUses.filter(u => u.code_id === c.id).map(u => displayNameMap[u.user_id] ?? 'Unknown')
+              return (
+                <div key={c.id} className="flex items-center justify-between py-2 text-sm">
+                  <div>
+                    <span className="font-mono font-bold">{c.code}</span>
+                    <span className="text-gray-500 ml-2">{c.uses_count} / {c.max_uses ?? '∞'} used</span>
+                    {c.created_by && (
+                      <span className="text-gray-400 ml-2">— created by {displayNameMap[c.created_by] ?? 'Unknown'}</span>
+                    )}
+                    {c.note && <span className="text-gray-400 ml-2">— {c.note}</span>}
+                    {!c.active && <span className="text-red-500 ml-2 text-xs uppercase font-bold">Deactivated</span>}
+                    {usedBy.length > 0 && (
+                      <div className="text-gray-400 text-xs mt-0.5">Used by: {usedBy.join(', ')}</div>
+                    )}
+                  </div>
+                  <form action={toggleInviteCodeActive}>
+                    <input type="hidden" name="id" value={c.id} />
+                    <input type="hidden" name="active" value={String(c.active)} />
+                    <button type="submit" className="text-xs underline text-gray-500">
+                      {c.active ? 'Deactivate' : 'Reactivate'}
+                    </button>
+                  </form>
                 </div>
-                <form action={toggleInviteCodeActive}>
-                  <input type="hidden" name="id" value={c.id} />
-                  <input type="hidden" name="active" value={String(c.active)} />
-                  <button type="submit" className="text-xs underline text-gray-500">
-                    {c.active ? 'Deactivate' : 'Reactivate'}
-                  </button>
-                </form>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
