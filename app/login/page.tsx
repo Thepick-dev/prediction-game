@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '../lib/supabase'
@@ -42,12 +42,28 @@ function LoginPageInner() {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
 
   const [needsConfirmation, setNeedsConfirmation] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // Defensive default — a missing table/row behaves exactly like today:
+  // open, no code needed. This is only ever a courtesy message; the real
+  // gate is enforced server-side in complete-signup regardless.
+  const [signupMode, setSignupMode] = useState<'open' | 'invite_only' | 'closed'>('open')
 
   const supabase = createClient()
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data } = await supabase.from('signup_settings').select('mode').eq('id', 'singleton').maybeSingle()
+        if (data?.mode === 'invite_only' || data?.mode === 'closed') setSignupMode(data.mode)
+      } catch {}
+    }
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleLogin() {
     setLoading(true)
@@ -96,6 +112,11 @@ function LoginPageInner() {
     setLoading(true)
     setError('')
 
+    // Only ever a courtesy message — the real gate is enforced
+    // server-side in complete-signup regardless of what this says.
+    if (signupMode === 'closed') { setError('Sign-ups are closed right now'); setLoading(false); return }
+    if (signupMode === 'invite_only' && !inviteCode.trim()) { setError('An invite code is needed to sign up right now'); setLoading(false); return }
+
     if (!username.trim()) { setError('Please choose a username'); setLoading(false); return }
     if (!isValidUsername(username)) { setError(USERNAME_RULES_MESSAGE); setLoading(false); return }
     if (!email.trim()) { setError('Please enter your email'); setLoading(false); return }
@@ -106,6 +127,7 @@ function LoginPageInner() {
 
     if (signUpError) { setError(signUpError.message); setLoading(false); return }
 
+    let autoApproved = false
     if (data.user) {
       // Server-side, service-role — see the route itself for why this
       // can't be a client-side .update() here (there may be no session
@@ -113,7 +135,7 @@ function LoginPageInner() {
       const res = await fetch('/api/auth/complete-signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: data.user.id, username: username.trim() }),
+        body: JSON.stringify({ userId: data.user.id, username: username.trim(), inviteCode: inviteCode.trim() || undefined }),
       })
       const completeData = await res.json()
 
@@ -122,12 +144,13 @@ function LoginPageInner() {
         setLoading(false)
         return
       }
+      autoApproved = !!completeData.autoApproved
     }
 
     if (data.session) {
-      // Normal path — the account is live immediately, just waiting on
-      // admin approval.
-      window.location.href = '/pending'
+      // A valid invite code skips the pending queue entirely — go
+      // straight in, same as a normal login, instead of /pending.
+      window.location.href = autoApproved ? (nextPath ?? '/picks') : '/pending'
     } else {
       // Only reachable if the Supabase project still has "Confirm email"
       // switched on — there's no session yet until that link is clicked.
@@ -186,15 +209,32 @@ function LoginPageInner() {
             </>
           ) : (
             <>
-              <input type="text" placeholder="Choose a username" value={username} onChange={e => setUsername(e.target.value)} maxLength={USERNAME_MAX_LENGTH} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
-              <input type="email" placeholder="Your email" value={email} onChange={e => setEmail(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
-              <PasswordInput placeholder="Set a password" value={password} onChange={e => setPassword(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" popArt />
-              <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                An admin needs to approve your account before you can play — you&apos;ll be able to log in as soon as they do.
-              </p>
-              <button onClick={handleJoin} disabled={loading || !username || !email || !password} className="pop-button w-full py-2.5 text-sm">
-                {loading ? 'Creating account...' : 'Create Account'}
-              </button>
+              {signupMode === 'closed' ? (
+                <p className="pop-badge pop-badge--red px-2.5 py-1.5 text-xs mb-3 inline-block">
+                  Sign-ups are closed right now.
+                </p>
+              ) : (
+                <>
+                  <input type="text" placeholder="Choose a username" value={username} onChange={e => setUsername(e.target.value)} maxLength={USERNAME_MAX_LENGTH} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
+                  <input type="email" placeholder="Your email" value={email} onChange={e => setEmail(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" />
+                  <PasswordInput placeholder="Set a password" value={password} onChange={e => setPassword(e.target.value)} className="pop-input w-full p-2.5 mb-3 font-bold text-sm" popArt />
+                  <input
+                    type="text"
+                    placeholder={signupMode === 'invite_only' ? 'Invite code (required)' : 'Invite code (optional)'}
+                    value={inviteCode}
+                    onChange={e => setInviteCode(e.target.value)}
+                    className="pop-input w-full p-2.5 mb-3 font-bold text-sm"
+                  />
+                  <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    {inviteCode.trim()
+                      ? "A valid code lets you in straight away — no waiting on approval."
+                      : "An admin needs to approve your account before you can play — you'll be able to log in as soon as they do."}
+                  </p>
+                  <button onClick={handleJoin} disabled={loading || !username || !email || !password} className="pop-button w-full py-2.5 text-sm">
+                    {loading ? 'Creating account...' : 'Create Account'}
+                  </button>
+                </>
+              )}
             </>
           )}
 

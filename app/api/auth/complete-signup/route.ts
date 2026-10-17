@@ -1,6 +1,7 @@
 import { createAdminSupabaseClient } from '../../../lib/supabase-admin'
 import { isValidUsername, USERNAME_RULES_MESSAGE } from '../../../lib/username'
 import { checkRateLimit, getClientIp } from '../../../lib/rateLimit'
+import { isInviteCodeUsable } from '../../../lib/inviteCodes'
 import { NextResponse } from 'next/server'
 
 // Setting the new player's username/approval fields has to happen here,
@@ -15,7 +16,7 @@ import { NextResponse } from 'next/server'
 // entirely and creates the row if it's missing rather than assuming an
 // update will find one.
 export async function POST(request: Request) {
-  const { userId, username } = await request.json()
+  const { userId, username, inviteCode } = await request.json()
 
   if (!userId || !username || !username.trim()) {
     return NextResponse.json({ error: 'Missing signup details' }, { status: 400 })
@@ -25,6 +26,36 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminSupabaseClient()
+
+  // Site-wide signup mode — isolated, defensive: a missing table/row
+  // behaves exactly like today (open, no code needed).
+  let signupMode: 'open' | 'invite_only' | 'closed' = 'open'
+  try {
+    const { data } = await admin.from('signup_settings').select('mode').eq('id', 'singleton').maybeSingle()
+    if (data?.mode === 'invite_only' || data?.mode === 'closed') signupMode = data.mode
+  } catch {}
+
+  if (signupMode === 'closed') {
+    return NextResponse.json({ error: 'Sign-ups are closed right now' }, { status: 403 })
+  }
+
+  // Validated here, server-side, even though the Join form also checks
+  // this client-side first — a client-side check is only ever a courtesy
+  // message, never the real gate, since it's trivial to skip.
+  let matchedCode: { id: string; active: boolean; max_uses: number | null; uses_count: number } | null = null
+  const trimmedCode = (inviteCode as string | undefined)?.trim()
+  if (trimmedCode) {
+    const { data: codeRow } = await admin
+      .from('signup_invite_codes')
+      .select('id, active, max_uses, uses_count')
+      .eq('code', trimmedCode)
+      .maybeSingle()
+    if (codeRow && isInviteCodeUsable(codeRow)) matchedCode = codeRow
+  }
+
+  if (signupMode === 'invite_only' && !matchedCode) {
+    return NextResponse.json({ error: 'A valid invite code is needed to sign up right now' }, { status: 403 })
+  }
 
   // Same reasoning as login/reset — generous for a real person retrying
   // after a typo or browser hiccup (see the comment below on why retries
@@ -53,10 +84,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Account already set up' }, { status: 409 })
   }
 
+  // A valid code skips the pending queue entirely — approved straight
+  // away, same as an admin clicking Approve, just automatic.
   const { error } = await admin
     .from('profiles')
     .upsert(
-      { id: userId, display_name: username.trim(), approved: false, pending_since: new Date().toISOString() },
+      matchedCode
+        ? { id: userId, display_name: username.trim(), approved: true, pending_since: null }
+        : { id: userId, display_name: username.trim(), approved: false, pending_since: new Date().toISOString() },
       { onConflict: 'id' }
     )
 
@@ -64,5 +99,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message.includes('unique') ? 'That username is already taken' : error.message }, { status: 400 })
   }
 
-  return NextResponse.json({ success: true })
+  if (matchedCode) {
+    // Best-effort — the account is already created and approved at this
+    // point either way, so a problem recording the code's use should
+    // never undo that or block the signup from completing.
+    await admin.from('signup_invite_codes').update({ uses_count: matchedCode.uses_count + 1 }).eq('id', matchedCode.id)
+    await admin.from('signup_invite_code_uses').insert({ code_id: matchedCode.id, user_id: userId })
+  }
+
+  return NextResponse.json({ success: true, autoApproved: !!matchedCode })
 }

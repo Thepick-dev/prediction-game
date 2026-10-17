@@ -23,9 +23,9 @@ async function requireAdminAction() {
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; kitError?: string; resetCode?: string; resetFor?: string; usernameError?: string }>
+  searchParams: Promise<{ error?: string; kitError?: string; resetCode?: string; resetFor?: string; usernameError?: string; inviteError?: string }>
 }) {
-  const { error: deleteError, kitError, resetCode, resetFor, usernameError } = await searchParams
+  const { error: deleteError, kitError, resetCode, resetFor, usernameError, inviteError } = await searchParams
   const supabase = await createServerSupabaseClient()
 
   // Service-role, not the regular session client — password_reset_requests
@@ -127,6 +127,25 @@ export default async function UsersPage({
   const { data: kitExtras } = await supabase.from('profiles').select('id, kit_stars, kit_earths')
   const kitExtrasMap: Record<string, { kit_stars: number; kit_earths: number }> = {}
   kitExtras?.forEach(k => { kitExtrasMap[k.id] = { kit_stars: k.kit_stars ?? 0, kit_earths: k.kit_earths ?? 0 } })
+
+  // Site-wide, not per-competition — its own isolated, defensive fetch
+  // since both the table and these specific columns are brand new. A
+  // missing row/table just falls back to today's behaviour: open signup,
+  // no player invites.
+  let signupSettings: { mode: string; player_invites_enabled: boolean; player_invite_cap: number } | null = null
+  try {
+    const { data } = await supabase.from('signup_settings').select('mode, player_invites_enabled, player_invite_cap').eq('id', 'singleton').maybeSingle()
+    signupSettings = data
+  } catch {}
+
+  // Service-role, same reasoning as resetRequests/usernameRequests above —
+  // an invite code's use-count needs to be visible and editable regardless
+  // of who created it, not scoped to "your own row".
+  let inviteCodes: { id: string; code: string; created_by: string | null; note: string | null; max_uses: number | null; uses_count: number; active: boolean; created_at: string }[] = []
+  try {
+    const { data } = await admin.from('signup_invite_codes').select('id, code, created_by, note, max_uses, uses_count, active, created_at').order('created_at', { ascending: false })
+    inviteCodes = data ?? []
+  } catch {}
 
   // auth.admin.* endpoints need the service role key — the regular client
   // above (anon key + cookies) doesn't have permission to call them, which
@@ -400,6 +419,63 @@ export default async function UsersPage({
     redirect('/admin/users')
   }
 
+  // Site-wide signup mode — checked anytime, same reasoning as Wall mode:
+  // this is a growth-pace control, not a season rule.
+  async function setSignupMode(formData: FormData) {
+    'use server'
+    const admin = await requireAdminAction()
+    const mode = formData.get('mode') as string
+    const playerInvitesEnabled = formData.get('player_invites_enabled') === 'on'
+    const playerInviteCap = Number(formData.get('player_invite_cap')) || 5
+    await admin.from('signup_settings').update({
+      mode,
+      player_invites_enabled: playerInvitesEnabled,
+      player_invite_cap: playerInviteCap,
+    }).eq('id', 'singleton')
+    redirect('/admin/users')
+  }
+
+  // Admin-issued invite codes — created_by is this admin's own id, which is
+  // how the Join form's admin-issued and a future player-generated code
+  // (created_by = that player instead) can share one table and still be
+  // told apart if that's ever needed.
+  async function createInviteCode(formData: FormData) {
+    'use server'
+    const admin = await requireAdminAction()
+    const supabase = await createServerSupabaseClient()
+    const { data: { user: caller } } = await supabase.auth.getUser()
+    const customCode = (formData.get('code') as string)?.trim()
+    const note = (formData.get('note') as string)?.trim() || null
+    const maxUsesRaw = (formData.get('max_uses') as string)?.trim()
+    const maxUses = maxUsesRaw ? Number(maxUsesRaw) : null
+
+    // A short, human-typeable code when admin doesn't set their own —
+    // uppercase so it reads clearly out loud or over text, no 0/O/1/I
+    // (the classic ambiguous-character set) since this is meant to be
+    // handed to a real person, not pasted as a link.
+    const code = customCode || Array.from({ length: 8 }, () =>
+      'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 33)]
+    ).join('')
+
+    const { error } = await admin.from('signup_invite_codes').insert({
+      code,
+      created_by: caller?.id ?? null,
+      note,
+      max_uses: maxUses,
+    })
+    if (error) redirect(`/admin/users?inviteError=${encodeURIComponent(error.message)}`)
+    redirect('/admin/users')
+  }
+
+  async function toggleInviteCodeActive(formData: FormData) {
+    'use server'
+    const admin = await requireAdminAction()
+    const id = formData.get('id') as string
+    const active = formData.get('active') === 'true'
+    await admin.from('signup_invite_codes').update({ active: !active }).eq('id', id)
+    redirect('/admin/users')
+  }
+
   const pending = profiles?.filter(p => !p.approved) ?? []
   const approved = profiles?.filter(p => p.approved) ?? []
 
@@ -432,6 +508,99 @@ export default async function UsersPage({
           Couldn&apos;t approve that username change: {usernameError}
         </div>
       )}
+
+      {inviteError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-sm text-red-700">
+          Couldn&apos;t save that invite code: {inviteError}
+        </div>
+      )}
+
+      <div className="bg-white border rounded-lg p-6 mb-8">
+        <h2 className="font-bold mb-1">Sign-up Mode</h2>
+        <p className="text-xs text-gray-500 mb-4">
+          Controls who can even reach the Join form&apos;s normal queue. This is separate from whether admin
+          approval is required — it&apos;s about whether sign-up is open at all.
+        </p>
+        <form action={setSignupMode} className="space-y-3">
+          <div className="space-y-2">
+            {[
+              { value: 'open', label: 'Open', desc: 'Anyone can request to join — exactly like today.' },
+              { value: 'invite_only', label: 'Invite-only', desc: 'A valid invite code is required to sign up at all.' },
+              { value: 'closed', label: 'Closed', desc: 'Nobody new can sign up, invite code or not.' },
+            ].map(opt => (
+              <label key={opt.value} className="flex items-start gap-2 text-sm">
+                <input type="radio" name="mode" value={opt.value} defaultChecked={(signupSettings?.mode ?? 'open') === opt.value} className="mt-1" />
+                <span>
+                  <span className="font-medium">{opt.label}</span>
+                  <span className="block text-xs text-gray-500">{opt.desc}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <label className="flex items-center gap-2 text-sm pt-2 border-t">
+            <input type="checkbox" name="player_invites_enabled" defaultChecked={signupSettings?.player_invites_enabled ?? false} />
+            Let approved players generate their own invite link to share
+          </label>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Max outstanding invites per player</label>
+            <input
+              name="player_invite_cap"
+              type="number"
+              min="1"
+              defaultValue={signupSettings?.player_invite_cap ?? 5}
+              className="border rounded px-3 py-1.5 text-sm w-24"
+            />
+          </div>
+          <button type="submit" className="bg-black text-white rounded px-4 py-2 text-sm">Save</button>
+        </form>
+      </div>
+
+      <div className="bg-white border rounded-lg p-6 mb-8">
+        <h2 className="font-bold mb-1">Invite Codes</h2>
+        <p className="text-xs text-gray-500 mb-4">
+          A code skips the pending-approval queue entirely — whoever signs up with a valid one is approved
+          instantly. Leave &quot;max uses&quot; blank for a code you plan to share widely; set it to 1 for a
+          personal invite to one person.
+        </p>
+        <form action={createInviteCode} className="flex items-end gap-3 flex-wrap mb-5">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Code (optional — random if left blank)</label>
+            <input name="code" type="text" placeholder="e.g. DAVE2026" className="border rounded px-3 py-1.5 text-sm w-40" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Max uses (optional)</label>
+            <input name="max_uses" type="number" min="1" placeholder="Unlimited" className="border rounded px-3 py-1.5 text-sm w-28" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Note (optional, for your own reference)</label>
+            <input name="note" type="text" placeholder="e.g. work friends group" className="border rounded px-3 py-1.5 text-sm w-48" />
+          </div>
+          <button type="submit" className="bg-black text-white rounded px-4 py-2 text-sm">Generate</button>
+        </form>
+        {inviteCodes.length === 0 ? (
+          <p className="text-sm text-gray-400">No invite codes yet.</p>
+        ) : (
+          <div className="divide-y">
+            {inviteCodes.map(c => (
+              <div key={c.id} className="flex items-center justify-between py-2 text-sm">
+                <div>
+                  <span className="font-mono font-bold">{c.code}</span>
+                  <span className="text-gray-500 ml-2">{c.uses_count} / {c.max_uses ?? '∞'} used</span>
+                  {c.note && <span className="text-gray-400 ml-2">— {c.note}</span>}
+                  {!c.active && <span className="text-red-500 ml-2 text-xs uppercase font-bold">Deactivated</span>}
+                </div>
+                <form action={toggleInviteCodeActive}>
+                  <input type="hidden" name="id" value={c.id} />
+                  <input type="hidden" name="active" value={String(c.active)} />
+                  <button type="submit" className="text-xs underline text-gray-500">
+                    {c.active ? 'Deactivate' : 'Reactivate'}
+                  </button>
+                </form>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {resetCode && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
