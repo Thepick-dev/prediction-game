@@ -6,6 +6,8 @@ type Totals = {
   is_bot: boolean
   total_points: number
   banker_points: number
+  team_points_total: number
+  player_points_total: number
   home_wins: number
   away_wins: number
   goals: number
@@ -18,7 +20,7 @@ export type CompetitionAward = ResolvedAward & { key: string; emoji: string; tit
 export type CompetitionAwardsInput = {
   entries: { user_id: string }[] | null | undefined
   profiles: { id: string; display_name: string | null }[] | null | undefined
-  pointsData: { user_id: string; pick_id: string; total_points: number | null; player1_points?: number | null; player2_points?: number | null; breakdown: any; gameweek_id: string }[] | null | undefined
+  pointsData: { user_id: string; pick_id: string; total_points: number | null; team_points?: number | null; player1_points?: number | null; player2_points?: number | null; breakdown: any; gameweek_id: string }[] | null | undefined
   picks: { id: string; user_id: string; player1_id: number; player2_id: number }[] | null | undefined
   gameweeks: { id: string; number: number }[] | null | undefined
   fixtures: { id: number; gameweek_id: string }[] | null | undefined
@@ -70,6 +72,8 @@ export function computeCompetitionAwards(input: CompetitionAwardsInput): {
       is_bot: isBotMap[e.user_id] ?? false,
       total_points: 0,
       banker_points: 0,
+      team_points_total: 0,
+      player_points_total: 0,
       home_wins: 0,
       away_wins: 0,
       goals: 0,
@@ -112,6 +116,11 @@ export function computeCompetitionAwards(input: CompetitionAwardsInput): {
     if (!t) return
 
     t.total_points += p.total_points ?? 0
+    // Already Banker-doubled where applicable — team_points/player1_points/
+    // player2_points are stored post-multiplier (see scoring.ts), so these
+    // naturally include Banker points with no extra handling needed.
+    t.team_points_total += p.team_points ?? 0
+    t.player_points_total += (p.player1_points ?? 0) + (p.player2_points ?? 0)
     if (isBanker) t.banker_points += rawTotal
     if (breakdown?.team?.includes('home_win')) t.home_wins += 1
     if (breakdown?.team?.includes('away_win')) t.away_wins += 1
@@ -160,6 +169,16 @@ export function computeCompetitionAwards(input: CompetitionAwardsInput): {
 
   const champion = resolveWinners(
     hasScoredData ? humans.map(t => ({ name: t.display_name, value: t.total_points })) : [],
+    c => `${c.value} pts`
+  )
+
+  const teamPicker = resolveWinners(
+    hasScoredData ? humans.map(t => ({ name: t.display_name, value: t.team_points_total })) : [],
+    c => `${c.value} pts`
+  )
+
+  const playerPicker = resolveWinners(
+    hasScoredData ? humans.map(t => ({ name: t.display_name, value: t.player_points_total })) : [],
     c => `${c.value} pts`
   )
 
@@ -235,6 +254,8 @@ export function computeCompetitionAwards(input: CompetitionAwardsInput): {
   }
 
   const awards: CompetitionAward[] = [
+    { key: 'teamPicker', emoji: '🏟️', title: 'Best Team Picker', explainer: 'Most points earned from team picks alone, across the whole competition (Banker doubles included).', ...teamPicker },
+    { key: 'playerPicker', emoji: '🎽', title: 'Best Player Picker', explainer: 'Most points earned from player picks alone, across the whole competition (Banker doubles included).', ...playerPicker },
     { key: 'champion', emoji: '🏆', title: 'Champion', explainer: 'Most total points across the whole competition.', ...champion },
     { key: 'goldenBoot', emoji: '⚽', title: 'Golden Boot', explainer: 'Most goals scored by your picked players all season.', ...goldenBoot },
     { key: 'goldenAssist', emoji: '🎯', title: 'Golden Assist', explainer: 'Most assists from your picked players all season.', ...goldenAssist },

@@ -60,7 +60,7 @@ function AwardsInner() {
     const [{ data: entries }, { data: profiles }, { data: pointsData }, { data: picks }, { data: teams }, { data: players }, { data: gameweeks }, { data: fixtures }, { data: events }] = await Promise.all([
       supabase.from('competition_entries').select('user_id').eq('competition_id', comp.id).eq('removed', false),
       supabase.from('profiles').select('id, display_name'),
-      supabase.from('points').select('user_id, pick_id, total_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
+      supabase.from('points').select('user_id, pick_id, total_points, team_points, player1_points, player2_points, breakdown, gameweek_id').eq('competition_id', comp.id),
       supabase.from('picks').select('id, user_id, player1_id, player2_id').eq('competition_id', comp.id),
       supabase.from('teams').select('id, name, short_name, short_code'),
       supabase.from('players').select('id, name, web_name, team_id'),
