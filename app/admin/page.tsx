@@ -45,6 +45,63 @@ async function loadPendingSummary() {
   ].filter(item => item.count > 0)
 }
 
+// Whether "did the public launch work" is a guess or something you can
+// actually look at — isolated and best-effort like everything else new
+// this session: a problem computing any one number should just mean that
+// card shows zero, never break the rest of the dashboard. Signups come
+// from auth.users (every account has a created_at there; profiles doesn't
+// necessarily), everything else from tables created this session.
+async function loadGrowthStats() {
+  const admin = createAdminSupabaseClient()
+  const now = Date.now()
+  const DAY = 86400000
+  const d7 = new Date(now - 7 * DAY).toISOString()
+  const d14 = new Date(now - 14 * DAY).toISOString()
+  const d30 = new Date(now - 30 * DAY).toISOString()
+
+  let signupsLast7 = 0
+  let signupsPrior7 = 0
+  let signupsLast30 = 0
+  try {
+    const { data } = await admin.auth.admin.listUsers({ perPage: 1000 })
+    data?.users?.forEach(u => {
+      if (!u.created_at) return
+      if (u.created_at >= d7) signupsLast7++
+      else if (u.created_at >= d14) signupsPrior7++
+      if (u.created_at >= d30) signupsLast30++
+    })
+  } catch {}
+
+  let codesCreated = 0
+  let codesUsed = 0
+  try {
+    const [{ count: created }, { count: used }] = await Promise.all([
+      admin.from('signup_invite_codes').select('id', { count: 'exact', head: true }),
+      admin.from('signup_invite_code_uses').select('id', { count: 'exact', head: true }),
+    ])
+    codesCreated = created ?? 0
+    codesUsed = used ?? 0
+  } catch {}
+
+  let wallLast7 = 0
+  let wallPrior7 = 0
+  try {
+    const tables = ['wall_comments', 'wall_comment_replies', 'wall_replies']
+    const results = await Promise.all(
+      tables.flatMap(t => [
+        admin.from(t).select('id', { count: 'exact', head: true }).gte('created_at', d7),
+        admin.from(t).select('id', { count: 'exact', head: true }).gte('created_at', d14).lt('created_at', d7),
+      ])
+    )
+    results.forEach((r, i) => {
+      if (i % 2 === 0) wallLast7 += r.count ?? 0
+      else wallPrior7 += r.count ?? 0
+    })
+  } catch {}
+
+  return { signupsLast7, signupsPrior7, signupsLast30, codesCreated, codesUsed, wallLast7, wallPrior7 }
+}
+
 // Blank lines and surrounding whitespace are stripped so a stray Enter key
 // doesn't leave an empty gap sitting in the ticker forever. Storing it as
 // one newline-separated block (not a separate table) keeps this a single
@@ -115,11 +172,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const { themeError, skinError } = await searchParams
   const supabase = await createServerSupabaseClient()
 
-  const [{ data: competition }, { data: gameweeks }, { data: entries }, pending] = await Promise.all([
+  const [{ data: competition }, { data: gameweeks }, { data: entries }, pending, growth] = await Promise.all([
     supabase.from('competitions').select('id, name, status, futzy_says_text').eq('status', 'active').single(),
     supabase.from('gameweeks').select('id, number, status, deadline').order('number', { ascending: false }).limit(5),
     supabase.from('competition_entries').select('id'),
     loadPendingSummary(),
+    loadGrowthStats(),
   ])
 
   // Isolated on purpose — site_theme is a brand new table, not created
@@ -201,6 +259,45 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           </div>
         </div>
       )}
+
+      <div className="bg-white border rounded-lg p-6 mb-8">
+        <h2 className="font-bold mb-4">📈 Growth</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Signups (7 days)</p>
+            <p className="text-2xl font-bold">
+              {growth.signupsLast7}
+              {growth.signupsLast7 !== growth.signupsPrior7 && (
+                <span className={`text-sm ml-1.5 font-normal ${growth.signupsLast7 > growth.signupsPrior7 ? 'text-green-600' : 'text-gray-400'}`}>
+                  {growth.signupsLast7 > growth.signupsPrior7 ? '▲' : '▼'} vs {growth.signupsPrior7} the week before
+                </span>
+              )}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">{growth.signupsLast30} in the last 30 days</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Invite Codes</p>
+            <p className="text-2xl font-bold">
+              {growth.codesUsed} <span className="text-sm font-normal text-gray-400">used</span>
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {growth.codesCreated} created {growth.codesCreated > 0 ? `(${Math.round((growth.codesUsed / growth.codesCreated) * 100)}% converted)` : ''}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Wall Activity (7 days)</p>
+            <p className="text-2xl font-bold">
+              {growth.wallLast7}
+              {growth.wallLast7 !== growth.wallPrior7 && (
+                <span className={`text-sm ml-1.5 font-normal ${growth.wallLast7 > growth.wallPrior7 ? 'text-green-600' : 'text-gray-400'}`}>
+                  {growth.wallLast7 > growth.wallPrior7 ? '▲' : '▼'} vs {growth.wallPrior7} the week before
+                </span>
+              )}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">standalone comments &amp; replies</p>
+          </div>
+        </div>
+      </div>
 
       {competition && (
         <div id="futzy-says" className="bg-white border rounded-lg p-6 mb-8">
