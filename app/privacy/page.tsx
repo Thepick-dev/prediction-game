@@ -5,7 +5,7 @@ export default function PrivacyPolicyPage() {
         <a href="/" className="text-xs uppercase tracking-widest" style={{ color: 'var(--pop-blue)' }}>&larr; Back</a>
         <h1 className="pop-hero pop-hero--pink text-3xl sm:text-4xl mt-4 mb-2">Privacy Policy</h1>
         <p className="text-xs uppercase tracking-widest mb-8" style={{ color: 'rgba(255,255,255,0.5)' }}>
-          Last updated 4 October 2026 &middot; first draft, not yet reviewed by a solicitor
+          Last updated 17 October 2026 &middot; first draft, not yet reviewed by a solicitor
         </p>
 
         <div className="pop-panel p-6 sm:p-8 space-y-7 text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.85)' }}>
@@ -51,9 +51,12 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="pop-headline text-base mb-2" style={{ color: 'var(--pop-blue)' }}>How long we keep it</h2>
             <p>
-              For as long as your account is active. If you ask us to close your account, we&apos;ll delete or
-              anonymise your personal data within a reasonable time, except where we need to keep limited
-              records for legal or security reasons.
+              For as long as your account is active. You can delete your own account at any time from Settings
+              &mdash; this immediately scrubs your username and email and blocks you from logging back in. Your
+              past picks, points, and Wall posts stay on record, because removing them would also erase other
+              players&apos; history of the competitions they played; they&apos;re kept disassociated from your
+              identity rather than deleted. If you&apos;d rather we removed something specific instead, contact us
+              at the address above.
             </p>
           </section>
 
