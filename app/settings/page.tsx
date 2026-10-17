@@ -45,6 +45,11 @@ export default function SettingsPage() {
   const [savingMarketing, setSavingMarketing] = useState(false)
   const [marketingMessage, setMarketingMessage] = useState('')
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  const [deleteMessage, setDeleteMessage] = useState('')
+
   const supabase = createClient()
   const { skin, popArt, retro, globalSkin, preview, isAdmin, setPreview } = useSkin(user?.id)
 
@@ -241,6 +246,29 @@ export default function SettingsPage() {
   async function logOut() {
     await supabase.auth.signOut()
     window.location.href = '/login'
+  }
+
+  async function deleteAccount() {
+    if (deleteConfirmText.trim() !== currentName) {
+      setDeleteMessage('Type your username exactly to confirm')
+      return
+    }
+    setDeletingAccount(true)
+    setDeleteMessage('')
+    try {
+      const res = await fetch('/api/account/delete', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        setDeleteMessage(data.error ?? 'Something went wrong')
+        setDeletingAccount(false)
+        return
+      }
+      await supabase.auth.signOut()
+      window.location.href = '/login?deleted=1'
+    } catch {
+      setDeleteMessage('Something went wrong')
+      setDeletingAccount(false)
+    }
   }
 
   if (loading) {
@@ -440,6 +468,48 @@ export default function SettingsPage() {
             <RetroButton variant="select" onClick={logOut} style={{ width: '100%' }}>
               Log Out
             </RetroButton>
+          </RetroWindow>
+
+          <RetroWindow title="Delete Account">
+            {!showDeleteConfirm ? (
+              <>
+                <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, marginBottom: 'calc(var(--retro-px) * 3)' }}>
+                  Permanently deletes your account. Your past picks, points and Wall posts stay — removing them would
+                  wipe other people&apos;s history too — but your name and email are scrubbed and you won&apos;t be
+                  able to log back in.
+                </p>
+                <RetroButton variant="select" onClick={() => setShowDeleteConfirm(true)} style={{ width: '100%' }}>
+                  Delete My Account
+                </RetroButton>
+              </>
+            ) : (
+              <>
+                <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, color: 'var(--retro-red-light)', marginBottom: 'calc(var(--retro-px) * 3)' }}>
+                  This can&apos;t be undone. Type your username (&quot;{currentName}&quot;) below to confirm.
+                </p>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={e => setDeleteConfirmText(e.target.value)}
+                  placeholder={currentName}
+                  className="retro-input"
+                  style={{ width: '100%', marginBottom: 'calc(var(--retro-px) * 3)' }}
+                />
+                {deleteMessage && (
+                  <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16, color: 'var(--retro-red-light)', marginBottom: 'calc(var(--retro-px) * 3)' }}>
+                    {deleteMessage}
+                  </p>
+                )}
+                <div style={{ display: 'flex', gap: 'calc(var(--retro-px) * 3)' }}>
+                  <RetroButton variant="b" onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); setDeleteMessage('') }} style={{ flex: 1 }}>
+                    Cancel
+                  </RetroButton>
+                  <RetroButton variant="select" onClick={deleteAccount} disabled={deletingAccount} style={{ flex: 1 }}>
+                    {deletingAccount ? 'Deleting...' : 'Permanently Delete'}
+                  </RetroButton>
+                </div>
+              </>
+            )}
           </RetroWindow>
         </div>
       </Shell>
@@ -647,6 +717,49 @@ export default function SettingsPage() {
               <button onClick={logOut} className="pop-button pop-button--blue w-full py-2.5 text-sm">
                 Log Out
               </button>
+            </div>
+
+            <div className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-1">Delete Account</h2>
+              {!showDeleteConfirm ? (
+                <>
+                  <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Permanently deletes your account. Your past picks, points and Wall posts stay — removing them
+                    would wipe other people&apos;s history too — but your name and email are scrubbed and you
+                    won&apos;t be able to log back in.
+                  </p>
+                  <button onClick={() => setShowDeleteConfirm(true)} className="pop-button w-full py-2.5 text-sm" style={{ background: 'var(--pop-red)' }}>
+                    Delete My Account
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm mb-3 font-bold" style={{ color: 'var(--pop-red)' }}>
+                    This can&apos;t be undone. Type your username (&quot;{currentName}&quot;) below to confirm.
+                  </p>
+                  <input
+                    type="text"
+                    value={deleteConfirmText}
+                    onChange={e => setDeleteConfirmText(e.target.value)}
+                    placeholder={currentName}
+                    className="pop-input w-full p-2 mb-3 font-bold text-sm"
+                  />
+                  {deleteMessage && (
+                    <p className="pop-badge pop-badge--red px-2.5 py-1 text-xs mb-3 inline-block">{deleteMessage}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); setDeleteMessage('') }}
+                      className="pop-button flex-1 py-2.5 text-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button onClick={deleteAccount} disabled={deletingAccount} className="pop-button flex-1 py-2.5 text-sm" style={{ background: 'var(--pop-red)' }}>
+                      {deletingAccount ? 'Deleting...' : 'Permanently Delete'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
           </div>

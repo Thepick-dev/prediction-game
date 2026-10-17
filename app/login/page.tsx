@@ -36,6 +36,7 @@ function LoginPageInner() {
   const searchParams = useSearchParams()
   const nextPath = safeNextPath(searchParams.get('next'))
   const inviteFromLink = searchParams.get('invite')
+  const justDeleted = searchParams.get('deleted') === '1'
   const [mode, setMode] = useState<Mode>((inviteFromLink || searchParams.get('join')) ? 'join' : 'login')
   const [showRules, setShowRules] = useState(false)
 
@@ -204,6 +205,12 @@ function LoginPageInner() {
 
         <div className="pop-panel p-5 sm:p-6">
           <h1 className="pop-hero pop-hero--pink text-3xl sm:text-4xl text-center mb-6 uppercase tracking-wide">LMS All-Stars</h1>
+
+          {justDeleted && (
+            <p className="pop-badge pop-badge--green px-2.5 py-1.5 text-xs mb-4 inline-block">
+              Your account has been deleted.
+            </p>
+          )}
 
           <div className="flex gap-2 mb-6">
             <button

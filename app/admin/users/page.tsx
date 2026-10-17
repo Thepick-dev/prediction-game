@@ -157,6 +157,15 @@ export default async function UsersPage({
     inviteCodeUses = data ?? []
   } catch {}
 
+  // Self-service account deletions, most recent first — a brand new,
+  // isolated table; a problem reading it should just mean this section
+  // doesn't render, never break the rest of Users.
+  let selfDeletions: { id: string; former_display_name: string | null; deleted_at: string }[] = []
+  try {
+    const { data } = await admin.from('self_deletions').select('id, former_display_name, deleted_at').order('deleted_at', { ascending: false }).limit(20)
+    selfDeletions = data ?? []
+  } catch {}
+
   // auth.admin.* endpoints need the service role key — the regular client
   // above (anon key + cookies) doesn't have permission to call them, which
   // is why this silently returned nothing before.
@@ -618,6 +627,26 @@ export default async function UsersPage({
                 </div>
               )
             })}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white border rounded-lg p-6 mb-8">
+        <h2 className="font-bold mb-1">Recent Self-Deletions</h2>
+        <p className="text-xs text-gray-500 mb-4">
+          Their picks, points and Wall posts stay for everyone else&apos;s history — only their name and email were
+          scrubbed and login blocked.
+        </p>
+        {selfDeletions.length === 0 ? (
+          <p className="text-sm text-gray-400">No one has deleted their own account.</p>
+        ) : (
+          <div className="divide-y">
+            {selfDeletions.map(d => (
+              <div key={d.id} className="flex items-center justify-between py-2 text-sm">
+                <span className="font-medium">{d.former_display_name ?? 'Unknown'}</span>
+                <span className="text-gray-400 text-xs">{new Date(d.deleted_at).toLocaleString('en-GB')}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
