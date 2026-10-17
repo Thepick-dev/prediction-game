@@ -57,6 +57,10 @@ export default function WallPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
   const [competition, setCompetition] = useState<any>(null)
+  // Defensive default — a competition created before this column existed,
+  // or before the SQL's been run, behaves exactly like today: open, you
+  // review everything.
+  const [wallMode, setWallMode] = useState<'open_auto' | 'manual_review' | 'read_only' | 'hidden'>('manual_review')
   const [posts, setPosts] = useState<Post[]>([])
   const [standaloneComments, setStandaloneComments] = useState<StandaloneComment[]>([])
   const [commentRepliesByComment, setCommentRepliesByComment] = useState<Record<string, CommentReply[]>>({})
@@ -108,6 +112,15 @@ export default function WallPage() {
     const { data: comp } = await supabase.from('competitions').select('id, name, bonus_card_name, bonus_card_player_id').eq('status', 'active').single()
     setCompetition(comp)
     if (!comp) { setLoading(false); return }
+
+    // Its own isolated fetch, same reasoning as every other newer/optional
+    // column in this codebase — a problem reading it, or the column not
+    // existing yet, should never break the Wall, just leave it behaving
+    // exactly as it always has (open, manually reviewed).
+    try {
+      const { data: modeComp } = await supabase.from('competitions').select('wall_mode').eq('id', comp.id).single()
+      if (modeComp?.wall_mode) setWallMode(modeComp.wall_mode)
+    } catch {}
 
     // wall_posts is a narrow public-safe view — only approved comment text
     // (never an unapproved one) and, independent of that, anyone's weekly
@@ -365,7 +378,12 @@ export default function WallPage() {
     if (!content || !user) return
     setPostingComment(true)
     setCommentError('')
-    const { error } = await supabase.from('wall_comments').insert({ user_id: user.id, content })
+    // Only ever a hint, not real moderation bypass — see the note on
+    // /admin/wall's "Open — auto-approved" option. If the database doesn't
+    // honour this for a non-admin, it just lands pending as normal.
+    const insertRow: { user_id: string; content: string; status?: string } = { user_id: user.id, content }
+    if (wallMode === 'open_auto') insertRow.status = 'approved'
+    const { error } = await supabase.from('wall_comments').insert(insertRow)
     if (error) {
       setCommentError(`Couldn't post that: ${error.message}`)
       setPostingComment(false)
@@ -380,7 +398,9 @@ export default function WallPage() {
     const content = (commentReplyDraft[commentId] ?? '').trim()
     if (!content || !user) return
     setReplyError(prev => ({ ...prev, [commentId]: '' }))
-    const { error } = await supabase.from('wall_comment_replies').insert({ comment_id: commentId, user_id: user.id, content })
+    const insertRow: { comment_id: string; user_id: string; content: string; status?: string } = { comment_id: commentId, user_id: user.id, content }
+    if (wallMode === 'open_auto') insertRow.status = 'approved'
+    const { error } = await supabase.from('wall_comment_replies').insert(insertRow)
     if (error) {
       setReplyError(prev => ({ ...prev, [commentId]: `Couldn't send: ${error.message}` }))
       return
@@ -393,7 +413,9 @@ export default function WallPage() {
     const content = (replyDraft[pickId] ?? '').trim()
     if (!content || !user) return
     setReplyError(prev => ({ ...prev, [pickId]: '' }))
-    const { error } = await supabase.from('wall_replies').insert({ pick_id: pickId, user_id: user.id, content })
+    const insertRow: { pick_id: string; user_id: string; content: string; status?: string } = { pick_id: pickId, user_id: user.id, content }
+    if (wallMode === 'open_auto') insertRow.status = 'approved'
+    const { error } = await supabase.from('wall_replies').insert(insertRow)
     if (error) {
       setReplyError(prev => ({ ...prev, [pickId]: `Couldn't send: ${error.message}` }))
       return
@@ -468,6 +490,32 @@ export default function WallPage() {
       </Shell>
     )
   }
+
+  // Admin bypasses this everywhere, same reasoning as the site-wide
+  // "Pause Game" cosmetic pause — they still need to see the real Wall to
+  // decide when to switch it back on, even while it's hidden from
+  // everyone else. Nothing is deleted either way.
+  if (wallMode === 'hidden' && !isAdmin) {
+    return (
+      <Shell active="THE WALL" user={user} displayName={displayName} skin={skin}>
+        {retro ? (
+          <RetroWindow title="The Wall">
+            <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16 }}>The Wall is switched off for now — check back later.</p>
+          </RetroWindow>
+        ) : (
+          <div className="pop-art-theme text-center py-12">
+            <p className="pop-headline text-2xl mb-2">The Wall</p>
+            <p style={{ color: 'rgba(255,255,255,0.5)' }}>Switched off for now — check back later.</p>
+          </div>
+        )}
+      </Shell>
+    )
+  }
+
+  // Read-only still lets admin post (they're the one who turned it on, and
+  // might want to post something themselves) — it's regular players'
+  // posting that's restricted.
+  const canPost = isAdmin || wallMode !== 'read_only'
 
   const bubbleBg = 'rgba(255,255,255,0.06)'
   const ownBubbleBg = 'rgba(160,0,250,0.16)'
@@ -631,7 +679,7 @@ export default function WallPage() {
             </div>
           )}
 
-          {sentCommentReply[c.id] ? (
+          {canPost && (sentCommentReply[c.id] ? (
             <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-green)' : '#4ADE80' }}>Sent.</p>
           ) : (
             <div className="flex items-center gap-2 mt-1.5 max-w-sm">
@@ -651,7 +699,7 @@ export default function WallPage() {
                 Reply
               </button>
             </div>
-          )}
+          ))}
           {replyError[c.id] && (
             <p className="text-xs mt-1" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>{replyError[c.id]}</p>
           )}
@@ -803,7 +851,7 @@ export default function WallPage() {
             </div>
           )}
 
-          {sentReply[post.pick_id] ? (
+          {canPost && (sentReply[post.pick_id] ? (
             <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-green)' : '#4ADE80' }}>Sent.</p>
           ) : (
             <div className="flex items-center gap-2 mt-1.5 max-w-sm">
@@ -823,7 +871,7 @@ export default function WallPage() {
                 Reply
               </button>
             </div>
-          )}
+          ))}
           {replyError[post.pick_id] && (
             <p className="text-xs mt-1" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>{replyError[post.pick_id]}</p>
           )}
@@ -904,7 +952,7 @@ export default function WallPage() {
               </div>
             )}
 
-            {sentCommentReply[c.id] ? (
+            {canPost && (sentCommentReply[c.id] ? (
               <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 15, color: 'var(--retro-green-light)' }}>Sent.</p>
             ) : (
               <div className="flex items-center gap-2 mt-1.5 max-w-sm">
@@ -921,7 +969,7 @@ export default function WallPage() {
                   Reply
                 </RetroButton>
               </div>
-            )}
+            ))}
             {replyError[c.id] && <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 14, color: 'var(--retro-red-light)' }}>{replyError[c.id]}</p>}
           </div>
         </div>
@@ -1025,7 +1073,7 @@ export default function WallPage() {
               </div>
             )}
 
-            {sentReply[post.pick_id] ? (
+            {canPost && (sentReply[post.pick_id] ? (
               <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 15, color: 'var(--retro-green-light)' }}>Sent.</p>
             ) : (
               <div className="flex items-center gap-2 mt-1.5 max-w-sm">
@@ -1042,7 +1090,7 @@ export default function WallPage() {
                   Reply
                 </RetroButton>
               </div>
-            )}
+            ))}
             {replyError[post.pick_id] && <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 14, color: 'var(--retro-red-light)' }}>{replyError[post.pick_id]}</p>}
           </div>
         </div>
@@ -1060,24 +1108,26 @@ export default function WallPage() {
           {competition.name} — weekly answers and comments reveal automatically once each gameweek&apos;s deadline has passed. Comments need admin approval before they show up.
         </p>
 
-        <div style={{ marginBottom: 'calc(var(--retro-px) * 8)' }}>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={newCommentDraft}
-              onChange={e => setNewCommentDraft(e.target.value)}
-              placeholder="Write a comment..."
-              maxLength={280}
-              className="retro-input flex-1"
-            />
-            <RetroButton variant="a" onClick={postComment} disabled={postingComment || !newCommentDraft.trim()}>
-              {postingComment ? 'Posting...' : 'Post'}
-            </RetroButton>
+        {canPost && (
+          <div style={{ marginBottom: 'calc(var(--retro-px) * 8)' }}>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newCommentDraft}
+                onChange={e => setNewCommentDraft(e.target.value)}
+                placeholder="Write a comment..."
+                maxLength={280}
+                className="retro-input flex-1"
+              />
+              <RetroButton variant="a" onClick={postComment} disabled={postingComment || !newCommentDraft.trim()}>
+                {postingComment ? 'Posting...' : 'Post'}
+              </RetroButton>
+            </div>
+            {commentError && (
+              <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 14, color: 'var(--retro-red-light)', marginTop: 'calc(var(--retro-px) * 2)' }}>{commentError}</p>
+            )}
           </div>
-          {commentError && (
-            <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 14, color: 'var(--retro-red-light)', marginTop: 'calc(var(--retro-px) * 2)' }}>{commentError}</p>
-          )}
-        </div>
+        )}
 
         {nothingAtAll ? (
           <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, color: 'var(--retro-grey-light)' }}>
@@ -1100,28 +1150,30 @@ export default function WallPage() {
           {competition.name} — weekly answers and comments reveal automatically once each gameweek&apos;s deadline has passed. Comments need admin approval before they show up.
         </p>
 
-        <div className="mb-8">
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={newCommentDraft}
-              onChange={e => setNewCommentDraft(e.target.value)}
-              placeholder="Write a comment..."
-              maxLength={280}
-              className="pop-input flex-1 p-2.5 text-sm"
-            />
-            <button
-              onClick={postComment}
-              disabled={postingComment || !newCommentDraft.trim()}
-              className="pop-button px-4 py-2.5 text-xs"
-            >
-              {postingComment ? 'Posting...' : 'Post'}
-            </button>
+        {canPost && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newCommentDraft}
+                onChange={e => setNewCommentDraft(e.target.value)}
+                placeholder="Write a comment..."
+                maxLength={280}
+                className="pop-input flex-1 p-2.5 text-sm"
+              />
+              <button
+                onClick={postComment}
+                disabled={postingComment || !newCommentDraft.trim()}
+                className="pop-button px-4 py-2.5 text-xs"
+              >
+                {postingComment ? 'Posting...' : 'Post'}
+              </button>
+            </div>
+            {commentError && (
+              <p className="text-xs mt-1.5" style={{ color: 'var(--pop-red)' }}>{commentError}</p>
+            )}
           </div>
-          {commentError && (
-            <p className="text-xs mt-1.5" style={{ color: 'var(--pop-red)' }}>{commentError}</p>
-          )}
-        </div>
+        )}
 
         {nothingAtAll ? (
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>

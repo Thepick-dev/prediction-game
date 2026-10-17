@@ -24,12 +24,27 @@ async function requireAdminAction() {
   return createAdminSupabaseClient()
 }
 
+// Set once here, checked anytime (unlike the Banker/AoN/Bonus Card
+// creation-only mechanics) — this is a moderation-capacity control, not a
+// season rule, so admin needs to be able to flip it mid-competition.
+async function setWallMode(formData: FormData) {
+  'use server'
+  const admin = await requireAdminAction()
+  const competitionId = formData.get('competition_id') as string
+  const mode = formData.get('wall_mode') as string
+  const { error } = await admin.from('competitions').update({ wall_mode: mode }).eq('id', competitionId)
+  if (error) redirect(`/admin/wall?wallError=${encodeURIComponent(error.message)}`)
+  redirect('/admin/wall')
+}
+
 export default async function WallModerationPage({ searchParams }: { searchParams: Promise<{ wallError?: string }> }) {
   const { wallError } = await searchParams
   const supabase = await createServerSupabaseClient()
   const admin = await requireAdmin(supabase)
   if (!admin) redirect('/')
   const adminClient = createAdminSupabaseClient()
+
+  const { data: activeComp } = await adminClient.from('competitions').select('id, wall_mode').eq('status', 'active').maybeSingle()
 
   // A pick comment only becomes visible for moderation once its gameweek's
   // deadline has passed — showing it earlier would let admin indirectly
@@ -187,6 +202,39 @@ export default async function WallModerationPage({ searchParams }: { searchParam
         <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2 mb-6">
           Couldn&apos;t save: {wallError}
         </p>
+      )}
+
+      {activeComp && (
+        <div className="bg-white border rounded-lg p-6 mb-8">
+          <h2 className="font-bold mb-1">Wall Mode</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Controls what every player sees on the public Wall right now. Change this anytime —
+            unlike the season-long rules below, this is just about how much moderation load you want.
+          </p>
+          <form action={setWallMode} className="space-y-2">
+            <input type="hidden" name="competition_id" value={activeComp.id} />
+            {[
+              { value: 'open_auto', label: 'Open — auto-approved', desc: 'Posts show immediately, no review queue. Lowest effort, no safety net.' },
+              { value: 'manual_review', label: 'Open — reviewed by you (current default)', desc: "Exactly what you have today — nothing shows until approved below." },
+              { value: 'read_only', label: 'Read-only', desc: 'Existing content stays visible. Nobody but admin can post anything new.' },
+              { value: 'hidden', label: 'Fully hidden', desc: "The Wall disappears from the site entirely for everyone but admin. Nothing is deleted." },
+            ].map(opt => (
+              <label key={opt.value} className="flex items-start gap-2 text-sm">
+                <input type="radio" name="wall_mode" value={opt.value} defaultChecked={(activeComp.wall_mode ?? 'manual_review') === opt.value} className="mt-1" />
+                <span>
+                  <span className="font-medium">{opt.label}</span>
+                  <span className="block text-xs text-gray-500">{opt.desc}</span>
+                </span>
+              </label>
+            ))}
+            <button type="submit" className="bg-black text-white rounded px-4 py-2 text-sm mt-2">Save</button>
+          </form>
+          <p className="text-xs text-gray-400 mt-3">
+            Note on &quot;Open — auto-approved&quot;: this relies on a database rule I haven&apos;t been able to
+            inspect directly. If you try it and posts still land in the review queue below instead of
+            showing immediately, tell me and I&apos;ll look at adjusting that rule.
+          </p>
+        </div>
       )}
 
       <div className="bg-white border rounded-lg p-6 mb-8">
