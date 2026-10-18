@@ -138,7 +138,7 @@ async function setActiveSkin(formData: FormData) {
   const supabase = await requireAdminAction()
   const activeSkin = formData.get('active_skin') as string
   const rawVariant = formData.get('pop_art_variant')
-  const popArtVariant = rawVariant === 'v2' || rawVariant === 'v3' ? rawVariant : 'v1'
+  const popArtVariant = rawVariant === 'v2' ? rawVariant : 'v1'
   const { error } = await supabase
     .from('site_skin')
     .update({ active_skin: activeSkin, pop_art_variant: popArtVariant, updated_at: new Date().toISOString() })
@@ -428,7 +428,6 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             {[
               { value: 'v1', label: 'V1 (original)' },
               { value: 'v2', label: 'V2 (richer, jewel-toned refinement)' },
-              { value: 'v3', label: 'V3 (Gallery Spotlight — bold, theatrical)' },
             ].map(opt => (
               <label key={opt.value} className="flex items-center gap-1.5">
                 <input

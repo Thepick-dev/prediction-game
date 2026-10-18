@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from './supabase'
 
 export type Skin = 'pop-art' | 'retro'
-export type PopArtVariant = 'v1' | 'v2' | 'v3'
+export type PopArtVariant = 'v1' | 'v2'
 
 // This browser only — never written to the DB, never read for anyone but
 // an actually-confirmed admin (see below). A non-admin poking devtools to
@@ -54,7 +54,7 @@ export function useSkin(userId: string | undefined) {
         if (data?.active_skin === 'retro' || data?.active_skin === 'pop-art') {
           setGlobalSkin(data.active_skin)
         }
-        if (data?.pop_art_variant === 'v1' || data?.pop_art_variant === 'v2' || data?.pop_art_variant === 'v3') {
+        if (data?.pop_art_variant === 'v1' || data?.pop_art_variant === 'v2') {
           setGlobalPopArtVariant(data.pop_art_variant)
         }
       } catch {
@@ -83,7 +83,7 @@ export function useSkin(userId: string | undefined) {
       const stored = localStorage.getItem(PREVIEW_KEY)
       if (stored === 'pop-art' || stored === 'retro') setPreviewState(stored)
       const storedVariant = localStorage.getItem(VARIANT_PREVIEW_KEY)
-      if (storedVariant === 'v1' || storedVariant === 'v2' || storedVariant === 'v3') setVariantPreviewState(storedVariant)
+      if (storedVariant === 'v1' || storedVariant === 'v2') setVariantPreviewState(storedVariant)
     } catch {
       // Private browsing / storage blocked — behave as "no override".
     }

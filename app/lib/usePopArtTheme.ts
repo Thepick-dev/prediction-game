@@ -32,7 +32,7 @@ export function usePopArtTheme(userId: string | undefined) {
         const supabase = createClient()
         const { data } = await supabase.from('site_skin').select('pop_art_variant').eq('id', 'singleton').maybeSingle()
         if (cancelled) return
-        if (data?.pop_art_variant === 'v1' || data?.pop_art_variant === 'v2' || data?.pop_art_variant === 'v3') {
+        if (data?.pop_art_variant === 'v1' || data?.pop_art_variant === 'v2') {
           setGlobalPopArtVariant(data.pop_art_variant)
         }
       } catch {}
@@ -56,7 +56,7 @@ export function usePopArtTheme(userId: string | undefined) {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(VARIANT_PREVIEW_KEY)
-      if (stored === 'v1' || stored === 'v2' || stored === 'v3') setVariantPreviewState(stored)
+      if (stored === 'v1' || stored === 'v2') setVariantPreviewState(stored)
     } catch {}
   }, [])
 

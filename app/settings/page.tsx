@@ -556,12 +556,10 @@ export default function SettingsPage() {
 
             {isAdmin && (
               <div className="pop-panel pop-panel--blue p-5">
-                <h2 className="pop-headline text-sm mb-1">🎨 Pop Art Version Preview</h2>
+                <h2 className="pop-headline text-sm mb-1">🎨 Pop Art V2 Preview</h2>
                 <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                  V2 is a richer, jewel-toned refinement. V3 ("Gallery Spotlight") is bolder still — theatrical
-                  lighting, bold panel edges, a cut-corner signature on every card. Colours/glow/shape only,
-                  nothing about layout changes. Live for everyone right now:{' '}
-                  <strong>{globalPopArtVariant === 'v3' ? 'V3' : globalPopArtVariant === 'v2' ? 'V2' : 'V1 (original)'}</strong>.
+                  A richer, more jewel-toned refinement of this same Pop Art look — colours and glows only, nothing
+                  about layout changes. Live for everyone right now: <strong>{globalPopArtVariant === 'v2' ? 'V2' : 'V1 (original)'}</strong>.
                   Previewing here only changes what you see, on this browser.
                 </p>
                 <div className="flex gap-2 flex-wrap">
@@ -576,12 +574,6 @@ export default function SettingsPage() {
                     className={`pop-button ${variantPreview === 'v2' ? 'pop-button--yellow' : ''} text-xs py-2 px-3`}
                   >
                     Preview V2
-                  </button>
-                  <button
-                    onClick={() => setVariantPreview('v3')}
-                    className={`pop-button ${variantPreview === 'v3' ? 'pop-button--yellow' : ''} text-xs py-2 px-3`}
-                  >
-                    Preview V3
                   </button>
                   {variantPreview && (
                     <button onClick={() => setVariantPreview(null)} className="pop-button pop-button--blue text-xs py-2 px-3">
