@@ -42,10 +42,17 @@ function Podium({ entries }: { entries: PodiumEntry[] }) {
   return (
     <div className="flex flex-col gap-2">
       {entries.map((e, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span style={{ fontSize: i === 0 ? '22px' : '17px', lineHeight: 1 }}>{MEDAL_EMOJI[i]}</span>
-          <span className="font-black truncate flex-1" style={{ fontSize: i === 0 ? '15px' : '13px', color: i === 0 ? MEDAL_COLOUR[0] : 'var(--pop-white)' }}>{e.name}</span>
-          <span className="font-black shrink-0" style={{ fontSize: i === 0 ? '15px' : '13px', color: MEDAL_COLOUR[i] }}>{e.points} pts</span>
+        <div
+          key={i}
+          className="flex items-center gap-2"
+          style={i === 0 ? {
+            background: 'linear-gradient(90deg, rgba(255,215,0,0.14), transparent)',
+            borderRadius: 10, padding: '4px 8px', margin: '-4px -8px',
+          } : undefined}
+        >
+          <span style={{ fontSize: i === 0 ? '24px' : '17px', lineHeight: 1, textShadow: i === 0 ? '0 0 10px rgba(255,215,0,0.6)' : undefined }}>{MEDAL_EMOJI[i]}</span>
+          <span className="font-black truncate flex-1" style={{ fontSize: i === 0 ? '16px' : '13px', color: i === 0 ? MEDAL_COLOUR[0] : 'var(--pop-white)', textShadow: i === 0 ? '0 0 8px rgba(255,215,0,0.4)' : undefined }}>{e.name}</span>
+          <span className="font-black shrink-0" style={{ fontSize: i === 0 ? '16px' : '13px', color: MEDAL_COLOUR[i] }}>{e.points} pts</span>
         </div>
       ))}
       {entries.length > 1 && (
@@ -210,16 +217,21 @@ export default function ArchivePage() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {pastCompetitions.map(comp => (
-                    <div key={comp.id} className="pop-panel pop-panel--yellow p-4">
+                  {pastCompetitions.map((comp, idx) => (
+                    <div key={comp.id} className={`pop-panel p-4 ${idx === 0 ? 'pop-panel--pulse pop-panel--yellow' : 'pop-panel--yellow'}`}>
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div>
-                          <p className="font-black text-sm">{comp.name}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-black text-sm">{comp.name}</p>
+                            {idx === 0 && (
+                              <span className="pop-badge pop-badge--orange px-1.5 py-0.5" style={{ fontSize: '9px' }}>Just Finished</span>
+                            )}
+                          </div>
                           <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{comp.season}</p>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
                           <Link href={`/awards?comp=${comp.id}`} className="text-xs font-bold" style={{ color: 'var(--pop-orange)' }}>🏆 Awards</Link>
-                          <Link href={`/archive/${comp.id}`} className="text-xs font-bold" style={{ color: 'var(--pop-blue)' }}>Final table →</Link>
+                          <Link href={`/archive/${comp.id}`} className="text-xs font-bold" style={{ color: 'var(--pop-blue)' }}>Full archive →</Link>
                         </div>
                       </div>
                       <Podium entries={topThreeByCompId[comp.id] ?? []} />
@@ -256,7 +268,13 @@ export default function ArchivePage() {
                     </thead>
                     <tbody>
                       {honours.map((h, i) => (
-                        <tr key={i} style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.1)' : undefined }}>
+                        <tr
+                          key={i}
+                          style={{
+                            borderTop: i > 0 ? '1px solid rgba(255,255,255,0.1)' : undefined,
+                            background: i % 2 === 1 ? 'rgba(255,255,255,0.02)' : undefined,
+                          }}
+                        >
                           <td className="py-2 px-4" style={{ color: 'rgba(255,255,255,0.5)' }}>{h.season}</td>
                           <td className="py-2 px-4">{h.competition_name}</td>
                           <td className="py-2 px-4"><TrophyBadge name={h.winner} ic={h.competition_name === 'IC'} /></td>

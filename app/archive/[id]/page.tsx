@@ -33,6 +33,23 @@ type PickDetail = {
   points: number | null
 }
 
+type GwPick = {
+  display_name: string
+  team: string
+  player1: string
+  player2: string
+  is_banker: boolean
+  is_autopick: boolean
+  points: number | null
+}
+
+type FixtureResult = {
+  home: string
+  away: string
+  home_score: number | null
+  away_score: number | null
+}
+
 export default function ArchivedCompetitionPage() {
   const params = useParams()
   const competitionId = params.id as string
@@ -43,6 +60,10 @@ export default function ArchivedCompetitionPage() {
   const [ranked, setRanked] = useState<RankedPlayer[]>([])
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
   const [pickDetails, setPickDetails] = useState<Record<string, PickDetail[]>>({})
+  const [picksByGw, setPicksByGw] = useState<Record<number, GwPick[]>>({})
+  const [fixturesByGw, setFixturesByGw] = useState<Record<number, FixtureResult[]>>({})
+  const [gwNumbers, setGwNumbers] = useState<number[]>([])
+  const [tab, setTab] = useState<'leaderboard' | 'results'>('leaderboard')
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
@@ -92,9 +113,53 @@ export default function ArchivedCompetitionPage() {
 
     const gwMap: Record<string, number> = {}
     gameweeks?.forEach(g => { gwMap[g.id] = g.number })
+    const gwIds = (gameweeks ?? []).map(g => g.id)
+    setGwNumbers((gameweeks ?? []).map(g => g.number).sort((a, b) => a - b))
 
     const pointsByPickId: Record<string, number> = {}
     pointsData?.forEach(p => { pointsByPickId[p.pick_id] = p.total_points })
+
+    // Its own isolated fetch and derivation — a problem here should just
+    // mean the Results tab shows no fixtures, never break the Leaderboard
+    // tab this page already had.
+    try {
+      const { data: fixturesData } = gwIds.length > 0
+        ? await supabase.from('fixtures').select('gameweek_id, home_team_id, away_team_id, home_score, away_score').in('gameweek_id', gwIds)
+        : { data: [] as { gameweek_id: string; home_team_id: number; away_team_id: number; home_score: number | null; away_score: number | null }[] }
+
+      const fixturesByGwNumber: Record<number, FixtureResult[]> = {}
+      fixturesData?.forEach(f => {
+        const gwNum = gwMap[f.gameweek_id]
+        if (!gwNum) return
+        ;(fixturesByGwNumber[gwNum] ??= []).push({
+          home: teamMap[f.home_team_id] ?? 'Unknown',
+          away: teamMap[f.away_team_id] ?? 'Unknown',
+          home_score: f.home_score,
+          away_score: f.away_score,
+        })
+      })
+      setFixturesByGw(fixturesByGwNumber)
+    } catch {}
+
+    // Same picks/points already used for the Leaderboard's per-player
+    // history, just regrouped by gameweek instead of by user — no extra
+    // fetch needed.
+    const picksByGwNumber: Record<number, GwPick[]> = {}
+    picks?.forEach(pick => {
+      const gwNum = gwMap[pick.gameweek_id]
+      if (!gwNum) return
+      ;(picksByGwNumber[gwNum] ??= []).push({
+        display_name: profileMap[pick.user_id] ?? 'Unknown',
+        team: teamMap[pick.team_id] ?? 'Unknown',
+        player1: playerMap[pick.player1_id] ?? 'Unknown',
+        player2: playerMap[pick.player2_id] ?? 'Unknown',
+        is_banker: pick.is_banker,
+        is_autopick: pick.is_autopick,
+        points: pointsByPickId[pick.id] ?? null,
+      })
+    })
+    Object.values(picksByGwNumber).forEach(list => list.sort((a, b) => (b.points ?? -1) - (a.points ?? -1)))
+    setPicksByGw(picksByGwNumber)
 
     const totals: Record<string, RankedPlayer> = {}
 
@@ -208,8 +273,27 @@ export default function ArchivedCompetitionPage() {
         <div className="pop-art-theme">
 
           <h1 className="pop-hero pop-hero--blue text-4xl sm:text-5xl mb-1 mt-2">{competition.name}</h1>
-          <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>Final standings — {competition.season}</p>
+          <p className="font-bold text-sm mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.season} — final</p>
 
+          <div className="flex items-center gap-2 flex-wrap mb-6">
+            <button
+              onClick={() => setTab('leaderboard')}
+              className={`pop-button text-xs py-2 px-3 ${tab === 'leaderboard' ? 'pop-button--yellow' : ''}`}
+            >
+              Leaderboard
+            </button>
+            <button
+              onClick={() => setTab('results')}
+              className={`pop-button text-xs py-2 px-3 ${tab === 'results' ? 'pop-button--yellow' : ''}`}
+            >
+              Results
+            </button>
+            <Link href={`/awards?comp=${competition.id}`} className="pop-button pop-button--blue text-xs py-2 px-3">
+              🏆 Awards &amp; Stats
+            </Link>
+          </div>
+
+          {tab === 'leaderboard' && (
           <div className="pop-panel" style={{ overflow: 'hidden' }}>
             <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
               <thead>
@@ -282,6 +366,62 @@ export default function ArchivedCompetitionPage() {
               </tbody>
             </table>
           </div>
+          )}
+
+          {tab === 'results' && (
+            <div className="flex flex-col gap-4">
+              {gwNumbers.length === 0 ? (
+                <div className="pop-panel p-6">
+                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No gameweeks recorded.</p>
+                </div>
+              ) : (
+                gwNumbers.map(gw => (
+                  <div key={gw} className="pop-panel p-4">
+                    <p className="pop-headline text-sm mb-2" style={{ color: 'var(--pop-blue)' }}>Gameweek {gw}</p>
+
+                    {(fixturesByGw[gw]?.length ?? 0) > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {fixturesByGw[gw].map((f, i) => (
+                          <span key={i} className="px-2 py-1 rounded font-bold text-xs" style={{ background: 'rgba(0,0,0,0.25)' }}>
+                            {f.home} {f.home_score ?? '–'} - {f.away_score ?? '–'} {f.away}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {(picksByGw[gw]?.length ?? 0) === 0 ? (
+                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>No picks recorded.</p>
+                    ) : (
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-left" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)' }}>
+                            <th className="py-1 pr-4">Player</th>
+                            <th className="py-1 pr-4">Team</th>
+                            <th className="py-1 pr-4">Picks</th>
+                            <th className="py-1 text-right">Pts</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {picksByGw[gw].map((d, i) => (
+                            <tr key={i} style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}>
+                              <td className="py-1.5 pr-4 font-black">{d.display_name}</td>
+                              <td className="py-1.5 pr-4">
+                                {d.team}
+                                {d.is_banker && <span className="pop-badge pop-badge--pink ml-1 px-1.5 py-0.5 text-[9px]">B</span>}
+                                {d.is_autopick && <span className="pop-badge ml-1 px-1.5 py-0.5 text-[9px]" style={{ background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.7)' }}>A</span>}
+                              </td>
+                              <td className="py-1.5 pr-4" style={{ color: 'rgba(255,255,255,0.5)' }}>{d.player1} &amp; {d.player2}</td>
+                              <td className="py-1.5 text-right font-black">{d.points ?? '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
 
           <Link href="/archive" className="inline-block mt-6 text-sm font-bold" style={{ color: 'var(--pop-blue)' }}>
             ← Back to archive
