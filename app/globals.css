@@ -233,6 +233,110 @@ thead th {
 [data-pop-art-variant="v2"] .pop-button:hover { transform: translateY(-2px); filter: brightness(1.08); }
 [data-pop-art-variant="v2"] .pop-button:active { transform: translateY(1px); filter: brightness(0.95); }
 
+/* ============================================================
+   POP ART V3 — "Gallery Spotlight". Where V2 is quiet print-poster
+   refinement, V3 is the theatrical end of the same identity: walking
+   into an exhibition at night — directional light from two sides, bold
+   ink-line panel edges (Lichtenstein panel borders, not a soft glow), a
+   hero glow that quietly breathes rather than sits static, and ONE
+   deliberate geometric signature (a cut corner, like a collector's
+   print) rather than more decoration everywhere. Deliberately NOT a
+   return to the halftone-dots/rainbow-fill version this file's own
+   history already rejected as cluttered — one restrained geometric cut
+   is the opposite of that: a single considered mark, not many busy ones.
+
+   Same discipline as V1/V2's overrides: every device below is chosen
+   specifically because it cannot change an element's own box
+   dimensions or how its text wraps, so none of this carries line-wrap
+   or overflow risk, however dramatic it reads visually.
+   ============================================================ */
+[data-pop-art-variant="v3"] .pop-art-theme {
+  --pop-surface: #221A28;
+  --pop-pink: #E0186B;
+  --pop-blue: #00AEEF;
+  --pop-green: #AEE000;
+  --pop-yellow: #C77DFF;
+  --pop-orange: #E2550A;
+  --pop-red: #D4003D;
+  /* Two-point stage lighting instead of one soft radial — this is the
+     "spotlight" the name refers to. Still background-image/-color only. */
+  background-color: var(--pop-black);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse 70% 60% at 15% 0%, rgba(224, 24, 107, 0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 60% at 100% 100%, rgba(0, 174, 239, 0.16) 0%, transparent 60%);
+}
+
+/* Panels: the grain + gloss sheen from V2, a crisp ink-line outline
+   INSTEAD of a soft glow (box-shadow with zero blur reads as a bold
+   graphic edge, closer to a comic panel border than a neon glow — an
+   outward, non-inset shadow never changes the element's own box size
+   even though it paints a couple of px outside it; panels on this site
+   are spaced with real gaps — 8px+ — everywhere they're stacked, so a
+   2px outline has nowhere near enough reach to ever touch a neighbour),
+   sharp corners, and the one signature device: a single cut top-right
+   corner via clip-path, which — like border-radius — only changes what
+   gets PAINTED, never the box's width/height or layout footprint, so it
+   carries the exact same zero layout risk as the border-radius change
+   already shipped in V2. */
+[data-pop-art-variant="v3"] .pop-panel {
+  border-radius: 8px;
+  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
+  background-color: var(--pop-surface);
+  background-image:
+    linear-gradient(145deg, rgba(255,255,255,0.09), transparent 55%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+  box-shadow: 0 0 0 2px var(--pop-pink), 0 6px 22px rgba(0, 0, 0, 0.6);
+}
+[data-pop-art-variant="v3"] .pop-panel--pink { box-shadow: 0 0 0 2px var(--pop-pink), 0 0 24px rgba(224, 24, 107, 0.45), 0 6px 22px rgba(0, 0, 0, 0.6); }
+[data-pop-art-variant="v3"] .pop-panel--blue { box-shadow: 0 0 0 2px var(--pop-blue), 0 0 24px rgba(0, 174, 239, 0.45), 0 6px 22px rgba(0, 0, 0, 0.6); }
+[data-pop-art-variant="v3"] .pop-panel--green { box-shadow: 0 0 0 2px var(--pop-green), 0 0 24px rgba(174, 224, 0, 0.45), 0 6px 22px rgba(0, 0, 0, 0.6); }
+[data-pop-art-variant="v3"] .pop-panel--yellow { box-shadow: 0 0 0 2px var(--pop-yellow), 0 0 24px rgba(199, 125, 255, 0.5), 0 6px 22px rgba(0, 0, 0, 0.6); }
+[data-pop-art-variant="v3"] .pop-panel--red { box-shadow: 0 0 0 2px var(--pop-red), 0 0 24px rgba(212, 0, 61, 0.45), 0 6px 22px rgba(0, 0, 0, 0.6); }
+[data-pop-art-variant="v3"] .pop-panel--orange { box-shadow: 0 0 0 2px var(--pop-orange), 0 0 24px rgba(226, 85, 10, 0.45), 0 6px 22px rgba(0, 0, 0, 0.6); }
+
+/* Hero titles: the same offset-ink shadow as V2, plus a slow ambient
+   breathing pulse on the glow intensity — "under stage lights," alive
+   without needing interaction. Purely a text-shadow animation (paint
+   only, never layout, exactly like the static glow it replaces), and
+   explicitly gated behind prefers-reduced-motion so anyone who's asked
+   their device for less motion gets the static V2-style glow instead —
+   never autopluses mandatory motion on someone who opted out of it. */
+[data-pop-art-variant="v3"] .pop-hero--pink { text-shadow: 3px 3px 0 rgba(224, 24, 107, 0.65), 0 0 10px rgba(224, 24, 107, 0.95), 0 0 32px rgba(224, 24, 107, 0.6), 0 0 56px rgba(224, 24, 107, 0.3); }
+[data-pop-art-variant="v3"] .pop-hero--blue { text-shadow: 3px 3px 0 rgba(0, 174, 239, 0.65), 0 0 10px rgba(0, 174, 239, 0.95), 0 0 32px rgba(0, 174, 239, 0.6), 0 0 56px rgba(0, 174, 239, 0.3); }
+[data-pop-art-variant="v3"] .pop-hero--green { text-shadow: 3px 3px 0 rgba(174, 224, 0, 0.65), 0 0 10px rgba(174, 224, 0, 0.95), 0 0 32px rgba(174, 224, 0, 0.6), 0 0 56px rgba(174, 224, 0, 0.3); }
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-pop-art-variant="v3"] .pop-hero--pink { animation: pop-hero-pulse-pink 3.6s ease-in-out infinite; }
+  [data-pop-art-variant="v3"] .pop-hero--blue { animation: pop-hero-pulse-blue 3.6s ease-in-out infinite; }
+  [data-pop-art-variant="v3"] .pop-hero--green { animation: pop-hero-pulse-green 3.6s ease-in-out infinite; }
+}
+@keyframes pop-hero-pulse-pink {
+  0%, 100% { text-shadow: 3px 3px 0 rgba(224, 24, 107, 0.65), 0 0 10px rgba(224, 24, 107, 0.95), 0 0 32px rgba(224, 24, 107, 0.6), 0 0 56px rgba(224, 24, 107, 0.3); }
+  50% { text-shadow: 3px 3px 0 rgba(224, 24, 107, 0.65), 0 0 14px rgba(224, 24, 107, 1), 0 0 44px rgba(224, 24, 107, 0.8), 0 0 72px rgba(224, 24, 107, 0.45); }
+}
+@keyframes pop-hero-pulse-blue {
+  0%, 100% { text-shadow: 3px 3px 0 rgba(0, 174, 239, 0.65), 0 0 10px rgba(0, 174, 239, 0.95), 0 0 32px rgba(0, 174, 239, 0.6), 0 0 56px rgba(0, 174, 239, 0.3); }
+  50% { text-shadow: 3px 3px 0 rgba(0, 174, 239, 0.65), 0 0 14px rgba(0, 174, 239, 1), 0 0 44px rgba(0, 174, 239, 0.8), 0 0 72px rgba(0, 174, 239, 0.45); }
+}
+@keyframes pop-hero-pulse-green {
+  0%, 100% { text-shadow: 3px 3px 0 rgba(174, 224, 0, 0.65), 0 0 10px rgba(174, 224, 0, 0.95), 0 0 32px rgba(174, 224, 0, 0.6), 0 0 56px rgba(174, 224, 0, 0.3); }
+  50% { text-shadow: 3px 3px 0 rgba(174, 224, 0, 0.65), 0 0 14px rgba(174, 224, 0, 1), 0 0 44px rgba(174, 224, 0, 0.8), 0 0 72px rgba(174, 224, 0, 0.45); }
+}
+
+[data-pop-art-variant="v3"] .pop-input { border-radius: 8px; }
+[data-pop-art-variant="v3"] .pop-input:focus { box-shadow: 0 0 0 3px rgba(224, 24, 107, 0.3); }
+
+/* Buttons: same tactile lift/press as V2 (still the right move — cheap,
+   real, zero layout risk), a bolder resting outline instead of V2's
+   soft gloss, and sharp corners matching the panels. */
+[data-pop-art-variant="v3"] .pop-button {
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -2px 0 rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+[data-pop-art-variant="v3"] .pop-button:hover { transform: translateY(-2px); filter: brightness(1.12); }
+[data-pop-art-variant="v3"] .pop-button:active { transform: translateY(1px); filter: brightness(0.95); }
+
 /* Shared styling for every real form control (search inputs, the club
    filter select, the comments box) so they read as a designed part of
    the page instead of bare unstyled HTML controls dropped on top of it. */
