@@ -152,13 +152,38 @@ thead th {
   --pop-orange: #E2550A;
   --pop-red: #D4003D;
   /* Subtle depth instead of flat black — paints behind everything,
-     never affects layout. */
-  background: radial-gradient(ellipse 120% 80% at 50% -10%, #2a1830 0%, var(--pop-black) 55%);
+     never affects layout. Layered with a faint ink-grain noise texture
+     (an inline SVG feTurbulence filter, the same technique used for
+     print/poster texture everywhere this general approach shows up) so
+     the flat colour fills read as screen-printed paper rather than
+     digital-flat — a background-image layer, which can never affect an
+     element's own box size the way a change to padding/border/font
+     could, so this carries zero line-wrap/overflow risk. */
+  background-color: var(--pop-black);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse 120% 80% at 50% -10%, #2a1830 0%, var(--pop-black) 55%);
 }
 
-[data-pop-art-variant="v2"] .pop-hero--pink { text-shadow: 0 0 8px rgba(224, 24, 107, 0.9), 0 0 28px rgba(224, 24, 107, 0.5), 0 0 48px rgba(224, 24, 107, 0.25); }
-[data-pop-art-variant="v2"] .pop-hero--blue { text-shadow: 0 0 8px rgba(0, 174, 239, 0.9), 0 0 28px rgba(0, 174, 239, 0.5), 0 0 48px rgba(0, 174, 239, 0.25); }
-[data-pop-art-variant="v2"] .pop-hero--green { text-shadow: 0 0 8px rgba(174, 224, 0, 0.9), 0 0 28px rgba(174, 224, 0, 0.5), 0 0 48px rgba(174, 224, 0, 0.25); }
+/* Same grain on panels specifically — the surface most people are
+   actually looking at — so cards read as cardstock, not a flat digital
+   fill. Same reasoning: background-image only, zero layout effect. */
+[data-pop-art-variant="v2"] .pop-panel {
+  background-color: var(--pop-surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+/* Offset-ink shadow: a small solid-offset shadow layered alongside the
+   existing blur glow — a screen-print registration-drift effect, a
+   real poster signature. Pure text-shadow, same as the glow it's
+   layered with: browsers never reserve extra box space for text-shadow
+   (confirmed against the existing 48px-blur glow already shipping on
+   every hero title without incident), so unlike a positioned element
+   this can never push into or overlap whatever comes after the
+   heading, no matter how tight that page's own spacing is. */
+[data-pop-art-variant="v2"] .pop-hero--pink { text-shadow: 2px 2px 0 rgba(224, 24, 107, 0.5), 0 0 8px rgba(224, 24, 107, 0.9), 0 0 28px rgba(224, 24, 107, 0.5), 0 0 48px rgba(224, 24, 107, 0.25); }
+[data-pop-art-variant="v2"] .pop-hero--blue { text-shadow: 2px 2px 0 rgba(0, 174, 239, 0.5), 0 0 8px rgba(0, 174, 239, 0.9), 0 0 28px rgba(0, 174, 239, 0.5), 0 0 48px rgba(0, 174, 239, 0.25); }
+[data-pop-art-variant="v2"] .pop-hero--green { text-shadow: 2px 2px 0 rgba(174, 224, 0, 0.5), 0 0 8px rgba(174, 224, 0, 0.9), 0 0 28px rgba(174, 224, 0, 0.5), 0 0 48px rgba(174, 224, 0, 0.25); }
 
 [data-pop-art-variant="v2"] .pop-panel--pink { box-shadow: 0 0 20px rgba(224, 24, 107, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
 [data-pop-art-variant="v2"] .pop-panel--blue { box-shadow: 0 0 20px rgba(0, 174, 239, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
@@ -168,6 +193,16 @@ thead th {
 [data-pop-art-variant="v2"] .pop-panel--orange { box-shadow: 0 0 20px rgba(226, 85, 10, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
 
 [data-pop-art-variant="v2"] .pop-input:focus { box-shadow: 0 0 0 3px rgba(224, 24, 107, 0.25); }
+
+/* Tactile buttons — .pop-button already declares
+   "transition: transform 0.08s ease, box-shadow 0.08s ease, filter
+   0.08s ease" (see its base rule) but nothing ever triggered it, so
+   every button was flat. transform never affects document flow/box
+   size, even mid-animation, so this is free: a small lift + brighten
+   on hover, a press-down + soften on click — real card-stock tactility
+   instead of a flat colour swap. */
+[data-pop-art-variant="v2"] .pop-button:hover { transform: translateY(-2px); filter: brightness(1.08); }
+[data-pop-art-variant="v2"] .pop-button:active { transform: translateY(1px); filter: brightness(0.95); }
 
 /* Shared styling for every real form control (search inputs, the club
    filter select, the comments box) so they read as a designed part of
