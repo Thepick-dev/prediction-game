@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { toPng } from 'html-to-image'
+import { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
@@ -72,21 +71,22 @@ const PLAYER_GRID_STYLE = { display: 'grid', gridTemplateColumns: '1fr auto 58px
 // stacked card list instead — nothing side-by-side that could force a
 // horizontal scroll, no matter how long a name or team gets.
 export default function LiveGameweekTable({
-  competitionId, competitionName, gameweekId, gameweekNumber, gameweekStatus, currentUserId,
+  competitionId, gameweekId, gameweekStatus, currentUserId, gridRef,
 }: {
   competitionId: string
-  competitionName: string
   gameweekId: string
-  gameweekNumber: number
   gameweekStatus: string
   currentUserId: string | undefined
+  // Owned by the parent page now, not this component — the Share button
+  // lives in the page's own gameweek panel (GW number, next deadline,
+  // Share, all in one place) rather than a second header repeating the
+  // GW number here. This component just needs to know which node to
+  // capture an image of.
+  gridRef: React.RefObject<HTMLDivElement | null>
 }) {
   const [rows, setRows] = useState<Row[]>([])
   const [bonusCardName, setBonusCardName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [sharing, setSharing] = useState(false)
-  const [shareError, setShareError] = useState<string | null>(null)
-  const gridRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -294,36 +294,6 @@ export default function LiveGameweekTable({
     setLoading(false)
   }
 
-  async function handleShare() {
-    if (!gridRef.current) return
-    setSharing(true)
-    setShareError(null)
-    try {
-      const node = gridRef.current
-      const dataUrl = await toPng(node, { pixelRatio: 2, backgroundColor: '#0A0A0A', width: node.scrollWidth, height: node.scrollHeight })
-      const filename = `${competitionName.replace(/\s+/g, '-').toLowerCase()}-gw${gameweekNumber}-live.png`
-      const canShareFiles = typeof navigator.share === 'function' && typeof navigator.canShare === 'function'
-      if (canShareFiles) {
-        const blob = await (await fetch(dataUrl)).blob()
-        const file = new File([blob], filename, { type: 'image/png' })
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: `${competitionName} — Gameweek ${gameweekNumber}` })
-          return
-        }
-      }
-      const link = document.createElement('a')
-      link.href = dataUrl
-      link.download = filename
-      link.click()
-      const text = encodeURIComponent(`${competitionName} — Gameweek ${gameweekNumber} 👀 (image saved — attach it here!)`)
-      window.open(`https://wa.me/?text=${text}`, '_blank')
-    } catch {
-      setShareError('Could not generate the image — try again.')
-    } finally {
-      setSharing(false)
-    }
-  }
-
   if (loading) {
     return <div className="pop-panel p-6 text-center"><p className="font-bold text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>Loading gameweek…</p></div>
   }
@@ -333,20 +303,6 @@ export default function LiveGameweekTable({
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <p className="pop-headline text-lg" style={{ color: 'var(--pop-blue)' }}>👀 How Everyone's Doing — GW{gameweekNumber}</p>
-        <button
-          onClick={handleShare}
-          disabled={sharing}
-          className="rounded px-3 py-1.5 text-xs font-bold shrink-0 disabled:opacity-50"
-          style={{ backgroundColor: '#25D366', color: '#0b1a12' }}
-        >
-          {sharing ? 'Preparing…' : '📱 Share'}
-        </button>
-      </div>
-      {shareError && <p className="text-xs mb-2" style={{ color: 'var(--pop-red)' }}>{shareError}</p>}
-
       <div ref={gridRef} className="rounded-2xl p-2.5 sm:p-3 space-y-1" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
         {rows.map((row, i) => (
           <div
@@ -427,6 +383,5 @@ export default function LiveGameweekTable({
           </div>
         ))}
       </div>
-    </div>
   )
 }

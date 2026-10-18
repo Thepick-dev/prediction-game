@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { toPng } from 'html-to-image'
 import KitBadge from '../../components/KitBadge'
 import BotAvatar from '../../components/BotAvatar'
@@ -47,6 +47,16 @@ type Props = {
 const aonBg = { pending: '#A000FA', success: '#CCFA00', failed: '#FA003C' } as const
 const aonLabel = { pending: 'AoN', success: 'AoN ✓', failed: 'AoN ✕' } as const
 
+// Built wide and big on purpose — this is the exact table a crisp
+// WhatsApp screenshot needs (lots of columns, readable at a glance once
+// shared). On the page itself it's never shown at that literal size:
+// the whole card is laid out at this canonical width, then visually
+// scaled down as one unit to fit whatever width the page actually has
+// (see the scale effect below), header and table shrinking together
+// in proportion — rather than the old approach of only scrolling the
+// table sideways, which left the giant headline overflowing on its own.
+const CARD_NATURAL_WIDTH = 1440
+
 // A long name at a big fixed font would either force the whole column
 // wider (pushing the row toward needing a scroll) or spill over its
 // neighbour — this keeps every name on one line by trading size for
@@ -62,27 +72,49 @@ function fitSize(text: string, base: number, min: number) {
 
 export default function ResultsGrid({ competitionName, gameweekNumber, bonusCardName, showScoring, rows, questionText, questionTally }: Props) {
   const gridRef = useRef<HTMLDivElement>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const scaleWrapperRef = useRef<HTMLDivElement>(null)
   const [sharing, setSharing] = useState(false)
   const [shareError, setShareError] = useState<string | null>(null)
+  const [scale, setScale] = useState(1)
+  const [scaledHeight, setScaledHeight] = useState<number | null>(null)
+
+  // Shrinks the whole fixed-width card to fit whatever width the page
+  // actually has, recalculated on resize and whenever the row count (or
+  // anything else affecting the card's natural height) changes. Never
+  // scales UP past 1 — on a wide desktop screen this just renders at its
+  // true size rather than being blown up bigger than intended.
+  useEffect(() => {
+    function recalc() {
+      if (!scaleWrapperRef.current || !gridRef.current) return
+      const wrapperWidth = scaleWrapperRef.current.clientWidth
+      const nextScale = wrapperWidth > 0 ? Math.min(1, wrapperWidth / CARD_NATURAL_WIDTH) : 1
+      setScale(nextScale)
+      setScaledHeight(gridRef.current.scrollHeight * nextScale)
+    }
+    recalc()
+    const ro = new ResizeObserver(recalc)
+    if (scaleWrapperRef.current) ro.observe(scaleWrapperRef.current)
+    return () => ro.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, questionText, showScoring])
 
   async function handleShare() {
-    if (!gridRef.current || !scrollRef.current) return
+    if (!gridRef.current) return
     setSharing(true)
     setShareError(null)
 
-    // Same fix as the printable picks grid — html-to-image only captures
-    // what's currently visible inside a scrolling container, so a wide
-    // table gets silently cropped to screen width unless the container is
-    // temporarily expanded to its full content width for the capture.
-    const scrollEl = scrollRef.current
-    const originalWidth = scrollEl.style.width
-    const originalOverflow = scrollEl.style.overflow
-    scrollEl.style.width = `${scrollEl.scrollWidth}px`
-    scrollEl.style.overflow = 'visible'
+    // The card's own layout is always at its full natural width (see
+    // CARD_NATURAL_WIDTH) — only its on-screen appearance is shrunk, via
+    // a CSS transform on this node specifically. Neutralised during
+    // capture anyway, belt-and-braces: a transform lives on the node
+    // being captured itself here (unlike the old scrolling-container
+    // version of this fix), so there's no ambiguity about what
+    // html-to-image sees, but there's no reason to tempt it either.
+    const node = gridRef.current
+    const originalTransform = node.style.transform
+    node.style.transform = 'none'
 
     try {
-      const node = gridRef.current
       const dataUrl = await toPng(node, {
         pixelRatio: 2,
         backgroundColor: '#0A0A0A',
@@ -110,8 +142,7 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
     } catch {
       setShareError('Could not generate the image — try again.')
     } finally {
-      scrollEl.style.width = originalWidth
-      scrollEl.style.overflow = originalOverflow
+      node.style.transform = originalTransform
       setSharing(false)
     }
   }
@@ -130,7 +161,15 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
       </div>
       {shareError && <p className="text-xs mb-2" style={{ color: '#FA003C' }}>{shareError}</p>}
 
-      <div ref={gridRef} className="rounded-2xl p-4" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div ref={scaleWrapperRef} style={{ width: '100%', overflow: 'hidden', height: scaledHeight ?? undefined }}>
+        <div
+          ref={gridRef}
+          className="rounded-2xl p-4"
+          style={{
+            background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.06)',
+            width: CARD_NATURAL_WIDTH, transform: `scale(${scale})`, transformOrigin: 'top left',
+          }}
+        >
         <div className="flex items-baseline gap-3 mb-3 flex-wrap">
           <p className="font-black uppercase" style={{ fontSize: '44px', color: '#CCFA00', fontFamily: 'var(--font-display), sans-serif', lineHeight: 1, textShadow: '0 0 8px rgba(204,250,0,0.5), 0 0 30px rgba(204,250,0,0.2)' }}>
             {competitionName} — GW{gameweekNumber}
@@ -155,8 +194,8 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
           </div>
         )}
 
-        <div ref={scrollRef} className="overflow-x-auto">
-          <table className="border-collapse" style={{ fontSize: '28px', minWidth: '1440px', width: '100%' }}>
+        <div>
+          <table className="border-collapse" style={{ fontSize: '28px', width: '100%' }}>
             <thead>
               <tr>
                 {['Player', 'Team', 'Result', 'Player 1', 'Player 2', 'Bonuses', 'Answer', 'Total'].map((h, i) => (
@@ -286,6 +325,7 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
           <span><span className="px-2 py-0.5 rounded-lg font-black" style={{ background: aonBg.failed, color: '#fff' }}>AoN ✕</span> failed</span>
           <span><span className="px-2 py-0.5 rounded-lg font-black" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff' }}>AP</span> Autopick</span>
           <span><span className="px-2 py-0.5 rounded-lg font-black" style={{ background: '#FA003C', color: '#fff' }}>Suspended</span> missing a gameweek for a card</span>
+        </div>
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { toPng } from 'html-to-image'
 import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
@@ -308,6 +309,44 @@ export default function PicksPage() {
   const [confettiPieces, setConfettiPieces] = useState<{ id: number; dx: number; dy: number; rot: number; color: string }[]>([])
   const [message, setMessage] = useState('')
   const [deadlinePassed, setDeadlinePassed] = useState(false)
+
+  // Shares a snapshot of the live "how's everyone doing" table — owned up
+  // here, not inside LiveGameweekTable, so the Share button can sit in the
+  // same compact header as the GW number and next deadline instead of a
+  // second header repeating the GW number underneath.
+  const liveGridRef = useRef<HTMLDivElement>(null)
+  const [sharingLive, setSharingLive] = useState(false)
+  const [shareLiveError, setShareLiveError] = useState<string | null>(null)
+
+  async function handleShareLive() {
+    if (!liveGridRef.current || !competition || !gameweek) return
+    setSharingLive(true)
+    setShareLiveError(null)
+    try {
+      const node = liveGridRef.current
+      const dataUrl = await toPng(node, { pixelRatio: 2, backgroundColor: '#0A0A0A', width: node.scrollWidth, height: node.scrollHeight })
+      const filename = `${competition.name.replace(/\s+/g, '-').toLowerCase()}-gw${gameweek.number}-live.png`
+      const canShareFiles = typeof navigator.share === 'function' && typeof navigator.canShare === 'function'
+      if (canShareFiles) {
+        const blob = await (await fetch(dataUrl)).blob()
+        const file = new File([blob], filename, { type: 'image/png' })
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: `${competition.name} — Gameweek ${gameweek.number}` })
+          return
+        }
+      }
+      const link = document.createElement('a')
+      link.href = dataUrl
+      link.download = filename
+      link.click()
+      const text = encodeURIComponent(`${competition.name} — Gameweek ${gameweek.number} 👀 (image saved — attach it here!)`)
+      window.open(`https://wa.me/?text=${text}`, '_blank')
+    } catch {
+      setShareLiveError('Could not generate the image — try again.')
+    } finally {
+      setSharingLive(false)
+    }
+  }
 
   const { popArt } = usePopArtTheme(user?.id)
 
@@ -1067,24 +1106,45 @@ export default function PicksPage() {
 
             {gameweek && (
               <div className={`pop-panel pop-panel--pulse ${!deadlinePassed && !hasPick ? 'pop-panel--yellow pop-rotate-r' : 'pop-panel--blue pop-rotate-l'} p-3 sm:p-4 mb-4 sm:mb-6 flex items-center justify-between gap-3 flex-wrap`}>
-                <div>
-                  <p className="pop-headline text-2xl sm:text-3xl mb-0.5">
-                    GW{gameweek.number}
-                    {totalGameweeks && (
-                      <span className="text-sm sm:text-base font-black" style={{ color: 'rgba(255,255,255,0.6)' }}> (of {totalGameweeks})</span>
-                    )}
-                  </p>
-                  <p className="font-black text-xs uppercase">
-                    {deadlinePassed ? 'Locked — see you next gameweek!' : hasPick ? 'Pick submitted!' : 'Pick required!'}
-                  </p>
-                  {deadlinePassed && nextGameweek && (
-                    <p className="font-bold text-xs mt-1" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                      GW{nextGameweek.number} deadline: {new Date(nextGameweek.deadline).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}
-                    </p>
-                  )}
-                </div>
-                {!deadlinePassed && <CountdownClock time={countdown} theme="pop-art" />}
+                {deadlinePassed ? (
+                  <>
+                    <div>
+                      <p className="pop-headline text-2xl sm:text-3xl mb-0.5">GW{gameweek.number}</p>
+                      {nextGameweek && (
+                        <p className="font-bold text-xs mt-1" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                          GW{nextGameweek.number} deadline: {new Date(nextGameweek.deadline).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleShareLive}
+                      disabled={sharingLive}
+                      className="rounded px-3 py-1.5 text-xs font-bold shrink-0 disabled:opacity-50"
+                      style={{ backgroundColor: '#25D366', color: '#0b1a12' }}
+                    >
+                      {sharingLive ? 'Preparing…' : '📱 Share'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <p className="pop-headline text-2xl sm:text-3xl mb-0.5">
+                        GW{gameweek.number}
+                        {totalGameweeks && (
+                          <span className="text-sm sm:text-base font-black" style={{ color: 'rgba(255,255,255,0.6)' }}> (of {totalGameweeks})</span>
+                        )}
+                      </p>
+                      <p className="font-black text-xs uppercase">
+                        {hasPick ? 'Pick submitted!' : 'Pick required!'}
+                      </p>
+                    </div>
+                    <CountdownClock time={countdown} theme="pop-art" />
+                  </>
+                )}
               </div>
+            )}
+            {deadlinePassed && shareLiveError && (
+              <p className="text-xs mb-3 -mt-1" style={{ color: 'var(--pop-red)' }}>{shareLiveError}</p>
             )}
 
             {!gameweek ? (
@@ -1106,11 +1166,10 @@ export default function PicksPage() {
               gameweek && competition && (
                 <LiveGameweekTable
                   competitionId={competition.id}
-                  competitionName={competition.name}
                   gameweekId={gameweek.id}
-                  gameweekNumber={gameweek.number}
                   gameweekStatus={gameweek.status}
                   currentUserId={user?.id}
+                  gridRef={liveGridRef}
                 />
               )
             ) : (
