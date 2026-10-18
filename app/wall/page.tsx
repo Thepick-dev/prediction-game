@@ -718,112 +718,112 @@ export default function WallPage() {
       <div key={post.pick_id} className="flex items-start gap-2.5">
         <div className="shrink-0 mt-1">{authorAvatar(post.user_id, 48)}</div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className="font-black text-xs">{nameByUser[post.user_id] ?? 'Unknown'}</span>
             {authorBadges(post.user_id)}
             <AuraBadge userId={post.user_id} />
-            <span className="text-[10px] uppercase tracking-wide" style={{ color: popArt ? 'rgba(255,255,255,0.4)' : '#F5ECD940' }}>
-              GW{gwNumberById[post.gameweek_id] ?? '?'}{avg ? ` · ⭐ ${avg} avg (${rating!.count})` : ''}
-            </span>
           </div>
+          <p className="text-[10px] uppercase tracking-wide mb-1.5" style={{ color: popArt ? 'rgba(255,255,255,0.4)' : '#F5ECD940' }}>
+            GW{gwNumberById[post.gameweek_id] ?? '?'}{avg ? ` · ⭐ ${avg} avg (${rating!.count})` : ''}
+          </p>
 
           {/* Message-bubble chrome: rounded, a little tail nub top-
               left, own posts tinted differently — the social-
-              media/WhatsApp look this was asked to have. */}
+              media/WhatsApp look this was asked to have. Internal
+              content is one consistent vertical stack (flex + gap)
+              rather than ad hoc margins between each piece. */}
           <div
             className="relative rounded-2xl px-3.5 py-2.5 inline-block max-w-full"
             style={{ background: isOwn ? ownBubbleBg : bubbleBg, borderTopLeftRadius: 4 }}
           >
-            {(() => {
-              const detail = pickDetailsByPickId[post.pick_id]
-              if (!detail && !(answer && q)) return null
-              const badge = (outcome: string) => ({
-                background: outcome === 'success' ? 'var(--pop-green)' : outcome === 'failed' ? 'var(--pop-red)' : 'var(--pop-pink)',
-                color: outcome === 'success' ? '#0A0A0A' : '#FFFFFF',
-              })
-              const aonLabel = (outcome: string) => outcome === 'success' ? 'AoN ✓' : outcome === 'failed' ? 'AoN ✕' : 'AoN'
-              return (
-                <div className="rounded-lg px-2.5 py-1.5 mb-2 text-xs" style={{ background: 'rgba(0,0,0,0.2)' }}>
-                  {detail && (
-                    <div>
-                      <div className="flex items-center gap-1 font-black">
-                        <span style={{ color: popArt ? 'var(--pop-blue)' : '#D9A441' }}>{teamLabelById[detail.team_id] ?? '?'}</span>
-                        {detail.is_banker && <span title="Banker" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}>★</span>}
-                      </div>
-                      <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                        <span>{playerDisplayNames[detail.player1_id] ?? '?'}</span>
-                        {detail.aon?.player_id === detail.player1_id && (
-                          <span className="px-1 rounded font-black" style={{ fontSize: '9px', ...badge(detail.aon.outcome) }}>{aonLabel(detail.aon.outcome)}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                        <span>{playerDisplayNames[detail.player2_id] ?? '?'}</span>
-                        {detail.aon?.player_id === detail.player2_id && (
-                          <span className="px-1 rounded font-black" style={{ fontSize: '9px', ...badge(detail.aon.outcome) }}>{aonLabel(detail.aon.outcome)}</span>
-                        )}
-                      </div>
-                      {detail.bonusCard && (
-                        <div className="mt-1">
-                          <span className="px-1 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-pink)', color: '#fff' }}>
-                            {bonusCardName}: {playerDisplayNames[detail.bonusCard.player_id] ?? '?'}
-                          </span>
-                        </div>
+            <div className="flex flex-col gap-2">
+              {(() => {
+                const detail = pickDetailsByPickId[post.pick_id]
+                if (!detail) return null
+                const badge = (outcome: string) => ({
+                  background: outcome === 'success' ? 'var(--pop-green)' : outcome === 'failed' ? 'var(--pop-red)' : 'var(--pop-pink)',
+                  color: outcome === 'success' ? '#0A0A0A' : '#FFFFFF',
+                })
+                const aonLabel = (outcome: string) => outcome === 'success' ? 'AoN ✓' : outcome === 'failed' ? 'AoN ✕' : 'AoN'
+                return (
+                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                    <span className="px-1.5 py-0.5 rounded font-black" style={{ background: 'rgba(0,0,0,0.25)', color: popArt ? 'var(--pop-blue)' : '#D9A441' }}>
+                      {teamLabelById[detail.team_id] ?? '?'}{detail.is_banker && <span title="Banker" style={{ color: popArt ? 'var(--pop-orange)' : '#D9A441' }}> ★</span>}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(0,0,0,0.25)' }}>
+                      {playerDisplayNames[detail.player1_id] ?? '?'}
+                      {detail.aon?.player_id === detail.player1_id && (
+                        <span className="ml-1 px-1 rounded font-black" style={{ fontSize: '9px', ...badge(detail.aon.outcome) }}>{aonLabel(detail.aon.outcome)}</span>
                       )}
-                    </div>
-                  )}
-                {answer && q && (
-                  <div className={detail ? 'mt-1.5 pt-1.5' : ''} style={detail ? { borderTop: '1px solid rgba(255,255,255,0.1)' } : undefined}>
-                <span style={{ color: popArt ? 'var(--pop-yellow)' : '#D9A441' }} className="font-bold">{q.question}</span>
-                <span className="block mt-0.5">{answer}</span>
-                <div className="mt-1.5">
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(0,0,0,0.25)' }}>
+                      {playerDisplayNames[detail.player2_id] ?? '?'}
+                      {detail.aon?.player_id === detail.player2_id && (
+                        <span className="ml-1 px-1 rounded font-black" style={{ fontSize: '9px', ...badge(detail.aon.outcome) }}>{aonLabel(detail.aon.outcome)}</span>
+                      )}
+                    </span>
+                    {detail.bonusCard && (
+                      <span className="px-1.5 py-0.5 rounded font-black" style={{ background: 'var(--pop-pink)', color: '#fff' }}>
+                        {bonusCardName}: {playerDisplayNames[detail.bonusCard.player_id] ?? '?'}
+                      </span>
+                    )}
+                  </div>
+                )
+              })()}
+
+              {answer && q && (
+                <div className="rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(0,0,0,0.2)' }}>
+                  <span style={{ color: popArt ? 'var(--pop-yellow)' : '#D9A441' }} className="font-bold">{q.question}</span>
+                  <span className="block mt-0.5">{answer}</span>
+                  <div className="mt-1.5">
+                    <StarRating
+                      average={ratingsByTarget[`question_answer:${post.pick_id}`]?.average ?? null}
+                      count={ratingsByTarget[`question_answer:${post.pick_id}`]?.count ?? 0}
+                      yourRating={ratingsByTarget[`question_answer:${post.pick_id}`]?.yours ?? null}
+                      onRate={n => submitRating('question_answer', post.pick_id, n)}
+                      interactive={!isOwn}
+                      popArt={popArt}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {post.comments && !deletedIds.has(post.pick_id) && (
+                <p className="text-sm break-words">{post.comments}</p>
+              )}
+
+              {post.wall_rating != null && !deletedIds.has(post.pick_id) && (
+                <p className="text-[10px] uppercase tracking-wide" style={{ color: popArt ? 'var(--pop-yellow)' : '#D9A441' }}>
+                  Admin&apos;s rating: {'⭐'.repeat(post.wall_rating) || '—'}
+                </p>
+              )}
+
+              {post.comments && !deletedIds.has(post.pick_id) && (
+                <div className="flex items-center gap-2 flex-wrap">
                   <StarRating
-                    average={ratingsByTarget[`question_answer:${post.pick_id}`]?.average ?? null}
-                    count={ratingsByTarget[`question_answer:${post.pick_id}`]?.count ?? 0}
-                    yourRating={ratingsByTarget[`question_answer:${post.pick_id}`]?.yours ?? null}
-                    onRate={n => submitRating('question_answer', post.pick_id, n)}
+                    average={ratingsByTarget[`comment:${post.pick_id}`]?.average ?? null}
+                    count={ratingsByTarget[`comment:${post.pick_id}`]?.count ?? 0}
+                    yourRating={ratingsByTarget[`comment:${post.pick_id}`]?.yours ?? null}
+                    onRate={n => submitRating('comment', post.pick_id, n)}
                     interactive={!isOwn}
                     popArt={popArt}
                   />
+                  {isAdmin && (
+                    <button onClick={() => deleteContent('pick_comment', post.pick_id)} className="text-[10px] uppercase tracking-wide font-bold" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>
+                      Delete
+                    </button>
+                  )}
                 </div>
-              </div>
-            )}
-                </div>
-              )
-            })()}
-            {post.comments && !deletedIds.has(post.pick_id) && (
-              <p className="text-sm break-words">{post.comments}</p>
-            )}
-            {post.wall_rating != null && !deletedIds.has(post.pick_id) && (
-              <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-yellow)' : '#D9A441' }}>
-                {'⭐'.repeat(post.wall_rating) || 'Rated 0'}
-              </p>
-            )}
-            {post.comments && !deletedIds.has(post.pick_id) && (
-              <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-                <StarRating
-                  average={ratingsByTarget[`comment:${post.pick_id}`]?.average ?? null}
-                  count={ratingsByTarget[`comment:${post.pick_id}`]?.count ?? 0}
-                  yourRating={ratingsByTarget[`comment:${post.pick_id}`]?.yours ?? null}
-                  onRate={n => submitRating('comment', post.pick_id, n)}
-                  interactive={!isOwn}
-                  popArt={popArt}
-                />
-                {isAdmin && (
-                  <button onClick={() => deleteContent('pick_comment', post.pick_id)} className="text-[10px] uppercase tracking-wide font-bold" style={{ color: popArt ? 'var(--pop-red)' : '#F87171' }}>
-                    Delete
-                  </button>
-                )}
-              </div>
-            )}
-            {isAdmin && post.comments && !deletedIds.has(post.pick_id) && (
-              <div className="mt-1.5">
+              )}
+
+              {isAdmin && post.comments && !deletedIds.has(post.pick_id) && (
                 <FutzyReplyButton targetType="pick" targetId={post.pick_id} popArt={popArt} />
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {(repliesByPick[post.pick_id] ?? []).filter(r => !deletedIds.has(r.id)).length > 0 && (
-            <div className="mt-2 ml-4 space-y-1.5">
+            <div className="mt-2 ml-4 flex flex-col gap-2">
               {repliesByPick[post.pick_id].filter(r => !deletedIds.has(r.id)).map(r => (
                 <div key={r.id}>
                   <div className="rounded-xl rounded-tl px-3 py-1.5 inline-block" style={{ background: popArt ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.03)' }}>
@@ -852,9 +852,9 @@ export default function WallPage() {
           )}
 
           {canPost && (sentReply[post.pick_id] ? (
-            <p className="text-xs mt-1.5" style={{ color: popArt ? 'var(--pop-green)' : '#4ADE80' }}>Sent.</p>
+            <p className="text-xs mt-2" style={{ color: popArt ? 'var(--pop-green)' : '#4ADE80' }}>Sent.</p>
           ) : (
-            <div className="flex items-center gap-2 mt-1.5 max-w-sm">
+            <div className="flex items-center gap-2 mt-2 max-w-sm">
               <input
                 type="text"
                 value={replyDraft[post.pick_id] ?? ''}
