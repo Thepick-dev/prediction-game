@@ -109,6 +109,53 @@ thead th {
   overflow-x: hidden;
 }
 
+/* ============================================================
+   POP ART V2 — admin-preview-only refinement, toggled the same way
+   as the Retro skin (global DB value + each admin's own localStorage
+   override, see app/lib/useSkin.ts). Colours/glows only — deliberately
+   never touches spacing, font-size, or markup, so there is zero risk
+   of the line-wrapping/layout issues this was explicitly built to avoid.
+
+   Why this works as an override: .pop-art-theme redefines every
+   --pop-* variable directly ON ITSELF (see above), not on :root, so a
+   variable set higher up the tree (e.g. on <html>) would be shadowed
+   by every single .pop-art-theme instance on the page. The fix used
+   everywhere else in this file for exactly this problem (see the
+   [data-site-theme="..."] rules further down) is to scope the override
+   to an ANCESTOR-prefixed selector targeting .pop-art-theme itself —
+   same specificity trick, same data-attribute mechanism
+   (document.documentElement.dataset.popArtVariant, set by useSkin.ts).
+
+   Richer, more jewel-toned take on the same high-energy identity —
+   less flat neon-arcade, more deliberate pop-art poster. Swap values
+   only; every var(--pop-*) reference elsewhere keeps working as-is.
+   ============================================================ */
+[data-pop-art-variant="v2"] .pop-art-theme {
+  --pop-surface: #221A28;
+  --pop-pink: #E0186B;
+  --pop-blue: #00AEEF;
+  --pop-green: #AEE000;
+  --pop-yellow: #5B2A86;
+  --pop-orange: #E2550A;
+  --pop-red: #D4003D;
+  /* Subtle depth instead of flat black — paints behind everything,
+     never affects layout. */
+  background: radial-gradient(ellipse 120% 80% at 50% -10%, #2a1830 0%, var(--pop-black) 55%);
+}
+
+[data-pop-art-variant="v2"] .pop-hero--pink { text-shadow: 0 0 8px rgba(224, 24, 107, 0.9), 0 0 28px rgba(224, 24, 107, 0.5), 0 0 48px rgba(224, 24, 107, 0.25); }
+[data-pop-art-variant="v2"] .pop-hero--blue { text-shadow: 0 0 8px rgba(0, 174, 239, 0.9), 0 0 28px rgba(0, 174, 239, 0.5), 0 0 48px rgba(0, 174, 239, 0.25); }
+[data-pop-art-variant="v2"] .pop-hero--green { text-shadow: 0 0 8px rgba(174, 224, 0, 0.9), 0 0 28px rgba(174, 224, 0, 0.5), 0 0 48px rgba(174, 224, 0, 0.25); }
+
+[data-pop-art-variant="v2"] .pop-panel--pink { box-shadow: 0 0 20px rgba(224, 24, 107, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
+[data-pop-art-variant="v2"] .pop-panel--blue { box-shadow: 0 0 20px rgba(0, 174, 239, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
+[data-pop-art-variant="v2"] .pop-panel--green { box-shadow: 0 0 20px rgba(174, 224, 0, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
+[data-pop-art-variant="v2"] .pop-panel--yellow { box-shadow: 0 0 20px rgba(91, 42, 134, 0.45), 0 4px 18px rgba(0, 0, 0, 0.5); }
+[data-pop-art-variant="v2"] .pop-panel--red { box-shadow: 0 0 20px rgba(212, 0, 61, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
+[data-pop-art-variant="v2"] .pop-panel--orange { box-shadow: 0 0 20px rgba(226, 85, 10, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
+
+[data-pop-art-variant="v2"] .pop-input:focus { box-shadow: 0 0 0 3px rgba(224, 24, 107, 0.25); }
+
 /* Shared styling for every real form control (search inputs, the club
    filter select, the comments box) so they read as a designed part of
    the page instead of bare unstyled HTML controls dropped on top of it. */

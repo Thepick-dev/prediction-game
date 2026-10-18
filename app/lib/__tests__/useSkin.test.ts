@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveSkin } from '../useSkin'
+import { resolveSkin, resolvePopArtVariant } from '../useSkin'
 
 describe('resolveSkin', () => {
   it('uses the global skin when there is no admin preview', () => {
@@ -19,5 +19,25 @@ describe('resolveSkin', () => {
 
   it('falls back to the global skin once an admin clears their preview', () => {
     expect(resolveSkin('retro', true, null)).toBe('retro')
+  })
+})
+
+describe('resolvePopArtVariant', () => {
+  it('uses the global variant when there is no admin preview', () => {
+    expect(resolvePopArtVariant('v1', false, null)).toBe('v1')
+    expect(resolvePopArtVariant('v2', false, null)).toBe('v2')
+  })
+
+  it('ignores a stored preview for a non-admin, even if one exists', () => {
+    expect(resolvePopArtVariant('v1', false, 'v2')).toBe('v1')
+  })
+
+  it("lets an admin's own preview override the global variant", () => {
+    expect(resolvePopArtVariant('v1', true, 'v2')).toBe('v2')
+    expect(resolvePopArtVariant('v2', true, 'v1')).toBe('v1')
+  })
+
+  it('falls back to the global variant once an admin clears their preview', () => {
+    expect(resolvePopArtVariant('v2', true, null)).toBe('v2')
   })
 })

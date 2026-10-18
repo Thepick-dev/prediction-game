@@ -51,7 +51,7 @@ export default function SettingsPage() {
   const [deleteMessage, setDeleteMessage] = useState('')
 
   const supabase = createClient()
-  const { skin, popArt, retro, globalSkin, preview, isAdmin, setPreview } = useSkin(user?.id)
+  const { skin, popArt, retro, globalSkin, preview, isAdmin, setPreview, popArtVariant, globalPopArtVariant, variantPreview, setVariantPreview } = useSkin(user?.id)
 
   useEffect(() => { loadProfile() }, [])
 
@@ -547,6 +547,36 @@ export default function SettingsPage() {
                   </button>
                   {preview && (
                     <button onClick={() => setPreview(null)} className="pop-button pop-button--blue text-xs py-2 px-3">
+                      Clear override
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {isAdmin && (
+              <div className="pop-panel pop-panel--blue p-5">
+                <h2 className="pop-headline text-sm mb-1">🎨 Pop Art V2 Preview</h2>
+                <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  A richer, more jewel-toned refinement of this same Pop Art look — colours and glows only, nothing
+                  about layout changes. Live for everyone right now: <strong>{globalPopArtVariant === 'v2' ? 'V2' : 'V1 (original)'}</strong>.
+                  Previewing here only changes what you see, on this browser.
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => setVariantPreview('v1')}
+                    className={`pop-button ${variantPreview === 'v1' ? 'pop-button--yellow' : ''} text-xs py-2 px-3`}
+                  >
+                    Preview V1 (Original)
+                  </button>
+                  <button
+                    onClick={() => setVariantPreview('v2')}
+                    className={`pop-button ${variantPreview === 'v2' ? 'pop-button--yellow' : ''} text-xs py-2 px-3`}
+                  >
+                    Preview V2
+                  </button>
+                  {variantPreview && (
+                    <button onClick={() => setVariantPreview(null)} className="pop-button pop-button--blue text-xs py-2 px-3">
                       Clear override
                     </button>
                   )}

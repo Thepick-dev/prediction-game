@@ -137,9 +137,10 @@ async function setActiveSkin(formData: FormData) {
   'use server'
   const supabase = await requireAdminAction()
   const activeSkin = formData.get('active_skin') as string
+  const popArtVariant = formData.get('pop_art_variant') === 'v2' ? 'v2' : 'v1'
   const { error } = await supabase
     .from('site_skin')
-    .update({ active_skin: activeSkin, updated_at: new Date().toISOString() })
+    .update({ active_skin: activeSkin, pop_art_variant: popArtVariant, updated_at: new Date().toISOString() })
     .eq('id', 'singleton')
   if (error) {
     redirect(`/admin?skinError=${encodeURIComponent(error.message)}#site-skin`)
@@ -200,9 +201,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   // Isolated the same way — site_skin is a brand new table, not created
   // until the handed-off SQL is run. A missing table shouldn't take the
   // whole dashboard down; the section below just falls back to "Pop Art".
-  let siteSkin: { active_skin: string } | null = null
+  let siteSkin: { active_skin: string; pop_art_variant: string | null } | null = null
   try {
-    const { data } = await supabase.from('site_skin').select('active_skin').eq('id', 'singleton').maybeSingle()
+    const { data } = await supabase.from('site_skin').select('active_skin, pop_art_variant').eq('id', 'singleton').maybeSingle()
     siteSkin = data
   } catch {
     // site_skin migration not run yet — the form below just renders with
@@ -404,21 +405,40 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             Couldn&apos;t save: {skinError}
           </p>
         )}
-        <form action={setActiveSkin} className="flex items-center gap-4 text-sm">
-          {[
-            { value: 'pop-art', label: '🎨 Pop Art' },
-            { value: 'retro', label: '🕹️ Retro (16-bit)' },
-          ].map(opt => (
-            <label key={opt.value} className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                name="active_skin"
-                value={opt.value}
-                defaultChecked={opt.value === 'pop-art' ? (!siteSkin || siteSkin.active_skin === 'pop-art') : siteSkin?.active_skin === opt.value}
-              />
-              {opt.label}
-            </label>
-          ))}
+        <form action={setActiveSkin} className="space-y-3">
+          <div className="flex items-center gap-4 text-sm">
+            {[
+              { value: 'pop-art', label: '🎨 Pop Art' },
+              { value: 'retro', label: '🕹️ Retro (16-bit)' },
+            ].map(opt => (
+              <label key={opt.value} className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  name="active_skin"
+                  value={opt.value}
+                  defaultChecked={opt.value === 'pop-art' ? (!siteSkin || siteSkin.active_skin === 'pop-art') : siteSkin?.active_skin === opt.value}
+                />
+                {opt.label}
+              </label>
+            ))}
+          </div>
+          <div className="flex items-center gap-4 text-sm border-t pt-3">
+            <span className="text-xs text-gray-500">Pop Art version (ignored while Retro is active):</span>
+            {[
+              { value: 'v1', label: 'V1 (original)' },
+              { value: 'v2', label: 'V2 (richer, jewel-toned refinement)' },
+            ].map(opt => (
+              <label key={opt.value} className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  name="pop_art_variant"
+                  value={opt.value}
+                  defaultChecked={opt.value === 'v1' ? (!siteSkin?.pop_art_variant || siteSkin.pop_art_variant === 'v1') : siteSkin?.pop_art_variant === opt.value}
+                />
+                {opt.label}
+              </label>
+            ))}
+          </div>
           <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Save skin</button>
         </form>
       </div>
