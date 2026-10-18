@@ -151,48 +151,77 @@ thead th {
   --pop-yellow: #C77DFF;
   --pop-orange: #E2550A;
   --pop-red: #D4003D;
-  /* Subtle depth instead of flat black — paints behind everything,
-     never affects layout. Layered with a faint ink-grain noise texture
-     (an inline SVG feTurbulence filter, the same technique used for
-     print/poster texture everywhere this general approach shows up) so
-     the flat colour fills read as screen-printed paper rather than
-     digital-flat — a background-image layer, which can never affect an
-     element's own box size the way a change to padding/border/font
-     could, so this carries zero line-wrap/overflow risk. */
+  /* Real atmosphere instead of flat black — brighter, wider-reaching
+     than the first pass at this (confirmed too subtle to actually
+     notice at a glance), plus the same ink-grain noise texture (an
+     inline SVG feTurbulence filter) boosted for the same reason.
+     Still just background-image/background-color — never affects an
+     element's own box size the way padding/border/font would, so this
+     carries zero line-wrap/overflow risk no matter how strong it gets. */
   background-color: var(--pop-black);
   background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E"),
-    radial-gradient(ellipse 120% 80% at 50% -10%, #2a1830 0%, var(--pop-black) 55%);
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.09'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse 130% 90% at 50% -15%, #4a1f55 0%, #2a1830 35%, var(--pop-black) 70%);
 }
 
-/* Same grain on panels specifically — the surface most people are
-   actually looking at — so cards read as cardstock, not a flat digital
-   fill. Same reasoning: background-image only, zero layout effect. */
+/* Panels get the same grain, a diagonal gloss sheen (a second, very
+   faint gradient layer — still just background-image, still zero
+   layout effect), and a coloured inset top edge — a "ticket stub /
+   museum placard" stripe. inset box-shadow paints INSIDE the element's
+   existing border-radius (it's clipped to the rounded corner exactly
+   like any other box-shadow), so unlike a real border it can never add
+   so much as a pixel to the panel's own size. Plain panels (no accent
+   variant) get the brand pink by default; each accent variant below
+   overrides it with its own colour and glow, same cascade order as
+   the base rule already relies on elsewhere in this file. */
 [data-pop-art-variant="v2"] .pop-panel {
+  /* Sharper, more confident corners than V1's 16px — border-radius only
+     changes how the CORNERS are rounded, never the box's width/height
+     or how text wraps inside it, so this is free: a crisper "printed
+     card" silhouette instead of the softer, more "app-bubble" default,
+     and (unlike the shadow/texture layers above) immediately visible
+     even at a glance, not just up close. */
+  border-radius: 8px;
   background-color: var(--pop-surface);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  background-image:
+    linear-gradient(145deg, rgba(255,255,255,0.07), transparent 55%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.1'/%3E%3C/svg%3E");
+  box-shadow: inset 0 3px 0 var(--pop-pink), 0 4px 18px rgba(0, 0, 0, 0.5);
 }
 
-/* Offset-ink shadow: a small solid-offset shadow layered alongside the
+/* Offset-ink shadow: a solid-offset shadow layered alongside the
    existing blur glow — a screen-print registration-drift effect, a
-   real poster signature. Pure text-shadow, same as the glow it's
-   layered with: browsers never reserve extra box space for text-shadow
-   (confirmed against the existing 48px-blur glow already shipping on
-   every hero title without incident), so unlike a positioned element
-   this can never push into or overlap whatever comes after the
-   heading, no matter how tight that page's own spacing is. */
-[data-pop-art-variant="v2"] .pop-hero--pink { text-shadow: 2px 2px 0 rgba(224, 24, 107, 0.5), 0 0 8px rgba(224, 24, 107, 0.9), 0 0 28px rgba(224, 24, 107, 0.5), 0 0 48px rgba(224, 24, 107, 0.25); }
-[data-pop-art-variant="v2"] .pop-hero--blue { text-shadow: 2px 2px 0 rgba(0, 174, 239, 0.5), 0 0 8px rgba(0, 174, 239, 0.9), 0 0 28px rgba(0, 174, 239, 0.5), 0 0 48px rgba(0, 174, 239, 0.25); }
-[data-pop-art-variant="v2"] .pop-hero--green { text-shadow: 2px 2px 0 rgba(174, 224, 0, 0.5), 0 0 8px rgba(174, 224, 0, 0.9), 0 0 28px rgba(174, 224, 0, 0.5), 0 0 48px rgba(174, 224, 0, 0.25); }
+   real poster signature, boosted from the first pass (2px/0.5 opacity
+   read as blending into the blur rather than as its own thing). Pure
+   text-shadow: browsers never reserve extra box space for it (confirmed
+   against the existing 48px-blur glow already shipping on every hero
+   title without incident), so unlike a positioned element this can
+   never push into or overlap whatever comes after the heading, no
+   matter how tight that page's own spacing is. */
+[data-pop-art-variant="v2"] .pop-hero--pink { text-shadow: 3px 3px 0 rgba(224, 24, 107, 0.65), 0 0 8px rgba(224, 24, 107, 0.9), 0 0 28px rgba(224, 24, 107, 0.5), 0 0 48px rgba(224, 24, 107, 0.25); }
+[data-pop-art-variant="v2"] .pop-hero--blue { text-shadow: 3px 3px 0 rgba(0, 174, 239, 0.65), 0 0 8px rgba(0, 174, 239, 0.9), 0 0 28px rgba(0, 174, 239, 0.5), 0 0 48px rgba(0, 174, 239, 0.25); }
+[data-pop-art-variant="v2"] .pop-hero--green { text-shadow: 3px 3px 0 rgba(174, 224, 0, 0.65), 0 0 8px rgba(174, 224, 0, 0.9), 0 0 28px rgba(174, 224, 0, 0.5), 0 0 48px rgba(174, 224, 0, 0.25); }
 
-[data-pop-art-variant="v2"] .pop-panel--pink { box-shadow: 0 0 20px rgba(224, 24, 107, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
-[data-pop-art-variant="v2"] .pop-panel--blue { box-shadow: 0 0 20px rgba(0, 174, 239, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
-[data-pop-art-variant="v2"] .pop-panel--green { box-shadow: 0 0 20px rgba(174, 224, 0, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
-[data-pop-art-variant="v2"] .pop-panel--yellow { box-shadow: 0 0 20px rgba(199, 125, 255, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
-[data-pop-art-variant="v2"] .pop-panel--red { box-shadow: 0 0 20px rgba(212, 0, 61, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
-[data-pop-art-variant="v2"] .pop-panel--orange { box-shadow: 0 0 20px rgba(226, 85, 10, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
+[data-pop-art-variant="v2"] .pop-panel--pink { box-shadow: inset 0 3px 0 var(--pop-pink), 0 0 20px rgba(224, 24, 107, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+[data-pop-art-variant="v2"] .pop-panel--blue { box-shadow: inset 0 3px 0 var(--pop-blue), 0 0 20px rgba(0, 174, 239, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+[data-pop-art-variant="v2"] .pop-panel--green { box-shadow: inset 0 3px 0 var(--pop-green), 0 0 20px rgba(174, 224, 0, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+[data-pop-art-variant="v2"] .pop-panel--yellow { box-shadow: inset 0 3px 0 var(--pop-yellow), 0 0 20px rgba(199, 125, 255, 0.45), 0 4px 18px rgba(0, 0, 0, 0.5); }
+[data-pop-art-variant="v2"] .pop-panel--red { box-shadow: inset 0 3px 0 var(--pop-red), 0 0 20px rgba(212, 0, 61, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
+[data-pop-art-variant="v2"] .pop-panel--orange { box-shadow: inset 0 3px 0 var(--pop-orange), 0 0 20px rgba(226, 85, 10, 0.4), 0 4px 18px rgba(0, 0, 0, 0.5); }
 
+[data-pop-art-variant="v2"] .pop-input { border-radius: 8px; }
 [data-pop-art-variant="v2"] .pop-input:focus { box-shadow: 0 0 0 3px rgba(224, 24, 107, 0.25); }
+
+/* Visible at rest, not just on hover — a faint glossy top highlight
+   inside every button, the same "inset never changes box size" trick
+   as the panel stripe above, plus the same sharper corner as panels
+   and inputs. Hover-only polish (below) is invisible on a touchscreen
+   with no mouse, which is most of how this site is actually used, so
+   buttons need their own V2 identity independent of hover too. */
+[data-pop-art-variant="v2"] .pop-button {
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+}
 
 /* Tactile buttons — .pop-button already declares
    "transition: transform 0.08s ease, box-shadow 0.08s ease, filter
@@ -343,10 +372,13 @@ thead th {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  /* White, not black — --pop-yellow is a dark muted purple in the swapped
-     palette, not the light yellow this pairing was originally chosen for.
-     Revert this alongside the token values above if reverting the swap. */
-  color: var(--pop-white);
+  /* Black, not white — --pop-yellow is a light lavender (brightened from
+     a dark muted purple that failed contrast as TEXT elsewhere on this
+     theme; see the --pop-yellow definition above), so white text on it
+     would fail contrast the OTHER way. This exact badge was missed in
+     that sweep — found going back through every background-fill use of
+     the token, not just the ones already known about. */
+  color: var(--pop-black);
   border-radius: 999px;
   line-height: 1;
 }
