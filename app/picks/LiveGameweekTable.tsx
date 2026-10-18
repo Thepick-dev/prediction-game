@@ -373,7 +373,7 @@ export default function LiveGameweekTable({
               </div>
               {row.bonusCard && (
                 <div style={ITEM_GRID_STYLE}>
-                  <span className="px-1.5 py-0.5 rounded font-black uppercase truncate" style={{ background: 'rgba(160,0,250,0.2)', color: 'var(--pop-pink)' }}>
+                  <span className="px-1.5 py-0.5 rounded font-black uppercase truncate" style={{ background: 'var(--pop-pink)', color: '#fff' }}>
                     🎴 {bonusCardName ?? 'Bonus Card'}: {row.bonusCard.playerName}
                   </span>
                   <PtsPill value={row.bonusCard.points} />

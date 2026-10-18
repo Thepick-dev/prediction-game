@@ -102,7 +102,7 @@ type FormGuideTeamRow = { teamId: number; name: string; shortName: string | null
 
 function resultBadgeStyle(result: 'W' | 'D' | 'L' | '-') {
   if (result === 'W') return { background: 'var(--pop-green)', color: 'var(--pop-black)' }
-  if (result === 'D') return { background: 'var(--pop-yellow)', color: 'var(--pop-white)' }
+  if (result === 'D') return { background: 'var(--pop-yellow)', color: 'var(--pop-black)' }
   if (result === 'L') return { background: 'var(--pop-red)', color: 'var(--pop-white)' }
   return { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }
 }

@@ -1326,7 +1326,7 @@ export default function PicksPage() {
                                       onClick={() => setPlayer1Fixture(f.id)}
                                       className="text-left px-2.5 py-1.5 rounded text-xs font-bold"
                                       style={player1Fixture === f.id
-                                        ? { background: 'var(--pop-yellow)', color: 'var(--pop-white)' }
+                                        ? { background: 'var(--pop-yellow)', color: 'var(--pop-black)' }
                                         : { background: 'rgba(255,255,255,0.05)', color: 'var(--pop-white)', border: '1px solid rgba(255,255,255,0.15)' }}
                                     >
                                       {opponentLabel(f, players.find(p => p.id === player1)?.team_id ?? 0)}
@@ -1452,7 +1452,7 @@ export default function PicksPage() {
                                       onClick={() => setPlayer2Fixture(f.id)}
                                       className="text-left px-2.5 py-1.5 rounded text-xs font-bold"
                                       style={player2Fixture === f.id
-                                        ? { background: 'var(--pop-yellow)', color: 'var(--pop-white)' }
+                                        ? { background: 'var(--pop-yellow)', color: 'var(--pop-black)' }
                                         : { background: 'rgba(255,255,255,0.05)', color: 'var(--pop-white)', border: '1px solid rgba(255,255,255,0.15)' }}
                                     >
                                       {opponentLabel(f, players.find(p => p.id === player2)?.team_id ?? 0)}
@@ -1638,7 +1638,7 @@ export default function PicksPage() {
                                     onClick={() => setBonusCardFixture(f.id)}
                                     className="text-left px-2.5 py-1.5 rounded text-xs font-bold"
                                     style={bonusCardFixture === f.id
-                                      ? { background: 'var(--pop-yellow)', color: 'var(--pop-white)' }
+                                      ? { background: 'var(--pop-yellow)', color: 'var(--pop-black)' }
                                       : { background: 'rgba(255,255,255,0.05)', color: 'var(--pop-white)', border: '1px solid rgba(255,255,255,0.15)' }}
                                   >
                                     {opponentLabel(f, bonusCardPlayer?.team_id ?? 0)}
