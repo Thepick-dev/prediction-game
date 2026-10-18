@@ -146,6 +146,7 @@ export default async function AdminLayout({
                   <a href="/admin/draft-tiers" className="block hover:text-white">Draft Tiers</a>
                   <a href="/admin/tiers" className="block hover:text-white">Tiers</a>
                   <a href="/admin/standings" className="block hover:text-white">Standings</a>
+                  <a href="/admin/rules-text" className="block hover:text-white">Rules Text</a>
                 </div>
               </div>
 

@@ -35,11 +35,15 @@ export async function GET() {
   const { data: botComp } = await supabase.from('competitions').select('bot_enabled').eq('id', competition.id).single()
   const botEnabled = !!botComp?.bot_enabled
 
-  const [{ data: rules }, { data: playerRules }, { data: exclusions }] = await Promise.all([
+  const [{ data: rules }, { data: playerRules }, { data: exclusions }, { data: textOverrides }] = await Promise.all([
     supabase.from('competition_scoring_rules').select('result_type, quartile_diff, points').eq('competition_id', competition.id),
     supabase.from('player_scoring_rules').select('event_type, points').eq('competition_id', competition.id),
     supabase.from('all_or_nothing_exclusions').select('reason, players(name)'),
+    supabase.from('rules_text_overrides').select('section_key, content'),
   ])
+
+  const rulesTextOverrides: Record<string, string> = {}
+  textOverrides?.forEach(o => { rulesTextOverrides[o.section_key] = o.content })
 
   // Same reasoning as everywhere else this pattern shows up — its own
   // isolated lookup, only run when there's actually a player nominated, so
@@ -65,5 +69,7 @@ export async function GET() {
     bankerMultiplier: mechanics.bankerMultiplier,
     allOrNothingEnabled: mechanics.allOrNothingEnabled,
     bonusCardMaxPlays: mechanics.bonusCardMaxPlays,
+    autopickMultiplier: mechanics.autopickMultiplier,
+    rulesTextOverrides,
   })
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { RULES_TEXT } from '../app/lib/rulesText'
+import { resolveRulesText } from '../app/lib/rulesTextOverrides'
 
 interface RulesModalProps {
   onClose: () => void
@@ -24,6 +24,8 @@ export default function RulesModal({ onClose }: RulesModalProps) {
   const [bankerMultiplier, setBankerMultiplier] = useState(2)
   const [allOrNothingEnabled, setAllOrNothingEnabled] = useState(true)
   const [bonusCardMaxPlays, setBonusCardMaxPlays] = useState(1)
+  const [rulesTextOverrides, setRulesTextOverrides] = useState<Record<string, string>>({})
+  const rt = resolveRulesText(rulesTextOverrides)
 
   const diffs = [-3, -2, -1, 0, 1, 2, 3]
   const diffLabels = ['3↓', '2↓', '1↓', '=', '1↑', '2↑', '3↑']
@@ -59,6 +61,7 @@ export default function RulesModal({ onClose }: RulesModalProps) {
       setBankerMultiplier(data.bankerMultiplier ?? 2)
       setAllOrNothingEnabled(data.allOrNothingEnabled ?? true)
       setBonusCardMaxPlays(data.bonusCardMaxPlays ?? 1)
+      setRulesTextOverrides(data.rulesTextOverrides ?? {})
     } catch {
       // leave defaults in place
     }
@@ -86,33 +89,33 @@ export default function RulesModal({ onClose }: RulesModalProps) {
             <>
               <section>
                 <h3 className="pop-headline text-sm mb-2">The Competition</h3>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.competition[0]}</p>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.competition[1]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.competition[0]}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.competition[1]}</p>
               </section>
 
               <section>
                 <h3 className="pop-headline text-sm mb-2">The Tier Draft</h3>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.tierDraft[0]}</p>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.tierDraft[1]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.tierDraft[0]}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.tierDraft[1]}</p>
               </section>
 
               <section>
                 <h3 className="pop-headline text-sm mb-2">Weekly Picks</h3>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.weeklyPicks[0]}</p>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.weeklyPicks[1]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.weeklyPicks[0]}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.weeklyPicks[1]}</p>
               </section>
 
               <section>
                 <h3 className="pop-headline text-sm mb-2">Your Picks Stay Private</h3>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.pickPrivacy[0]}</p>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.pickPrivacy[1]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.pickPrivacy[0]}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.pickPrivacy[1]}</p>
               </section>
 
               {bankerEnabled && (
                 <section>
                   <h3 className="pop-headline text-sm mb-2">The Banker</h3>
                   <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                    {bankerMultiplier === 2 ? RULES_TEXT.banker[0] :
+                    {bankerMultiplier === 2 ? rt.banker[0] :
                       `Two bankers per competition. A banker multiplies your entire gameweek score by ${bankerMultiplier}x — team and both players. Declare it with your pick. Unused bankers are worth nothing. Bankers are never applied to autopicks.`}
                   </p>
                 </section>
@@ -121,8 +124,8 @@ export default function RulesModal({ onClose }: RulesModalProps) {
               {allOrNothingEnabled && (
                 <section>
                   <h3 className="pop-headline text-sm mb-2">All or Nothing</h3>
-                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.allOrNothing[0]}</p>
-                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.allOrNothing[1]}</p>
+                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.allOrNothing[0]}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.allOrNothing[1]}</p>
                   {exclusions.length > 0 && (
                     <p className="text-xs leading-relaxed mt-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
                       <strong style={{ color: 'rgba(255,255,255,0.7)' }}>Excluded players:</strong> {exclusions.map(e => e.name).join(', ')}.
@@ -135,50 +138,50 @@ export default function RulesModal({ onClose }: RulesModalProps) {
                 <section>
                   <h3 className="pop-headline text-sm mb-2">{bonusCardName}</h3>
                   <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                    {bonusCardMaxPlays === 1 ? RULES_TEXT.bonusCard[0] :
+                    {bonusCardMaxPlays === 1 ? rt.bonusCard[0] :
                       `Some competitions have a Bonus Card — one or more nominated players, chosen by the admin, that every entrant can play up to ${bonusCardMaxPlays} times across the whole competition, in any gameweeks of their choosing, up until that gameweek's normal deadline.`}
                   </p>
-                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[1]}</p>
-                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[2]}</p>
-                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.bonusCard[3]}</p>
+                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.bonusCard[1]}</p>
+                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.bonusCard[2]}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.bonusCard[3]}</p>
                 </section>
               )}
 
               {botEnabled && (
                 <section>
                   <h3 className="pop-headline text-sm mb-2">🤖 Futzy</h3>
-                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.futzy[0]}</p>
-                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.futzy[1]}</p>
+                  <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.futzy[0]}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.futzy[1]}</p>
                 </section>
               )}
 
               <section>
                 <h3 className="pop-headline text-sm mb-2">🟨🟥 Yellow &amp; Red Cards</h3>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.discipline[0]}</p>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.discipline[1]}</p>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.discipline[2]}</p>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.discipline[3]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.discipline[0]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.discipline[1]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.discipline[2]}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.discipline[3]}</p>
               </section>
 
               <section>
                 <h3 className="pop-headline text-sm mb-2">Autopick</h3>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[0]}</p>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[1]}</p>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[2]}</p>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[3]}</p>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.autopick[4]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.autopick[0]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.autopick[1]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.autopick[2]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.autopick[3]}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.autopick[4]}</p>
               </section>
 
               <section>
                 <h3 className="pop-headline text-sm mb-2">Quartiles</h3>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.quartiles[0]}</p>
-                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.quartiles[1]}</p>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.quartiles[2]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.quartiles[0]}</p>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.quartiles[1]}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.quartiles[2]}</p>
               </section>
 
               <section>
                 <h3 className="pop-headline text-sm mb-3">Scoring</h3>
-                <p className="text-sm leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.7)' }}>{RULES_TEXT.scoringIntro}</p>
+                <p className="text-sm leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.scoringIntro}</p>
 
                 <div style={{ overflowX: 'auto' }}>
                   <table className="w-full text-xs" style={{ border: '1px solid rgba(255,255,255,0.12)' }}>
@@ -215,7 +218,7 @@ export default function RulesModal({ onClose }: RulesModalProps) {
               <section>
                 <h3 className="pop-headline text-sm mb-2">Tiebreakers</h3>
                 <ol className="text-sm leading-relaxed list-decimal pl-5 space-y-1" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                  {RULES_TEXT.tiebreakers.map(t => <li key={t}>{t}</li>)}
+                  {rt.tiebreakers.map(t => <li key={t}>{t}</li>)}
                 </ol>
               </section>
             </>

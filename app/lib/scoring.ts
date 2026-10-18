@@ -46,10 +46,11 @@ export type CompetitionMechanicsConfig = {
   bonusCardMaxPlays: number
   bonusCardPlayerUseCap: number
   // Set once at competition creation only (same convention as every other
-  // field here) — true halves an autopicked pick's points. Never true for
-  // an existing competition unless its creator explicitly chose it; no
-  // edit path exists after creation, same as banker/AoN/Bonus Card above.
-  halveAutopickPoints: boolean
+  // field here) — multiplies an autopicked pick's points (team + both
+  // players). 1 = full points (the default, matching every competition
+  // before this existed), 0.5 = half, 0 = none. No edit path exists after
+  // creation, same as banker/AoN/Bonus Card above.
+  autopickMultiplier: number
 }
 
 // Its own isolated, defensive fetch — same convention as every other
@@ -63,7 +64,7 @@ export type CompetitionMechanicsConfig = {
 export async function getCompetitionMechanicsConfig(supabase: SupabaseClient, competitionId: string): Promise<CompetitionMechanicsConfig> {
   const { data } = await supabase
     .from('competitions')
-    .select('banker_enabled, banker_multiplier, all_or_nothing_enabled, bonus_card_points_multiplier, bonus_card_max_plays, bonus_card_player_use_cap, halve_autopick_points')
+    .select('banker_enabled, banker_multiplier, all_or_nothing_enabled, bonus_card_points_multiplier, bonus_card_max_plays, bonus_card_player_use_cap, autopick_score_multiplier, halve_autopick_points')
     .eq('id', competitionId)
     .maybeSingle()
   return {
@@ -73,7 +74,11 @@ export async function getCompetitionMechanicsConfig(supabase: SupabaseClient, co
     bonusCardPointsMultiplier: data?.bonus_card_points_multiplier ?? 1,
     bonusCardMaxPlays: data?.bonus_card_max_plays ?? 1,
     bonusCardPlayerUseCap: data?.bonus_card_player_use_cap ?? 1,
-    halveAutopickPoints: data?.halve_autopick_points ?? false,
+    // autopick_score_multiplier supersedes the older halve_autopick_points
+    // boolean (built earlier this session, before admin could set a
+    // specific amount) — falls back to it so a competition created in
+    // that narrow window keeps scoring exactly as it did.
+    autopickMultiplier: data?.autopick_score_multiplier ?? (data?.halve_autopick_points ? 0.5 : 1),
   }
 }
 
@@ -475,7 +480,7 @@ export async function calculateScoring(supabase: SupabaseClient, gameweek_id: st
   const quartileMap: Record<number, number> = {}
   quartiles?.forEach(q => { quartileMap[q.team_id] = q.quartile })
 
-  const pointsToUpsert = computePickScores(gameweek_id, picks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players, mechanics.bankerMultiplier, mechanics.halveAutopickPoints ? 0.5 : 1)
+  const pointsToUpsert = computePickScores(gameweek_id, picks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players, mechanics.bankerMultiplier, mechanics.autopickMultiplier)
 
   const { error: upsertError } = await supabase
     .from('points')
@@ -631,7 +636,7 @@ export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_
   const quartileMap: Record<number, number> = {}
   assignments?.forEach(a => { quartileMap[a.team_id] = a.tier })
 
-  const realRows = computePickScores(gameweek_id, picks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players, mechanics.bankerMultiplier, mechanics.halveAutopickPoints ? 0.5 : 1)
+  const realRows = computePickScores(gameweek_id, picks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players, mechanics.bankerMultiplier, mechanics.autopickMultiplier)
 
   const pickedUserIds = new Set(picks.map(p => p.user_id))
   const missingUsers = (entries ?? []).filter(e => !pickedUserIds.has(e.user_id) && !suspendedUserIds.has(e.user_id))
@@ -667,7 +672,7 @@ export async function previewGameweekScoring(supabase: SupabaseClient, gameweek_
     }]
   })
 
-  const provisionalRows = computePickScores(gameweek_id, provisionalPicks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players, mechanics.bankerMultiplier, mechanics.halveAutopickPoints ? 0.5 : 1)
+  const provisionalRows = computePickScores(gameweek_id, provisionalPicks, fixtures, quartileMap, scoringRules, playerScoringRules, matchEvents, players, mechanics.bankerMultiplier, mechanics.autopickMultiplier)
 
   const bonusCardRows = computeBonusCardPoints(bonusCardPlays ?? [], fixtures, players, matchEvents, playerScoringRules, mechanics.bonusCardPointsMultiplier)
 

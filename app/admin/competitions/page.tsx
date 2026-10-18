@@ -106,6 +106,10 @@ export default async function CompetitionsPage({
     // mid-season. Two-step insert: try with these new columns first, and
     // if that fails because the SQL hasn't been run yet, fall back to a
     // plain insert rather than failing to create the competition at all.
+    // Not `|| 1` here — that would silently turn a deliberate 0 (autopick
+    // scores nothing at all, a real choice an admin might want) back into
+    // 1, the one value that trap can't be allowed to touch.
+    const rawAutopickMultiplier = Number(formData.get('autopick_score_multiplier'))
     const mechanicsFields = {
       banker_enabled: formData.get('banker_enabled') === 'on',
       banker_multiplier: Number(formData.get('banker_multiplier')) || 2,
@@ -113,7 +117,7 @@ export default async function CompetitionsPage({
       bonus_card_points_multiplier: Number(formData.get('bonus_card_points_multiplier')) || 1,
       bonus_card_max_plays: Number(formData.get('bonus_card_max_plays')) || 1,
       bonus_card_player_use_cap: Number(formData.get('bonus_card_player_use_cap')) || 1,
-      halve_autopick_points: formData.get('halve_autopick_points') === 'on',
+      autopick_score_multiplier: Number.isFinite(rawAutopickMultiplier) ? rawAutopickMultiplier : 1,
     }
 
     let { data: comp, error } = await supabase
@@ -526,13 +530,20 @@ export default async function CompetitionsPage({
             </div>
 
             <div className="border rounded p-3 col-span-2">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="checkbox" name="halve_autopick_points" />
-                Halve points earned on autopicks
-              </label>
+              <label className="block text-xs text-gray-500 mb-1">Autopick points multiplier</label>
+              <input
+                name="autopick_score_multiplier"
+                type="number"
+                step="0.1"
+                min="0"
+                defaultValue={1}
+                className="w-full border rounded px-3 py-2 text-sm"
+                style={{ maxWidth: 160 }}
+              />
               <p className="text-xs text-gray-500 mt-1">
-                If someone misses a deadline and the site picks for them, that pick scores half the
-                usual points for team + both players. Off by default — picks made in time always
+                If someone misses a deadline and the site picks for them, that pick's points (team +
+                both players) are multiplied by this. 1 = full points (the default — same as every
+                competition before this existed). 0.5 = half. 0 = none. Picks made in time always
                 score in full either way.
               </p>
             </div>
