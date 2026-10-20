@@ -4,17 +4,6 @@
 // duplicated again in app/leaderboard/full/page.tsx; a third copy for the
 // Wall would have been one duplication too many.
 
-// The compact leaderboard's row (and its matching share ticket) cut every
-// name to a fixed number of characters so names read at a large, striking
-// size without the row ever widening to fit them. Array.from (not a plain
-// .slice) walks by whole UTF-16 code points, so a name containing an emoji
-// is cut cleanly between characters rather than potentially slicing a
-// surrogate pair in half and rendering a broken glyph.
-export function truncateDisplayName(name: string, maxChars = 6): string {
-  const chars = Array.from(name)
-  return chars.length <= maxChars ? name : chars.slice(0, maxChars).join('')
-}
-
 // The average total_points across everyone who has a `points` row for
 // that gameweek — a gameweek with no scored picks yet simply doesn't
 // appear in the result.

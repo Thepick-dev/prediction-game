@@ -12,8 +12,9 @@ import BotAvatar from '../../components/BotAvatar'
 import FutzyExplainerLink from '../../components/FutzyExplainerLink'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import { computeTopDog } from '../lib/topDog'
-import { computeAvgByGw, computeStreaks, truncateDisplayName } from '../lib/leaderboardBadges'
+import { computeAvgByGw, computeStreaks } from '../lib/leaderboardBadges'
 import ColumnHintPopover from '../../components/ColumnHintPopover'
+import FitName from '../../components/FitName'
 import { computeCompetitionAwards, resolveWinners, awardWinnerNames, type CompetitionAward } from '../lib/awards'
 import PersonalSeasonShareCard from '../../components/PersonalSeasonShareCard'
 import LeaderboardShareCard from '../../components/LeaderboardShareCard'
@@ -1262,12 +1263,10 @@ export default function LeaderboardPage() {
                 colour2: kitByUser[p.user_id].colour2,
                 colour3: kitByUser[p.user_id].colour3,
               } : null,
-              is_reigning_champ: p.is_reigning_champ,
-              is_vibes_champion: p.is_vibes_champion,
-              is_top_dog: topDogUserId === p.user_id && topDogReignWeeks > 0,
-              streak: streakByUser[p.user_id] ?? null,
-              bankers_used: bankersUsedByPlayer[p.user_id] ?? 0,
               rank_delta: previousRankByUser[p.user_id] != null ? previousRankByUser[p.user_id] - (i + 1) : null,
+              bankers_remaining: Math.max(0, 2 - (bankersUsedByPlayer[p.user_id] ?? 0)),
+              team_points: Math.round(p.team_points),
+              player_points: Math.round(p.player_points),
             }))}
             onClose={() => setShowShare(false)}
             popArt
@@ -1393,18 +1392,18 @@ export default function LeaderboardPage() {
               <table className="w-full" style={{ fontSize: '14px', tableLayout: 'fixed' }}>
                 <thead>
                   <tr className="text-left" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-                    <th className="py-1.5 pl-2 pr-1 uppercase tracking-wider w-[13%] sm:w-[7%]">#</th>
-                    <th className="py-1.5 px-1 uppercase tracking-wider w-[57%] sm:w-[36%]">Player</th>
-                    <th className="hidden sm:table-cell py-1.5 px-1 text-right uppercase tracking-wider sm:w-[12%]">
+                    <th className="py-1.5 pl-2 pr-0.5 uppercase tracking-wider w-[8%]">#</th>
+                    <th className="py-1.5 px-1 uppercase tracking-wider w-[42%]">Player</th>
+                    <th className="py-1.5 px-0.5 text-right uppercase tracking-wider w-[11%]">
                       <ColumnHintPopover abbr="Bnk" full="Bankers Remaining" hint="How many of your 2 bankers you've got left to use this season." />
                     </th>
-                    <th className="hidden sm:table-cell py-1.5 px-1 text-right uppercase tracking-wider sm:w-[12%]">
+                    <th className="py-1.5 px-0.5 text-right uppercase tracking-wider w-[12%]">
                       <ColumnHintPopover abbr="Team" full="Team Points" hint="Points earned from your picked teams' results all season, before banker doubling or the Bonus Card." />
                     </th>
-                    <th className="hidden sm:table-cell py-1.5 px-1 text-right uppercase tracking-wider sm:w-[12%]">
+                    <th className="py-1.5 px-0.5 text-right uppercase tracking-wider w-[12%]">
                       <ColumnHintPopover abbr="Plyr" full="Player Points" hint="Points earned from your picked players' goals and assists all season, before banker doubling or the Bonus Card." />
                     </th>
-                    <th className="py-1.5 pl-1 pr-2 text-right uppercase tracking-wider font-black w-[30%] sm:w-[21%]">Points</th>
+                    <th className="py-1.5 pl-1 pr-2 text-right uppercase tracking-wider font-black w-[15%]">Points</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1421,36 +1420,41 @@ export default function LeaderboardPage() {
                           className="cursor-pointer hover:bg-white/[0.04] transition-colors"
                           style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: isOwnRow ? 'rgba(160,0,250,0.06)' : undefined }}
                         >
-                          <td className="py-1.5 pl-2 pr-1 font-black" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                            <div className="flex flex-col leading-none">
-                              <span>{index + 1}</span>
-                              {rankDelta != null && rankDelta !== 0 && (
-                                <span className="font-mono" style={{ fontSize: '8px', color: rankDelta > 0 ? 'var(--pop-green)' : 'var(--pop-red)' }} title={`${rankDelta > 0 ? 'Up' : 'Down'} ${Math.abs(rankDelta)} since last gameweek`}>
-                                  {rankDelta > 0 ? '▲' : '▼'}{Math.abs(rankDelta)}
-                                </span>
-                              )}
-                            </div>
+                          <td className="py-2 pl-2 pr-0.5 font-black" style={{ color: 'var(--pop-white)' }}>
+                            {index + 1}
                           </td>
                           <td className="py-2 px-1 font-black" style={{ maxWidth: 0 }}>
-                            <div className="flex items-center gap-2">
-                              {player.is_bot ? <BotAvatar size={42} /> : (
+                            <div className="flex items-center gap-1.5">
+                              {player.is_bot ? <BotAvatar size={36} /> : (
                                 <span className="shrink-0">
                                   <KitBadge
                                     pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
                                     colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                                     colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
                                     colour3={kitByUser[player.user_id]?.colour3}
-                                    size={42}
+                                    size={36}
                                   />
                                 </span>
                               )}
                               <span className="inline-flex flex-col leading-tight min-w-0 flex-1">
-                                {/* Cut to a fixed character count (not CSS truncate) so every
-                                    name reads at this large a size without widening the row —
-                                    the full name is never actually hidden, it's one tap away
-                                    in this row's own dropdown. */}
-                                <span className="pop-name inline-flex items-center gap-1 text-xl sm:text-2xl truncate" style={{ color: isOwnRow ? 'var(--pop-pink)' : 'var(--pop-white)' }}>
-                                  {truncateDisplayName(player.display_name)}
+                                {/* Full name, no cut — FitName shrinks its own font-size just
+                                    enough to keep a long one on one line within whatever width
+                                    this column actually has, rather than hiding part of it. A
+                                    faint glow echoes the page's own hero title treatment. */}
+                                <span className="flex items-center gap-1 min-w-0">
+                                  <FitName
+                                    baseSize={24}
+                                    minSize={13}
+                                    className="pop-name"
+                                    style={{
+                                      color: isOwnRow ? 'var(--pop-pink)' : 'var(--pop-white)',
+                                      textShadow: isOwnRow
+                                        ? '0 0 4px rgba(160,0,250,0.55), 0 0 12px rgba(160,0,250,0.3)'
+                                        : '0 0 4px rgba(0,174,239,0.5), 0 0 12px rgba(0,174,239,0.28)',
+                                    }}
+                                  >
+                                    {player.display_name}
+                                  </FitName>
                                   {player.is_bot && <FutzyExplainerLink popArt />}
                                 </span>
                                 {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
@@ -1463,23 +1467,17 @@ export default function LeaderboardPage() {
                               <span className="shrink-0" style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                             </div>
                           </td>
-                          <td className="hidden sm:table-cell py-2 px-1 text-right font-mono" style={{ color: 'rgba(255,255,255,0.7)', fontVariantNumeric: 'tabular-nums', fontSize: '15px' }}>
+                          <td className="py-2 px-0.5 text-right font-mono font-bold" style={{ color: 'var(--pop-orange)', fontVariantNumeric: 'tabular-nums', fontSize: '15px' }}>
                             {Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))}
                           </td>
-                          <td className="hidden sm:table-cell py-2 px-1 text-right font-mono" style={{ color: 'rgba(255,255,255,0.7)', fontVariantNumeric: 'tabular-nums', fontSize: '15px' }}>
+                          <td className="py-2 px-0.5 text-right font-mono font-bold" style={{ color: 'var(--pop-blue)', fontVariantNumeric: 'tabular-nums', fontSize: '15px' }}>
                             {Math.round(player.team_points)}
                           </td>
-                          <td className="hidden sm:table-cell py-2 px-1 text-right font-mono" style={{ color: 'rgba(255,255,255,0.7)', fontVariantNumeric: 'tabular-nums', fontSize: '15px' }}>
+                          <td className="py-2 px-0.5 text-right font-mono font-bold" style={{ color: 'var(--pop-yellow)', fontVariantNumeric: 'tabular-nums', fontSize: '15px' }}>
                             {Math.round(player.player_points)}
                           </td>
-                          <td className="py-2 pl-1 pr-2 text-right font-black font-mono" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', fontSize: '23px' }}>
+                          <td className="py-2 pl-1 pr-2 text-right font-black font-mono" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', fontSize: '22px' }}>
                             {player.total_points}
-                            {/* Bankers/Team/Player only get their own columns from sm:
-                                upward (see thead) — below that, the same numbers fold into
-                                this one line so they're never lost, just not full columns. */}
-                            <div className="sm:hidden font-sans font-semibold normal-case" style={{ fontSize: '8px', letterSpacing: '0.3px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.3 }}>
-                              Bnk {Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} · Team {Math.round(player.team_points)} · Plyr {Math.round(player.player_points)}
-                            </div>
                           </td>
                         </tr>
                         {expandedUser === player.user_id && (
@@ -1505,6 +1503,14 @@ export default function LeaderboardPage() {
                                     on a bare icon + hover tooltip. */}
                                 <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0" style={{ paddingTop: 2 }}>
                                   {isOwnRow && <span className="pop-badge pop-badge--pink px-2 py-1 text-[9px]">You</span>}
+                                  {rankDelta != null && rankDelta !== 0 && (
+                                    <span
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase"
+                                      style={{ background: rankDelta > 0 ? 'rgba(204,250,0,0.12)' : 'rgba(250,0,60,0.12)', color: rankDelta > 0 ? 'var(--pop-green)' : 'var(--pop-red)' }}
+                                    >
+                                      {rankDelta > 0 ? '▲' : '▼'} {Math.abs(rankDelta)} Since Last GW
+                                    </span>
+                                  )}
                                   {(bankersUsedByPlayer[player.user_id] ?? 0) > 0 && (
                                     <span className="pop-badge pop-badge--orange px-2 py-1 text-[9px]" title={`Bankers used: ${bankersUsedByPlayer[player.user_id]} of 2`}>
                                       Banker {bankersUsedByPlayer[player.user_id]}/2
@@ -1859,10 +1865,10 @@ export default function LeaderboardPage() {
                 <div className="flex items-center gap-2.5"><span className="pop-badge px-1.5 py-0.5 text-[10px] font-black uppercase" style={{ background: 'var(--pop-red)', color: '#fff' }}>Suspended</span> Missing a gameweek for a card — click for details</div>
                 <div className="flex items-center gap-2.5"><FlameIcon size={20} /> On a streak — 3+ weeks above average</div>
                 <div className="flex items-center gap-2.5"><TopDogIcon size={20} /> Top Dog — current leader, number = weeks leading</div>
-                <div className="flex items-center gap-2.5"><span className="font-mono font-black" style={{ color: 'var(--pop-green)' }}>▲2</span> Moved up 2 places since last gameweek (▼ = down)</div>
-                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'rgba(255,255,255,0.75)' }}>Bnk</span> Bankers Remaining — how many of your 2 bankers are left (desktop column, or the small line under your points on mobile)</div>
-                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'rgba(255,255,255,0.75)' }}>Team</span> Team Points — from your picked teams' results all season, before banker doubling or the Bonus Card</div>
-                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'rgba(255,255,255,0.75)' }}>Plyr</span> Player Points — from your picked players' goals/assists all season, before banker doubling or the Bonus Card</div>
+                <div className="flex items-center gap-2.5"><span className="font-mono font-black" style={{ color: 'var(--pop-green)' }}>▲2</span> Moved up 2 places since last gameweek (▼ = down) — tap a row to see it</div>
+                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'var(--pop-orange)' }}>Bnk</span> Bankers Remaining — how many of your 2 bankers are left</div>
+                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'var(--pop-blue)' }}>Team</span> Team Points — from your picked teams' results all season, before banker doubling or the Bonus Card</div>
+                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'var(--pop-yellow)' }}>Plyr</span> Player Points — from your picked players' goals/assists all season, before banker doubling or the Bonus Card</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — deadline missed, computer picked</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span> Banker declared that gameweek</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-blue)', color: 'var(--pop-black)' }}><BoltIcon size={11} color="var(--pop-black)" /> AoN</span> All or Nothing played, result pending</div>
@@ -1904,6 +1910,9 @@ export default function LeaderboardPage() {
                 colour3: kitByUser[p.user_id].colour3,
               } : null,
               rank_delta: previousRankByUser[p.user_id] != null ? previousRankByUser[p.user_id] - (i + 1) : null,
+              bankers_remaining: Math.max(0, 2 - (bankersUsedByPlayer[p.user_id] ?? 0)),
+              team_points: Math.round(p.team_points),
+              player_points: Math.round(p.player_points),
             }))}
             onClose={() => setShowShare(false)}
             popArt
