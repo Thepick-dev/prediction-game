@@ -46,15 +46,29 @@ const AON_BG = { pending: 'var(--pop-pink)', success: 'var(--pop-green)', failed
 const AON_FG = { pending: '#fff', success: 'var(--pop-black)', failed: '#fff' } as const
 const AON_LABEL = { pending: 'AoN', success: 'AoN ✓', failed: 'AoN ✕' } as const
 
-function playerLine(name: string, points: number | null, goal: boolean, assist: boolean, showScoring: boolean) {
+function playerLine(name: string, points: number | null, goal: boolean, assist: boolean, showScoring: boolean, aonOutcome?: 'pending' | 'success' | 'failed') {
   return (
-    <div className="flex items-center gap-1 min-w-0">
+    <div className="flex items-center gap-1 flex-wrap min-w-0">
       <FitName baseSize={11} minSize={7} className="uppercase font-bold" style={{ color: '#fff' }}>{name}</FitName>
       {goal && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '8px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
       {assist && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '8px', background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
+      {/* Sits directly on whichever player it's actually on — previously a
+          generic line under the row's total points, with no way to tell
+          which of the two picks it applied to. */}
+      {aonOutcome && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '8px', background: AON_BG[aonOutcome], color: AON_FG[aonOutcome] }}>{AON_LABEL[aonOutcome]}</span>}
       {showScoring && <span className="shrink-0 font-mono" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>({points ?? 0})</span>}
     </div>
   )
+}
+
+// "Harvey Barnes" -> "HB" — initials of the nominated Bonus Card player
+// (the same player for whoever plays it, never one the user picks
+// themselves), for a compact tab next to Banker rather than the card's
+// full name taking its own line under the points total.
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+  return (parts[0] ?? '').slice(0, 2).toUpperCase()
 }
 
 // Same visual language as the Leaderboard table (big glowing names, real
@@ -72,8 +86,8 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
   const [sharing, setSharing] = useState(false)
   const [shareError, setShareError] = useState<string | null>(null)
 
-  const winnerRow = rows.find(r => r.isWinner)
-  const live = !winnerRow && showScoring && rows.some(r => (r.totalPoints ?? 0) > 0)
+  const final = rows.some(r => r.isWinner)
+  const live = !final && showScoring && rows.some(r => (r.totalPoints ?? 0) > 0)
 
   async function handleShare() {
     if (!cardRef.current) return
@@ -99,30 +113,9 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
           {competitionName} — GW{gameweekNumber}
         </p>
 
-        {winnerRow ? (
-          <div className="flex items-center gap-3 mb-4 rounded-2xl px-4 py-3 flex-wrap" style={{ background: 'linear-gradient(135deg, rgba(255,210,63,0.2), rgba(255,210,63,0.04))', border: '1px solid rgba(255,210,63,0.45)' }}>
-            <span style={{ fontSize: '36px', lineHeight: 1 }}>🏆</span>
-            <span className="shrink-0">
-              {winnerRow.isBot ? <BotAvatar size={44} /> : (
-                <KitBadge pattern={winnerRow.kit?.pattern ?? 'solid'} colour1={winnerRow.kit?.colour1 ?? '#1E4D6B'} colour2={winnerRow.kit?.colour2 ?? '#F5ECD9'} colour3={winnerRow.kit?.colour3} size={44} />
-              )}
-            </span>
-            <div className="min-w-0">
-              <p className="font-black uppercase" style={{ fontSize: '11px', letterSpacing: '0.08em', color: '#FFD23F' }}>GW{gameweekNumber} Winner</p>
-              <FitName baseSize={26} minSize={16} className="pop-name" style={{ color: '#fff', textShadow: '0 0 6px rgba(255,210,63,0.7), 0 0 20px rgba(255,210,63,0.4)' }}>
-                {winnerRow.name}
-              </FitName>
-            </div>
-            <div className="text-right" style={{ marginLeft: 'auto' }}>
-              <p className="font-black font-mono" style={{ fontSize: '36px', lineHeight: 1, color: '#FFD23F', textShadow: '0 0 6px rgba(255,210,63,0.7), 0 0 20px rgba(255,210,63,0.4)' }}>{winnerRow.totalPoints}</p>
-              <p className="font-black uppercase" style={{ fontSize: '9px', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.5)' }}>points</p>
-            </div>
-          </div>
-        ) : (
-          <p className="font-black uppercase mb-3" style={{ fontSize: '12px', letterSpacing: '0.04em', color: live ? '#FA6100' : 'rgba(255,255,255,0.4)' }}>
-            {live ? '🔴 Live — scores updating' : '🔒 Picks locked in'}
-          </p>
-        )}
+        <p className="font-black uppercase mb-3" style={{ fontSize: '12px', letterSpacing: '0.04em', color: final ? 'var(--pop-green)' : live ? '#FA6100' : 'rgba(255,255,255,0.4)' }}>
+          {final ? '✅ Final Result' : live ? '🔴 Live — scores updating' : '🔒 Picks locked in'}
+        </p>
 
         <table className="w-full" style={{ fontSize: '12px', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
           <thead>
@@ -167,18 +160,30 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                 ) : (
                   <>
                     <td className="py-2 px-1 align-top">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-wrap">
                         <TeamCrest teamId={row.teamId} teamName={row.team} size={16} />
-                        <span className="font-black uppercase truncate" style={{ color: 'var(--pop-blue)', fontSize: '11px' }}>{row.team}</span>
+                        <span className="font-black uppercase shrink-0" style={{ color: 'var(--pop-blue)', fontSize: '11px' }}>{row.team}</span>
                         {row.isBanker && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '8px', background: 'var(--pop-orange)', color: '#fff' }}>★B</span>}
+                        {/* Compact initials+points tab, same treatment as
+                            Banker, instead of the card's full name taking
+                            its own line under the points total. */}
+                        {row.bonusCard && (
+                          <span
+                            className="shrink-0 px-1 rounded font-black"
+                            style={{ fontSize: '8px', background: 'var(--pop-blue)', color: 'var(--pop-black)' }}
+                            title={bonusCardName}
+                          >
+                            {initials(row.bonusCard.playerName)}{showScoring && row.bonusCard.points != null ? `: ${row.bonusCard.points}` : ''}
+                          </span>
+                        )}
                       </div>
                       <div className="normal-case font-bold font-mono" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)' }}>
                         {row.opponentCode && `vs ${row.opponentCode} · `}{showScoring ? `${row.teamPoints ?? 0} pts` : 'Pending'}
                       </div>
                     </td>
                     <td className="py-2 px-1 align-top">
-                      {playerLine(row.player1Name, row.player1Points, row.player1Goal, row.player1Assist, showScoring)}
-                      {playerLine(row.player2Name, row.player2Points, row.player2Goal, row.player2Assist, showScoring)}
+                      {playerLine(row.player1Name, row.player1Points, row.player1Goal, row.player1Assist, showScoring, row.aon?.onPlayer1 ? row.aon.outcome : undefined)}
+                      {playerLine(row.player2Name, row.player2Points, row.player2Goal, row.player2Assist, showScoring, row.aon?.onPlayer2 ? row.aon.outcome : undefined)}
                     </td>
                   </>
                 )}
@@ -186,14 +191,6 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                   <span className="font-black font-mono" style={{ fontSize: '20px', color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums' }}>
                     {row.suspended ? 0 : showScoring ? row.totalPoints ?? 0 : 'TBD'}
                   </span>
-                  {!row.suspended && row.aon && (row.aon.onPlayer1 || row.aon.onPlayer2) && (
-                    <div className="font-black uppercase" style={{ fontSize: '8px', color: AON_BG[row.aon.outcome] }}>{AON_LABEL[row.aon.outcome]}</div>
-                  )}
-                  {!row.suspended && row.bonusCard && (
-                    <div className="normal-case font-bold" style={{ fontSize: '8px', color: 'var(--pop-blue)' }}>
-                      {bonusCardName}{showScoring && row.bonusCard.points != null && ` +${row.bonusCard.points}`}
-                    </div>
-                  )}
                 </td>
               </tr>
             ))}

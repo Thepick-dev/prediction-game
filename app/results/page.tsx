@@ -83,6 +83,12 @@ export default function ResultsPage() {
   const [selectedGw, setSelectedGw] = useState<string | null>(null)
   const [picks, setPicks] = useState<PickRow[]>([])
   const [pointsData, setPointsData] = useState<PointsRow[]>([])
+  // Every points/bonus-card row for the whole competition, not just the
+  // selected gameweek — used only to order rows by actual Leaderboard
+  // position (see sortedPicks below), fetched once since it doesn't
+  // depend on which gameweek is being viewed.
+  const [seasonPointsRows, setSeasonPointsRows] = useState<{ user_id: string; gameweek_id: string; total_points: number | null }[]>([])
+  const [seasonBonusCardRows, setSeasonBonusCardRows] = useState<{ user_id: string; points: number | null }[]>([])
   // All or Nothing nominations for the selected gameweek, keyed by user —
   // only ever fetched below the same "deadline passed" gate as picks
   // themselves, same hidden-until-deadline rule.
@@ -206,6 +212,17 @@ export default function ResultsPage() {
     setPlayersBare(playerBareMap)
     setBonusCardName(bonusCardDisplayName(comp.bonus_card_name, comp.bonus_card_player_id != null ? playerMap[comp.bonus_card_player_id] : null))
     setGameweeks(gws ?? [])
+
+    // Its own isolated request, same reasoning as everywhere else on this
+    // page — ordering rows by Leaderboard position is a nice-to-have, so a
+    // problem fetching it should never take down the rest of the page,
+    // just leave rows in whatever order they loaded in.
+    const [{ data: seasonPoints }, { data: seasonBonusCard }] = await Promise.all([
+      supabase.from('points').select('user_id, gameweek_id, total_points').eq('competition_id', comp.id),
+      supabase.from('bonus_card_plays').select('user_id, points').eq('competition_id', comp.id),
+    ])
+    setSeasonPointsRows(seasonPoints ?? [])
+    setSeasonBonusCardRows(seasonBonusCard ?? [])
 
     if (gws && gws.length > 0) {
       // Default to the most recent gameweek whose deadline has already
@@ -376,15 +393,43 @@ export default function ResultsPage() {
   const goalPlayers = new Set(matchEvents.filter(e => e.event_type === 'goal').map(e => e.player_id))
   const assistPlayers = new Set(matchEvents.filter(e => e.event_type === 'assist').map(e => e.player_id))
 
-  const sortedPicks = [...picks].sort((a, b) => {
-    const apts = pointsMap[a.id]?.total_points ?? 0
-    const bpts = pointsMap[b.id]?.total_points ?? 0
-    return bpts - apts
+  // Cumulative season total per user — same shape as the real Leaderboard's
+  // own ranking, so row order here actually matches where someone sits on
+  // it, not just this one gameweek's score. The selected gameweek's own
+  // points row is excluded from seasonPointsRows and added back from
+  // pointsMap instead, since pointsMap already resolves to the live
+  // preview for a gameweek that's locked but not yet completed — using
+  // seasonPointsRows for it directly would show stale/zero points until
+  // the gameweek's marked complete, and the order wouldn't move as it's
+  // actually played, which is the whole point of doing it this way.
+  const seasonTotalByUser: Record<string, number> = {}
+  seasonPointsRows.forEach(p => {
+    if (p.gameweek_id === selectedGw) return
+    seasonTotalByUser[p.user_id] = (seasonTotalByUser[p.user_id] ?? 0) + (p.total_points ?? 0)
+  })
+  seasonBonusCardRows.forEach(b => {
+    if (b.points != null) seasonTotalByUser[b.user_id] = (seasonTotalByUser[b.user_id] ?? 0) + b.points
+  })
+  picks.forEach(p => {
+    seasonTotalByUser[p.user_id] = (seasonTotalByUser[p.user_id] ?? 0) + (pointsMap[p.id]?.total_points ?? 0)
   })
 
-  // Same "can't be crowned" rule as the season leader — GW Winner must be
-  // the top-scoring human, not simply whoever tops the sorted list.
-  const gwPotwUserId = isScored ? (sortedPicks.find(p => !isBotByUser[p.user_id])?.user_id ?? null) : null
+  const sortedPicks = [...picks].sort((a, b) => {
+    const seasonDiff = (seasonTotalByUser[b.user_id] ?? 0) - (seasonTotalByUser[a.user_id] ?? 0)
+    if (seasonDiff !== 0) return seasonDiff
+    // Tiebreak on this gameweek's own score — purely for a stable, sensible
+    // display order when two players are level on the season; it isn't
+    // the Leaderboard's own official tiebreak chain.
+    return (pointsMap[b.id]?.total_points ?? 0) - (pointsMap[a.id]?.total_points ?? 0)
+  })
+
+  // GW Winner is about who won THIS gameweek specifically, not who leads
+  // the season — a different ranking from the row order above, so it
+  // sorts by this gameweek's own points rather than reusing sortedPicks.
+  // Same "can't be crowned" rule as the season leader.
+  const gwPotwUserId = isScored
+    ? ([...picks].sort((a, b) => (pointsMap[b.id]?.total_points ?? 0) - (pointsMap[a.id]?.total_points ?? 0)).find(p => !isBotByUser[p.user_id])?.user_id ?? null)
+    : null
 
   // Autopicked/provisional entries never have a question_answer, so they're
   // naturally excluded here — the poll only reflects people who actually

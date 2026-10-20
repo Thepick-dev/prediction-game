@@ -113,6 +113,12 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true)
   const [sharingStandings, setSharingStandings] = useState(false)
   const [shareStandingsError, setShareStandingsError] = useState<string | null>(null)
+  // True only for the brief moment the standings capture is actually being
+  // taken — suppresses the "this is you" pink highlight for that one
+  // render so the shared image doesn't call out whoever happened to click
+  // the button, while the live page still highlights everyone's own row
+  // normally the rest of the time.
+  const [isCapturingShare, setIsCapturingShare] = useState(false)
   // Key and How Ties Are Split collapse by default — reference material,
   // not something most visits need open.
   const [showKey, setShowKey] = useState(false)
@@ -871,8 +877,9 @@ export default function LeaderboardPage() {
   // table, not a separately-maintained copy of it.
   async function handleShareStandings() {
     setExpandedUser(null)
+    setIsCapturingShare(true)
     await new Promise(resolve => setTimeout(resolve, 50))
-    if (!captureRef.current) return
+    if (!captureRef.current) { setIsCapturingShare(false); return }
     setSharingStandings(true)
     setShareStandingsError(null)
     try {
@@ -885,6 +892,7 @@ export default function LeaderboardPage() {
     } catch {
       setShareStandingsError('Could not generate the image — try again.')
     }
+    setIsCapturingShare(false)
     setSharingStandings(false)
   }
 
@@ -980,7 +988,7 @@ export default function LeaderboardPage() {
                     <React.Fragment key={player.user_id}>
                       <tr
                         onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
-                        style={{ cursor: 'pointer', borderBottom: 'var(--retro-px) solid rgba(255,255,255,0.15)', background: isOwnRow ? 'rgba(248,184,0,0.08)' : undefined }}
+                        style={{ cursor: 'pointer', borderBottom: 'var(--retro-px) solid rgba(255,255,255,0.15)', background: isOwnRow && !isCapturingShare ? 'rgba(248,184,0,0.08)' : undefined }}
                       >
                         <td className="py-2 pr-1" style={{ color: rankColour(index) }}>
                           {pad(index + 1, 2)}
@@ -1006,7 +1014,7 @@ export default function LeaderboardPage() {
                               {player.is_bot && <FutzyExplainerLink popArt />}
                             </span>
                             <span className="flex items-center gap-1 shrink-0" style={{ fontSize: 12 }}>
-                              {isOwnRow && <span style={{ color: 'var(--retro-gold)' }}>YOU</span>}
+                              {isOwnRow && !isCapturingShare && <span style={{ color: 'var(--retro-gold)' }}>YOU</span>}
                               {player.is_reigning_champ && <CrownIcon size={14} color="var(--retro-green)" />}
                               {player.is_vibes_champion && <ShadesIcon size={14} />}
                               {player.in_cash_pool && <PoundCoinIcon size={14} />}
@@ -1423,7 +1431,7 @@ export default function LeaderboardPage() {
                         <tr
                           onClick={() => setExpandedUser(expandedUser === player.user_id ? null : player.user_id)}
                           className="cursor-pointer hover:bg-white/[0.04] transition-colors"
-                          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: isOwnRow ? 'rgba(160,0,250,0.06)' : undefined }}
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: isOwnRow && !isCapturingShare ? 'rgba(160,0,250,0.06)' : undefined }}
                         >
                           <td className="py-2 pl-2 pr-0.5 font-black" style={{ color: 'var(--pop-white)' }}>
                             {index + 1}
@@ -1457,8 +1465,8 @@ export default function LeaderboardPage() {
                                     minSize={13}
                                     className="pop-name"
                                     style={{
-                                      color: isOwnRow ? 'var(--pop-pink)' : 'var(--pop-white)',
-                                      textShadow: isOwnRow
+                                      color: isOwnRow && !isCapturingShare ? 'var(--pop-pink)' : 'var(--pop-white)',
+                                      textShadow: isOwnRow && !isCapturingShare
                                         ? '0 0 4px rgba(160,0,250,0.55), 0 0 12px rgba(160,0,250,0.3)'
                                         : '0 0 4px rgba(0,174,239,0.5), 0 0 12px rgba(0,174,239,0.28)',
                                     }}

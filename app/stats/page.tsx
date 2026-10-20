@@ -79,12 +79,18 @@ function popTooltipStyle() {
   }
 }
 
-// Six real hues in the site's own palette (excludes black/white/surface,
-// which don't work as line colours on a dark chart) — cycled, with a
-// dimmer second pass of the same six if there are ever more than six
-// entrants, so every line still reads as "this site's palette" rather
-// than reaching for an unrelated colour scale.
-const RANK_LINE_COLOURS = ['#FA6100', '#7D37A5', '#CCFA00', '#00F2FA', '#A000FA', '#FA003C']
+// Twelve genuinely distinct, high-contrast hues — enough for a realistic
+// league size without reusing a colour (reported hard to tell apart) or
+// falling back to a dimmed repeat (reported hard to see against the dark
+// background). The site's own accent palette anchors it, filled out with
+// extra bright hues rather than darker shades of the same ones — a dark
+// tone that reads fine as a small fill elsewhere on the page disappears
+// as a thin line against near-black. Only past twelve entrants does this
+// start dimming repeats, which no real competition here approaches.
+const RANK_LINE_COLOURS = [
+  '#FA6100', '#00F2FA', '#CCFA00', '#FA003C', '#A000FA', '#FFD23F',
+  '#FF6EC7', '#4DA6FF', '#39FF88', '#FF9F1C', '#C77DFF', '#00FFA3',
+]
 function rankLineColour(index: number): string {
   const base = RANK_LINE_COLOURS[index % RANK_LINE_COLOURS.length]
   return index < RANK_LINE_COLOURS.length ? base : `${base}99`
@@ -1486,7 +1492,6 @@ export default function StatsHubPage() {
                           domain={[1, rankedUserMeta.length]}
                           ticks={Array.from({ length: rankedUserMeta.length }, (_, i) => i + 1)}
                           interval={0}
-                          orientation="right"
                           width={24}
                         />
                         <Tooltip {...popTooltipStyle()} />
@@ -1506,7 +1511,7 @@ export default function StatsHubPage() {
                               label={(props: any) => {
                                 if (props.index !== allRanksChartData.length - 1) return null
                                 return (
-                                  <text x={props.x + 30} y={props.y} dy={3} fontSize={10} fontWeight={700} fill={color} textAnchor="start">
+                                  <text x={props.x + 8} y={props.y} dy={3} fontSize={10} fontWeight={700} fill={color} textAnchor="start">
                                     {u.name}
                                   </text>
                                 )
