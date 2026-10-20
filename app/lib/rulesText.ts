@@ -45,7 +45,7 @@ export const RULES_TEXT = {
     "If the nominated player doesn't play at all that gameweek, the card still counts as used and scores zero. The card's points don't count towards the best-single-gameweek tiebreaker below.",
   ],
   futzy: [
-    "Futzy (AI) plays by the same rules as everyone else — the same deadlines, the same team/player usage caps, and (where enabled) Banker, All or Nothing and the Bonus Card too — but can never be crowned the winner, even if he tops the table.",
+    "Futzy plays by the same rules as everyone else — the same deadlines, the same team/player usage caps, and (where enabled) Banker, All or Nothing and the Bonus Card too — but can never be crowned the winner, even if he tops the table.",
   ],
   discipline: [
     "Admin can issue a yellow or red card for any conduct they judge worthy of one — it's their call, not a fixed offense list. Appeals go through the Sporting Panel.",

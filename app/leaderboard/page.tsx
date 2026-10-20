@@ -12,7 +12,8 @@ import BotAvatar from '../../components/BotAvatar'
 import FutzyExplainerLink from '../../components/FutzyExplainerLink'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import { computeTopDog } from '../lib/topDog'
-import { computeAvgByGw, computeStreaks } from '../lib/leaderboardBadges'
+import { computeAvgByGw, computeStreaks, truncateDisplayName } from '../lib/leaderboardBadges'
+import ColumnHintPopover from '../../components/ColumnHintPopover'
 import { computeCompetitionAwards, resolveWinners, awardWinnerNames, type CompetitionAward } from '../lib/awards'
 import PersonalSeasonShareCard from '../../components/PersonalSeasonShareCard'
 import LeaderboardShareCard from '../../components/LeaderboardShareCard'
@@ -1392,9 +1393,18 @@ export default function LeaderboardPage() {
               <table className="w-full" style={{ fontSize: '14px', tableLayout: 'fixed' }}>
                 <thead>
                   <tr className="text-left" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-                    <th className="py-1.5 pl-2 pr-1 uppercase tracking-wider" style={{ width: '12%' }}>#</th>
-                    <th className="py-1.5 px-1 uppercase tracking-wider" style={{ width: '58%' }}>Player</th>
-                    <th className="py-1.5 pl-1 pr-2 text-right uppercase tracking-wider font-black" style={{ width: '30%' }}>Points</th>
+                    <th className="py-1.5 pl-2 pr-1 uppercase tracking-wider w-[13%] sm:w-[7%]">#</th>
+                    <th className="py-1.5 px-1 uppercase tracking-wider w-[57%] sm:w-[36%]">Player</th>
+                    <th className="hidden sm:table-cell py-1.5 px-1 text-right uppercase tracking-wider sm:w-[12%]">
+                      <ColumnHintPopover abbr="Bnk" full="Bankers Remaining" hint="How many of your 2 bankers you've got left to use this season." />
+                    </th>
+                    <th className="hidden sm:table-cell py-1.5 px-1 text-right uppercase tracking-wider sm:w-[12%]">
+                      <ColumnHintPopover abbr="Team" full="Team Points" hint="Points earned from your picked teams' results all season, before banker doubling or the Bonus Card." />
+                    </th>
+                    <th className="hidden sm:table-cell py-1.5 px-1 text-right uppercase tracking-wider sm:w-[12%]">
+                      <ColumnHintPopover abbr="Plyr" full="Player Points" hint="Points earned from your picked players' goals and assists all season, before banker doubling or the Bonus Card." />
+                    </th>
+                    <th className="py-1.5 pl-1 pr-2 text-right uppercase tracking-wider font-black w-[30%] sm:w-[21%]">Points</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1421,22 +1431,26 @@ export default function LeaderboardPage() {
                               )}
                             </div>
                           </td>
-                          <td className="py-1.5 px-1 font-black uppercase" style={{ maxWidth: 0 }}>
-                            <div className="flex items-center gap-1.5">
-                              {player.is_bot ? <BotAvatar size={30} /> : (
+                          <td className="py-2 px-1 font-black" style={{ maxWidth: 0 }}>
+                            <div className="flex items-center gap-2">
+                              {player.is_bot ? <BotAvatar size={42} /> : (
                                 <span className="shrink-0">
                                   <KitBadge
                                     pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
                                     colour1={kitByUser[player.user_id]?.colour1 ?? '#1E4D6B'}
                                     colour2={kitByUser[player.user_id]?.colour2 ?? '#F5ECD9'}
                                     colour3={kitByUser[player.user_id]?.colour3}
-                                    size={30}
+                                    size={42}
                                   />
                                 </span>
                               )}
-                              <span className="inline-flex flex-col leading-tight min-w-0" style={{ flex: '0 1 auto' }}>
-                                <span className="truncate inline-flex items-center gap-1">
-                                  {player.display_name}
+                              <span className="inline-flex flex-col leading-tight min-w-0 flex-1">
+                                {/* Cut to a fixed character count (not CSS truncate) so every
+                                    name reads at this large a size without widening the row —
+                                    the full name is never actually hidden, it's one tap away
+                                    in this row's own dropdown. */}
+                                <span className="pop-name inline-flex items-center gap-1 text-xl sm:text-2xl truncate" style={{ color: isOwnRow ? 'var(--pop-pink)' : 'var(--pop-white)' }}>
+                                  {truncateDisplayName(player.display_name)}
                                   {player.is_bot && <FutzyExplainerLink popArt />}
                                 </span>
                                 {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
@@ -1446,66 +1460,32 @@ export default function LeaderboardPage() {
                                   </span>
                                 )}
                               </span>
-                              <span className="flex items-center gap-1 shrink-0">
-                                {isOwnRow && <span className="pop-badge pop-badge--pink px-1.5 py-0.5 text-[8px]">You</span>}
-                                {(bankersUsedByPlayer[player.user_id] ?? 0) > 0 && (
-                                  <span className="pop-badge pop-badge--orange px-1.5 py-0.5 text-[8px]" title={`Bankers used: ${bankersUsedByPlayer[player.user_id]} of 2, ${Math.max(0, 2 - bankersUsedByPlayer[player.user_id])} left`}>
-                                    B {bankersUsedByPlayer[player.user_id]}/2
-                                  </span>
-                                )}
-                                {player.is_reigning_champ && <CrownIcon size={15} color="var(--pop-green)" />}
-                                {player.is_vibes_champion && <span title="Vibes Champion"><ShadesIcon size={15} /></span>}
-                                {player.in_cash_pool && <span title="In the cash pool"><PoundCoinIcon size={15} /></span>}
-                                {player.is_sporting_panel && <span title="Sporting Panel member"><ScalesIcon size={15} /></span>}
-                                {player.is_minigame_banned && <span title="Banned from minigame"><BlockedIcon size={15} /></span>}
-                                {player.is_peace_prize && <span title="LMS Peace Prize"><DoveIcon size={15} /></span>}
-                                {currentlySuspendedIds.has(player.user_id) && (
-                                  <button
-                                    onClick={e => { e.stopPropagation(); openDisciplineModal(player.user_id) }}
-                                    className="pop-badge px-1.5 py-0.5 text-[8px] font-black uppercase"
-                                    style={{ background: 'var(--pop-red)', color: '#fff' }}
-                                    title="Suspended — click for details"
-                                  >
-                                    Suspended
-                                  </button>
-                                )}
-                                {((cardCountByUser[player.user_id]?.yellow ?? 0) > 0 || (cardCountByUser[player.user_id]?.red ?? 0) > 0) && (
-                                  <button
-                                    onClick={e => { e.stopPropagation(); openDisciplineModal(player.user_id) }}
-                                    className="inline-flex items-center gap-0.5"
-                                    title="Discipline history — click for details"
-                                  >
-                                    {(cardCountByUser[player.user_id]?.yellow ?? 0) > 0 && (
-                                      <span className="inline-flex items-center gap-0.5">
-                                        <YellowCardIcon size={13} />
-                                        <span className="font-mono" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)' }}>{cardCountByUser[player.user_id].yellow}</span>
-                                      </span>
-                                    )}
-                                    {(cardCountByUser[player.user_id]?.red ?? 0) > 0 && (
-                                      <span className="inline-flex items-center gap-0.5">
-                                        <RedCardIcon size={13} />
-                                        <span className="font-mono" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)' }}>{cardCountByUser[player.user_id].red}</span>
-                                      </span>
-                                    )}
-                                  </button>
-                                )}
-                                {streak && <span title={`${streak} weeks above average`} className="inline-flex"><FlameIcon size={15} /></span>}
-                                {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
-                                  <span title={`Top Dog — leading for ${topDogReignWeeks} week${topDogReignWeeks === 1 ? '' : 's'}`} className="inline-flex items-center gap-0.5">
-                                    <TopDogIcon size={15} />
-                                    <span className="font-mono" style={{ fontSize: '9px', color: 'var(--pop-orange)' }}>{topDogReignWeeks}</span>
-                                  </span>
-                                )}
-                              </span>
                               <span className="shrink-0" style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px' }}>{expandedUser === player.user_id ? '▲' : '▼'}</span>
                             </div>
                           </td>
-                          <td className="py-1.5 pl-1 pr-2 text-right font-black font-mono" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', fontSize: '23px' }}>{player.total_points}</td>
+                          <td className="hidden sm:table-cell py-2 px-1 text-right font-mono" style={{ color: 'rgba(255,255,255,0.7)', fontVariantNumeric: 'tabular-nums', fontSize: '15px' }}>
+                            {Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))}
+                          </td>
+                          <td className="hidden sm:table-cell py-2 px-1 text-right font-mono" style={{ color: 'rgba(255,255,255,0.7)', fontVariantNumeric: 'tabular-nums', fontSize: '15px' }}>
+                            {Math.round(player.team_points)}
+                          </td>
+                          <td className="hidden sm:table-cell py-2 px-1 text-right font-mono" style={{ color: 'rgba(255,255,255,0.7)', fontVariantNumeric: 'tabular-nums', fontSize: '15px' }}>
+                            {Math.round(player.player_points)}
+                          </td>
+                          <td className="py-2 pl-1 pr-2 text-right font-black font-mono" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', fontSize: '23px' }}>
+                            {player.total_points}
+                            {/* Bankers/Team/Player only get their own columns from sm:
+                                upward (see thead) — below that, the same numbers fold into
+                                this one line so they're never lost, just not full columns. */}
+                            <div className="sm:hidden font-sans font-semibold normal-case" style={{ fontSize: '8px', letterSpacing: '0.3px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.3 }}>
+                              Bnk {Math.max(0, 2 - (bankersUsedByPlayer[player.user_id] ?? 0))} · Team {Math.round(player.team_points)} · Plyr {Math.round(player.player_points)}
+                            </div>
+                          </td>
                         </tr>
                         {expandedUser === player.user_id && (
                           <tr>
-                            <td colSpan={3} className="px-1.5 sm:px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
-                              <div className="flex items-center justify-between gap-3 mb-4 pb-3 flex-wrap" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+                            <td colSpan={6} className="px-1.5 sm:px-3 py-3" style={{ background: 'rgba(0,0,0,0.35)' }}>
+                              <div className="flex items-start gap-3 mb-4 pb-3 flex-wrap" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
                                 {player.is_bot ? <BotAvatar size={66} /> : (
                                   <KitBadge
                                     pattern={kitByUser[player.user_id]?.pattern ?? 'solid'}
@@ -1520,6 +1500,82 @@ export default function LeaderboardPage() {
                                     topScore={topScoreByUser[player.user_id] ?? 0}
                                   />
                                 )}
+                                {/* Every badge that used to crowd the collapsed row now lives
+                                    here, with room to actually label itself instead of relying
+                                    on a bare icon + hover tooltip. */}
+                                <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0" style={{ paddingTop: 2 }}>
+                                  {isOwnRow && <span className="pop-badge pop-badge--pink px-2 py-1 text-[9px]">You</span>}
+                                  {(bankersUsedByPlayer[player.user_id] ?? 0) > 0 && (
+                                    <span className="pop-badge pop-badge--orange px-2 py-1 text-[9px]" title={`Bankers used: ${bankersUsedByPlayer[player.user_id]} of 2`}>
+                                      Banker {bankersUsedByPlayer[player.user_id]}/2
+                                    </span>
+                                  )}
+                                  {player.is_reigning_champ && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase" style={{ background: 'rgba(204,250,0,0.12)', color: 'var(--pop-green)' }}>
+                                      <CrownIcon size={13} color="var(--pop-green)" /> Reigning Champ
+                                    </span>
+                                  )}
+                                  {player.is_vibes_champion && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                                      <ShadesIcon size={13} /> Vibes Champion
+                                    </span>
+                                  )}
+                                  {player.in_cash_pool && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                                      <PoundCoinIcon size={13} /> Cash Pool
+                                    </span>
+                                  )}
+                                  {player.is_sporting_panel && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                                      <ScalesIcon size={13} /> Sporting Panel
+                                    </span>
+                                  )}
+                                  {player.is_minigame_banned && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                                      <BlockedIcon size={13} /> Minigame Banned
+                                    </span>
+                                  )}
+                                  {player.is_peace_prize && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                                      <DoveIcon size={13} /> Peace Prize
+                                    </span>
+                                  )}
+                                  {currentlySuspendedIds.has(player.user_id) && (
+                                    <button
+                                      onClick={() => openDisciplineModal(player.user_id)}
+                                      className="pop-badge px-2 py-1 text-[9px] font-black uppercase"
+                                      style={{ background: 'var(--pop-red)', color: '#fff' }}
+                                      title="Suspended — click for details"
+                                    >
+                                      Suspended
+                                    </button>
+                                  )}
+                                  {((cardCountByUser[player.user_id]?.yellow ?? 0) > 0 || (cardCountByUser[player.user_id]?.red ?? 0) > 0) && (
+                                    <button
+                                      onClick={() => openDisciplineModal(player.user_id)}
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase"
+                                      style={{ background: 'rgba(255,255,255,0.08)' }}
+                                      title="Discipline history — click for details"
+                                    >
+                                      {(cardCountByUser[player.user_id]?.yellow ?? 0) > 0 && (
+                                        <span className="inline-flex items-center gap-0.5"><YellowCardIcon size={13} />{cardCountByUser[player.user_id].yellow}</span>
+                                      )}
+                                      {(cardCountByUser[player.user_id]?.red ?? 0) > 0 && (
+                                        <span className="inline-flex items-center gap-0.5"><RedCardIcon size={13} />{cardCountByUser[player.user_id].red}</span>
+                                      )}
+                                    </button>
+                                  )}
+                                  {streak && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase" style={{ background: 'rgba(255,255,255,0.08)' }} title={`${streak} weeks above average`}>
+                                      <FlameIcon size={13} /> {streak}-Week Streak
+                                    </span>
+                                  )}
+                                  {topDogUserId === player.user_id && topDogReignWeeks > 0 && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase" style={{ background: 'rgba(250,97,0,0.15)', color: 'var(--pop-orange)' }}>
+                                      <TopDogIcon size={13} /> Top Dog · {topDogReignWeeks}w
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
                               {/* Bold status cards, not small stat text — Banker/AoN/Bonus
@@ -1783,7 +1839,7 @@ export default function LeaderboardPage() {
                   })}
                   {ranked.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="py-8 text-center uppercase tracking-wider" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>No players yet.</td>
+                      <td colSpan={6} className="py-8 text-center uppercase tracking-wider" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>No players yet.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1804,6 +1860,9 @@ export default function LeaderboardPage() {
                 <div className="flex items-center gap-2.5"><FlameIcon size={20} /> On a streak — 3+ weeks above average</div>
                 <div className="flex items-center gap-2.5"><TopDogIcon size={20} /> Top Dog — current leader, number = weeks leading</div>
                 <div className="flex items-center gap-2.5"><span className="font-mono font-black" style={{ color: 'var(--pop-green)' }}>▲2</span> Moved up 2 places since last gameweek (▼ = down)</div>
+                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'rgba(255,255,255,0.75)' }}>Bnk</span> Bankers Remaining — how many of your 2 bankers are left (desktop column, or the small line under your points on mobile)</div>
+                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'rgba(255,255,255,0.75)' }}>Team</span> Team Points — from your picked teams' results all season, before banker doubling or the Bonus Card</div>
+                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'rgba(255,255,255,0.75)' }}>Plyr</span> Player Points — from your picked players' goals/assists all season, before banker doubling or the Bonus Card</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — deadline missed, computer picked</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span> Banker declared that gameweek</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-blue)', color: 'var(--pop-black)' }}><BoltIcon size={11} color="var(--pop-black)" /> AoN</span> All or Nothing played, result pending</div>
@@ -1844,11 +1903,6 @@ export default function LeaderboardPage() {
                 colour2: kitByUser[p.user_id].colour2,
                 colour3: kitByUser[p.user_id].colour3,
               } : null,
-              is_reigning_champ: p.is_reigning_champ,
-              is_vibes_champion: p.is_vibes_champion,
-              is_top_dog: topDogUserId === p.user_id && topDogReignWeeks > 0,
-              streak: streakByUser[p.user_id] ?? null,
-              bankers_used: bankersUsedByPlayer[p.user_id] ?? 0,
               rank_delta: previousRankByUser[p.user_id] != null ? previousRankByUser[p.user_id] - (i + 1) : null,
             }))}
             onClose={() => setShowShare(false)}

@@ -792,7 +792,8 @@ export default async function CompetitionsPage({
             <h2 className="font-bold mb-1">🤖 Futzy</h2>
             <p className="text-xs text-gray-500 mb-4">
               An automated participant that submits its own real picks every gameweek, using expected goals/assists
-              and fixture strength. Visible on the leaderboard as &quot;Futzy (AI)&quot;, but never eligible to be
+              and fixture strength. Visible on the leaderboard as &quot;Futzy&quot; (his round avatar, not a kit shirt,
+              is what discloses he&apos;s automated), but never eligible to be
               crowned the winner. See <a href="/admin/help/futzy" className="underline">the Futzy guide</a> for setup and how he thinks.
             </p>
             {!bot ? (
