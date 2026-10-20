@@ -112,6 +112,10 @@ export default function LeaderboardPage() {
   const [submittedKeys, setSubmittedKeys] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [showShare, setShowShare] = useState(false)
+  // Key and How Ties Are Split collapse by default — reference material,
+  // not something most visits need open.
+  const [showKey, setShowKey] = useState(false)
+  const [showTieRules, setShowTieRules] = useState(false)
   // Rivalry — one optional standing rival per user per competition, fully
   // public so it can show on anyone's row, not just your own.
   const [rivalByUser, setRivalByUser] = useState<Record<string, string>>({})
@@ -1359,25 +1363,7 @@ export default function LeaderboardPage() {
         <Shell active="LEADERBOARD" user={user} displayName={displayName} skin="pop-art">
           <div className="pop-art-theme">
 
-            <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
-              <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl">Leaderboard</h1>
-              <div className="flex items-center gap-2">
-                {ranked.length > 0 && (
-                  <button
-                    onClick={() => setShowShare(true)}
-                    className="pop-button px-3 py-1.5 text-xs"
-                  >
-                    Share Standings
-                  </button>
-                )}
-                <a href="/awards" className="pop-button px-3 py-1.5 text-xs" style={{ background: 'var(--pop-orange)' }}>
-                  🏆 Awards
-                </a>
-                <a href="/leaderboard/full" className="pop-button pop-button--blue px-3 py-1.5 text-xs">
-                  Full Table →
-                </a>
-              </div>
-            </div>
+            <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-1">Leaderboard</h1>
             <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name}</p>
 
             {liveGameweekNumbers.length > 0 && (
@@ -1447,8 +1433,13 @@ export default function LeaderboardPage() {
                                     this column actually has, rather than hiding part of it. A
                                     faint glow echoes the page's own hero title treatment. */}
                                 <span className="flex items-center gap-1 min-w-0">
+                                  {/* Futzy's own name stays short ("Futzy") so it would
+                                      otherwise sit at full size next to names that genuinely
+                                      need shrinking — a smaller base keeps his row visually
+                                      in scale with the rest rather than looking oversized
+                                      purely because he happens to fit. */}
                                   <FitName
-                                    baseSize={24}
+                                    baseSize={player.is_bot ? 17 : 24}
                                     minSize={13}
                                     className="pop-name"
                                     style={{
@@ -1857,9 +1848,30 @@ export default function LeaderboardPage() {
               </table>
             </div>
 
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              {ranked.length > 0 && (
+                <button
+                  onClick={() => setShowShare(true)}
+                  className="pop-button px-3 py-1.5 text-xs"
+                >
+                  Share Standings
+                </button>
+              )}
+              <a href="/awards" className="pop-button px-3 py-1.5 text-xs" style={{ background: 'var(--pop-orange)' }}>
+                🏆 Awards
+              </a>
+              <a href="/leaderboard/full" className="pop-button pop-button--blue px-3 py-1.5 text-xs">
+                Full Table →
+              </a>
+            </div>
+
             <div className="pop-panel p-4 mt-3">
-              <p className="font-black uppercase tracking-wider text-xs mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>Key</p>
-              <div className="flex flex-col gap-2.5" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)' }}>
+              <button type="button" onClick={() => setShowKey(v => !v)} className="w-full flex items-center justify-between gap-2">
+                <p className="font-black uppercase tracking-wider text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Key</p>
+                <span className="font-black uppercase tracking-wider" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{showKey ? '▾ Hide' : '▸ Show'}</span>
+              </button>
+              {showKey && (
+              <div className="flex flex-col gap-2.5 mt-3" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)' }}>
                 <div className="flex items-center gap-2.5"><CrownIcon size={20} color="var(--pop-green)" /> Reigning champ</div>
                 <div className="flex items-center gap-2.5"><ShadesIcon size={20} /> Vibes champion</div>
                 <div className="flex items-center gap-2.5"><PoundCoinIcon size={20} /> In the cash pool</div>
@@ -1881,11 +1893,17 @@ export default function LeaderboardPage() {
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-red)', color: 'var(--pop-white)' }}><CrossIcon size={11} color="var(--pop-white)" /> AoN</span> All or Nothing failed</div>
                 <div className="flex items-center gap-2.5" style={{ color: 'rgba(255,255,255,0.5)' }}>▼ Tap a row to see their week-by-week picks</div>
               </div>
+              )}
             </div>
 
             <div className="pop-panel p-4 mt-3">
-              <p className="font-black uppercase tracking-wider text-xs mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>How Ties Are Split</p>
-              <p className="mb-2" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+              <button type="button" onClick={() => setShowTieRules(v => !v)} className="w-full flex items-center justify-between gap-2">
+                <p className="font-black uppercase tracking-wider text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>How Ties Are Split</p>
+                <span className="font-black uppercase tracking-wider" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>{showTieRules ? '▾ Hide' : '▸ Show'}</span>
+              </button>
+              {showTieRules && (
+              <>
+              <p className="mb-2 mt-3" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
                 When two or more players are level, these criteria are applied in order until the tie breaks.
               </p>
               <ol className="space-y-1" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)' }}>
@@ -1896,6 +1914,8 @@ export default function LeaderboardPage() {
                   </li>
                 ))}
               </ol>
+              </>
+              )}
             </div>
 
           </div>

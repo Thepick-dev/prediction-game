@@ -74,7 +74,7 @@ export default function LeaderboardShareCard({ competitionName, standings, onClo
               ) : row.kit ? (
                 <KitBadge pattern={row.kit.pattern} colour1={row.kit.colour1} colour2={row.kit.colour2} colour3={row.kit.colour3} size={28} />
               ) : null}
-              <FitName baseSize={18} minSize={11} className="pop-name flex-1 min-w-0" style={{ textShadow: NAME_GLOW }}>
+              <FitName baseSize={row.is_bot ? 13 : 18} minSize={11} className="pop-name flex-1 min-w-0" style={{ textShadow: NAME_GLOW }}>
                 {i < 3 ? `${MEDALS[i]} ` : ''}{row.name}
               </FitName>
               <span className="font-bold text-sm shrink-0">{row.points} pts</span>
