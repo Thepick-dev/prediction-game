@@ -8,7 +8,6 @@ import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
 import BotAvatar from '../../components/BotAvatar'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
-import GameweekRecapCard from '../../components/GameweekRecapCard'
 import ResultsGrid, { type GridRow } from './ResultsGrid'
 import PopArtLoading from '../../components/PopArtLoading'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
@@ -112,7 +111,6 @@ export default function ResultsPage() {
   const [potwUserId, setPotwUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingPicks, setLoadingPicks] = useState(false)
-  const [showRecap, setShowRecap] = useState(false)
   const [fixtures, setFixtures] = useState<FixtureRow[]>([])
   const [expandedFixture, setExpandedFixture] = useState<number | null>(null)
   const [question, setQuestion] = useState<Question | null>(null)
@@ -458,33 +456,6 @@ export default function ResultsPage() {
         .map(p => ({ name: profiles[p.user_id] ?? 'Unknown', answer: p.question_answer as string }))
     : []
 
-  const recapWinner = showScoring && sortedPicks[0]
-    ? { name: profiles[sortedPicks[0].user_id] ?? 'Unknown', points: pointsMap[sortedPicks[0].id]?.total_points ?? 0 }
-    : null
-  const recapRunnerUp = showScoring && sortedPicks[1]
-    ? { name: profiles[sortedPicks[1].user_id] ?? 'Unknown', points: pointsMap[sortedPicks[1].id]?.total_points ?? 0 }
-    : null
-  const recapTotalPoints = showScoring
-    ? sortedPicks.reduce((sum, p) => sum + (pointsMap[p.id]?.total_points ?? 0), 0)
-    : 0
-  const recapBestResult = showScoring
-    ? sortedPicks
-        .map(p => ({ pick: p, detail: pointsMap[p.id]?.breakdown?.team_detail, teamPts: pointsMap[p.id]?.team_points ?? 0 }))
-        .filter(r => r.detail?.opponent_team_id != null && r.detail?.team_score != null)
-        .sort((a, b) => b.teamPts - a.teamPts)[0]
-    : null
-  const recapBestResultData = recapBestResult ? {
-    team: teamDisplayName(teams[recapBestResult.pick.team_id]),
-    opponent: teamDisplayName(teams[recapBestResult.detail.opponent_team_id]),
-    teamScore: recapBestResult.detail.team_score,
-    opponentScore: recapBestResult.detail.opponent_score,
-    isHome: !!recapBestResult.detail.is_home,
-    teamPoints: Math.round(recapBestResult.teamPts),
-  } : null
-  const recapFullScores = showScoring
-    ? sortedPicks.map(p => ({ name: profiles[p.user_id] ?? 'Unknown', points: pointsMap[p.id]?.total_points ?? 0 }))
-    : []
-
   // Multiple-choice gets a real per-option tally; freetext has no discrete
   // options to count, so the closest equivalent is simply how many people
   // answered at all.
@@ -672,15 +643,37 @@ export default function ResultsPage() {
                       GW Winner: {profiles[gwPotwUserId]}
                     </span>
                   )}
-                  {showScoring && (
-                    <button
-                      onClick={() => setShowRecap(true)}
-                      className="pop-button pop-button--yellow px-3 py-1.5 text-xs ml-auto"
-                    >
-                      Share Recap
-                    </button>
-                  )}
                 </div>
+              )}
+
+              {/* Competition results above the raw match fixtures — who won
+                  LMS is the headline, the underlying football scores are
+                  supporting reference material, not the lead story. Also
+                  the one shareable moment for the page now (its own
+                  "Share to WhatsApp" button) — the old separate "Share
+                  Recap" ticket here duplicated it with a worse design. */}
+              {loadingPicks ? (
+                <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>Loading picks...</p>
+              ) : isFutureGw ? (
+                <div className="pop-panel p-6 mb-4">
+                  <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    This gameweek hasn&apos;t reached its deadline yet — picks stay hidden until then. Check the fixtures below for the schedule.
+                  </p>
+                </div>
+              ) : sortedPicks.length === 0 ? (
+                <div className="pop-panel p-6 mb-4">
+                  <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>Nobody picked for this one yet.</p>
+                </div>
+              ) : (
+                <ResultsGrid
+                  competitionName={competition.name}
+                  gameweekNumber={selectedGameweek!.number}
+                  bonusCardName={bonusCardName ?? 'Bonus Card'}
+                  showScoring={showScoring}
+                  rows={allGridRows}
+                  questionText={question?.question ?? null}
+                  questionTally={gridQuestionTally}
+                />
               )}
 
               {fixtures.length > 0 && (
@@ -798,50 +791,10 @@ export default function ResultsPage() {
                   </div>
                 </div>
               )}
-
-              {loadingPicks ? (
-                <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>Loading picks...</p>
-              ) : isFutureGw ? (
-                <div className="pop-panel p-6">
-                  <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                    This gameweek hasn&apos;t reached its deadline yet — picks stay hidden until then. Check the fixtures above for the schedule.
-                  </p>
-                </div>
-              ) : sortedPicks.length === 0 ? (
-                <div className="pop-panel p-6">
-                  <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>Nobody picked for this one yet.</p>
-                </div>
-              ) : (
-                <ResultsGrid
-                  competitionName={competition.name}
-                  gameweekNumber={selectedGameweek!.number}
-                  bonusCardName={bonusCardName ?? 'Bonus Card'}
-                  showScoring={showScoring}
-                  rows={allGridRows}
-                  questionText={question?.question ?? null}
-                  questionTally={gridQuestionTally}
-                />
-              )}
             </>
           )}
 
         </div>
-
-        {showRecap && selectedGameweek && (
-          <GameweekRecapCard
-            competitionName={competition.name}
-            gameweekNumber={selectedGameweek.number}
-            winner={recapWinner}
-            runnerUp={recapRunnerUp}
-            totalPoints={recapTotalPoints}
-            bestResult={recapBestResultData}
-            fullScores={recapFullScores}
-            isFinal={isScored}
-            questionText={question?.question ?? null}
-            questionPoll={questionTally.map(t => ({ label: t.label as string, count: t.count }))}
-            onClose={() => setShowRecap(false)}
-          />
-        )}
       </Shell>
     )
   }
@@ -912,15 +865,29 @@ export default function ResultsPage() {
                       GW Winner: {profiles[gwPotwUserId]}
                     </span>
                   )}
-                  {showScoring && (
-                    <button
-                      onClick={() => setShowRecap(true)}
-                      className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded border border-[#D9A441]/50 text-[#D9A441] hover:bg-[#D9A441]/10 transition-colors ml-auto"
-                    >
-                      📱 Share Recap
-                    </button>
-                  )}
                 </div>
+              )}
+
+              {loadingPicks ? (
+                <p className="text-sm text-[#F5ECD9]/50">Loading picks...</p>
+              ) : isFutureGw ? (
+                <div className="bg-white/5 border border-white/10 rounded-lg p-6 mb-4">
+                  <p className="text-sm text-[#F5ECD9]/50">This gameweek hasn&apos;t reached its deadline yet — picks stay hidden until then. Check the fixtures below for the schedule.</p>
+                </div>
+              ) : sortedPicks.length === 0 ? (
+                <div className="bg-white/5 border border-white/10 rounded-lg p-6 mb-4">
+                  <p className="text-sm text-[#F5ECD9]/50">Nobody picked for this one yet.</p>
+                </div>
+              ) : (
+                <ResultsGrid
+                  competitionName={competition.name}
+                  gameweekNumber={selectedGameweek!.number}
+                  bonusCardName={bonusCardName ?? 'Bonus Card'}
+                  showScoring={showScoring}
+                  rows={allGridRows}
+                  questionText={question?.question ?? null}
+                  questionTally={gridQuestionTally}
+                />
               )}
 
               {fixtures.length > 0 && (
@@ -1031,153 +998,11 @@ export default function ResultsPage() {
                   </div>
                 </div>
               )}
-
-              {loadingPicks ? (
-                <p className="text-[#F5ECD9]/50 text-sm uppercase tracking-wider">Loading picks...</p>
-              ) : isFutureGw ? (
-                <div className="bg-white/5 border border-white/10 rounded-lg p-6">
-                  <p className="text-[#F5ECD9]/50 text-sm uppercase tracking-wider">
-                    This gameweek hasn&apos;t reached its deadline yet — picks stay hidden until then. Check the fixtures above for the schedule.
-                  </p>
-                </div>
-              ) : sortedPicks.length === 0 ? (
-                <div className="bg-white/5 border border-white/10 rounded-lg p-6">
-                  <p className="text-[#F5ECD9]/50 text-sm uppercase tracking-wider">No picks for this gameweek.</p>
-                </div>
-              ) : (
-                <div className="bg-white/5 border border-white/10 rounded-lg overflow-hidden mb-3 divide-y divide-white/5">
-                  {sortedPicks.map((pick) => {
-                    const pts = pointsMap[pick.id]
-                    const isWinner = isScored && pick.user_id === gwPotwUserId
-                    const t = teams[pick.team_id]
-                    const answerLabel = pick.question_answer
-                      ? questionOptions.find(([letter]) => letter === pick.question_answer)?.[1] ?? pick.question_answer
-                      : null
-                    const aon = aonByUser[pick.user_id]
-                    const aonClass = aon?.outcome === 'success'
-                      ? 'bg-green-600 text-white'
-                      : aon?.outcome === 'failed'
-                      ? 'bg-red-600 text-white'
-                      : 'bg-[#D9A441] text-[#241a12]'
-                    const aonLabel = aon?.outcome === 'success' ? '✓ AoN' : aon?.outcome === 'failed' ? '✕ AoN' : '⚡ AoN'
-
-                    return (
-                      <div key={pick.id} className={`p-2.5 ${isWinner ? 'bg-[#D9A441]/10' : ''}`} style={{ fontSize: '11px' }}>
-                        {/* Player + total: everything wraps, nothing is ever clipped or needs side-scrolling */}
-                        <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
-                          <div className="flex items-center gap-1.5 font-bold uppercase min-w-0">
-                            {isBotByUser[pick.user_id] ? <BotAvatar size={14} /> : (
-                              <KitBadge
-                                pattern={kitByUser[pick.user_id]?.pattern ?? 'solid'}
-                                colour1={kitByUser[pick.user_id]?.colour1 ?? '#1E4D6B'}
-                                colour2={kitByUser[pick.user_id]?.colour2 ?? '#F5ECD9'}
-                                colour3={kitByUser[pick.user_id]?.colour3}
-                                size={14}
-                              />
-                            )}
-                            <span className="truncate">{profiles[pick.user_id] ?? 'Unknown'}</span>
-                            {(pick.provisional || pick.is_autopick) && (
-                              <span className="bg-white/20 px-1 rounded shrink-0" style={{ fontSize: '9px' }} title="No pick was made in time, so the computer picked automatically">AP</span>
-                            )}
-                          </div>
-                          {showScoring && (
-                            <span className="font-bold shrink-0" style={{ color: '#D9A441' }}>{pts?.total_points ?? '—'} pts</span>
-                          )}
-                        </div>
-
-                        {/* Team */}
-                        <div className="flex items-center gap-1 uppercase flex-wrap">
-                          <TeamCrest teamId={t?.id ?? null} teamName={t?.name ?? ''} size={15} />
-                          <span>{teamDisplayName(t)}</span>
-                          {pick.is_banker && <span className="bg-[#D9A441] text-[#241a12] font-bold px-1 rounded" style={{ fontSize: '9px' }}>★ BANKER</span>}
-                          {showScoring && <span className="text-[#F5ECD9]/50 ml-auto">{pts?.team_points ?? '—'} pts</span>}
-                        </div>
-                        {showScoring && pts?.breakdown?.team_detail?.opponent_team_id != null && (
-                          <div className="normal-case text-[#F5ECD9]/40 mt-0.5" style={{ fontSize: '9px' }}>
-                            <span
-                              className={`inline-block px-1 rounded font-bold mr-1 ${pts.breakdown.team_detail.is_home ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`}
-                              title={pts.breakdown.team_detail.is_home ? 'Played at home' : 'Played away'}
-                            >
-                              {pts.breakdown.team_detail.is_home ? 'H' : 'A'}
-                            </span>
-                            vs {teams[pts.breakdown.team_detail.opponent_team_id]?.short_code
-                              ?? teams[pts.breakdown.team_detail.opponent_team_id]?.short_name
-                              ?? '?'}
-                            {' '}(Q{pts.breakdown.team_detail.team_quartile}→Q{pts.breakdown.team_detail.opponent_quartile})
-                            {pts.breakdown.team_detail.team_score != null
-                              ? <>{' '}· {pts.breakdown.team_detail.team_score}-{pts.breakdown.team_detail.opponent_score}</>
-                              : <>{' '}· not played yet</>}
-                          </div>
-                        )}
-
-                        {/* Players */}
-                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 uppercase">
-                          <span>
-                            {players[pick.player1_id] ?? 'Unknown'}
-                            {goalPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '9px' }}>G</span>}
-                            {assistPlayers.has(pick.player1_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '9px' }}>A</span>}
-                            {aon?.player_id === pick.player1_id && <span className={`ml-0.5 px-1 rounded font-bold ${aonClass}`} style={{ fontSize: '9px' }}>{aonLabel}</span>}
-                            {showScoring && <span className="text-[#F5ECD9]/50 normal-case ml-1">({pts?.player1_points ?? '—'} pts)</span>}
-                          </span>
-                          <span>
-                            {players[pick.player2_id] ?? 'Unknown'}
-                            {goalPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-600 text-white px-0.5 rounded font-bold" style={{ fontSize: '9px' }}>G</span>}
-                            {assistPlayers.has(pick.player2_id) && <span className="ml-0.5 bg-green-500/30 text-green-300 px-0.5 rounded font-bold" style={{ fontSize: '9px' }}>A</span>}
-                            {aon?.player_id === pick.player2_id && <span className={`ml-0.5 px-1 rounded font-bold ${aonClass}`} style={{ fontSize: '9px' }}>{aonLabel}</span>}
-                            {showScoring && <span className="text-[#F5ECD9]/50 normal-case ml-1">({pts?.player2_points ?? '—'} pts)</span>}
-                          </span>
-                        </div>
-
-                        {question && (
-                          <div className="text-[#F5ECD9]/40 normal-case mt-1.5" style={{ fontSize: '9px' }}>
-                            <span className="uppercase tracking-wider font-bold">Answer:</span> {answerLabel ?? '—'}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-
-                  <div className="px-3 py-2 border-t border-white/10 uppercase tracking-wider text-[#F5ECD9]/40" style={{ fontSize: '9px' }}>
-                    <span className="font-bold mr-2">Key:</span>
-                    <span className="bg-green-600 text-white px-0.5 rounded font-bold">G</span> Goal
-                    <span className="mx-2">·</span>
-                    <span className="bg-green-500/30 text-green-300 px-0.5 rounded font-bold">A</span> Assist
-                    <span className="mx-2">·</span>
-                    <span className="bg-[#D9A441] text-[#241a12] px-0.5 rounded font-bold">★B</span> Banker
-                    <span className="mx-2">·</span>
-                    <span className="bg-blue-500/20 text-blue-300 px-0.5 rounded font-bold">H</span>/<span className="bg-orange-500/20 text-orange-300 px-0.5 rounded font-bold">A</span> Home/Away
-                    <span className="mx-2">·</span>
-                    <span className="bg-white/20 px-0.5 rounded">AP</span> Autopick — computer picked it (deadline passed, no pick made)
-                    <span className="mx-2">·</span>
-                    <span className="bg-[#D9A441] text-[#241a12] px-1 rounded font-bold">⚡ AoN</span> All or Nothing played, result pending
-                    <span className="mx-2">·</span>
-                    <span className="bg-green-600 text-white px-1 rounded font-bold">✓ AoN</span> succeeded
-                    <span className="mx-2">·</span>
-                    <span className="bg-red-600 text-white px-1 rounded font-bold">✕ AoN</span> failed
-                  </div>
-                </div>
-              )}
             </>
           )}
 
         </div>
       </HeroPage>
-
-      {showRecap && selectedGameweek && (
-        <GameweekRecapCard
-          competitionName={competition.name}
-          gameweekNumber={selectedGameweek.number}
-          winner={recapWinner}
-          runnerUp={recapRunnerUp}
-          totalPoints={recapTotalPoints}
-          bestResult={recapBestResultData}
-          fullScores={recapFullScores}
-          isFinal={isScored}
-          questionText={question?.question ?? null}
-          questionPoll={questionTally.map(t => ({ label: t.label as string, count: t.count }))}
-          onClose={() => setShowRecap(false)}
-        />
-      )}
     </Shell>
   )
 }

@@ -170,14 +170,54 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
             width: CARD_NATURAL_WIDTH, transform: `scale(${scale})`, transformOrigin: 'top left',
           }}
         >
-        <div className="flex items-baseline gap-3 mb-3 flex-wrap">
-          <p className="font-black uppercase" style={{ fontSize: '44px', color: '#CCFA00', fontFamily: 'var(--font-display), sans-serif', lineHeight: 1, textShadow: '0 0 8px rgba(204,250,0,0.5), 0 0 30px rgba(204,250,0,0.2)' }}>
-            {competitionName} — GW{gameweekNumber}
-          </p>
-          <p className="font-black uppercase" style={{ fontSize: '16px', letterSpacing: '0.04em', color: 'rgba(255,255,255,0.5)' }}>
-            {showScoring ? '🏆 Results' : 'Picks locked in'}
-          </p>
-        </div>
+        {/* isWinner is only ever true once the gameweek's genuinely marked
+            completed (see where rows are built), never during a still-live
+            gameweek — so finding one here doubles as "is this final" with
+            no extra prop needed. This banner is deliberately the single
+            biggest, boldest thing on the whole card: shrunk to a WhatsApp
+            thumbnail, the dense table below becomes an illegible blur long
+            before this does, so the one thing that actually needs to read
+            at a glance — who won, by how much — goes here, not buried in a
+            row of the table. */}
+        {(() => {
+          const winnerRow = rows.find(r => r.isWinner)
+          const live = !winnerRow && showScoring && rows.some(r => (r.totalPoints ?? 0) > 0)
+          return (
+            <>
+              <div className="flex items-baseline gap-2.5 mb-2 flex-wrap">
+                <p className="font-black uppercase" style={{ fontSize: '20px', color: 'rgba(255,255,255,0.55)', fontFamily: 'var(--font-display), sans-serif', lineHeight: 1 }}>
+                  {competitionName} — GW{gameweekNumber}
+                </p>
+                {!winnerRow && (
+                  <p className="font-black uppercase" style={{ fontSize: '14px', letterSpacing: '0.04em', color: live ? '#FA6100' : 'rgba(255,255,255,0.4)' }}>
+                    {live ? '🔴 Live — scores updating' : showScoring ? '🔒 Picks locked in' : ''}
+                  </p>
+                )}
+              </div>
+
+              {winnerRow && (
+                <div className="flex items-center gap-4 mb-4 rounded-2xl px-5 py-4 flex-wrap" style={{ background: 'linear-gradient(135deg, rgba(255,210,63,0.2), rgba(255,210,63,0.04))', border: '1px solid rgba(255,210,63,0.45)' }}>
+                  <span style={{ fontSize: '48px', lineHeight: 1 }}>🏆</span>
+                  <span className="shrink-0">
+                    {winnerRow.isBot ? <BotAvatar size={60} /> : (
+                      <KitBadge pattern={winnerRow.kit?.pattern ?? 'solid'} colour1={winnerRow.kit?.colour1 ?? '#1E4D6B'} colour2={winnerRow.kit?.colour2 ?? '#F5ECD9'} colour3={winnerRow.kit?.colour3} size={60} />
+                    )}
+                  </span>
+                  <div>
+                    <p className="font-black uppercase" style={{ fontSize: '13px', letterSpacing: '0.1em', color: '#FFD23F' }}>Gameweek {gameweekNumber} Winner</p>
+                    <p className="font-black uppercase" style={{ fontSize: fitSize(winnerRow.name, 40, 26), color: '#fff', fontFamily: 'var(--font-display), sans-serif', lineHeight: 1, textShadow: '0 0 6px rgba(255,210,63,0.7), 0 0 20px rgba(255,210,63,0.4)' }}>
+                      {winnerRow.name}
+                    </p>
+                  </div>
+                  <div className="text-right" style={{ marginLeft: 'auto' }}>
+                    <p className="font-black font-mono" style={{ fontSize: '52px', lineHeight: 1, color: '#FFD23F', textShadow: '0 0 6px rgba(255,210,63,0.7), 0 0 20px rgba(255,210,63,0.4)' }}>{winnerRow.totalPoints}</p>
+                    <p className="font-black uppercase" style={{ fontSize: '12px', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.5)' }}>points</p>
+                  </div>
+                </div>
+              )}
+            </>
+          )
+        })()}
 
         {questionText && questionTally.length > 0 && (
           <div className="rounded-xl mb-3 px-4 py-2.5" style={{ background: 'rgba(160,0,250,0.14)', border: '1px solid rgba(160,0,250,0.45)' }}>
