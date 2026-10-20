@@ -572,8 +572,13 @@ export default function LeaderboardPage() {
       const rawTotal = rawTeam + rawP1 + rawP2
       const bankerBonus = isBanker ? rawTotal : 0
 
-      t.team_points += rawTeam
-      t.player_points += rawP1 + rawP2
+      // The leaderboard's own Team/Player columns show the doubled figure
+      // on a banker week (p.team_points/player*_points are already post-
+      // doubling, straight from the points table) — unlike points_without_
+      // banker and banker_points just below, which still need the raw,
+      // undoubled split for their own existing purposes.
+      t.team_points += p.team_points ?? 0
+      t.player_points += (p.player1_points ?? 0) + (p.player2_points ?? 0)
       t.banker_points += bankerBonus
       t.total_points += p.total_points ?? 0
       t.points_without_banker += rawTotal
@@ -1398,10 +1403,10 @@ export default function LeaderboardPage() {
                       <ColumnHintPopover abbr="Bnk" full="Bankers Remaining" hint="How many of your 2 bankers you've got left to use this season." />
                     </th>
                     <th className="py-1.5 px-0.5 text-right uppercase tracking-wider w-[12%]">
-                      <ColumnHintPopover abbr="Team" full="Team Points" hint="Points earned from your picked teams' results all season, before banker doubling or the Bonus Card." />
+                      <ColumnHintPopover abbr="Team" full="Team Points" hint="Points earned from your picked teams' results all season, not counting the Bonus Card." />
                     </th>
                     <th className="py-1.5 px-0.5 text-right uppercase tracking-wider w-[12%]">
-                      <ColumnHintPopover abbr="Plyr" full="Player Points" hint="Points earned from your picked players' goals and assists all season, before banker doubling or the Bonus Card." />
+                      <ColumnHintPopover abbr="Plyr" full="Player Points" hint="Points earned from your picked players' goals and assists all season, not counting the Bonus Card." />
                     </th>
                     <th className="py-1.5 pl-1 pr-2 text-right uppercase tracking-wider font-black w-[15%]">Points</th>
                   </tr>
@@ -1867,8 +1872,8 @@ export default function LeaderboardPage() {
                 <div className="flex items-center gap-2.5"><TopDogIcon size={20} /> Top Dog — current leader, number = weeks leading</div>
                 <div className="flex items-center gap-2.5"><span className="font-mono font-black" style={{ color: 'var(--pop-green)' }}>▲2</span> Moved up 2 places since last gameweek (▼ = down) — tap a row to see it</div>
                 <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'var(--pop-orange)' }}>Bnk</span> Bankers Remaining — how many of your 2 bankers are left</div>
-                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'var(--pop-blue)' }}>Team</span> Team Points — from your picked teams' results all season, before banker doubling or the Bonus Card</div>
-                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'var(--pop-yellow)' }}>Plyr</span> Player Points — from your picked players' goals/assists all season, before banker doubling or the Bonus Card</div>
+                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'var(--pop-blue)' }}>Team</span> Team Points — from your picked teams' results all season, not counting the Bonus Card</div>
+                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'var(--pop-yellow)' }}>Plyr</span> Player Points — from your picked players' goals/assists all season, not counting the Bonus Card</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — deadline missed, computer picked</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span> Banker declared that gameweek</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-blue)', color: 'var(--pop-black)' }}><BoltIcon size={11} color="var(--pop-black)" /> AoN</span> All or Nothing played, result pending</div>
