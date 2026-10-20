@@ -1145,10 +1145,7 @@ export default function WallPage() {
   return (
     <Shell active="THE WALL" user={user} displayName={displayName} skin="pop-art">
       <div className="pop-art-theme">
-        <h1 className="pop-hero pop-hero--green text-5xl sm:text-6xl mb-1">The Wall</h1>
-        <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>
-          {competition.name} — weekly answers and comments reveal automatically once each gameweek&apos;s deadline has passed. Comments need admin approval before they show up.
-        </p>
+        <h1 className="pop-hero pop-hero--green text-5xl sm:text-6xl mb-4">The Wall</h1>
 
         {canPost && (
           <div className="mb-8">

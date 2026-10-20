@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { createClient } from '../lib/supabase'
+import { shareElementAsImage } from '../lib/shareImage'
 import Shell from '../components/ceefax-shell'
 import { CrownIcon, FlameIcon, BoltIcon, CheckIcon, CrossIcon, ShadesIcon, PoundCoinIcon, ScalesIcon, BlockedIcon, TopDogIcon, YellowCardIcon, RedCardIcon, DoveIcon } from '../../components/icons'
 import Modal from '../../components/Modal'
@@ -17,7 +18,6 @@ import ColumnHintPopover from '../../components/ColumnHintPopover'
 import FitName from '../../components/FitName'
 import { computeCompetitionAwards, resolveWinners, awardWinnerNames, type CompetitionAward } from '../lib/awards'
 import PersonalSeasonShareCard from '../../components/PersonalSeasonShareCard'
-import LeaderboardShareCard from '../../components/LeaderboardShareCard'
 import { useSkin } from '../lib/useSkin'
 import { RULES_TEXT } from '../lib/rulesText'
 import PopArtLoading from '../../components/PopArtLoading'
@@ -111,7 +111,8 @@ export default function LeaderboardPage() {
   const [streakByUser, setStreakByUser] = useState<Record<string, number>>({})
   const [submittedKeys, setSubmittedKeys] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
-  const [showShare, setShowShare] = useState(false)
+  const [sharingStandings, setSharingStandings] = useState(false)
+  const [shareStandingsError, setShareStandingsError] = useState<string | null>(null)
   // Key and How Ties Are Split collapse by default — reference material,
   // not something most visits need open.
   const [showKey, setShowKey] = useState(false)
@@ -154,6 +155,10 @@ export default function LeaderboardPage() {
 
   const supabase = createClient()
   const { skin, popArt, retro } = useSkin(user?.id)
+  // Captures the real, live table itself — not a separately-built copy —
+  // so the shared image is guaranteed identical to what's on the page,
+  // not just visually similar to it.
+  const captureRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -860,6 +865,29 @@ export default function LeaderboardPage() {
     setDisciplineModalData({ cards: cards ?? [], suspensions: suspensions ?? [] })
   }
 
+  // Collapses any open row first — a clean standings capture every time,
+  // never accidentally including whichever row happened to be expanded —
+  // then captures captureRef directly, so the shared image is the actual
+  // table, not a separately-maintained copy of it.
+  async function handleShareStandings() {
+    setExpandedUser(null)
+    await new Promise(resolve => setTimeout(resolve, 50))
+    if (!captureRef.current) return
+    setSharingStandings(true)
+    setShareStandingsError(null)
+    try {
+      await shareElementAsImage(captureRef.current, {
+        filename: `${(competition?.name ?? 'leaderboard').replace(/\s+/g, '-').toLowerCase()}-standings.png`,
+        shareTitle: `${competition?.name ?? 'League'} Standings`,
+        whatsappText: `${competition?.name ?? 'League'} Standings 🏆 (image saved — attach it here!)`,
+        pixelRatio: 2,
+      })
+    } catch {
+      setShareStandingsError('Could not generate the image — try again.')
+    }
+    setSharingStandings(false)
+  }
+
   if (loading) {
     return (
       <Shell active="LEADERBOARD" skin={skin}>
@@ -912,14 +940,18 @@ export default function LeaderboardPage() {
             </h1>
             <div className="flex items-center gap-2 flex-wrap">
               {ranked.length > 0 && (
-                <RetroButton variant="select" onClick={() => setShowShare(true)}>Share Standings</RetroButton>
+                <RetroButton variant="select" onClick={handleShareStandings} disabled={sharingStandings}>{sharingStandings ? 'Preparing...' : 'Share Standings'}</RetroButton>
               )}
               <a href="/awards" className="retro-button retro-button--b" style={{ textDecoration: 'none' }}>🏆 Awards</a>
               <a href="/leaderboard/full" className="retro-button retro-button--a" style={{ textDecoration: 'none' }}>Full Table →</a>
             </div>
           </div>
+          {shareStandingsError && <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 13, color: 'var(--retro-red-light)' }}>{shareStandingsError}</p>}
           <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16, color: 'var(--retro-grey-light)', marginBottom: 'calc(var(--retro-px) * 6)' }}>{competition.name}</p>
 
+          {/* Wraps exactly what gets captured — title, live banner, table —
+              same reasoning as the Pop Art branch below. */}
+          <div ref={captureRef}>
           {liveGameweekNumbers.length > 0 && (
             <RetroWindow variant="blue" flat>
               <p style={{ fontFamily: 'var(--font-retro-mono)', fontSize: 16 }}>
@@ -1226,6 +1258,7 @@ export default function LeaderboardPage() {
               </tbody>
             </table>
           </RetroWindow>
+          </div>
 
           <RetroWindow title="Key">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'calc(var(--retro-px) * 3)', fontFamily: 'var(--font-retro-body)', fontSize: 15 }}>
@@ -1258,28 +1291,6 @@ export default function LeaderboardPage() {
             </ol>
           </RetroWindow>
         </Shell>
-
-        {showShare && (
-          <LeaderboardShareCard
-            competitionName={competition.name}
-            standings={ranked.map((p, i) => ({
-              name: p.display_name,
-              points: p.total_points,
-              is_bot: p.is_bot,
-              kit: kitByUser[p.user_id] ? {
-                pattern: kitByUser[p.user_id].pattern,
-                colour1: kitByUser[p.user_id].colour1,
-                colour2: kitByUser[p.user_id].colour2,
-                colour3: kitByUser[p.user_id].colour3,
-              } : null,
-              bankers_remaining: Math.max(0, 2 - (bankersUsedByPlayer[p.user_id] ?? 0)),
-              team_points: Math.round(p.team_points),
-              player_points: Math.round(p.player_points),
-            }))}
-            onClose={() => setShowShare(false)}
-            popArt
-          />
-        )}
 
         {showSeasonShareFor && (() => {
           const targetIndex = ranked.findIndex(p => p.user_id === showSeasonShareFor)
@@ -1362,8 +1373,12 @@ export default function LeaderboardPage() {
         <Shell active="LEADERBOARD" user={user} displayName={displayName} skin="pop-art">
           <div className="pop-art-theme">
 
-            <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-1">Leaderboard</h1>
-            <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name}</p>
+            {/* Wraps exactly what gets captured for the shareable image —
+                title, the live-gameweek banner if one's showing, and the
+                table itself — nothing from further down the page (buttons,
+                Key, tiebreaker rules). */}
+            <div ref={captureRef}>
+            <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-4">Leaderboard {competition.name}</h1>
 
             {liveGameweekNumbers.length > 0 && (
               <div className="pop-panel pop-panel--blue p-3 mb-4 flex items-center gap-2.5">
@@ -1846,14 +1861,17 @@ export default function LeaderboardPage() {
                 </tbody>
               </table>
             </div>
+            </div>
 
+            {shareStandingsError && <p className="text-xs mb-2" style={{ color: 'var(--pop-red)' }}>{shareStandingsError}</p>}
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               {ranked.length > 0 && (
                 <button
-                  onClick={() => setShowShare(true)}
-                  className="pop-button px-3 py-1.5 text-xs"
+                  onClick={handleShareStandings}
+                  disabled={sharingStandings}
+                  className="pop-button px-3 py-1.5 text-xs disabled:opacity-60"
                 >
-                  Share Standings
+                  {sharingStandings ? 'Preparing...' : '📱 Share Standings'}
                 </button>
               )}
               <a href="/awards" className="pop-button px-3 py-1.5 text-xs" style={{ background: 'var(--pop-orange)' }}>
@@ -1919,28 +1937,6 @@ export default function LeaderboardPage() {
 
           </div>
         </Shell>
-
-        {showShare && (
-          <LeaderboardShareCard
-            competitionName={competition.name}
-            standings={ranked.map((p, i) => ({
-              name: p.display_name,
-              points: p.total_points,
-              is_bot: p.is_bot,
-              kit: kitByUser[p.user_id] ? {
-                pattern: kitByUser[p.user_id].pattern,
-                colour1: kitByUser[p.user_id].colour1,
-                colour2: kitByUser[p.user_id].colour2,
-                colour3: kitByUser[p.user_id].colour3,
-              } : null,
-              bankers_remaining: Math.max(0, 2 - (bankersUsedByPlayer[p.user_id] ?? 0)),
-              team_points: Math.round(p.team_points),
-              player_points: Math.round(p.player_points),
-            }))}
-            onClose={() => setShowShare(false)}
-            popArt
-          />
-        )}
 
         {showSeasonShareFor && (() => {
           const targetIndex = ranked.findIndex(p => p.user_id === showSeasonShareFor)

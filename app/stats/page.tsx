@@ -1040,7 +1040,6 @@ export default function StatsHubPage() {
               🎁 Your Season
             </a>
           </div>
-          <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.65)' }}>{competition.name} — every number the game has generated so far.</p>
 
           {error && (
             <div className="pop-panel pop-panel--pink px-4 py-3 mb-5 text-sm">
@@ -1474,13 +1473,22 @@ export default function StatsHubPage() {
                   <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>The Race</p>
                   <ShareableCard filename="the-race-position-by-gameweek" className="pop-panel pop-panel--pink p-4 mb-4" style={{ height: Math.max(260, rankedUserMeta.length * 26) }}>
                     <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                      Position by Gameweek <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(lower = better)</span>
+                      Position by Gameweek
                     </p>
                     <ResponsiveContainer width="100%" height="88%">
                       <LineChart data={allRanksChartData} margin={{ top: 4, right: 78, bottom: 0, left: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
                         <XAxis dataKey="name" {...popAxisProps()} />
-                        <YAxis {...popAxisProps()} reversed allowDecimals={false} domain={[1, rankedUserMeta.length]} width={20} />
+                        <YAxis
+                          {...popAxisProps()}
+                          reversed
+                          allowDecimals={false}
+                          domain={[1, rankedUserMeta.length]}
+                          ticks={Array.from({ length: rankedUserMeta.length }, (_, i) => i + 1)}
+                          interval={0}
+                          orientation="right"
+                          width={24}
+                        />
                         <Tooltip {...popTooltipStyle()} />
                         {rankedUserMeta.map((u, i) => {
                           const color = rankLineColour(i)
@@ -1498,7 +1506,7 @@ export default function StatsHubPage() {
                               label={(props: any) => {
                                 if (props.index !== allRanksChartData.length - 1) return null
                                 return (
-                                  <text x={props.x + 8} y={props.y} dy={3} fontSize={10} fontWeight={700} fill={color} textAnchor="start">
+                                  <text x={props.x + 30} y={props.y} dy={3} fontSize={10} fontWeight={700} fill={color} textAnchor="start">
                                     {u.name}
                                   </text>
                                 )

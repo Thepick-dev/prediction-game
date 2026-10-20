@@ -99,7 +99,6 @@ export default function NewsListPage() {
               )}
             </div>
           </div>
-          <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>News, previews and reports</p>
 
           {posts.length === 0 ? (
             <div className="pop-panel p-6">

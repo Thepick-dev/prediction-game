@@ -11,7 +11,6 @@ import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import ResultsGrid, { type GridRow } from './ResultsGrid'
 import PopArtLoading from '../../components/PopArtLoading'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
-import { CrownIcon } from '../../components/icons'
 
 type Gameweek = {
   id: string
@@ -108,7 +107,6 @@ export default function ResultsPage() {
   // the grid already shows the picked team once, so repeating each
   // player's own club code was redundant clutter.
   const [playersBare, setPlayersBare] = useState<Record<number, string>>({})
-  const [potwUserId, setPotwUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingPicks, setLoadingPicks] = useState(false)
   const [fixtures, setFixtures] = useState<FixtureRow[]>([])
@@ -219,49 +217,6 @@ export default function ResultsPage() {
       const pastDue = gws.filter(g => new Date(g.deadline) <= now)
       const defaultGw = pastDue.length > 0 ? pastDue[pastDue.length - 1] : gws[0]
       setSelectedGw(defaultGw.id)
-    }
-
-    const [{ data: allPoints }, { data: seasonBonusCardPlays }] = await Promise.all([
-      supabase.from('points').select('user_id, pick_id, total_points, breakdown, gameweek_id').eq('competition_id', comp.id),
-      supabase.from('bonus_card_plays').select('user_id, points').eq('competition_id', comp.id),
-    ])
-
-    // Futzy can top the table like anyone else, but he can't be crowned —
-    // exclude bot rows before finding the leader. Also exclude anyone since
-    // removed from the competition, same reasoning as everywhere else here.
-    // This must be each user's CUMULATIVE season total (summed across every
-    // gameweek, same as the real Leaderboard's own ranking) — a previous
-    // version of this took the single highest individual-gameweek score
-    // across the whole season instead, which is a completely different
-    // number and could crown someone who isn't actually leading at all
-    // (confirmed live: it was showing whoever had one big Banker week, not
-    // whoever's actually ahead on the season).
-    const humanPoints = allPoints?.filter(p => !isBotMap[p.user_id] && activeIds.has(p.user_id)) ?? []
-    const cumulativeByUser: Record<string, number> = {}
-    // Same first tiebreaker the real Leaderboard uses (points with Banker
-    // doubling removed) — without this, a genuine tie on total points falls
-    // back to whatever order the rows happened to load in, which can crown
-    // someone the real Leaderboard's own tiebreak wouldn't.
-    const withoutBankerByUser: Record<string, number> = {}
-    humanPoints.forEach(p => {
-      cumulativeByUser[p.user_id] = (cumulativeByUser[p.user_id] ?? 0) + (p.total_points ?? 0)
-      const isBanker = (p.breakdown as any)?.is_banker === true
-      const raw = isBanker ? (p.total_points ?? 0) / 2 : (p.total_points ?? 0)
-      withoutBankerByUser[p.user_id] = (withoutBankerByUser[p.user_id] ?? 0) + raw
-    })
-    seasonBonusCardPlays?.forEach(play => {
-      if (isBotMap[play.user_id] || !activeIds.has(play.user_id) || play.points == null) return
-      cumulativeByUser[play.user_id] = (cumulativeByUser[play.user_id] ?? 0) + play.points
-      withoutBankerByUser[play.user_id] = (withoutBankerByUser[play.user_id] ?? 0) + play.points
-    })
-    const userIds = Object.keys(cumulativeByUser)
-    if (userIds.length > 0) {
-      const leaderId = userIds.reduce((best, id) => {
-        if (!best) return id
-        if (cumulativeByUser[id] !== cumulativeByUser[best]) return cumulativeByUser[id] > cumulativeByUser[best] ? id : best
-        return withoutBankerByUser[id] > withoutBankerByUser[best] ? id : best
-      }, '')
-      if (leaderId) setPotwUserId(leaderId)
     }
 
     setLoading(false)
@@ -456,13 +411,6 @@ export default function ResultsPage() {
         .map(p => ({ name: profiles[p.user_id] ?? 'Unknown', answer: p.question_answer as string }))
     : []
 
-  // Multiple-choice gets a real per-option tally; freetext has no discrete
-  // options to count, so the closest equivalent is simply how many people
-  // answered at all.
-  const gridQuestionTally = question?.question_type === 'freetext'
-    ? (freetextAnswers.length > 0 ? [{ label: 'Answered', count: freetextAnswers.length }] : [])
-    : questionTally.map(t => ({ label: t.label as string, count: t.count }))
-
   // Which team each team played this gameweek — falls back to this when a
   // pick hasn't been scored yet (no frozen team_detail to read the real
   // resolved fixture from). A double-gameweek team briefly resolves to
@@ -504,9 +452,6 @@ export default function ResultsPage() {
       player2Assist: assistPlayers.has(pick.player2_id),
       aon: aon ? { onPlayer1: aon.player_id === pick.player1_id, onPlayer2: aon.player_id === pick.player2_id, outcome: aon.outcome as 'pending' | 'success' | 'failed' } : null,
       bonusCard: bonusCardPlay ? { playerName: playersBare[bonusCardPlay.player_id] ?? 'Unknown', points: bonusCardPlay.points } : null,
-      answer: pick.question_answer
-        ? questionOptions.find(([letter]) => letter === pick.question_answer)?.[1] ?? pick.question_answer
-        : null,
       totalPoints: pts?.total_points ?? null,
       suspended: null,
     }
@@ -541,7 +486,6 @@ export default function ResultsPage() {
       player2Assist: false,
       aon: null,
       bonusCard: null,
-      answer: null,
       totalPoints: 0,
       suspended: { reason: s.reason, suspensionNumber: s.suspensionNumber },
     }))
@@ -579,18 +523,7 @@ export default function ResultsPage() {
       <Shell active="RESULTS" user={user} displayName={displayName} theme="pop-art">
         <div className="pop-art-theme">
 
-          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-1 mt-2">Results</h1>
-          <p className="font-bold text-sm mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>{competition.name}</p>
-
-          {potwUserId && (
-            <div className="pop-panel pop-panel--yellow p-4 mb-5 flex items-center gap-3">
-              <CrownIcon size={26} />
-              <div>
-                <p className="pop-headline text-xs" style={{ color: 'var(--pop-yellow)' }}>Season Leader</p>
-                <p className="font-black uppercase">{profiles[potwUserId] ?? 'Unknown'}</p>
-              </div>
-            </div>
-          )}
+          <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-4 mt-2">Results {competition.name}</h1>
 
           {gameweeks.length === 0 ? (
             <div className="pop-panel p-6">
@@ -671,8 +604,6 @@ export default function ResultsPage() {
                   bonusCardName={bonusCardName ?? 'Bonus Card'}
                   showScoring={showScoring}
                   rows={allGridRows}
-                  questionText={question?.question ?? null}
-                  questionTally={gridQuestionTally}
                 />
               )}
 
@@ -804,18 +735,7 @@ export default function ResultsPage() {
       <HeroPage wide>
         <div className="w-full text-[#F5ECD9]">
 
-          <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>RESULTS</h1>
-          <p className="text-[#D9A441]/70 mb-6 text-sm">{competition.name}</p>
-
-          {potwUserId && (
-            <div className="bg-[#D9A441]/15 border border-[#D9A441]/40 rounded-lg px-4 py-3 mb-5 flex items-center gap-3">
-              <span className="text-xl">👑</span>
-              <div>
-                <p className="text-xs text-[#D9A441] font-bold uppercase tracking-wide">Season Leader</p>
-                <p className="font-bold uppercase">{profiles[potwUserId] ?? 'Unknown'}</p>
-              </div>
-            </div>
-          )}
+          <h1 className="text-3xl font-bold mb-4" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>RESULTS {competition.name}</h1>
 
           {gameweeks.length === 0 ? (
             <div className="bg-white/5 border border-white/10 rounded-lg p-6">
@@ -885,8 +805,6 @@ export default function ResultsPage() {
                   bonusCardName={bonusCardName ?? 'Bonus Card'}
                   showScoring={showScoring}
                   rows={allGridRows}
-                  questionText={question?.question ?? null}
-                  questionTally={gridQuestionTally}
                 />
               )}
 

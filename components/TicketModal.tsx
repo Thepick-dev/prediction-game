@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { toPng } from 'html-to-image'
+import { shareElementAsImage } from '../app/lib/shareImage'
 
 type Props = {
   eyebrow: string
@@ -42,33 +42,11 @@ export default function TicketModal({ eyebrow, title, subtitle, filenameBase, on
     setSaving(true)
     setError(null)
     try {
-      const dataUrl = await toPng(cardRef.current, { pixelRatio: 2 })
-      const filename = `${filenameBase}.png`
-
-      // Mobile browsers with the Web Share API can hand the image straight
-      // to WhatsApp (or anything else) via the native share sheet.
-      const canShareFiles = typeof navigator.share === 'function' && typeof navigator.canShare === 'function'
-      if (canShareFiles) {
-        const blob = await (await fetch(dataUrl)).blob()
-        const file = new File([blob], filename, { type: 'image/png' })
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title })
-          setSaving(false)
-          return
-        }
-      }
-
-      // Most desktop browsers don't support sharing files at all — there's
-      // no way to hand WhatsApp an image via a plain link on desktop, so
-      // the honest fallback is: download the image, then open a WhatsApp
-      // chat ready-to-go so it's still just one manual attach away, rather
-      // than a button that silently does nothing.
-      const link = document.createElement('a')
-      link.href = dataUrl
-      link.download = filename
-      link.click()
-      const text = encodeURIComponent(`${title}${subtitle ? ` — ${subtitle}` : ''} 🏆 (image saved — attach it here!)`)
-      window.open(`https://wa.me/?text=${text}`, '_blank')
+      await shareElementAsImage(cardRef.current, {
+        filename: `${filenameBase}.png`,
+        shareTitle: title,
+        whatsappText: `${title}${subtitle ? ` — ${subtitle}` : ''} 🏆 (image saved — attach it here!)`,
+      })
     } catch {
       setError('Could not generate the image — try again.')
     }

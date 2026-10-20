@@ -34,7 +34,30 @@ export default function FitName({ children, baseSize, minSize, className, style 
 
     function measure() {
       if (!ghost || !parent) return
-      const available = parent.clientWidth
+      const visible = visibleRef.current
+      // Siblings sharing the SAME line (a badge, a "(6)" points value next
+      // to the name) eat into the real available width without parent.
+      // clientWidth ever reflecting that — it's the whole row's width, not
+      // what's left after those siblings. Detected by vertical overlap
+      // rather than assuming a flex-row parent, so this works whether the
+      // name sits beside other content or stacked above/below it (where
+      // siblings correctly DON'T count against its budget).
+      let siblingsWidth = 0
+      if (visible) {
+        const visibleRect = visible.getBoundingClientRect()
+        // A flex `gap` sits between items but isn't part of any sibling's
+        // own rect — missing it meant "available" came out a few pixels
+        // too generous, which is exactly the gap between right and still
+        // visibly clipped.
+        const gapPx = parseFloat(getComputedStyle(parent).columnGap || '0') || 0
+        for (const child of Array.from(parent.children)) {
+          if (child === ghost || child === visible) continue
+          const rect = child.getBoundingClientRect()
+          const sameLine = rect.top < visibleRect.bottom && rect.bottom > visibleRect.top
+          if (sameLine) siblingsWidth += rect.width + gapPx
+        }
+      }
+      const available = Math.max(0, parent.clientWidth - siblingsWidth)
       const needed = ghost.scrollWidth
       if (available > 0 && needed > available) {
         // A 4% safety margin — scrollWidth rounds to whole pixels, so an
@@ -67,7 +90,12 @@ export default function FitName({ children, baseSize, minSize, className, style 
           against a hypothetical name so long even the size floor can't
           make it fit, so it clips instead of spilling into the next
           column. */}
-      <span ref={visibleRef} className={className} style={{ ...style, fontSize, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', minWidth: 0, display: 'inline-block' }}>
+      {/* flexShrink: 0 — inside a flex row, the browser's own shrink-to-fit
+          would otherwise fight the font-size this component already
+          computed, squeezing the box smaller than its (correctly sized)
+          content and triggering the ellipsis backstop for no reason. A
+          no-op wherever the parent isn't a flex container. */}
+      <span ref={visibleRef} className={className} style={{ ...style, fontSize, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', minWidth: 0, flexShrink: 0, display: 'inline-block' }}>
         {children}
       </span>
     </>
