@@ -74,7 +74,16 @@ function TeamSquareButton({
       type="button"
       onClick={onClick}
       disabled={status.isUsed && !selected}
-      className={`relative flex flex-col items-center justify-center shrink-0 rounded-2xl w-[108px] h-[108px] sm:w-[150px] sm:h-[150px] ${selected ? 'pop-pop-in' : ''}`}
+      // flex-1 + aspect-square, not a fixed pixel size — a hardcoded width
+      // left the square hugging its own content while the wider fixture
+      // panel around it stayed full-bleed, which is exactly the dead
+      // space down each side the square design was supposed to avoid.
+      // Growing to fill its half of the row while aspect-square keeps the
+      // height locked to whatever that width ends up being is what "a
+      // square that still fills the box" actually means — same shape,
+      // genuinely no wasted room, and it scales smoothly with screen
+      // width instead of jumping between two fixed breakpoints.
+      className={`relative flex flex-col items-center justify-center flex-1 aspect-square rounded-2xl ${selected ? 'pop-pop-in' : ''}`}
       style={{
         border: `3px solid ${borderColor}`,
         background: selected ? 'var(--pop-green)' : status.isUsed ? '#111111' : ringColor ? `color-mix(in srgb, ${ringColor} 12%, transparent)` : 'rgba(255,255,255,0.03)',
@@ -84,14 +93,14 @@ function TeamSquareButton({
     >
       {quartile && (
         <span
-          className={`pop-badge ${SQUARE_QUARTILE_BADGE[quartile] ?? ''} absolute top-1.5 left-1.5 px-1.5 py-0.5 text-[7px] sm:text-[8px]`}
+          className={`pop-badge ${SQUARE_QUARTILE_BADGE[quartile] ?? ''} absolute top-1.5 left-1.5 px-1.5 py-0.5 text-[8px] sm:text-[9px]`}
           style={status.isUsed ? { opacity: 0.4 } : undefined}
         >
           {quartile}
         </span>
       )}
       <span
-        className="absolute top-1.5 right-1.5 font-mono font-black px-1.5 py-0.5 rounded-full text-[7px] sm:text-[8px]"
+        className="absolute top-1.5 right-1.5 font-mono font-black px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px]"
         style={{
           background: selected ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.1)',
           color: selected ? 'rgba(0,0,0,0.7)' : status.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.7)',
@@ -100,9 +109,9 @@ function TeamSquareButton({
         {status.isUsed ? 'Used' : `${status.remaining}/${status.maxUses}`}
       </span>
 
-      <TeamCrest teamId={teamId} teamName={name} size={40} />
-      <span className="font-black uppercase text-[11px] sm:text-sm mt-1.5 truncate max-w-full px-1.5">{name}</span>
-      <span className="font-mono text-[8px] sm:text-[10px] font-bold mt-0.5" style={{ opacity: status.isUsed ? 0.6 : 0.85 }}>
+      <TeamCrest teamId={teamId} teamName={name} size={44} />
+      <span className="font-black uppercase text-xs sm:text-base mt-1.5 truncate max-w-full px-1.5">{name}</span>
+      <span className="font-mono text-[9px] sm:text-xs font-bold mt-0.5" style={{ opacity: status.isUsed ? 0.6 : 0.85 }}>
         W+{winDraw.win} D+{winDraw.draw}
       </span>
     </button>
@@ -1324,8 +1333,29 @@ export default function PicksPage() {
 
                       if (isAdmin && previewSquareButtons) {
                         return (
-                          <div key={fixture.id} className="pop-panel p-2 sm:p-3">
-                            <div className="flex items-center justify-center gap-2 sm:gap-3">
+                          <div
+                            key={fixture.id}
+                            className="pop-panel p-2 sm:p-3"
+                            // Plain panels get the V2 skin's brand-pink inset
+                            // top line by default (globals.css, deliberate
+                            // site-wide default for any .pop-panel with no
+                            // colour variant) — scoped off just here, since
+                            // each square already carries its own quartile
+                            // colour on its edge and a second pink line
+                            // competing above it read as clutter rather than
+                            // signal. Keeps the same outer drop-shadow V1/V2
+                            // both already use, just without the inset.
+                            style={{ boxShadow: '0 4px 18px rgba(0, 0, 0, 0.5)' }}
+                          >
+                            {/* max-width + mx-auto, not an unconstrained
+                                flex-1 row — on a phone this cap is wider
+                                than the panel itself so it never kicks in
+                                and the squares fill the full width exactly
+                                as on mobile today; on a wide desktop it
+                                stops each square growing to an absurd size
+                                and just centres a sensibly-sized pair
+                                instead of stretching them edge to edge. */}
+                            <div className="flex items-center gap-2 sm:gap-3 mx-auto" style={{ maxWidth: 480 }}>
                               <TeamSquareButton
                                 teamId={homeTeam?.id ?? null}
                                 name={teamDisplayName(homeTeam)}

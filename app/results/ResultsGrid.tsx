@@ -188,9 +188,20 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                           clipped character). Badges move to the line below,
                           where only the already-truncating opponent text
                           yields room to them. */}
-                      <div className="flex items-center gap-1 min-w-0">
-                        <TeamCrest teamId={row.teamId} teamName={row.team} size={16} />
-                        <span className="min-w-0 shrink">
+                      <div className="flex items-center min-w-0" style={{ gap: 3 }}>
+                        <TeamCrest teamId={row.teamId} teamName={row.team} size={14} />
+                        {/* flex-1, not shrink-only — FitName measures its
+                            own PARENT's clientWidth as "available," and a
+                            parent with no flex-grow just hugs its own
+                            content at whatever size that content currently
+                            renders, which is circular (it always reports
+                            "exactly enough room for my current size,"
+                            telling FitName nothing useful). flex-1 forces
+                            this span to actually claim its real share of
+                            the row, so clientWidth reflects genuine
+                            available space — the same pattern already used
+                            correctly for the player-name column below. */}
+                        <span className="min-w-0 flex-1">
                           <FitName baseSize={11} minSize={8} className="font-black uppercase" style={{ color: 'var(--pop-blue)' }}>{row.team}</FitName>
                         </span>
                       </div>
