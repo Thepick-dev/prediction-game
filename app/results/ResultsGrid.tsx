@@ -49,7 +49,15 @@ const AON_TITLE = { pending: 'All or Nothing — played, result pending', succes
 
 function playerLine(name: string, points: number | null, goal: boolean, assist: boolean, showScoring: boolean, aonOutcome?: 'pending' | 'success' | 'failed') {
   return (
-    <div className="flex items-center min-w-0" style={{ gap: 2 }}>
+    // flexWrap, not nowrap — when a long name plus every badge (goal,
+    // assist, All-or-Nothing, points) can't all fit on one line even with
+    // the name shrunk to its floor, the badges wrap to a second line
+    // instead of clipping off the cell's right edge. FitName already
+    // excludes wrapped-away siblings from its own width budget (it
+    // detects "same line" by vertical overlap), so a wrapped badge row
+    // lets the name render at full size rather than needlessly shrinking
+    // to make room for content that's no longer sharing its line anyway.
+    <div className="flex items-center min-w-0" style={{ gap: 2, flexWrap: 'wrap', rowGap: 1 }}>
       <FitName baseSize={11} minSize={7} className="uppercase font-bold" style={{ color: '#fff' }}>{name}</FitName>
       {goal && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '8px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
       {assist && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '8px', background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
@@ -136,7 +144,7 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
             genuinely cap each row — content that would overflow clips
             instead of growing the row, so every row really is the same
             size no matter what it holds. */}
-        <div style={{ display: 'grid', gridTemplateColumns: '7% 26% 20% 32% 15%', gridAutoRows: '54px', fontSize: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '7% 26% 20% 32% 15%', gridAutoRows: '70px', fontSize: '12px' }}>
           <div className="py-1.5 pr-0.5 uppercase tracking-wider" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>#</div>
           <div className="py-1.5 px-1 uppercase tracking-wider" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>Player</div>
           <div className="py-1.5 px-1 uppercase tracking-wider" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>Team</div>
@@ -172,10 +180,23 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                 ) : (
                   <>
                     <div className="py-2 px-1" style={{ ...cellStyle, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', minWidth: 0 }}>
+                      {/* The team code is the headline info for this cell —
+                          nothing else shares this line's width budget, so
+                          it never has to fight a banker badge or the bonus
+                          card tab for room (that fight is exactly what was
+                          flooring a 3-letter code like "BOU" to a single
+                          clipped character). Badges move to the line below,
+                          where only the already-truncating opponent text
+                          yields room to them. */}
                       <div className="flex items-center gap-1 min-w-0">
                         <TeamCrest teamId={row.teamId} teamName={row.team} size={16} />
                         <span className="min-w-0 shrink">
                           <FitName baseSize={11} minSize={8} className="font-black uppercase" style={{ color: 'var(--pop-blue)' }}>{row.team}</FitName>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 min-w-0" style={{ fontSize: '9px', flexWrap: 'wrap', rowGap: 1 }}>
+                        <span className="normal-case font-bold font-mono truncate min-w-0" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                          {row.opponentCode && `vs ${row.opponentCode} · `}{showScoring ? `${row.teamPoints ?? 0} pts` : 'Pending'}
                         </span>
                         {row.isBanker && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '8px', background: 'var(--pop-orange)', color: '#fff' }}>★B</span>}
                         {/* Compact initials+points tab, same treatment as
@@ -190,9 +211,6 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                             {initials(row.bonusCard.playerName)}{showScoring && row.bonusCard.points != null ? `: ${row.bonusCard.points}` : ''}
                           </span>
                         )}
-                      </div>
-                      <div className="normal-case font-bold font-mono truncate" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)' }}>
-                        {row.opponentCode && `vs ${row.opponentCode} · `}{showScoring ? `${row.teamPoints ?? 0} pts` : 'Pending'}
                       </div>
                     </div>
                     <div className="py-2 px-1" style={{ ...cellStyle, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', minWidth: 0 }}>
