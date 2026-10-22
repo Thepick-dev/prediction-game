@@ -146,7 +146,14 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
 
   return (
     <div className="mb-4">
-      <div ref={cardRef} className="pop-panel" style={{ overflow: 'hidden', padding: '16px 10px', background: 'var(--pop-black)' }}>
+      {/* No background override here — .pop-panel's own var(--pop-surface)
+          fill (plus, in the V2 skin, its gloss/grain/pink-stripe treatment)
+          is what makes every other panel on the site, including the
+          Leaderboard's, read as part of the same purple-toned identity. An
+          earlier version pinned this to flat var(--pop-black), which lost
+          all of that and made this panel look like a different, disconnected
+          page. */}
+      <div ref={cardRef} className="pop-panel" style={{ overflow: 'hidden', padding: '16px 10px' }}>
         <p className="font-black uppercase" style={{ fontSize: '13px', letterSpacing: '0.04em', color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>
           {competitionName} — GW{gameweekNumber}
         </p>
@@ -164,7 +171,11 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
           <div className="py-1.5 text-right uppercase tracking-wider font-black" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>Pts</div>
 
           {rows.map((row, i) => {
-            const rowBg = row.suspended ? 'rgba(250,0,60,0.08)' : row.isWinner ? 'rgba(255,210,63,0.08)' : (i % 2 === 1 ? 'rgba(255,255,255,0.02)' : undefined)
+            // Same priority order and same pink tint as the Leaderboard's
+            // own-row highlight (rgba(160,0,250,...) there too, not
+            // var(--pop-pink) — matched deliberately so both pages' "this is
+            // you" treatment reads identically regardless of skin variant).
+            const rowBg = row.suspended ? 'rgba(250,0,60,0.08)' : row.isWinner ? 'rgba(255,210,63,0.08)' : row.isOwnPick ? 'rgba(160,0,250,0.06)' : (i % 2 === 1 ? 'rgba(255,255,255,0.02)' : undefined)
             const cellStyle: React.CSSProperties = {
               borderBottom: i < rows.length - 1 ? '1px solid rgba(255,255,255,0.06)' : undefined,
               background: rowBg,
