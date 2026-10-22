@@ -118,6 +118,7 @@ export default function ResultsPage() {
   const [fixtures, setFixtures] = useState<FixtureRow[]>([])
   const [expandedFixture, setExpandedFixture] = useState<number | null>(null)
   const [question, setQuestion] = useState<Question | null>(null)
+  const [expandedAnswer, setExpandedAnswer] = useState<string | null>(null)
 
   const supabase = createClient()
   const { popArt } = usePopArtTheme(user?.id)
@@ -254,6 +255,7 @@ export default function ResultsPage() {
         .order('kickoff_time')
       setFixtures(fixturesData ?? [])
       setExpandedFixture(null)
+      setExpandedAnswer(null)
       setPicks([])
       setPointsData([])
       setMatchEvents([])
@@ -293,6 +295,7 @@ export default function ResultsPage() {
     const fixtureList = fixturesData ?? []
     setFixtures(fixtureList)
     setExpandedFixture(null)
+    setExpandedAnswer(null)
 
     // Scoped to this gameweek's own fixtures — without this, "who scored"
     // badges and the match-events panel would mix in goals from every
@@ -446,6 +449,7 @@ export default function ResultsPage() {
     letter,
     label,
     count: sortedPicks.filter(p => p.question_answer === letter).length,
+    names: sortedPicks.filter(p => p.question_answer === letter).map(p => profiles[p.user_id] ?? 'Unknown'),
   }))
 
   // A percentage-bar poll doesn't mean anything for freetext — answers are
@@ -640,26 +644,38 @@ export default function ResultsPage() {
                         <div key={f.id} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                           <button
                             onClick={() => setExpandedFixture(isExpanded ? null : f.id)}
-                            className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-white/[0.04] transition-colors"
+                            className="w-full px-3 py-3 text-left hover:bg-white/[0.04] transition-colors"
                           >
-                            <div className="flex items-center gap-1.5 text-xs uppercase flex-wrap min-w-0">
-                              <TeamCrest teamId={f.home_team_id} teamName={teams[f.home_team_id]?.name ?? ''} size={16} />
-                              <span className="font-black">{teamDisplayName(teams[f.home_team_id])}</span>
-                              {played ? (
-                                <span
-                                  className="font-mono font-bold shrink-0 rounded"
-                                  style={{ color: 'var(--pop-white)', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', padding: '2px 8px', fontVariantNumeric: 'tabular-nums' }}
-                                >
-                                  {f.home_score} – {f.away_score}
-                                </span>
-                              ) : (
-                                <span className="font-black shrink-0" style={{ color: 'rgba(255,255,255,0.4)' }}>vs</span>
-                              )}
-                              <span className="font-black">{teamDisplayName(teams[f.away_team_id])}</span>
-                              <TeamCrest teamId={f.away_team_id} teamName={teams[f.away_team_id]?.name ?? ''} size={16} />
-                              {!played && <span className="normal-case shrink-0" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}>Not played yet</span>}
+                            {/* Chevron is its own grid column, not an absolute overlay —
+                                a long away-team name truncates right up against the row's
+                                edge, and an overlay there would sit on top of its ellipsis.
+                                A matching empty spacer column on the left keeps the score
+                                column mathematically centered despite the asymmetric content. */}
+                            <div className="grid items-center gap-1.5" style={{ gridTemplateColumns: '16px 1fr auto 1fr 16px' }}>
+                              <div />
+                              <div className="flex items-center justify-end gap-1.5 text-xs uppercase min-w-0">
+                                <span className="font-black truncate">{teamDisplayName(teams[f.home_team_id])}</span>
+                                <TeamCrest teamId={f.home_team_id} teamName={teams[f.home_team_id]?.name ?? ''} size={18} />
+                              </div>
+                              <div className="text-center px-1">
+                                {played ? (
+                                  <span
+                                    className="font-mono font-black tabular-nums"
+                                    style={{ fontSize: '20px', color: 'var(--pop-orange)', textShadow: '0 0 4px rgba(255,124,0,0.55), 0 0 12px rgba(255,124,0,0.3)' }}
+                                  >
+                                    {f.home_score}–{f.away_score}
+                                  </span>
+                                ) : (
+                                  <span className="font-black text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>VS</span>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-start gap-1.5 text-xs uppercase min-w-0">
+                                <TeamCrest teamId={f.away_team_id} teamName={teams[f.away_team_id]?.name ?? ''} size={18} />
+                                <span className="font-black truncate">{teamDisplayName(teams[f.away_team_id])}</span>
+                              </div>
+                              <span className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>{isExpanded ? '▲' : '▼'}</span>
                             </div>
-                            <span className="text-xs shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }}>{isExpanded ? '▲' : '▼'}</span>
+                            {!played && <p className="text-center normal-case mt-1" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}>Not played yet</p>}
                           </button>
                           {isExpanded && (
                             <div className="px-3 pb-3 text-xs space-y-1">
@@ -707,15 +723,30 @@ export default function ResultsPage() {
                       const totalAnswered = questionTally.reduce((sum, t) => sum + t.count, 0)
                       return questionTally.map(t => {
                         const pct = totalAnswered > 0 ? Math.round((t.count / totalAnswered) * 100) : 0
+                        const isOpen = expandedAnswer === t.letter
                         return (
                           <div key={t.letter}>
-                            <div className="flex items-center justify-between text-xs mb-0.5">
-                              <span className="uppercase" style={{ color: 'rgba(255,255,255,0.8)' }}>{t.label}</span>
-                              <span style={{ color: 'rgba(255,255,255,0.5)' }}>{t.count}</span>
-                            </div>
-                            <div className="h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--pop-orange)' }} />
-                            </div>
+                            <button
+                              onClick={() => t.count > 0 && setExpandedAnswer(isOpen ? null : t.letter)}
+                              className="w-full text-left"
+                              disabled={t.count === 0}
+                            >
+                              <div className="flex items-center justify-between text-xs mb-0.5">
+                                <span className="uppercase flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                                  {t.label}
+                                  {t.count > 0 && <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '9px' }}>{isOpen ? '▲' : '▼'}</span>}
+                                </span>
+                                <span style={{ color: 'rgba(255,255,255,0.5)' }}>{t.count}</span>
+                              </div>
+                              <div className="h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--pop-orange)' }} />
+                              </div>
+                            </button>
+                            {isOpen && (
+                              <p className="mt-1 uppercase" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)' }}>
+                                {t.names.join(', ')}
+                              </p>
+                            )}
                           </div>
                         )
                       })
@@ -816,19 +847,35 @@ export default function ResultsPage() {
                         <div key={f.id}>
                           <button
                             onClick={() => setExpandedFixture(isExpanded ? null : f.id)}
-                            className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-white/5 transition-colors"
+                            className="w-full px-3 py-3 text-left hover:bg-white/5 transition-colors"
                           >
-                            <div className="flex items-center gap-1.5 text-xs uppercase flex-wrap min-w-0">
-                              <TeamCrest teamId={f.home_team_id} teamName={teams[f.home_team_id]?.name ?? ''} size={16} />
-                              <span className="font-bold">{teamDisplayName(teams[f.home_team_id])}</span>
-                              <span className="text-[#F5ECD9]/40 font-bold shrink-0">
-                                {played ? `${f.home_score} - ${f.away_score}` : 'vs'}
-                              </span>
-                              <span className="font-bold">{teamDisplayName(teams[f.away_team_id])}</span>
-                              <TeamCrest teamId={f.away_team_id} teamName={teams[f.away_team_id]?.name ?? ''} size={16} />
-                              {!played && <span className="text-[#F5ECD9]/30 normal-case shrink-0" style={{ fontSize: '9px' }}>Not played yet</span>}
+                            {/* Chevron is its own grid column, not an absolute overlay —
+                                a long away-team name truncates right up against the row's
+                                edge, and an overlay there would sit on top of its ellipsis.
+                                A matching empty spacer column on the left keeps the score
+                                column mathematically centered despite the asymmetric content. */}
+                            <div className="grid items-center gap-1.5" style={{ gridTemplateColumns: '16px 1fr auto 1fr 16px' }}>
+                              <div />
+                              <div className="flex items-center justify-end gap-1.5 text-xs uppercase min-w-0">
+                                <span className="font-bold truncate">{teamDisplayName(teams[f.home_team_id])}</span>
+                                <TeamCrest teamId={f.home_team_id} teamName={teams[f.home_team_id]?.name ?? ''} size={18} />
+                              </div>
+                              <div className="text-center px-1">
+                                {played ? (
+                                  <span className="font-bold tabular-nums" style={{ fontSize: '20px', color: '#D9A441' }}>
+                                    {f.home_score} – {f.away_score}
+                                  </span>
+                                ) : (
+                                  <span className="font-bold text-xs text-[#F5ECD9]/40">VS</span>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-start gap-1.5 text-xs uppercase min-w-0">
+                                <TeamCrest teamId={f.away_team_id} teamName={teams[f.away_team_id]?.name ?? ''} size={18} />
+                                <span className="font-bold truncate">{teamDisplayName(teams[f.away_team_id])}</span>
+                              </div>
+                              <span className="text-[#F5ECD9]/30 text-xs text-center">{isExpanded ? '▲' : '▼'}</span>
                             </div>
-                            <span className="text-[#F5ECD9]/30 text-xs shrink-0">{isExpanded ? '▲' : '▼'}</span>
+                            {!played && <p className="text-[#F5ECD9]/30 normal-case text-center mt-1" style={{ fontSize: '9px' }}>Not played yet</p>}
                           </button>
                           {isExpanded && (
                             <div className="px-3 pb-3 text-xs space-y-1">
@@ -876,15 +923,30 @@ export default function ResultsPage() {
                       const totalAnswered = questionTally.reduce((sum, t) => sum + t.count, 0)
                       return questionTally.map(t => {
                         const pct = totalAnswered > 0 ? Math.round((t.count / totalAnswered) * 100) : 0
+                        const isOpen = expandedAnswer === t.letter
                         return (
                           <div key={t.letter}>
-                            <div className="flex items-center justify-between text-xs mb-0.5">
-                              <span className="uppercase text-[#F5ECD9]/80">{t.label}</span>
-                              <span className="text-[#F5ECD9]/50">{t.count}</span>
-                            </div>
-                            <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: '#D9A441' }} />
-                            </div>
+                            <button
+                              onClick={() => t.count > 0 && setExpandedAnswer(isOpen ? null : t.letter)}
+                              className="w-full text-left"
+                              disabled={t.count === 0}
+                            >
+                              <div className="flex items-center justify-between text-xs mb-0.5">
+                                <span className="uppercase text-[#F5ECD9]/80 flex items-center gap-1">
+                                  {t.label}
+                                  {t.count > 0 && <span className="text-[#F5ECD9]/30" style={{ fontSize: '9px' }}>{isOpen ? '▲' : '▼'}</span>}
+                                </span>
+                                <span className="text-[#F5ECD9]/50">{t.count}</span>
+                              </div>
+                              <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: '#D9A441' }} />
+                              </div>
+                            </button>
+                            {isOpen && (
+                              <p className="mt-1 text-[#F5ECD9]/60 uppercase" style={{ fontSize: '10px' }}>
+                                {t.names.join(', ')}
+                              </p>
+                            )}
                           </div>
                         )
                       })
