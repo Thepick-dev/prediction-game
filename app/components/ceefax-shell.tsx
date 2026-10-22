@@ -8,6 +8,7 @@ import KitEditor from '../../components/KitEditor'
 import LiveMatchAlerts from '../../components/LiveMatchAlerts'
 import SiteThemeEffects from '../../components/SiteThemeEffects'
 import InstallPrompt from '../../components/InstallPrompt'
+import GhostNoticeModal from '../../components/GhostNoticeModal'
 import { useCountdown } from '../lib/useCountdown'
 import { useRetroA11yPrefs } from '../lib/useRetroA11yPrefs'
 import { RetroFutzy, RetroHud, RetroHudStat } from '../../components/retro'
@@ -295,6 +296,7 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
       <div className="retro-theme min-h-screen flex flex-col" {...a11yAttrs}>
         <div className="retro-crt-layer" aria-hidden="true" />
         <InstallPrompt />
+        <GhostNoticeModal userId={user?.id} />
         <header className="sticky top-0 z-50" style={{ background: 'var(--retro-bg)', borderBottom: `var(--retro-px) solid var(--retro-border)` }}>
           {futzySaysLines.length > 0 && (
             <div
@@ -477,6 +479,7 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
       <LiveMatchAlerts />
       <SiteThemeEffects />
       <InstallPrompt />
+      <GhostNoticeModal userId={user?.id} />
       <header
         className="sticky top-0 z-50"
         style={{ borderBottom: '2px solid rgba(255,255,255,0.15)' }}

@@ -47,6 +47,10 @@ export const RULES_TEXT = {
   futzy: [
     "Futzy plays by the same rules as everyone else — the same deadlines, the same team/player usage caps, and (where enabled) Banker, All or Nothing and the Bonus Card too — but can never be crowned the winner, even if he tops the table.",
   ],
+  ghostPlayers: [
+    "Someone joining after the competition has already started is given a backfilled starting total — the average of every other real player's score so far — so they're not sitting on zero while everyone else has weeks of points on the board. You'll see a 👻 next to a ghost player's name.",
+    "A ghost plays normally from the gameweek they join onward — same picks, same All or Nothing and Bonus Card eligibility, though only one Banker rather than the usual two — but can never be crowned the winner, win an award, or appear on a podium, since part of their total was never actually earned. Once someone joins a later competition from scratch, they're a full player in that one, not a ghost.",
+  ],
   discipline: [
     "Admin can issue a yellow or red card for any conduct they judge worthy of one — it's their call, not a fixed offense list. Appeals go through the Sporting Panel.",
     "A straight red costs you a gameweek (admin can lengthen this for serious conduct). Two yellow cards also cost you a gameweek — and once two yellows combine into a suspension, the count resets, so a future yellow starts fresh.",

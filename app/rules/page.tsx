@@ -314,6 +314,12 @@ export default function RulesPage() {
             )}
 
             <section className="pop-panel p-5">
+              <h2 className="pop-headline text-sm mb-2">👻 Ghost Players</h2>
+              <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.ghostPlayers[0]}</p>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.ghostPlayers[1]}</p>
+            </section>
+
+            <section className="pop-panel p-5">
               <h2 className="pop-headline text-sm mb-2">🟨🟥 Yellow &amp; Red Cards</h2>
               <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.discipline[0]}</p>
               <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.discipline[1]}</p>
@@ -449,6 +455,12 @@ export default function RulesPage() {
                 <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">{rt.futzy[1]}</p>
               </section>
             )}
+
+            <section className={cardClass}>
+              <h2 className="text-lg font-bold mb-3 text-[#D9A441]">👻 Ghost Players</h2>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed mb-2">{rt.ghostPlayers[0]}</p>
+              <p className="text-sm text-[#F5ECD9]/80 leading-relaxed">{rt.ghostPlayers[1]}</p>
+            </section>
 
             <section className={cardClass}>
               <h2 className="text-lg font-bold mb-3 text-[#D9A441]">Autopick</h2>

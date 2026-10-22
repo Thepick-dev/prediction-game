@@ -156,6 +156,12 @@ export default function RulesModal({ onClose }: RulesModalProps) {
               )}
 
               <section>
+                <h3 className="pop-headline text-sm mb-2">👻 Ghost Players</h3>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.ghostPlayers[0]}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.ghostPlayers[1]}</p>
+              </section>
+
+              <section>
                 <h3 className="pop-headline text-sm mb-2">🟨🟥 Yellow &amp; Red Cards</h3>
                 <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.discipline[0]}</p>
                 <p className="text-sm leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{rt.discipline[1]}</p>

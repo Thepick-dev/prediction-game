@@ -14,6 +14,7 @@ export const RULES_SECTIONS: { key: keyof typeof RULES_TEXT; label: string; hint
   { key: 'allOrNothing', label: 'All or Nothing', hint: 'Separate paragraphs with a blank line.' },
   { key: 'bonusCard', label: 'Bonus Card', hint: 'Separate paragraphs with a blank line.' },
   { key: 'futzy', label: 'Futzy', hint: 'Separate paragraphs with a blank line.' },
+  { key: 'ghostPlayers', label: 'Ghost Players', hint: 'Separate paragraphs with a blank line.' },
   { key: 'discipline', label: 'Yellow & Red Cards', hint: 'Separate paragraphs with a blank line.' },
   { key: 'autopick', label: 'Autopick', hint: 'Separate paragraphs with a blank line.' },
   { key: 'quartiles', label: 'Quartiles', hint: 'Separate paragraphs with a blank line.' },
