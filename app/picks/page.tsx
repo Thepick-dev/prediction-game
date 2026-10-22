@@ -357,6 +357,7 @@ export default function PicksPage() {
   const [playerMaxOverride, setPlayerMaxOverride] = useState<Record<number, number>>({})
   const [doubleUseTeams, setDoubleUseTeams] = useState<number[]>([])
   const [bankersUsed, setBankersUsed] = useState(0)
+  const [bankerLimit, setBankerLimit] = useState(2)
 
   // All or Nothing — played at most once per competition, on whichever of
   // this week's two picks you nominate. `allOrNothing` is the resolved
@@ -668,6 +669,7 @@ export default function PicksPage() {
       setPlayerMaxOverride(pickData.playerMaxOverride ?? {})
       setDoubleUseTeams(pickData.doubleUseTeams ?? [])
       setBankersUsed(pickData.bankersUsed ?? 0)
+      setBankerLimit(pickData.bankerLimit ?? 2)
       setFixtures(fixturesData ?? [])
 
       aonFromApi = pickData.allOrNothing ?? null
@@ -1740,12 +1742,12 @@ export default function PicksPage() {
                         <div className="flex items-center gap-3 flex-wrap justify-center">
                           <button
                             onClick={() => setIsBanker(!isBanker)}
-                            disabled={!isBanker && bankersUsed >= 2}
+                            disabled={!isBanker && bankersUsed >= bankerLimit}
                             className={`pop-button ${isBanker ? 'pop-button--green pop-pop-in' : 'pop-button--yellow'} px-4 py-2.5`}
                           >
                             {isBanker ? '★ Banker Declared' : 'Declare Banker'}
                           </button>
-                          <span className="pop-badge pop-badge--blue px-2.5 py-1.5 text-xs">{bankersUsed} of 2 used</span>
+                          <span className="pop-badge pop-badge--blue px-2.5 py-1.5 text-xs">{bankersUsed} of {bankerLimit} used</span>
                           <InfoPopover text={bankerInfoText} />
                         </div>
                       </div>
@@ -2355,19 +2357,19 @@ export default function PicksPage() {
 
                   <div className="flex items-center gap-3 mb-5">
                     <button
-                      onClick={() => bankersUsed < 2 && setIsBanker(!isBanker)}
-                      disabled={bankersUsed >= 2 && !isBanker}
+                      onClick={() => bankersUsed < bankerLimit && setIsBanker(!isBanker)}
+                      disabled={bankersUsed >= bankerLimit && !isBanker}
                       className={`px-4 py-2 rounded-lg border text-sm font-bold uppercase tracking-wider ${
                         isBanker
                           ? 'bg-[#D9A441] border-[#D9A441] text-[#241a12]'
-                          : bankersUsed >= 2
+                          : bankersUsed >= bankerLimit
                           ? 'bg-white/5 border-white/10 text-[#F5ECD9]/30 cursor-not-allowed'
                           : 'bg-white/5 border-white/10 hover:border-[#D9A441]/50'
                       }`}
                     >
                       {isBanker ? '★ Banker Declared' : 'Declare Banker'}
                     </button>
-                    <span className="text-xs text-[#F5ECD9]/50 uppercase tracking-wider">{bankersUsed} of 2 used</span>
+                    <span className="text-xs text-[#F5ECD9]/50 uppercase tracking-wider">{bankersUsed} of {bankerLimit} used</span>
                   </div>
 
                   {player1 && player2 && (

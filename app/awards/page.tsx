@@ -76,12 +76,19 @@ function AwardsInner() {
     const isBotMap: Record<string, boolean> = {}
     botFlags?.forEach(b => { isBotMap[b.id] = b.is_bot ?? false })
 
+    // Same reasoning as is_bot above — ghost status (see /admin/users)
+    // lives on competition_entries, not profiles, so it's its own
+    // isolated request scoped to this competition.
+    const { data: ghostFlags } = await supabase.from('competition_entries').select('user_id, is_ghost').eq('competition_id', comp.id)
+    const isGhostMap: Record<string, boolean> = {}
+    ghostFlags?.forEach(g => { isGhostMap[g.user_id] = g.is_ghost ?? false })
+
     const teamMap: Record<number, { short_code?: string | null; short_name?: string | null; name: string }> = {}
     teams?.forEach(t => { teamMap[t.id] = t })
     const playerDisplayNames = buildPlayerDisplayNames(players ?? [], teamMap)
 
     const { awards: computedAwards, talisman: computedTalisman, hasEntrants: computedHasEntrants } = computeCompetitionAwards({
-      entries, profiles, pointsData, picks, gameweeks, fixtures, events, isBotMap, playerDisplayNames,
+      entries, profiles, pointsData, picks, gameweeks, fixtures, events, isBotMap, isGhostMap, playerDisplayNames,
     })
 
     if (!computedHasEntrants) {

@@ -27,6 +27,18 @@ export async function POST(request: Request) {
 
   const { gameweek_id, competition_id, team_id, player1_id, player2_id, player1_fixture_id, player2_fixture_id, is_banker, question_answer, comments, all_or_nothing_player_id, play_bonus_card, bonus_card_player_id, bonus_card_fixture_id } = await request.json()
 
+  // Ghost players (mid-season joiners backfilled with an average starting
+  // total — see /admin/users) get 1 Banker instead of 2, regardless of
+  // when they joined — a flat rule, not prorated. Isolated fetch: a
+  // problem reading this newer column should degrade to "not a ghost,"
+  // never break pick submission.
+  let isGhost = false
+  try {
+    const { data: entry } = await supabase.from('competition_entries').select('is_ghost').eq('user_id', user.id).eq('competition_id', competition_id).maybeSingle()
+    isGhost = entry?.is_ghost ?? false
+  } catch {}
+  const bankerLimit = isGhost ? 1 : 2
+
   if (player1_id === player2_id) {
     return NextResponse.json({ error: 'Please pick two different players' }, { status: 400 })
   }
@@ -190,8 +202,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Banker is not available in this competition' }, { status: 400 })
       }
       const bankerCount = allPicks.filter(p => p.is_banker).length
-      if (bankerCount >= 2) {
-        return NextResponse.json({ error: 'You have already used both your bankers' }, { status: 400 })
+      if (bankerCount >= bankerLimit) {
+        return NextResponse.json({ error: `You have already used ${bankerLimit === 1 ? 'your Banker' : 'both your Bankers'}` }, { status: 400 })
       }
     }
 
@@ -536,6 +548,15 @@ export async function GET(request: Request) {
 
   const bankersUsed = allPicks?.filter(p => p.is_banker).length ?? 0
 
+  // Ghost players get 1 Banker instead of 2 — see the same check in POST
+  // above for the full reasoning. Isolated fetch, same degrade-gracefully
+  // reasoning as everywhere else this newer column is read.
+  let bankerLimit = 2
+  try {
+    const { data: entry } = await supabase.from('competition_entries').select('is_ghost').eq('user_id', user.id).eq('competition_id', competition_id!).maybeSingle()
+    if (entry?.is_ghost) bankerLimit = 1
+  } catch {}
+
   // Its own isolated query, same reasoning as everywhere else in this
   // route — a problem here should never take down the rest of what this
   // endpoint returns.
@@ -579,6 +600,7 @@ export async function GET(request: Request) {
     playerCounts,
     doubleUseTeams,
     bankersUsed,
+    bankerLimit,
     allOrNothing,
     playerMaxOverride,
     bonusCard,

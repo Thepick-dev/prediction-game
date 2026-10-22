@@ -33,6 +33,8 @@ type RankedPlayer = {
   is_sporting_panel: boolean
   is_minigame_banned: boolean
   is_peace_prize: boolean
+  is_ghost: boolean
+  ghost_backfill_points: number
   joined_at: string
   home_wins: number
   away_wins: number
@@ -87,6 +89,8 @@ export default function LeaderboardPage() {
   const [displayName, setDisplayName] = useState('')
   const [competition, setCompetition] = useState<any>(null)
   const [ranked, setRanked] = useState<RankedPlayer[]>([])
+  const [ghosts, setGhosts] = useState<RankedPlayer[]>([])
+  const [showGhosts, setShowGhosts] = useState(false)
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
   const [teamsExpandedUsers, setTeamsExpandedUsers] = useState<Set<string>>(new Set())
   const [pickDetails, setPickDetails] = useState<Record<string, PickDetail[]>>({})
@@ -305,6 +309,14 @@ export default function LeaderboardPage() {
     const peacePrizeMap: Record<string, boolean> = {}
     peacePrizeFlags?.forEach(b => { peacePrizeMap[b.id] = b.is_peace_prize ?? false })
 
+    // Ghost status lives on competition_entries, not profiles — see
+    // /admin/users. Own isolated request, same reasoning as every other
+    // newer-column fetch on this page: a problem reading it should just
+    // mean nobody shows up as a ghost, never break the whole leaderboard.
+    const { data: ghostFlags } = await supabase.from('competition_entries').select('user_id, is_ghost, ghost_backfill_points').eq('competition_id', comp.id)
+    const ghostMap: Record<string, { is_ghost: boolean; backfill: number }> = {}
+    ghostFlags?.forEach(g => { ghostMap[g.user_id] = { is_ghost: g.is_ghost ?? false, backfill: g.ghost_backfill_points ?? 0 } })
+
     // Its own request too — a brand new feature, and a problem reading it
     // must never be able to take the rest of the leaderboard down with it.
     const { data: activeCards } = await supabase
@@ -403,8 +415,10 @@ export default function LeaderboardPage() {
     // Same award set and tie-handling as the Awards page itself (shared via
     // computeCompetitionAwards), computed here too so each player's own
     // "Share My Season" ticket can say which of these they actually won.
+    const isGhostMapForAwards: Record<string, boolean> = {}
+    Object.entries(ghostMap).forEach(([uid, g]) => { isGhostMapForAwards[uid] = g.is_ghost })
     const { awards: seasonAwards } = computeCompetitionAwards({
-      entries, profiles, pointsData, picks, gameweeks, fixtures, events, isBotMap, playerDisplayNames: playerMap,
+      entries, profiles, pointsData, picks, gameweeks, fixtures, events, isBotMap, isGhostMap: isGhostMapForAwards, playerDisplayNames: playerMap,
     })
     setAwards(seasonAwards)
 
@@ -548,6 +562,8 @@ export default function LeaderboardPage() {
         is_sporting_panel: badgeMap[entry.user_id]?.is_sporting_panel ?? false,
         is_minigame_banned: minigameBanMap[entry.user_id] ?? false,
         is_peace_prize: peacePrizeMap[entry.user_id] ?? false,
+        is_ghost: ghostMap[entry.user_id]?.is_ghost ?? false,
+        ghost_backfill_points: ghostMap[entry.user_id]?.backfill ?? 0,
         joined_at: entry.joined_at,
         home_wins: 0,
         away_wins: 0,
@@ -555,7 +571,12 @@ export default function LeaderboardPage() {
         player_points: 0,
         banker_points: 0,
         bonus_card_points: 0,
-        total_points: 0,
+        // A ghost's backfilled starting total — frozen at the moment an
+        // admin marks them a ghost (see /admin/users), standing in for
+        // the gameweeks before they joined. Real points earned from the
+        // gameweek they actually joined onward accumulate on top of this
+        // exactly like any other player's picks do.
+        total_points: ghostMap[entry.user_id]?.backfill ?? 0,
         points_without_banker: 0,
         goals: 0,
         weekly_points: [],
@@ -640,16 +661,25 @@ export default function LeaderboardPage() {
       t.best_gameweek_score = scored.length > 0 ? Math.max(...scored) : 0
     })
 
-    const rankedList = Object.values(totals).sort((a, b) => {
+    const rankFn = (a: RankedPlayer, b: RankedPlayer) => {
       if (b.total_points !== a.total_points) return b.total_points - a.total_points
       if (b.points_without_banker !== a.points_without_banker) return b.points_without_banker - a.points_without_banker
       if (b.best_gameweek_score !== a.best_gameweek_score) return b.best_gameweek_score - a.best_gameweek_score
       if (b.away_wins !== a.away_wins) return b.away_wins - a.away_wins
       if (b.goals !== a.goals) return b.goals - a.goals
       return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime()
-    })
+    }
+
+    // Ghosts never appear in the main numbered ranking — mixing them in
+    // (even behind a toggle) would shift every real player's rank number
+    // depending on whether ghosts happened to be visible, which defeats
+    // the point of the backfill being a fair stand-in rather than a real
+    // competitive entry. They get their own small, separate list instead.
+    const rankedList = Object.values(totals).filter(t => !t.is_ghost).sort(rankFn)
+    const ghostList = Object.values(totals).filter(t => t.is_ghost).sort(rankFn)
 
     setRanked(rankedList)
+    setGhosts(ghostList)
 
     // Top Dog — see app/lib/topDog.ts for the reign-tracking rules.
     const scoredGwNumbers = Object.keys(avgMap).map(Number).sort((a, b) => a - b)
@@ -1414,7 +1444,7 @@ export default function LeaderboardPage() {
                       <ColumnHintPopover abbr="Team" full="Team Points" hint="Points earned from your picked teams' results all season, not counting the Bonus Card." />
                     </th>
                     <th className="py-1.5 px-0.5 text-right uppercase tracking-wider w-[12%]">
-                      <ColumnHintPopover abbr="Plyr" full="Player Points" hint="Points earned from your picked players' goals and assists all season, not counting the Bonus Card." />
+                      <ColumnHintPopover abbr="Plyr" full="Player Points" hint="Points earned from your picked players' goals and assists all season, including any Bonus Card points." />
                     </th>
                     <th className="py-1.5 pl-1 pr-2 text-right uppercase tracking-wider font-black w-[15%]">Points</th>
                   </tr>
@@ -1492,7 +1522,7 @@ export default function LeaderboardPage() {
                             {Math.round(player.team_points)}
                           </td>
                           <td className="py-2 px-0.5 text-right font-mono font-bold" style={{ color: 'var(--pop-yellow)', fontVariantNumeric: 'tabular-nums', fontSize: '15px' }}>
-                            {Math.round(player.player_points)}
+                            {Math.round(player.player_points + player.bonus_card_points)}
                           </td>
                           <td className="py-2 pl-1 pr-2 text-right font-black font-mono" style={{ color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', fontSize: '22px' }}>
                             {player.total_points}
@@ -1910,7 +1940,7 @@ export default function LeaderboardPage() {
                 <div className="flex items-center gap-2.5"><span className="font-mono font-black" style={{ color: 'var(--pop-green)' }}>▲2</span> Moved up 2 places since last gameweek (▼ = down) — tap a row to see it</div>
                 <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'var(--pop-orange)' }}>Bnk</span> Bankers Remaining — how many of your 2 bankers are left</div>
                 <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'var(--pop-blue)' }}>Team</span> Team Points — from your picked teams' results all season, not counting the Bonus Card</div>
-                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'var(--pop-yellow)' }}>Plyr</span> Player Points — from your picked players' goals/assists all season, not counting the Bonus Card</div>
+                <div className="flex items-center gap-2.5"><span className="font-mono font-black uppercase" style={{ color: 'var(--pop-yellow)' }}>Plyr</span> Player Points — from your picked players' goals/assists all season, including any Bonus Card points</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'rgba(255,255,255,0.15)' }}>AP</span> Autopick — deadline missed, computer picked</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs" style={{ background: 'var(--pop-orange)', color: 'var(--pop-white)' }}>★</span> Banker declared that gameweek</div>
                 <div className="flex items-center gap-2.5"><span className="px-1.5 py-0.5 rounded font-black text-xs inline-flex items-center gap-0.5" style={{ background: 'var(--pop-blue)', color: 'var(--pop-black)' }}><BoltIcon size={11} color="var(--pop-black)" /> AoN</span> All or Nothing played, result pending</div>
@@ -1942,6 +1972,51 @@ export default function LeaderboardPage() {
               </>
               )}
             </div>
+
+            {/* Deliberately small and tucked away at the very bottom, not a
+                prominent toggle up with the main table — ghosts are a
+                backfilled stand-in for a mid-season joiner, not a real
+                competitive entry, so the default experience for everyone
+                else should look exactly like they don't exist. A ghost
+                always sees their own standing regardless of the toggle. */}
+            {ghosts.length > 0 && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowGhosts(v => !v)}
+                  className="font-bold uppercase tracking-wider"
+                  style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}
+                >
+                  👻 {showGhosts ? 'Hide' : 'Show'} ghost players ({ghosts.length})
+                </button>
+                {(showGhosts || ghosts.some(g => g.user_id === user?.id)) && (
+                  <div className="pop-panel p-3 mt-2">
+                    <p className="normal-case" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>
+                      Mid-season joiners, given a backfilled starting total for the gameweeks before they joined. Not eligible to be crowned champion.
+                    </p>
+                    <div className="flex flex-col gap-2 mt-2">
+                      {ghosts.filter(g => showGhosts || g.user_id === user?.id).map(g => (
+                        <div key={g.user_id} className="flex items-center gap-2">
+                          <KitBadge
+                            pattern={kitByUser[g.user_id]?.pattern ?? 'solid'}
+                            colour1={kitByUser[g.user_id]?.colour1 ?? '#1E4D6B'}
+                            colour2={kitByUser[g.user_id]?.colour2 ?? '#F5ECD9'}
+                            colour3={kitByUser[g.user_id]?.colour3}
+                            size={24}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <FitName baseSize={13} minSize={11} className="pop-name" style={{ color: g.user_id === user?.id ? 'var(--pop-pink)' : '#fff' }}>
+                              {g.display_name}
+                            </FitName>
+                          </span>
+                          <span className="font-black font-mono shrink-0" style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>{g.total_points} pts</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
         </Shell>

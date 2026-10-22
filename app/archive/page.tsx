@@ -141,7 +141,12 @@ export default function ArchivePage() {
       const compIds = [...(pastCompetitionsData ?? []).map(c => c.id), ...(activeComp ? [activeComp.id] : [])]
       if (compIds.length > 0) {
         const [{ data: entries }, { data: pointsRows }, { data: profiles }, { data: bonusCardPlays }] = await Promise.all([
-          supabase.from('competition_entries').select('user_id, competition_id').in('competition_id', compIds).eq('removed', false),
+          // is_ghost included here, not fetched separately — ghosts should
+          // never appear on this page at all (unlike Leaderboard/Results,
+          // which show them behind a toggle), so the simplest correct
+          // place to keep them out is right where every other non-entrant
+          // gets filtered.
+          supabase.from('competition_entries').select('user_id, competition_id, is_ghost').in('competition_id', compIds).eq('removed', false),
           supabase.from('points').select('user_id, competition_id, total_points').in('competition_id', compIds),
           supabase.from('profiles').select('id, display_name, is_bot'),
           supabase.from('bonus_card_plays').select('user_id, competition_id, gameweek_id, points').in('competition_id', compIds),
@@ -150,6 +155,7 @@ export default function ArchivePage() {
         const nameByUid: Record<string, string> = {}
         const isBotByUid: Record<string, boolean> = {}
         profiles?.forEach(p => { nameByUid[p.id] = p.display_name ?? 'Unknown'; isBotByUid[p.id] = p.is_bot ?? false })
+        const ghostEntryKeys = new Set((entries ?? []).filter(e => e.is_ghost).map(e => `${e.competition_id}-${e.user_id}`))
 
         // Still-live gameweeks in the active competition aren't reflected
         // in `points` yet — merge in the same read-only preview the
@@ -194,7 +200,7 @@ export default function ArchivePage() {
         const podiumByComp: Record<string, PodiumEntry[]> = {}
         Object.entries(totalsByComp).forEach(([compId, byUser]) => {
           const ranked = Object.entries(byUser)
-            .filter(([uid]) => !isBotByUid[uid])
+            .filter(([uid]) => !isBotByUid[uid] && !ghostEntryKeys.has(`${compId}-${uid}`))
             .sort((a, b) => b[1] - a[1])
             .slice(0, 3)
             .map(([uid, pts]) => ({ uid, name: nameByUid[uid] ?? 'Unknown', points: Math.round(pts) }))

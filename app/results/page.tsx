@@ -104,6 +104,8 @@ export default function ResultsPage() {
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
   const [profiles, setProfiles] = useState<Record<string, string>>({})
   const [isBotByUser, setIsBotByUser] = useState<Record<string, boolean>>({})
+  const [isGhostByUser, setIsGhostByUser] = useState<Record<string, boolean>>({})
+  const [showGhosts, setShowGhosts] = useState(false)
   // Users removed from the competition — their historical picks/comments
   // must never resurface anywhere, even after their deadline has passed.
   const [activeUserIds, setActiveUserIds] = useState<Set<string>>(new Set())
@@ -183,6 +185,12 @@ export default function ResultsPage() {
     const isBotMap: Record<string, boolean> = {}
     botFlags?.forEach(b => { isBotMap[b.id] = b.is_bot ?? false })
 
+    // Ghost status lives on competition_entries, not profiles — see
+    // /admin/users. Own isolated request, same reasoning as is_bot above.
+    const { data: ghostFlags } = await supabase.from('competition_entries').select('user_id, is_ghost').eq('competition_id', comp.id)
+    const isGhostMap: Record<string, boolean> = {}
+    ghostFlags?.forEach(g => { isGhostMap[g.user_id] = g.is_ghost ?? false })
+
     const profileMap: Record<string, string> = {}
     const kitMap: Record<string, { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }> = {}
     profilesData?.forEach(p => {
@@ -208,6 +216,7 @@ export default function ResultsPage() {
 
     setProfiles(profileMap)
     setIsBotByUser(isBotMap)
+    setIsGhostByUser(isGhostMap)
     setKitByUser(kitMap)
     setTeams(teamMap)
     setPlayers(playerMap)
@@ -432,7 +441,7 @@ export default function ResultsPage() {
   // sorts by this gameweek's own points rather than reusing sortedPicks.
   // Same "can't be crowned" rule as the season leader.
   const gwPotwUserId = isScored
-    ? ([...picks].sort((a, b) => (pointsMap[b.id]?.total_points ?? 0) - (pointsMap[a.id]?.total_points ?? 0)).find(p => !isBotByUser[p.user_id])?.user_id ?? null)
+    ? ([...picks].sort((a, b) => (pointsMap[b.id]?.total_points ?? 0) - (pointsMap[a.id]?.total_points ?? 0)).find(p => !isBotByUser[p.user_id] && !isGhostByUser[p.user_id])?.user_id ?? null)
     : null
 
   // Autopicked/provisional entries never have a question_answer, so they're
@@ -540,7 +549,12 @@ export default function ResultsPage() {
       suspended: { reason: s.reason, suspensionNumber: s.suspensionNumber },
     }))
 
-  const allGridRows = [...gridRows, ...suspendedNoPickRows]
+  // Ghosts are hidden from the main results list by default — a mid-season
+  // joiner's backfilled standing isn't a real pick for this gameweek, so
+  // mixing it into "who picked what" would be misleading. A ghost always
+  // sees their own row regardless of the toggle; everyone else needs the
+  // small "show ghosts" switch below.
+  const allGridRows = [...gridRows, ...suspendedNoPickRows].filter(r => !isGhostByUser[r.userId] || showGhosts || r.userId === user?.id)
 
   if (loading) {
     return (
@@ -615,13 +629,25 @@ export default function ResultsPage() {
                   <p className="text-sm uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.5)' }}>Nobody picked for this one yet.</p>
                 </div>
               ) : (
-                <ResultsGrid
-                  competitionName={competition.name}
-                  gameweekNumber={selectedGameweek!.number}
-                  bonusCardName={bonusCardName ?? 'Bonus Card'}
-                  showScoring={showScoring}
-                  rows={allGridRows}
-                />
+                <>
+                  <ResultsGrid
+                    competitionName={competition.name}
+                    gameweekNumber={selectedGameweek!.number}
+                    bonusCardName={bonusCardName ?? 'Bonus Card'}
+                    showScoring={showScoring}
+                    rows={allGridRows}
+                  />
+                  {Object.values(isGhostByUser).some(Boolean) && (
+                    <button
+                      type="button"
+                      onClick={() => setShowGhosts(v => !v)}
+                      className="font-bold uppercase tracking-wider mb-4 -mt-2 block"
+                      style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}
+                    >
+                      👻 {showGhosts ? 'Hide' : 'Show'} ghost players
+                    </button>
+                  )}
+                </>
               )}
 
               {fixtures.length > 0 && (
@@ -715,32 +741,32 @@ export default function ResultsPage() {
 
               {question && questionTally.length > 0 && (
                 <div className="pop-panel p-3 mb-4">
-                  <p className="font-black uppercase tracking-wider mb-2" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{question.question}</p>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="font-black uppercase tracking-wider" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{question.question}</p>
+                    <button
+                      onClick={() => setExpandedAnswer(expandedAnswer === 'ALL' ? null : 'ALL')}
+                      className="shrink-0 font-black uppercase flex items-center gap-1"
+                      style={{ fontSize: '9px', color: 'var(--pop-orange)' }}
+                    >
+                      Who picked what? <span style={{ fontSize: '8px' }}>{expandedAnswer === 'ALL' ? '▲' : '▼'}</span>
+                    </button>
+                  </div>
                   <div className="space-y-1.5">
                     {(() => {
                       const totalAnswered = questionTally.reduce((sum, t) => sum + t.count, 0)
                       return questionTally.map(t => {
                         const pct = totalAnswered > 0 ? Math.round((t.count / totalAnswered) * 100) : 0
-                        const isOpen = expandedAnswer === t.letter
+                        const isOpen = expandedAnswer === 'ALL'
                         return (
                           <div key={t.letter}>
-                            <button
-                              onClick={() => t.count > 0 && setExpandedAnswer(isOpen ? null : t.letter)}
-                              className="w-full text-left"
-                              disabled={t.count === 0}
-                            >
-                              <div className="flex items-center justify-between text-xs mb-0.5">
-                                <span className="uppercase flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                                  {t.label}
-                                  {t.count > 0 && <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '9px' }}>{isOpen ? '▲' : '▼'}</span>}
-                                </span>
-                                <span style={{ color: 'rgba(255,255,255,0.5)' }}>{t.count}</span>
-                              </div>
-                              <div className="h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-                                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--pop-orange)' }} />
-                              </div>
-                            </button>
-                            {isOpen && (
+                            <div className="flex items-center justify-between text-xs mb-0.5">
+                              <span className="uppercase" style={{ color: 'rgba(255,255,255,0.8)' }}>{t.label}</span>
+                              <span style={{ color: 'rgba(255,255,255,0.5)' }}>{t.count}</span>
+                            </div>
+                            <div className="h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--pop-orange)' }} />
+                            </div>
+                            {isOpen && t.count > 0 && (
                               <p className="mt-1 uppercase" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)' }}>
                                 {t.names.join(', ')}
                               </p>
@@ -915,32 +941,32 @@ export default function ResultsPage() {
 
               {question && questionTally.length > 0 && (
                 <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-4">
-                  <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold mb-2">{question.question}</p>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-[10px] uppercase tracking-wider text-[#F5ECD9]/50 font-bold">{question.question}</p>
+                    <button
+                      onClick={() => setExpandedAnswer(expandedAnswer === 'ALL' ? null : 'ALL')}
+                      className="shrink-0 font-bold uppercase flex items-center gap-1 text-[#D9A441]"
+                      style={{ fontSize: '9px' }}
+                    >
+                      Who picked what? <span style={{ fontSize: '8px' }}>{expandedAnswer === 'ALL' ? '▲' : '▼'}</span>
+                    </button>
+                  </div>
                   <div className="space-y-1.5">
                     {(() => {
                       const totalAnswered = questionTally.reduce((sum, t) => sum + t.count, 0)
                       return questionTally.map(t => {
                         const pct = totalAnswered > 0 ? Math.round((t.count / totalAnswered) * 100) : 0
-                        const isOpen = expandedAnswer === t.letter
+                        const isOpen = expandedAnswer === 'ALL'
                         return (
                           <div key={t.letter}>
-                            <button
-                              onClick={() => t.count > 0 && setExpandedAnswer(isOpen ? null : t.letter)}
-                              className="w-full text-left"
-                              disabled={t.count === 0}
-                            >
-                              <div className="flex items-center justify-between text-xs mb-0.5">
-                                <span className="uppercase text-[#F5ECD9]/80 flex items-center gap-1">
-                                  {t.label}
-                                  {t.count > 0 && <span className="text-[#F5ECD9]/30" style={{ fontSize: '9px' }}>{isOpen ? '▲' : '▼'}</span>}
-                                </span>
-                                <span className="text-[#F5ECD9]/50">{t.count}</span>
-                              </div>
-                              <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                                <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: '#D9A441' }} />
-                              </div>
-                            </button>
-                            {isOpen && (
+                            <div className="flex items-center justify-between text-xs mb-0.5">
+                              <span className="uppercase text-[#F5ECD9]/80">{t.label}</span>
+                              <span className="text-[#F5ECD9]/50">{t.count}</span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: '#D9A441' }} />
+                            </div>
+                            {isOpen && t.count > 0 && (
                               <p className="mt-1 text-[#F5ECD9]/60 uppercase" style={{ fontSize: '10px' }}>
                                 {t.names.join(', ')}
                               </p>

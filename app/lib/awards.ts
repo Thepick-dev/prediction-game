@@ -4,6 +4,7 @@ type Totals = {
   user_id: string
   display_name: string
   is_bot: boolean
+  is_ghost: boolean
   total_points: number
   banker_points: number
   team_points_total: number
@@ -26,6 +27,7 @@ export type CompetitionAwardsInput = {
   fixtures: { id: number; gameweek_id: string }[] | null | undefined
   events: { player_id: number | null; event_type: string; fixture_id: number | null }[] | null | undefined
   isBotMap: Record<string, boolean>
+  isGhostMap?: Record<string, boolean>
   playerDisplayNames: Record<number, string>
 }
 
@@ -39,7 +41,7 @@ export function computeCompetitionAwards(input: CompetitionAwardsInput): {
   talisman: CompetitionAward
   hasEntrants: boolean
 } {
-  const { entries, profiles, pointsData, picks, gameweeks, fixtures, events, isBotMap, playerDisplayNames } = input
+  const { entries, profiles, pointsData, picks, gameweeks, fixtures, events, isBotMap, isGhostMap, playerDisplayNames } = input
 
   const profileMap: Record<string, string> = {}
   profiles?.forEach(p => { profileMap[p.id] = p.display_name ?? 'Unknown' })
@@ -70,6 +72,7 @@ export function computeCompetitionAwards(input: CompetitionAwardsInput): {
       user_id: e.user_id,
       display_name: profileMap[e.user_id] ?? 'Unknown',
       is_bot: isBotMap[e.user_id] ?? false,
+      is_ghost: isGhostMap?.[e.user_id] ?? false,
       total_points: 0,
       banker_points: 0,
       team_points_total: 0,
@@ -134,7 +137,7 @@ export function computeCompetitionAwards(input: CompetitionAwardsInput): {
     }
   })
 
-  const humans = Object.values(totals).filter(t => !t.is_bot)
+  const humans = Object.values(totals).filter(t => !t.is_bot && !t.is_ghost)
   if (humans.length === 0) {
     return {
       awards: [],

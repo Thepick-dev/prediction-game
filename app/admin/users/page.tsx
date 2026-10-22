@@ -122,6 +122,17 @@ export default async function UsersPage({
   const minigameBanMap: Record<string, boolean> = {}
   minigameBanExtras?.forEach(b => { minigameBanMap[b.id] = b.is_minigame_banned ?? false })
 
+  // Ghost status lives on competition_entries, not profiles — it's a
+  // per-competition thing (a mid-season joiner this time around, not a
+  // permanent label on the person), scoped to the active competition only.
+  // Own isolated request, same reasoning as every other newer-column
+  // fetch on this page.
+  const ghostMap: Record<string, { isGhost: boolean; backfillPoints: number | null }> = {}
+  if (activeComp) {
+    const { data: ghostExtras } = await supabase.from('competition_entries').select('user_id, is_ghost, ghost_backfill_points').eq('competition_id', activeComp.id)
+    ghostExtras?.forEach(g => { ghostMap[g.user_id] = { isGhost: g.is_ghost ?? false, backfillPoints: g.ghost_backfill_points ?? null } })
+  }
+
   // Kept as its own request, deliberately separate from the profiles query
   // above: if these columns ever have a problem, it should only affect kit
   // badges, never take down the whole Users page with it.
@@ -261,6 +272,54 @@ export default async function UsersPage({
     // this root+layout form is documented to "purge the Client Cache" —
     // broader than needed, but this page is low-traffic admin-only, so
     // reliability here matters far more than cache efficiency.
+    revalidatePath('/', 'layout')
+    redirect('/admin/users')
+  }
+
+  // A mid-season joiner's starting total — the average of every real
+  // (non-bot, non-ghost) entrant's actual total so far, frozen at the
+  // moment they're marked a ghost. Computed here rather than live every
+  // time the Leaderboard loads so it never moves once set — those
+  // gameweeks are already scored for everyone else, so a ghost's backfill
+  // shouldn't drift just because someone else's late score correction
+  // changes the average days later.
+  async function markAsGhost(formData: FormData) {
+    'use server'
+    const admin = await requireAdminAction()
+    const userId = formData.get('id') as string
+    const competitionId = formData.get('competitionId') as string
+    if (!competitionId) redirect('/admin/users')
+
+    const [{ data: entries }, { data: pointsRows }, { data: bonusCardPlays }, { data: botFlags }, { data: ghostFlags }] = await Promise.all([
+      admin.from('competition_entries').select('user_id').eq('competition_id', competitionId).eq('removed', false),
+      admin.from('points').select('user_id, total_points').eq('competition_id', competitionId),
+      admin.from('bonus_card_plays').select('user_id, points').eq('competition_id', competitionId),
+      admin.from('profiles').select('id, is_bot'),
+      admin.from('competition_entries').select('user_id, is_ghost').eq('competition_id', competitionId),
+    ])
+    const botIds = new Set((botFlags ?? []).filter(b => b.is_bot).map(b => b.id))
+    const ghostIds = new Set((ghostFlags ?? []).filter(g => g.is_ghost).map(g => g.user_id))
+    const realUserIds = (entries ?? []).map(e => e.user_id).filter(uid => !botIds.has(uid) && !ghostIds.has(uid) && uid !== userId)
+
+    const totals: Record<string, number> = {}
+    realUserIds.forEach(uid => { totals[uid] = 0 })
+    pointsRows?.forEach(p => { if (p.user_id in totals) totals[p.user_id] += p.total_points ?? 0 })
+    bonusCardPlays?.forEach(b => { if (b.user_id in totals && b.points != null) totals[b.user_id] += b.points })
+
+    const values = Object.values(totals)
+    const average = values.length > 0 ? Math.round(values.reduce((sum, v) => sum + v, 0) / values.length) : 0
+
+    await admin.from('competition_entries').update({ is_ghost: true, ghost_backfill_points: average }).eq('user_id', userId).eq('competition_id', competitionId)
+    revalidatePath('/', 'layout')
+    redirect('/admin/users')
+  }
+
+  async function unmarkGhost(formData: FormData) {
+    'use server'
+    const admin = await requireAdminAction()
+    const userId = formData.get('id') as string
+    const competitionId = formData.get('competitionId') as string
+    await admin.from('competition_entries').update({ is_ghost: false, ghost_backfill_points: null }).eq('user_id', userId).eq('competition_id', competitionId)
     revalidatePath('/', 'layout')
     redirect('/admin/users')
   }
@@ -825,6 +884,7 @@ export default async function UsersPage({
               <th className="pb-2">Cash Pool</th>
               <th className="pb-2">Peace Prize</th>
               <th className="pb-2">Minigame Ban</th>
+              <th className="pb-2">Ghost</th>
               <th className="pb-2">Edit Name</th>
               <th className="pb-2">Kit Badges</th>
               <th className="pb-2">Reset Password</th>
@@ -836,6 +896,7 @@ export default async function UsersPage({
               const roles = roleMap[profile.id] ?? { can_post_news: false, is_super_admin: false, is_sporting_panel: false }
               const badges = badgeMap[profile.id] ?? { is_reigning_champ: false, is_vibes_champion: false, in_cash_pool: false }
               const isMinigameBanned = minigameBanMap[profile.id] ?? false
+              const ghostInfo = ghostMap[profile.id] ?? { isGhost: false, backfillPoints: null }
               return (
               <tr key={profile.id} className="border-b last:border-0">
                 <td className="py-2 text-xs text-gray-500">{emailMap[profile.id] ?? '—'}</td>
@@ -937,6 +998,27 @@ export default async function UsersPage({
                       {isMinigameBanned ? '🚫 Banned' : '— No'}
                     </button>
                   </form>
+                </td>
+                <td className="py-2">
+                  {!activeComp ? (
+                    <span className="text-xs text-gray-400">—</span>
+                  ) : ghostInfo.isGhost ? (
+                    <form action={unmarkGhost} className="flex flex-col gap-1 items-start">
+                      <input type="hidden" name="id" value={profile.id} />
+                      <input type="hidden" name="competitionId" value={activeComp.id} />
+                      <button type="submit" className="text-xs px-2 py-1 rounded border bg-purple-50 text-purple-700 border-purple-200">
+                        👻 Ghost ({ghostInfo.backfillPoints ?? 0} pts)
+                      </button>
+                    </form>
+                  ) : (
+                    <form action={markAsGhost}>
+                      <input type="hidden" name="id" value={profile.id} />
+                      <input type="hidden" name="competitionId" value={activeComp.id} />
+                      <button type="submit" className="text-xs px-2 py-1 rounded border bg-gray-50 text-gray-400 border-gray-200">
+                        — No
+                      </button>
+                    </form>
+                  )}
                 </td>
                 <td className="py-2">
                   <form action={updateDisplayName} className="flex gap-1">
