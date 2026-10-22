@@ -72,6 +72,12 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
   const [isAdmin, setIsAdmin] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   const [showRugbyLink, setShowRugbyLink] = useState(false)
+  // Reuses the existing Wall Mode setting from /admin/wall (open_auto /
+  // manual_review / read_only / hidden) rather than a separate on/off
+  // flag — 'hidden' is already exactly "the Wall disappears for everyone
+  // but admin, nothing deleted," so a second toggle would just be two
+  // sources of truth that could disagree.
+  const [wallMode, setWallMode] = useState<'open_auto' | 'manual_review' | 'read_only' | 'hidden'>('manual_review')
   const countdown = useCountdown(nextDeadline?.deadline ?? null)
 
   const [kitPopupOpen, setKitPopupOpen] = useState(false)
@@ -165,6 +171,20 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
       .eq('status', 'active')
       .maybeSingle()
       .then(({ data }) => setShowRugbyLink(data?.public_signups_enabled === true))
+  }, [user?.id])
+
+  // Defaults to 'manual_review' (shown, same as the column's own default
+  // on /admin/wall) — a problem reading this should never accidentally
+  // hide The Wall nav item for everyone.
+  useEffect(() => {
+    if (!user?.id) return
+    const supabase = createClient()
+    supabase
+      .from('competitions')
+      .select('wall_mode')
+      .eq('status', 'active')
+      .maybeSingle()
+      .then(({ data }) => setWallMode(data?.wall_mode ?? 'manual_review'))
   }, [user?.id])
 
   // Deliberately its own query, independent of the kit fetch below — if the
@@ -263,6 +283,13 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
       })
   }, [user?.id])
 
+  // Computed once, used by both the retro and pop-art branches below —
+  // when Wall Mode is set to "hidden" (see /admin/wall), it simply isn't
+  // in the list for anyone but admin, same bypass reasoning as the Wall
+  // page's own "hidden" block (admin still needs a way back in to turn
+  // it back on).
+  const visibleNavItems = navItems.filter(item => wallMode !== 'hidden' || isAdmin || item.href !== '/wall')
+
   if (isRetro) {
     return (
       <div className="retro-theme min-h-screen flex flex-col" {...a11yAttrs}>
@@ -322,7 +349,7 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
             </div>
 
             <nav className="hidden md:flex flex-wrap justify-center gap-x-1 pb-2">
-              {navItems.map(item => (
+              {visibleNavItems.map(item => (
                 <Link
                   key={item.label}
                   href={item.href}
@@ -355,7 +382,7 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
 
           {menuOpen && (
             <div className="md:hidden retro-menu px-4 py-3" style={{ background: 'var(--retro-panel-mid)', borderTop: 'var(--retro-px) solid var(--retro-border)' }}>
-              {navItems.map(item => (
+              {visibleNavItems.map(item => (
                 <Link key={item.label} href={item.href} onClick={() => setMenuOpen(false)} className="retro-menu-item" data-active={active === item.label ? 'true' : 'false'}>
                   <span className="retro-menu-cursor" aria-hidden="true">▶</span>
                   {item.label}
@@ -518,7 +545,7 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
             </div>
           </div>
           <nav className="hidden md:flex flex-wrap justify-center gap-x-3 pb-2">
-            {navItems.map((item, i) => {
+            {visibleNavItems.map((item, i) => {
               const isActive = active === item.label
               const accent = popNavAccents[i % popNavAccents.length]
               return (
@@ -570,7 +597,7 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
         </div>
         {menuOpen && (
           <div className="md:hidden border-t" style={{ borderColor: 'rgba(255,255,255,0.15)', background: 'var(--pop-surface)' }}>
-            {navItems.map((item, i) => {
+            {visibleNavItems.map((item, i) => {
               const isActive = active === item.label
               const accent = popNavAccents[i % popNavAccents.length]
               return (

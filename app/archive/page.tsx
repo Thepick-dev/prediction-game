@@ -29,7 +29,7 @@ function TrophyName({ name, ic = false }: { name: string; ic?: boolean }) {
   const glow = ic ? 'rgba(174,224,0,0.5)' : 'rgba(250,97,0,0.5)'
   return (
     <span className="inline-flex items-center gap-1.5 font-black uppercase" style={{ color, textShadow: `0 0 6px ${glow}` }}>
-      <TrophyIcon size={14} color={ic ? 'var(--pop-blue)' : 'var(--pop-pink)'} /> {name}
+      <TrophyIcon size={16} color={ic ? 'var(--pop-blue)' : 'var(--pop-pink)'} /> {name}
     </span>
   )
 }
@@ -315,31 +315,31 @@ export default function ArchivePage() {
                   <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No historical winners recorded yet.</p>
                 </div>
               ) : (
+                // A list of bold rows, not a plain data table — each
+                // season/competition is a small label, the winner's name
+                // is the actual headline (big, glowing), the same emphasis
+                // a podium entry gets rather than one more column in a
+                // spreadsheet.
                 <div className="pop-panel" style={{ overflow: 'hidden' }}>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left" style={{ background: 'rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>
-                        <th className="py-2 px-4">Season</th>
-                        <th className="py-2 px-4">Competition</th>
-                        <th className="py-2 px-4">Winner</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {honours.map((h, i) => (
-                        <tr
-                          key={i}
-                          style={{
-                            borderTop: i > 0 ? '1px solid rgba(255,255,255,0.1)' : undefined,
-                            background: i % 2 === 1 ? 'rgba(255,255,255,0.02)' : undefined,
-                          }}
-                        >
-                          <td className="py-2 px-4" style={{ color: 'rgba(255,255,255,0.5)' }}>{h.season}</td>
-                          <td className="py-2 px-4">{h.competition_name}</td>
-                          <td className="py-2 px-4"><TrophyName name={h.winner} ic={h.competition_name === 'IC'} /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {honours.map((h, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between gap-3 flex-wrap"
+                      style={{
+                        padding: '14px 16px',
+                        borderTop: i > 0 ? '1px solid rgba(255,255,255,0.08)' : undefined,
+                        background: i % 2 === 1 ? 'rgba(255,255,255,0.02)' : undefined,
+                      }}
+                    >
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-black font-mono" style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)' }}>{h.season}</span>
+                        <span className="pop-badge px-1.5 py-0.5" style={{ fontSize: '9px' }}>{h.competition_name}</span>
+                      </div>
+                      <div style={{ fontSize: '16px' }}>
+                        <TrophyName name={h.winner} ic={h.competition_name === 'IC'} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </section>

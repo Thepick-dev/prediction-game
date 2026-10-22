@@ -305,6 +305,11 @@ export default function PicksPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
+  // Reuses the existing Wall Mode setting from /admin/wall — when it's
+  // 'hidden', the wizard's "Comments" step (which invites a Wall post
+  // every gameweek) is skipped entirely rather than collecting text that
+  // would just go nowhere.
+  const [wallMode, setWallMode] = useState<'open_auto' | 'manual_review' | 'read_only' | 'hidden'>('manual_review')
   // Admin-only preview toggle for the redesigned square team buttons —
   // never persisted, never affects a non-admin's session, so it's a
   // genuinely zero-risk way for the admin to compare old vs new before
@@ -530,6 +535,14 @@ export default function PicksPage() {
 
     if (!comp) { setLoading(false); return }
     setCompetition(comp)
+
+    // Own isolated fetch, same reasoning as every other newer/optional
+    // column in this codebase — a problem reading it just means the
+    // Comments step keeps showing, same as it always has.
+    try {
+      const { data: wallComp } = await supabase.from('competitions').select('wall_mode').eq('id', comp.id).maybeSingle()
+      if (wallComp?.wall_mode) setWallMode(wallComp.wall_mode)
+    } catch {}
 
     // Everything here only needs comp.id, so it all goes out together too —
     // both gameweek candidates are fetched unconditionally rather than
@@ -1016,7 +1029,7 @@ export default function PicksPage() {
     { key: 'banker', label: 'Banker', valid: true },
     ...(bonusCardAvailable ? [{ key: 'bonus' as const, label: 'Bonus', valid: bonusStepValid }] : []),
     ...(question ? [{ key: 'question' as const, label: 'Question', valid: true }] : []),
-    { key: 'comments', label: 'Comments', valid: true },
+    ...(wallMode !== 'hidden' ? [{ key: 'comments' as const, label: 'Comments', valid: true }] : []),
     { key: 'review', label: 'Review', valid: true },
   ]
   const wizardIndex = Math.max(0, wizardSteps.findIndex(s => s.key === wizardStep))

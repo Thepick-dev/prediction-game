@@ -670,13 +670,17 @@ export default function LeaderboardPage() {
       return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime()
     }
 
-    // Ghosts never appear in the main numbered ranking — mixing them in
-    // (even behind a toggle) would shift every real player's rank number
-    // depending on whether ghosts happened to be visible, which defeats
-    // the point of the backfill being a fair stand-in rather than a real
-    // competitive entry. They get their own small, separate list instead.
-    const rankedList = Object.values(totals).filter(t => !t.is_ghost).sort(rankFn)
-    const ghostList = Object.values(totals).filter(t => t.is_ghost).sort(rankFn)
+    // Rank numbers come from the FULL list (real players + ghosts
+    // together) so a player's own rank number never silently shifts just
+    // because someone else's "show ghosts" toggle is on or off — a ghost
+    // occupies the real numeric position their points earn them, exactly
+    // like anyone else, it's only whether that ROW is actually rendered
+    // that the toggle controls below. Ghosts stay excluded from ever
+    // being crowned champion separately (Archive/Awards), which is a
+    // different question from "what rank number shows on the live table
+    // mid-season."
+    const rankedList = Object.values(totals).sort(rankFn)
+    const ghostList = rankedList.filter(t => t.is_ghost)
 
     setRanked(rankedList)
     setGhosts(ghostList)
@@ -1451,9 +1455,15 @@ export default function LeaderboardPage() {
                 </thead>
                 <tbody>
                   {ranked.map((player, index) => {
+                    const isOwnRow = player.user_id === user?.id
+                    // A ghost's row only renders for themself or when
+                    // another player has switched the toggle on — the
+                    // rank NUMBER (index + 1) still comes from their real
+                    // position in the full list either way, so nobody
+                    // else's rank number shifts depending on this toggle.
+                    if (player.is_ghost && !showGhosts && !isOwnRow) return null
                     const streak = getStreak(player)
                     const teamsWithAvailability = getTeamsWithAvailability(player.user_id)
-                    const isOwnRow = player.user_id === user?.id
                     const prevRank = previousRankByUser[player.user_id]
                     const rankDelta = prevRank != null ? prevRank - (index + 1) : null
                     return (
@@ -1504,6 +1514,9 @@ export default function LeaderboardPage() {
                                     {player.display_name}
                                   </FitName>
                                   {player.is_bot && <FutzyExplainerLink popArt />}
+                                  {player.is_ghost && (
+                                    <span className="shrink-0" style={{ fontSize: '13px' }} title="Mid-season joiner — backfilled starting total, not eligible to be crowned champion">👻</span>
+                                  )}
                                 </span>
                                 {((kitByUser[player.user_id]?.stars ?? 0) > 0 || (kitByUser[player.user_id]?.earths ?? 0) > 0) && (
                                   <span className="normal-case font-normal" style={{ fontSize: '9px', letterSpacing: '1px' }}>
@@ -1974,48 +1987,20 @@ export default function LeaderboardPage() {
             </div>
 
             {/* Deliberately small and tucked away at the very bottom, not a
-                prominent toggle up with the main table — ghosts are a
-                backfilled stand-in for a mid-season joiner, not a real
-                competitive entry, so the default experience for everyone
-                else should look exactly like they don't exist. A ghost
-                always sees their own standing regardless of the toggle. */}
+                prominent toggle up with the main table — ghosts now show
+                as real rows IN the table above (not a separate list), this
+                just controls whether anyone else's ghost rows render for
+                you. A ghost always sees their own row regardless. */}
             {ghosts.length > 0 && (
-              <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowGhosts(v => !v)}
-                  className="font-bold uppercase tracking-wider"
-                  style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}
-                >
-                  👻 {showGhosts ? 'Hide' : 'Show'} ghost players ({ghosts.length})
-                </button>
-                {(showGhosts || ghosts.some(g => g.user_id === user?.id)) && (
-                  <div className="pop-panel p-3 mt-2">
-                    <p className="normal-case" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>
-                      Mid-season joiners, given a backfilled starting total for the gameweeks before they joined. Not eligible to be crowned champion.
-                    </p>
-                    <div className="flex flex-col gap-2 mt-2">
-                      {ghosts.filter(g => showGhosts || g.user_id === user?.id).map(g => (
-                        <div key={g.user_id} className="flex items-center gap-2">
-                          <KitBadge
-                            pattern={kitByUser[g.user_id]?.pattern ?? 'solid'}
-                            colour1={kitByUser[g.user_id]?.colour1 ?? '#1E4D6B'}
-                            colour2={kitByUser[g.user_id]?.colour2 ?? '#F5ECD9'}
-                            colour3={kitByUser[g.user_id]?.colour3}
-                            size={24}
-                          />
-                          <span className="min-w-0 flex-1">
-                            <FitName baseSize={13} minSize={11} className="pop-name" style={{ color: g.user_id === user?.id ? 'var(--pop-pink)' : '#fff' }}>
-                              {g.display_name}
-                            </FitName>
-                          </span>
-                          <span className="font-black font-mono shrink-0" style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>{g.total_points} pts</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowGhosts(v => !v)}
+                className="font-bold uppercase tracking-wider mt-3"
+                style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}
+                title="Mid-season joiners, given a backfilled starting total for the gameweeks before they joined. Not eligible to be crowned champion."
+              >
+                👻 {showGhosts ? 'Hide' : 'Show'} ghost players ({ghosts.length})
+              </button>
             )}
 
           </div>
