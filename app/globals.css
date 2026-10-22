@@ -591,26 +591,28 @@ thead th {
   100% { transform: rotate(360deg) scale(1); }
 }
 
-/* Loading-screen badge. The previous multi-stage wobble (rotate + scale
+/* Loading-screen badge. A previous multi-stage wobble (rotate + scale
    overshoot across 5 keyframes) looked janky in practice: it plays on
    every single page load now, competing with a cold page's own JS/font/
    hydration work for frame time, and a fast-loading page can unmount it
    before it finishes — a rotating, still-overshooting badge cut off
-   mid-flight looks broken in a way a plain fade never can. This is
-   deliberately just two properties (opacity, scale) with no rotation and
-   only two keyframes — cheap to composite, and safe to interrupt at any
-   point since every frame in between still looks like "fading in
-   normally", never like a wrong or unfinished pose. `forwards` holds the
-   settled end state rather than snapping back once it finishes. */
+   mid-flight looks broken in a way a plain fade never can. This really is
+   just two properties now (opacity, transform: scale) across two
+   keyframes — no rotate, no animated filter (brightness/saturate per
+   frame was the expensive part on a large image, and was still here
+   despite an earlier comment already claiming it was gone). Cheap to
+   composite, safe to interrupt at any point since every frame in between
+   still looks like "fading in normally", and the bounce comes entirely
+   from the overshoot easing curve rather than an explicit mid-keyframe,
+   so there's nothing left to strip without losing the pop. `forwards`
+   holds the settled end state rather than snapping back once it finishes. */
 .pop-logo-flash-in {
   animation: pop-logo-flash-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
 }
 
 @keyframes pop-logo-flash-in {
-  0% { opacity: 0; transform: scale(0.55) rotate(-4deg); filter: brightness(3) saturate(1.4); }
-  45% { opacity: 1; transform: scale(1.1) rotate(2deg); filter: brightness(1.4) saturate(1.2); }
-  70% { transform: scale(0.96) rotate(-1deg); filter: brightness(1); }
-  100% { opacity: 1; transform: scale(1) rotate(0deg); filter: brightness(1); }
+  0% { opacity: 0; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {
