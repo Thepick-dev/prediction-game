@@ -401,17 +401,23 @@ thead th {
   margin: 0 0 8px;
 }
 
-/* The countdown clock's seconds chip only — a transform-only bounce, not
-   a glow, so it never competes with .pop-panel--pulse for attention even
+/* The countdown clock's D/H/M/S chips — a transform-only bounce, not a
+   glow, so it never competes with .pop-panel--pulse for attention even
    though both can be on screen together (the clock sits inside the
-   pulsing deadline panel). Tied specifically to the one unit that's
-   actually changing every tick. */
-@keyframes pop-second-tick {
+   pulsing deadline panel). Not `infinite` — this plays once per mount,
+   and the caller remounts the chip (via a changing `key`) exactly when
+   that unit's own value ticks down, so the pulse and the number change
+   are the same event and can never drift apart. An earlier version ran
+   this as its own unsynced infinite 1s loop, started whenever the DOM
+   node first mounted rather than tied to the real clock tick — two
+   independent "every second" timers free to drift in and out of phase
+   with each other, which read as the pulse feeling faster than 1s. */
+@keyframes pop-unit-tick {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.12); }
 }
-.pop-second-tick {
-  animation: pop-second-tick 1s ease-in-out infinite;
+.pop-unit-tick {
+  animation: pop-unit-tick 1s ease-in-out 1;
 }
 
 /* Shootout mini-game — a lazy spin on the ball icon (button + loading

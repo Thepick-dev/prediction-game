@@ -126,9 +126,34 @@ function InfoPopover({ text }: { text: string }) {
   )
 }
 
+// Tracks how many times `value` has actually changed, not how many times
+// the component has re-rendered — the countdown re-renders every second
+// (all four units together), but days/hours/minutes should only pulse on
+// the render where their own value genuinely ticked down, not every time
+// seconds does. Returning a changing number (rather than a boolean) lets
+// the caller use it as a React `key`, which is what actually re-triggers
+// a CSS animation that already played to completion — remounting the
+// element restarts it, the same pattern used for pop-pop-in elsewhere.
+function useChangeTick(value: number): number {
+  const prevRef = useRef(value)
+  const tickRef = useRef(0)
+  if (prevRef.current !== value) {
+    tickRef.current += 1
+    prevRef.current = value
+  }
+  return tickRef.current
+}
+
 // A ceefax-teletext-style flip clock in classic mode; a bold comic
 // countdown badge in pop-art mode.
 function CountdownClock({ time, theme = 'classic' }: { time: CountdownTime | null; theme?: 'classic' | 'pop-art' }) {
+  // Hooks run unconditionally, before the `!time` early return below —
+  // falling back to 0 just means no pulse fires until real values arrive.
+  const daysTick = useChangeTick(time?.days ?? 0)
+  const hoursTick = useChangeTick(time?.hours ?? 0)
+  const minsTick = useChangeTick(time?.mins ?? 0)
+  const secsTick = useChangeTick(time?.secs ?? 0)
+
   if (!time) return null
 
   if (theme === 'pop-art') {
@@ -137,24 +162,33 @@ function CountdownClock({ time, theme = 'classic' }: { time: CountdownTime | nul
     }
     // Each unit gets its own colour off the same palette used everywhere
     // else in this theme, rather than every badge being the same flat
-    // yellow. The clock's "this is live" cue lives on the seconds chip
-    // alone now (a scale pulse, not a glow) — it used to be a once-a-
-    // second border/glow flash on the whole box, but that competed with
-    // the deadline panel's own animated pulse right next to it. Seconds
-    // is also the only unit actually changing every tick, so tying the
-    // motion to it specifically reads as "ticking," not just decoration.
+    // yellow. Every unit now pulses the instant its own value actually
+    // decrements — a React-triggered one-shot animation (re-keyed per
+    // unit's own change-counter), not a self-looping CSS animation. The
+    // old version ran seconds' pulse as its own independent 1s CSS loop,
+    // started whenever the DOM node mounted rather than synced to the
+    // real clock tick — two unsynced "every second" timers that could
+    // drift out of phase with each other is exactly what read as "a
+    // little fast." Driving it from the same state update that changes
+    // the displayed number makes the pulse and the number change the
+    // same event, so they can never drift apart, and it generalises to
+    // days/hours/minutes for free since those simply tick far less often.
     const units = [
-      { label: 'D', value: time.days, bg: 'var(--pop-pink)', fg: 'var(--pop-white)' },
-      { label: 'H', value: time.hours, bg: 'var(--pop-blue)', fg: 'var(--pop-black)' },
-      { label: 'M', value: time.mins, bg: 'var(--pop-green)', fg: 'var(--pop-black)' },
-      { label: 'S', value: time.secs, bg: 'var(--pop-orange)', fg: 'var(--pop-black)', pulse: true },
+      { label: 'D', value: time.days, bg: 'var(--pop-pink)', fg: 'var(--pop-white)', tick: daysTick },
+      { label: 'H', value: time.hours, bg: 'var(--pop-blue)', fg: 'var(--pop-black)', tick: hoursTick },
+      { label: 'M', value: time.mins, bg: 'var(--pop-green)', fg: 'var(--pop-black)', tick: minsTick },
+      { label: 'S', value: time.secs, bg: 'var(--pop-orange)', fg: 'var(--pop-black)', tick: secsTick },
     ]
     return (
       <div className="flex items-center gap-1.5 px-1.5 py-1">
         {units.map(u => (
+          // Keyed by the unit's own change-counter, not its label — a
+          // changing key is what remounts the node and restarts the
+          // (non-looping) CSS animation exactly on the render where this
+          // unit's value actually ticked down.
           <div
-            key={u.label}
-            className={`flex flex-col items-center px-2.5 py-1 leading-tight ${u.pulse ? 'pop-second-tick' : ''}`}
+            key={`${u.label}-${u.tick}`}
+            className="flex flex-col items-center px-2.5 py-1 leading-tight pop-unit-tick"
             style={{ background: u.bg, color: u.fg, borderRadius: 999 }}
           >
             <span className="font-mono text-sm font-bold">{String(u.value).padStart(2, '0')}</span>
@@ -1017,7 +1051,11 @@ export default function PicksPage() {
       <>
         {shootoutOpen && user && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            // z-[100], not z-50 — the sticky header is also z-50, and since
+            // this modal is rendered earlier in the DOM than <Shell>, equal
+            // z-index ties resolve to DOM order and the header was winning,
+            // painting on top of the modal instead of being covered by it.
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
             style={{ background: 'rgba(0,0,0,0.75)' }}
             onClick={() => setShootoutOpen(false)}
           >
