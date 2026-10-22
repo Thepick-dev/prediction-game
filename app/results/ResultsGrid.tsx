@@ -41,25 +41,26 @@ type Props = {
   rows: GridRow[]
 }
 
-// success/failed/"not yet known" -> green/red/grey, literally as asked —
-// a pill (rounded, labelled), not an icon, sitting right after whichever
-// player's name actually has it on, not off in its own column.
+// success/failed/"not yet known" -> green/red/grey — the pill always just
+// reads "AON" (not the outcome in words), the colour alone carries the
+// status, sitting right after whichever player's name actually has it
+// on, not off in its own column.
 const AON_PILL = {
-  success: { bg: 'var(--pop-green)', fg: 'var(--pop-black)', label: 'Won' },
-  failed: { bg: 'var(--pop-red)', fg: '#fff', label: 'Lost' },
-  pending: { bg: 'rgba(255,255,255,0.18)', fg: 'rgba(255,255,255,0.75)', label: 'TBD' },
+  success: { bg: 'var(--pop-green)', fg: 'var(--pop-black)' },
+  failed: { bg: 'var(--pop-red)', fg: '#fff' },
+  pending: { bg: 'rgba(255,255,255,0.18)', fg: 'rgba(255,255,255,0.75)' },
 } as const
 
 function AonPill({ outcome }: { outcome?: 'pending' | 'success' | 'failed' }) {
   if (!outcome) return null
-  const { bg, fg, label } = AON_PILL[outcome]
+  const { bg, fg } = AON_PILL[outcome]
   return (
     <span
       className="shrink-0 rounded-full font-black uppercase"
       style={{ fontSize: '8px', padding: '2px 6px', background: bg, color: fg, letterSpacing: '0.03em' }}
       title={`All or Nothing — ${outcome === 'pending' ? 'played, result not known yet' : outcome}`}
     >
-      {label}
+      AON
     </span>
   )
 }
@@ -73,12 +74,12 @@ function StatRow({ label, value, color, pill }: {
   label: string; value: number | null; color: string; pill?: React.ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex items-center justify-between gap-2" style={{ lineHeight: 1.15 }}>
       <span className="min-w-0 flex-1 flex items-center gap-1.5">
-        <FitName baseSize={13} minSize={9} className="uppercase font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{label}</FitName>
+        <FitName baseSize={12} minSize={9} className="uppercase font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{label}</FitName>
         {pill}
       </span>
-      <span className="shrink-0 font-mono font-black" style={{ fontSize: '14px', color, fontVariantNumeric: 'tabular-nums' }}>
+      <span className="shrink-0 font-mono font-black" style={{ fontSize: '13px', color, fontVariantNumeric: 'tabular-nums' }}>
         {value ?? '—'}
       </span>
     </div>
@@ -131,11 +132,11 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
         {rows.map((row, i) => {
           const rowBg = row.suspended ? 'rgba(250,0,60,0.08)' : row.isWinner ? 'rgba(255,210,63,0.08)' : row.isOwnPick ? 'rgba(160,0,250,0.06)' : (i % 2 === 1 ? 'rgba(255,255,255,0.035)' : undefined)
           return (
-            <div key={row.userId} style={{ background: rowBg, padding: '12px 10px', borderRadius: 10 }}>
+            <div key={row.userId} style={{ background: rowBg, padding: '8px 10px', borderRadius: 10 }}>
               {/* Header — shirt + name, both big and striking; rank kept
                   small since it's useful but isn't what this ask wanted
                   leading the card. */}
-              <div className="flex items-center gap-2 mb-2.5">
+              <div className="flex items-center gap-2 mb-1.5">
                 <span className="shrink-0 font-black" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
                 {row.isBot ? <BotAvatar size={40} /> : (
                   <span className="shrink-0">
@@ -175,8 +176,12 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
               ) : (
                 <div className="flex items-center justify-between gap-4">
                   {/* The 4 rows, left side */}
-                  <div className="min-w-0 flex-1" style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    <StatRow label={row.team} value={showScoring ? row.teamPoints ?? 0 : null} color="var(--pop-blue)" />
+                  <div className="min-w-0 flex-1" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <StatRow
+                      label={row.opponentCode ? `${row.team} (vs ${row.opponentCode})` : row.team}
+                      value={showScoring ? row.teamPoints ?? 0 : null}
+                      color="var(--pop-blue)"
+                    />
                     <StatRow
                       label={row.player1Name}
                       value={showScoring ? row.player1Points ?? 0 : null}
@@ -214,10 +219,10 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
             Banker
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>Won</span>
-            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'var(--pop-red)', color: '#fff' }}>Lost</span>
-            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.75)' }}>TBD</span>
-            All or Nothing
+            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>AON</span>
+            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'var(--pop-red)', color: '#fff' }}>AON</span>
+            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.75)' }}>AON</span>
+            All or Nothing — green/grey/red = succeeded/pending/failed
           </span>
         </div>
       </div>
