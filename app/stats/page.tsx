@@ -1003,11 +1003,11 @@ export default function StatsHubPage() {
   }, [selectedWeekly, compareWeekly, compareUserId])
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'form', label: 'Form Guide' },
+    { id: 'form', label: 'Form' },
     { id: 'teams', label: 'Teams' },
     { id: 'players', label: 'Players' },
-    { id: 'me', label: 'Managers' },
-    { id: 'trends', label: 'League Trends' },
+    { id: 'me', label: 'Mgrs' },
+    { id: 'trends', label: 'Trends' },
   ]
 
   if (loading) {
@@ -1053,12 +1053,17 @@ export default function StatsHubPage() {
             </div>
           )}
 
-          <div className="flex gap-2 mb-5 overflow-x-auto">
+          {/* Fixed 5-column grid, not a scrolling flex row — every tab is
+              guaranteed to fit on one line on one screen regardless of
+              label length, rather than relying on labels happening to be
+              short enough (the old overflow-x-auto let it scroll instead,
+              which is exactly what shouldn't be needed for 5 short words). */}
+          <div className="grid grid-cols-5 gap-1 mb-5">
             {tabs.map(t => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`px-3 py-2 text-xs font-black tracking-widest whitespace-nowrap uppercase rounded-lg transition-colors ${tab === t.id ? 'pop-button' : 'hover:bg-white/[0.08]'}`}
+                className={`px-1 py-2 text-[10px] sm:text-xs font-black tracking-wide sm:tracking-widest uppercase rounded-lg transition-colors text-center ${tab === t.id ? 'pop-button' : 'hover:bg-white/[0.08]'}`}
                 style={tab !== t.id ? { color: 'rgba(255,255,255,0.65)' } : undefined}
               >
                 {t.label}
@@ -1586,12 +1591,14 @@ export default function StatsHubPage() {
             </div>
           )}
 
-          <div className="flex gap-1 mb-5 overflow-x-auto border-b border-white/10">
+          {/* Fixed 5-column grid, not a scrolling flex row — see the
+              pop-art branch above for why. */}
+          <div className="grid grid-cols-5 gap-1 mb-5 border-b border-white/10">
             {tabs.map(t => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`px-3 py-2 text-xs font-bold tracking-widest whitespace-nowrap border-b-2 uppercase transition-colors ${
+                className={`px-1 py-2 text-[10px] sm:text-xs font-bold tracking-wide sm:tracking-widest border-b-2 uppercase transition-colors text-center ${
                   tab === t.id ? 'border-[#D9A441] text-[#D9A441]' : 'border-transparent text-[#F5ECD9]/60 hover:text-[#F5ECD9]'
                 }`}
               >
