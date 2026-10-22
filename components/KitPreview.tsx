@@ -39,6 +39,16 @@ export default function KitPreview({ pattern, colour1, colour2, colour3, stars =
   const shirtClipId = `preview-shirt-${pattern}-${colour1.replace('#', '')}-${colour2.replace('#', '')}`
   // Same colour-qualified reasoning as shirtClipId — see KitBadge.
   const gradientId = `preview-fade-${colour1.replace('#', '')}-${colour2.replace('#', '')}`
+  // Same lighting-overlay treatment as KitBadge — see its comment for the
+  // full reasoning. One sheen/shade pair reused across shirt, shorts and
+  // socks (each clipped to its own shape) for one consistent "lit as a
+  // whole kit" look rather than just the shirt looking dimensional.
+  const uid = `${pattern}-${colour1.replace('#', '')}-${colour2.replace('#', '')}-${colour3?.replace('#', '') ?? 'none'}`
+  const sheenId = `preview-sheen-${uid}`
+  const shadeId = `preview-shade-${uid}`
+  const shortsClipId = `preview-shorts-${uid}`
+  const leftSockClipId = `preview-lsock-${uid}`
+  const rightSockClipId = `preview-rsock-${uid}`
 
   function renderShirtFill() {
     switch (pattern) {
@@ -315,11 +325,31 @@ export default function KitPreview({ pattern, colour1, colour2, colour3, stars =
 
   return (
     <div className="inline-flex items-center gap-5">
-      <svg width={size} height={size} viewBox="0 0 28 48" xmlns="http://www.w3.org/2000/svg">
+      <svg width={size} height={size} viewBox="0 0 28 48" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.4))' }}>
         <defs>
           <clipPath id={shirtClipId}>
             <path d={shirtPath} />
           </clipPath>
+          <clipPath id={shortsClipId}>
+            <path d={shortsPath} />
+          </clipPath>
+          <clipPath id={leftSockClipId}>
+            <path d={leftSockPath} />
+          </clipPath>
+          <clipPath id={rightSockClipId}>
+            <path d={rightSockPath} />
+          </clipPath>
+          {/* Lighting overlays, not a colour change — see KitBadge for the
+              full reasoning. Reused across shirt/shorts/socks below. */}
+          <linearGradient id={sheenId} x1="0" y1="0" x2="0.75" y2="1">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.5" />
+            <stop offset="35%" stopColor="#ffffff" stopOpacity="0.12" />
+            <stop offset="60%" stopColor="#ffffff" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id={shadeId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="55%" stopColor="#000000" stopOpacity="0" />
+            <stop offset="100%" stopColor="#000000" stopOpacity="0.28" />
+          </linearGradient>
         </defs>
 
         {renderShirtFill()}
@@ -330,6 +360,8 @@ export default function KitPreview({ pattern, colour1, colour2, colour3, stars =
             <path d="M26 7 L23 11" fill="none" stroke={colour3} strokeWidth="1.4" />
           </g>
         )}
+        <path d={shirtPath} fill={`url(#${shadeId})`} clipPath={`url(#${shirtClipId})`} />
+        <path d={shirtPath} fill={`url(#${sheenId})`} clipPath={`url(#${shirtClipId})`} />
         <path d={shirtPath} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
         {typeof topScore === 'number' && topScore > 0 && (
           <text
@@ -350,9 +382,15 @@ export default function KitPreview({ pattern, colour1, colour2, colour3, stars =
         )}
 
         <path d={shortsPath} fill={colour2} stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
+        <path d={shortsPath} fill={`url(#${shadeId})`} clipPath={`url(#${shortsClipId})`} />
+        <path d={shortsPath} fill={`url(#${sheenId})`} clipPath={`url(#${shortsClipId})`} />
 
         <path d={leftSockPath} fill={colour1} stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
+        <path d={leftSockPath} fill={`url(#${shadeId})`} clipPath={`url(#${leftSockClipId})`} />
+        <path d={leftSockPath} fill={`url(#${sheenId})`} clipPath={`url(#${leftSockClipId})`} />
         <path d={rightSockPath} fill={colour1} stroke="rgba(255,255,255,0.35)" strokeWidth="0.6" strokeLinejoin="round" />
+        <path d={rightSockPath} fill={`url(#${shadeId})`} clipPath={`url(#${rightSockClipId})`} />
+        <path d={rightSockPath} fill={`url(#${sheenId})`} clipPath={`url(#${rightSockClipId})`} />
       </svg>
       <BadgeStats stars={stars} earths={earths} starColor={starColor} />
     </div>

@@ -51,6 +51,13 @@ export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0
   // unqualified id would make every fade badge after the first show the
   // first badge's colours instead of its own.
   const gradientId = `kit-fade-${colour1.replace('#', '')}-${colour2.replace('#', '')}`
+  // Same per-instance-id reasoning, for the lighting overlay gradients
+  // below — these don't depend on colour at all (pure white/black), but
+  // still need a unique id per rendered badge for the same cross-document
+  // id-collision reason.
+  const uid = `${pattern}-${colour1.replace('#', '')}-${colour2.replace('#', '')}-${colour3?.replace('#', '') ?? 'none'}`
+  const sheenId = `kit-sheen-${uid}`
+  const shadeId = `kit-shade-${uid}`
 
   function renderFill() {
     switch (pattern) {
@@ -357,11 +364,31 @@ export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0
   return (
     <div className="inline-flex items-center gap-1 sm:gap-1.5">
       <StarIcons stars={stars} className={iconTextClass} color={starColor} extraClassName={starClassName} />
-      <svg width={size} height={size} viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+      <svg width={size} height={size} viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" className="shrink-0" style={{ filter: 'drop-shadow(0 1.5px 1.5px rgba(0,0,0,0.45))' }}>
         <defs>
           <clipPath id={clipId}>
             <path d={shirtPath} />
           </clipPath>
+          {/* Lighting overlays, not a colour change — a diagonal white
+              sheen (top-left, where the light is "coming from") and a
+              bottom shade fade to dark, both layered semi-transparently
+              ON TOP of whatever pattern/colours render underneath. Purely
+              additive geometry means this works identically for every
+              pattern without needing pattern-specific cases, and a
+              player's own colour1/colour2/colour3 choice never changes —
+              it's lit, not recoloured. Paired with the drop-shadow on the
+              <svg> itself, this is what turns the previously flat, equal-
+              brightness-everywhere badge into something reading as a
+              rendered 3D garment instead of a flat icon. */}
+          <linearGradient id={sheenId} x1="0" y1="0" x2="0.75" y2="1">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.5" />
+            <stop offset="35%" stopColor="#ffffff" stopOpacity="0.12" />
+            <stop offset="60%" stopColor="#ffffff" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id={shadeId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="55%" stopColor="#000000" stopOpacity="0" />
+            <stop offset="100%" stopColor="#000000" stopOpacity="0.28" />
+          </linearGradient>
         </defs>
         {renderFill()}
         {colour3 && (
@@ -371,6 +398,8 @@ export default function KitBadge({ pattern, colour1, colour2, colour3, stars = 0
             <path d="M26 7 L23 11" fill="none" stroke={colour3} strokeWidth="1.4" />
           </g>
         )}
+        <path d={shirtPath} fill={`url(#${shadeId})`} clipPath={`url(#${clipId})`} />
+        <path d={shirtPath} fill={`url(#${sheenId})`} clipPath={`url(#${clipId})`} />
         <path d={shirtPath} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1" strokeLinejoin="round" />
         {typeof topScore === 'number' && topScore > 0 && (
           <text

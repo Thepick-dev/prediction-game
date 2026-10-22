@@ -11,6 +11,7 @@ import HeroPage from '../../components/HeroPage'
 import TeamCrest from '../../components/TeamCrest'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import PopArtLoading from '../../components/PopArtLoading'
+import PopSelect from '../../components/PopSelect'
 import ShareableCard from '../../components/ShareableCard'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import { pastDeadlineGameweekIds } from '../lib/pastDeadlineGameweeks'
@@ -1326,15 +1327,13 @@ export default function StatsHubPage() {
               ) : (
                 <>
                   <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>Select a Manager</p>
-                  <select
-                    value={effectiveSelectedPlayerId}
-                    onChange={e => setSelectedPlayerId(e.target.value)}
-                    className="pop-input w-full mb-4 px-3 py-2 text-sm font-bold"
-                  >
-                    {playerMenuOptions.map(m => (
-                      <option key={m.uid} value={m.uid}>{m.name}{m.uid === user?.id ? ' (You)' : ''}</option>
-                    ))}
-                  </select>
+                  <div className="mb-4">
+                    <PopSelect
+                      value={effectiveSelectedPlayerId}
+                      onChange={setSelectedPlayerId}
+                      options={playerMenuOptions.map(m => ({ value: m.uid, label: `${m.name}${m.uid === user?.id ? ' (You)' : ''}` }))}
+                    />
+                  </div>
 
                   {selectedWeekly.length === 0 ? (
                     <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>No scored gameweeks yet for {selectedPlayerName}.</p>
@@ -1379,16 +1378,17 @@ export default function StatsHubPage() {
                       </ShareableCard>
 
                       <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>Head-to-Head</p>
-                      <select
-                        value={compareUserId}
-                        onChange={e => setCompareUserId(e.target.value)}
-                        className="pop-input w-full mb-4 px-3 py-2 text-sm font-bold"
-                      >
-                        <option value="">— Compare against —</option>
-                        {playerMenuOptions.filter(m => m.uid !== effectiveSelectedPlayerId).map(m => (
-                          <option key={m.uid} value={m.uid}>{m.name}</option>
-                        ))}
-                      </select>
+                      <div className="mb-4">
+                        <PopSelect
+                          value={compareUserId}
+                          onChange={setCompareUserId}
+                          placeholder="— Compare against —"
+                          options={[
+                            { value: '', label: '— Compare against —' },
+                            ...playerMenuOptions.filter(m => m.uid !== effectiveSelectedPlayerId).map(m => ({ value: m.uid, label: m.name })),
+                          ]}
+                        />
+                      </div>
 
                       {compareUserId && headToHeadTally && (
                         <>

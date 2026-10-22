@@ -11,7 +11,7 @@ import { useSkin } from '../lib/useSkin'
 import { isValidUsername, USERNAME_MAX_LENGTH, USERNAME_RULES_MESSAGE } from '../lib/username'
 import { isValidPassword, PASSWORD_RULES_MESSAGE } from '../lib/password'
 import { isInviteCodeUsable } from '../lib/inviteCodes'
-import { RetroWindow, RetroButton, RetroSettingsPanel, RetroSkinPreviewControl } from '../../components/retro'
+import { RetroWindow, RetroButton, RetroSettingsPanel } from '../../components/retro'
 
 export default function SettingsPage() {
   const [user, setUser] = useState<any>(null)
@@ -51,7 +51,7 @@ export default function SettingsPage() {
   const [deleteMessage, setDeleteMessage] = useState('')
 
   const supabase = createClient()
-  const { skin, popArt, retro, globalSkin, preview, isAdmin, setPreview, popArtVariant, globalPopArtVariant, variantPreview, setVariantPreview } = useSkin(user?.id)
+  const { skin, popArt, retro } = useSkin(user?.id)
 
   useEffect(() => { loadProfile() }, [])
 
@@ -287,10 +287,6 @@ export default function SettingsPage() {
             SETTINGS
           </h1>
 
-          {isAdmin && (
-            <RetroSkinPreviewControl globalSkin={globalSkin} preview={preview} setPreview={setPreview} />
-          )}
-
           <RetroSettingsPanel />
 
           <RetroWindow title="Username">
@@ -524,65 +520,6 @@ export default function SettingsPage() {
           <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-6 mt-2">Settings</h1>
 
           <div className="space-y-5">
-
-            {isAdmin && (
-              <div className="pop-panel pop-panel--blue p-5">
-                <h2 className="pop-headline text-sm mb-1">🕹️ Admin Preview</h2>
-                <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                  Global skin for everyone right now: <strong>{globalSkin === 'retro' ? 'Retro' : 'Pop Art'}</strong>.
-                  Previewing changes only what you see, on this browser.
-                </p>
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={() => setPreview('pop-art')}
-                    className={`pop-button ${preview === 'pop-art' ? 'pop-button--yellow' : ''} text-xs py-2 px-3`}
-                  >
-                    Preview Pop Art
-                  </button>
-                  <button
-                    onClick={() => setPreview('retro')}
-                    className={`pop-button ${preview === 'retro' ? 'pop-button--yellow' : ''} text-xs py-2 px-3`}
-                  >
-                    Preview Retro
-                  </button>
-                  {preview && (
-                    <button onClick={() => setPreview(null)} className="pop-button pop-button--blue text-xs py-2 px-3">
-                      Clear override
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {isAdmin && (
-              <div className="pop-panel pop-panel--blue p-5">
-                <h2 className="pop-headline text-sm mb-1">🎨 Pop Art V2 Preview</h2>
-                <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                  A richer, more jewel-toned refinement of this same Pop Art look — colours and glows only, nothing
-                  about layout changes. Live for everyone right now: <strong>{globalPopArtVariant === 'v2' ? 'V2' : 'V1 (original)'}</strong>.
-                  Previewing here only changes what you see, on this browser.
-                </p>
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={() => setVariantPreview('v1')}
-                    className={`pop-button ${variantPreview === 'v1' ? 'pop-button--yellow' : ''} text-xs py-2 px-3`}
-                  >
-                    Preview V1 (Original)
-                  </button>
-                  <button
-                    onClick={() => setVariantPreview('v2')}
-                    className={`pop-button ${variantPreview === 'v2' ? 'pop-button--yellow' : ''} text-xs py-2 px-3`}
-                  >
-                    Preview V2
-                  </button>
-                  {variantPreview && (
-                    <button onClick={() => setVariantPreview(null)} className="pop-button pop-button--blue text-xs py-2 px-3">
-                      Clear override
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
 
             <div className="pop-panel p-5">
               <h2 className="pop-headline text-sm mb-1">Username</h2>

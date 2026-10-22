@@ -10,6 +10,7 @@ import BotAvatar from '../../components/BotAvatar'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 import ResultsGrid, { type GridRow } from './ResultsGrid'
 import PopArtLoading from '../../components/PopArtLoading'
+import PopSelect from '../../components/PopSelect'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 
 type Gameweek = {
@@ -580,22 +581,19 @@ export default function ResultsPage() {
             </div>
           ) : (
             <>
-              <div className="mb-5">
-                <select
+              <div className="mb-5" style={{ maxWidth: 320 }}>
+                <PopSelect
                   value={selectedGw ?? ''}
-                  onChange={e => setSelectedGw(e.target.value)}
-                  className="pop-input px-3 py-2 text-sm font-bold w-full md:w-auto uppercase"
-                >
-                  {gameweeks.map(gw => (
-                    <option key={gw.id} value={gw.id}>
-                      Gameweek {gw.number} — {
-                        gw.status === 'completed' ? 'Scored'
-                        : new Date() < new Date(gw.deadline) ? 'Upcoming'
-                        : 'Awaiting scoring'
-                      }
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedGw}
+                  options={gameweeks.map(gw => ({
+                    value: gw.id,
+                    label: `Gameweek ${gw.number} — ${
+                      gw.status === 'completed' ? 'Scored'
+                      : new Date() < new Date(gw.deadline) ? 'Upcoming'
+                      : 'Awaiting scoring'
+                    }`,
+                  }))}
+                />
               </div>
 
               {/* Competition results above the raw match fixtures — who won

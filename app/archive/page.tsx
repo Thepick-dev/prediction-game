@@ -5,56 +5,84 @@ import { createClient } from '../lib/supabase'
 import Shell from '../components/ceefax-shell'
 import HeroPage from '../../components/HeroPage'
 import PopArtLoading from '../../components/PopArtLoading'
+import FitName from '../../components/FitName'
+import KitBadge from '../../components/KitBadge'
 import { TrophyIcon } from '../../components/icons'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import Link from 'next/link'
 
 type PastCompetition = { id: string; name: string; season: string; start_date: string | null; end_date: string | null; manual_winner: string | null; manual_winner_note: string | null }
 type Honour = { season: string; competition_name: string; winner: string; notes: string | null }
-type PodiumEntry = { name: string; points: number }
+type PodiumEntry = { uid: string; name: string; points: number }
 type CurrentCompetition = { id: string; name: string; season: string }
+type KitInfo = { pattern: string; colour1: string; colour2: string; colour3: string | null; stars: number; earths: number }
 
 // One consistent two-tone "trophy" identity per competition — orange/
 // purple for LMS, lime/blue for IC — rather than cycling through random
 // colours per row, which had no actual meaning behind which name got
-// which colour.
-function TrophyBadge({ name, ic = false }: { name: string; ic?: boolean }) {
-  const style = ic
-    ? { background: 'rgba(0,242,250,0.12)', border: '1px solid rgba(204,250,0,0.5)', color: 'var(--pop-green)' }
-    : { background: 'rgba(160,0,250,0.12)', border: '1px solid rgba(250,97,0,0.5)', color: 'var(--pop-orange)' }
+// which colour. A bold glowing name with a trophy icon, not a pill badge
+// — matches the Leaderboard's own "big glowing name" identity instead of
+// a small boxed-in chip, for names that (unlike a live podium entry)
+// have no profile/kit to show.
+function TrophyName({ name, ic = false }: { name: string; ic?: boolean }) {
+  const color = ic ? 'var(--pop-green)' : 'var(--pop-orange)'
+  const glow = ic ? 'rgba(174,224,0,0.5)' : 'rgba(250,97,0,0.5)'
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-black" style={style}>
-      <TrophyIcon size={12} color={ic ? 'var(--pop-blue)' : 'var(--pop-pink)'} /> {name}
+    <span className="inline-flex items-center gap-1.5 font-black uppercase" style={{ color, textShadow: `0 0 6px ${glow}` }}>
+      <TrophyIcon size={14} color={ic ? 'var(--pop-blue)' : 'var(--pop-pink)'} /> {name}
     </span>
   )
 }
 
-const MEDAL_EMOJI = ['🥇', '🥈', '🥉']
 const MEDAL_COLOUR = ['#FFD700', '#C7C7D1', '#CD7F32']
 
 // Top 3, computed live from real points (never Futzy) — same podium shape
 // used for a finished competition and, clearly labelled separately, the
-// current one still in progress.
-function Podium({ entries }: { entries: PodiumEntry[] }) {
+// current one still in progress. A real kit badge + big glowing name per
+// entry, the same visual language as a Leaderboard row, rather than a
+// medal emoji and plain text — this is the page's own "who's actually
+// winning," so it should look like it belongs next to the Leaderboard,
+// not like a different, flatter site.
+function Podium({ entries, kitByUid }: { entries: PodiumEntry[]; kitByUid: Record<string, KitInfo> }) {
   if (entries.length === 0) {
     return <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>No scored gameweeks yet.</p>
   }
   return (
-    <div className="flex flex-col gap-2">
-      {entries.map((e, i) => (
-        <div
-          key={i}
-          className="flex items-center gap-2"
-          style={i === 0 ? {
-            background: 'linear-gradient(90deg, rgba(255,215,0,0.14), transparent)',
-            borderRadius: 10, padding: '4px 8px', margin: '-4px -8px',
-          } : undefined}
-        >
-          <span style={{ fontSize: i === 0 ? '24px' : '17px', lineHeight: 1, textShadow: i === 0 ? '0 0 10px rgba(255,215,0,0.6)' : undefined }}>{MEDAL_EMOJI[i]}</span>
-          <span className="font-black truncate flex-1" style={{ fontSize: i === 0 ? '16px' : '13px', color: i === 0 ? MEDAL_COLOUR[0] : 'var(--pop-white)', textShadow: i === 0 ? '0 0 8px rgba(255,215,0,0.4)' : undefined }}>{e.name}</span>
-          <span className="font-black shrink-0" style={{ fontSize: i === 0 ? '16px' : '13px', color: MEDAL_COLOUR[i] }}>{e.points} pts</span>
-        </div>
-      ))}
+    <div className="flex flex-col gap-2.5">
+      {entries.map((e, i) => {
+        const kit = kitByUid[e.uid]
+        return (
+          <div
+            key={i}
+            className="flex items-center gap-2.5"
+            style={i === 0 ? {
+              background: 'linear-gradient(90deg, rgba(255,215,0,0.14), transparent)',
+              borderRadius: 10, padding: '6px 8px', margin: '-2px -8px',
+            } : undefined}
+          >
+            <span className="shrink-0 text-center font-black font-mono" style={{ width: 18, fontSize: i === 0 ? '15px' : '12px', color: MEDAL_COLOUR[i] }}>{i + 1}</span>
+            {kit && (
+              <span className="shrink-0">
+                <KitBadge pattern={kit.pattern} colour1={kit.colour1} colour2={kit.colour2} colour3={kit.colour3} size={i === 0 ? 34 : 26} />
+              </span>
+            )}
+            <span className="min-w-0 flex-1">
+              <FitName
+                baseSize={i === 0 ? 17 : 14}
+                minSize={11}
+                className="pop-name"
+                style={{
+                  color: i === 0 ? MEDAL_COLOUR[0] : 'var(--pop-white)',
+                  textShadow: i === 0 ? '0 0 8px rgba(255,215,0,0.5)' : undefined,
+                }}
+              >
+                {e.name}
+              </FitName>
+            </span>
+            <span className="font-black shrink-0 font-mono" style={{ fontSize: i === 0 ? '16px' : '13px', color: MEDAL_COLOUR[i] }}>{e.points} pts</span>
+          </div>
+        )
+      })}
       {entries.length > 1 && (
         <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)' }}>Won by {entries[0].points - entries[1].points} pts</p>
       )}
@@ -70,6 +98,7 @@ export default function ArchivePage() {
   const [topThreeByCompId, setTopThreeByCompId] = useState<Record<string, PodiumEntry[]>>({})
   const [currentCompetition, setCurrentCompetition] = useState<CurrentCompetition | null>(null)
   const [currentTopThree, setCurrentTopThree] = useState<PodiumEntry[]>([])
+  const [kitByUid, setKitByUid] = useState<Record<string, KitInfo>>({})
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
@@ -168,7 +197,7 @@ export default function ArchivePage() {
             .filter(([uid]) => !isBotByUid[uid])
             .sort((a, b) => b[1] - a[1])
             .slice(0, 3)
-            .map(([uid, pts]) => ({ name: nameByUid[uid] ?? 'Unknown', points: Math.round(pts) }))
+            .map(([uid, pts]) => ({ uid, name: nameByUid[uid] ?? 'Unknown', points: Math.round(pts) }))
           podiumByComp[compId] = ranked
         })
 
@@ -178,6 +207,29 @@ export default function ArchivePage() {
     } catch {
       // Podiums are an enhancement on top of the plain list — a failure
       // here should never block the page from showing at all.
+    }
+
+    // Its own isolated request, same reasoning as everywhere else this
+    // pattern shows up — kit columns are newer/optional, and a problem
+    // reading them should only mean a podium entry renders without its
+    // badge, never take the whole page down with it.
+    try {
+      const { data: kitRows } = await supabase.from('profiles').select('id, kit_pattern, kit_colour_1, kit_colour_2, kit_colour_3, kit_stars, kit_earths')
+      const kitMap: Record<string, KitInfo> = {}
+      kitRows?.forEach(k => {
+        kitMap[k.id] = {
+          pattern: k.kit_pattern ?? 'solid',
+          colour1: k.kit_colour_1 ?? '#1E4D6B',
+          colour2: k.kit_colour_2 ?? '#F5ECD9',
+          colour3: k.kit_colour_3 ?? null,
+          stars: k.kit_stars ?? 0,
+          earths: k.kit_earths ?? 0,
+        }
+      })
+      setKitByUid(kitMap)
+    } catch {
+      // Degrades gracefully — Podium simply skips the badge for anyone
+      // missing from this map.
     }
 
     setLoading(false)
@@ -204,7 +256,7 @@ export default function ArchivePage() {
                 <h2 className="pop-headline text-sm mb-1">This Season — So Far</h2>
                 <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>{currentCompetition.name} · not final, still moving every gameweek.</p>
                 <div className="pop-panel pop-panel--pulse pop-panel--pink p-4">
-                  <Podium entries={currentTopThree} />
+                  <Podium entries={currentTopThree} kitByUid={kitByUid} />
                 </div>
               </section>
             )}
@@ -234,10 +286,10 @@ export default function ArchivePage() {
                           <Link href={`/archive/${comp.id}`} className="text-xs font-bold" style={{ color: 'var(--pop-blue)' }}>Full archive →</Link>
                         </div>
                       </div>
-                      <Podium entries={topThreeByCompId[comp.id] ?? []} />
+                      <Podium entries={topThreeByCompId[comp.id] ?? []} kitByUid={kitByUid} />
                       {comp.manual_winner && (
                         <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}>
-                          <TrophyBadge name={comp.manual_winner} />
+                          <TrophyName name={comp.manual_winner} />
                           {comp.manual_winner_note && (
                             <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>{comp.manual_winner_note}</p>
                           )}
@@ -277,7 +329,7 @@ export default function ArchivePage() {
                         >
                           <td className="py-2 px-4" style={{ color: 'rgba(255,255,255,0.5)' }}>{h.season}</td>
                           <td className="py-2 px-4">{h.competition_name}</td>
-                          <td className="py-2 px-4"><TrophyBadge name={h.winner} ic={h.competition_name === 'IC'} /></td>
+                          <td className="py-2 px-4"><TrophyName name={h.winner} ic={h.competition_name === 'IC'} /></td>
                         </tr>
                       ))}
                     </tbody>

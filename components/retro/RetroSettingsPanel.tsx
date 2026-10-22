@@ -7,8 +7,7 @@ import RetroOptionToggle from './RetroOptionToggle'
 // The accessibility settings panel — scanlines, readable-text mode,
 // reduced-motion override, sound mute (stubbed, sound itself is phase 2).
 // Lives on /settings, visible to every player once Retro is their active
-// skin, not admin-only (that's the separate preview toggle, see
-// RetroSkinPreviewControl).
+// skin, not admin-only.
 export default function RetroSettingsPanel() {
   const { prefs, setPref, loaded } = useRetroA11yPrefs()
 
