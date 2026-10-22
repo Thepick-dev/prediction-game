@@ -594,36 +594,6 @@ export default function ResultsPage() {
                 </select>
               </div>
 
-              {selectedGameweek && (
-                <div className="mb-4 flex items-center gap-3 flex-wrap">
-                  <h2 className="pop-headline text-lg">Gameweek {selectedGameweek.number}</h2>
-                  <span
-                    className={`pop-badge px-2 py-0.5 text-xs ${
-                      isScored ? 'pop-badge--green'
-                      : isFutureGw ? ''
-                      : 'pop-badge--yellow'
-                    }`}
-                    style={isFutureGw ? { background: 'rgba(255,255,255,0.15)', color: 'var(--pop-white)' } : undefined}
-                  >
-                    {isScored ? 'Scored' : isFutureGw ? 'Upcoming' : 'Awaiting scoring'}
-                  </span>
-                  {isLocked && (
-                    <span
-                      className="pop-badge px-2 py-0.5 text-xs"
-                      style={{ background: 'rgba(255,255,255,0.15)', color: 'var(--pop-white)' }}
-                      title="Deadline's passed so this is calculated from current results and quartiles, but it's not official until the gameweek is marked completed — it can still change"
-                    >
-                      Live preview — not final
-                    </span>
-                  )}
-                  {isScored && gwPotwUserId && (
-                    <span className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--pop-yellow)' }}>
-                      GW Winner: {profiles[gwPotwUserId]}
-                    </span>
-                  )}
-                </div>
-              )}
-
               {/* Competition results above the raw match fixtures — who won
                   LMS is the headline, the underlying football scores are
                   supporting reference material, not the lead story. Also
@@ -807,31 +777,6 @@ export default function ResultsPage() {
                 </select>
               </div>
 
-              {selectedGameweek && (
-                <div className="mb-4 flex items-center gap-3 flex-wrap">
-                  <h2 className="text-lg font-bold uppercase" style={{ fontFamily: 'var(--font-heading), serif', color: '#D9A441' }}>Gameweek {selectedGameweek.number}</h2>
-                  <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wider border ${
-                    isScored ? 'bg-green-500/20 text-green-300 border-green-400/40'
-                    : isFutureGw ? 'bg-white/10 text-[#F5ECD9]/60 border-white/20'
-                    : 'bg-yellow-500/20 text-yellow-300 border-yellow-400/40'
-                  }`}>
-                    {isScored ? 'Scored' : isFutureGw ? 'Upcoming' : 'Awaiting scoring'}
-                  </span>
-                  {isLocked && (
-                    <span
-                      className="text-xs border border-white/30 text-[#F5ECD9]/70 px-2 py-0.5 rounded font-bold uppercase tracking-wider"
-                      title="Deadline's passed so this is calculated from current results and quartiles, but it's not official until the gameweek is marked completed — it can still change"
-                    >
-                      Live preview — not final
-                    </span>
-                  )}
-                  {isScored && gwPotwUserId && (
-                    <span className="text-xs text-[#D9A441] font-bold uppercase tracking-wider">
-                      GW Winner: {profiles[gwPotwUserId]}
-                    </span>
-                  )}
-                </div>
-              )}
 
               {loadingPicks ? (
                 <p className="text-sm text-[#F5ECD9]/50">Loading picks...</p>

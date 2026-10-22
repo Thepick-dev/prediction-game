@@ -1,11 +1,12 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { shareElementAsImage } from '../lib/shareImage'
 import KitBadge from '../../components/KitBadge'
 import BotAvatar from '../../components/BotAvatar'
 import TeamCrest from '../../components/TeamCrest'
 import FitName from '../../components/FitName'
+import { CheckIcon, CrossIcon, BoltIcon } from '../../components/icons'
 
 export type GridRow = {
   userId: string
@@ -44,18 +45,28 @@ type Props = {
 
 const AON_BG = { pending: 'var(--pop-pink)', success: 'var(--pop-green)', failed: 'var(--pop-red)' } as const
 const AON_FG = { pending: '#fff', success: 'var(--pop-black)', failed: '#fff' } as const
-const AON_LABEL = { pending: 'AoN', success: 'AoN ✓', failed: 'AoN ✕' } as const
+const AON_TITLE = { pending: 'All or Nothing — played, result pending', success: 'All or Nothing — succeeded', failed: 'All or Nothing — failed' } as const
 
 function playerLine(name: string, points: number | null, goal: boolean, assist: boolean, showScoring: boolean, aonOutcome?: 'pending' | 'success' | 'failed') {
   return (
-    <div className="flex items-center gap-1 flex-wrap min-w-0">
+    <div className="flex items-center min-w-0" style={{ gap: 2 }}>
       <FitName baseSize={11} minSize={7} className="uppercase font-bold" style={{ color: '#fff' }}>{name}</FitName>
       {goal && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '8px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span>}
       {assist && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '8px', background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>A</span>}
-      {/* Sits directly on whichever player it's actually on — previously a
-          generic line under the row's total points, with no way to tell
-          which of the two picks it applied to. */}
-      {aonOutcome && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '8px', background: AON_BG[aonOutcome], color: AON_FG[aonOutcome] }}>{AON_LABEL[aonOutcome]}</span>}
+      {/* A compact icon dot, not the old "AoN ✓" text badge — same info
+          (colour + symbol + a title for the full wording on hover/tap),
+          a third the width, sitting directly on whichever player it's
+          actually on rather than a generic line under the row's total
+          with no way to tell which of the two picks it applied to. */}
+      {aonOutcome && (
+        <span
+          className="shrink-0 inline-flex items-center justify-center rounded-full"
+          style={{ width: 12, height: 12, background: AON_BG[aonOutcome] }}
+          title={AON_TITLE[aonOutcome]}
+        >
+          {aonOutcome === 'success' ? <CheckIcon size={8} color={AON_FG[aonOutcome]} /> : aonOutcome === 'failed' ? <CrossIcon size={8} color={AON_FG[aonOutcome]} /> : <BoltIcon size={8} color={AON_FG[aonOutcome]} />}
+        </span>
+      )}
       {showScoring && <span className="shrink-0 font-mono" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>({points ?? 0})</span>}
     </div>
   )
@@ -117,28 +128,29 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
           {final ? '✅ Final Result' : live ? '🔴 Live — scores updating' : '🔒 Picks locked in'}
         </p>
 
-        <table className="w-full" style={{ fontSize: '12px', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr className="text-left" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-              <th className="py-1.5 pr-0.5 uppercase tracking-wider" style={{ width: '7%' }}>#</th>
-              <th className="py-1.5 px-1 uppercase tracking-wider" style={{ width: '29%' }}>Player</th>
-              <th className="py-1.5 px-1 uppercase tracking-wider" style={{ width: '27%' }}>Team</th>
-              <th className="py-1.5 px-1 uppercase tracking-wider" style={{ width: '22%' }}>Players</th>
-              <th className="py-1.5 pl-1 text-right uppercase tracking-wider font-black" style={{ width: '15%' }}>Pts</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr
-                key={row.userId}
-                style={{
-                  borderBottom: '1px solid rgba(255,255,255,0.06)',
-                  background: row.suspended ? 'rgba(250,0,60,0.08)' : row.isWinner ? 'rgba(255,210,63,0.08)' : (i % 2 === 1 ? 'rgba(255,255,255,0.02)' : undefined),
-                }}
-              >
-                <td className="py-2 pr-0.5 font-black align-top" style={{ color: '#fff' }}>{i + 1}</td>
-                <td className="py-2 px-1 align-top" style={{ maxWidth: 0 }}>
-                  <div className="flex items-center gap-1.5">
+        {/* A real CSS grid, not an HTML table — table rows only ever treat
+            `height` as a minimum and will still grow to fit whatever the
+            tallest cell's content needs, which is exactly the "some rows
+            bigger than others" behaviour this replaces. Grid rows at a
+            fixed track size, paired with overflow: hidden on every cell,
+            genuinely cap each row — content that would overflow clips
+            instead of growing the row, so every row really is the same
+            size no matter what it holds. */}
+        <div style={{ display: 'grid', gridTemplateColumns: '7% 26% 20% 32% 15%', gridAutoRows: '54px', fontSize: '12px' }}>
+          <div className="py-1.5 pr-0.5 uppercase tracking-wider" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>#</div>
+          <div className="py-1.5 px-1 uppercase tracking-wider" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>Player</div>
+          <div className="py-1.5 px-1 uppercase tracking-wider" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>Team</div>
+          <div className="py-1.5 px-1 uppercase tracking-wider" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>Players</div>
+          <div className="py-1.5 pl-1 text-right uppercase tracking-wider font-black" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>Pts</div>
+
+          {rows.map((row, i) => {
+            const rowBg = row.suspended ? 'rgba(250,0,60,0.08)' : row.isWinner ? 'rgba(255,210,63,0.08)' : (i % 2 === 1 ? 'rgba(255,255,255,0.02)' : undefined)
+            const cellStyle: React.CSSProperties = { borderBottom: '1px solid rgba(255,255,255,0.06)', background: rowBg, overflow: 'hidden', display: 'flex', alignItems: 'center' }
+            return (
+              <React.Fragment key={row.userId}>
+                <div className="py-2 pr-0.5 font-black" style={{ ...cellStyle, color: '#fff' }}>{i + 1}</div>
+                <div className="py-2 px-1" style={{ ...cellStyle, minWidth: 0 }}>
+                  <div className="flex items-center gap-1.5 min-w-0">
                     {row.isBot ? <BotAvatar size={30} /> : (
                       <span className="shrink-0">
                         <KitBadge pattern={row.kit?.pattern ?? 'solid'} colour1={row.kit?.colour1 ?? '#1E4D6B'} colour2={row.kit?.colour2 ?? '#F5ECD9'} colour3={row.kit?.colour3} size={30} />
@@ -151,18 +163,20 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                       {row.isAutopick && <div className="normal-case font-bold" style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)' }}>Autopick</div>}
                     </span>
                   </div>
-                </td>
+                </div>
                 {row.suspended ? (
-                  <td colSpan={3} className="py-2 px-1 align-top" style={{ fontSize: '10px' }}>
-                    <span className="px-1.5 py-0.5 rounded font-black uppercase mr-1.5" style={{ fontSize: '9px', background: 'var(--pop-red)', color: '#fff' }}>Suspended</span>
-                    <span style={{ color: 'rgba(255,255,255,0.6)' }}>{row.suspended.reason}</span>
-                  </td>
+                  <div className="py-2 px-1" style={{ ...cellStyle, gridColumn: 'span 2', fontSize: '10px' }}>
+                    <span className="px-1.5 py-0.5 rounded font-black uppercase mr-1.5 shrink-0" style={{ fontSize: '9px', background: 'var(--pop-red)', color: '#fff' }}>Suspended</span>
+                    <span className="truncate" style={{ color: 'rgba(255,255,255,0.6)' }}>{row.suspended.reason}</span>
+                  </div>
                 ) : (
                   <>
-                    <td className="py-2 px-1 align-top">
-                      <div className="flex items-center gap-1 flex-wrap">
+                    <div className="py-2 px-1" style={{ ...cellStyle, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', minWidth: 0 }}>
+                      <div className="flex items-center gap-1 min-w-0">
                         <TeamCrest teamId={row.teamId} teamName={row.team} size={16} />
-                        <span className="font-black uppercase shrink-0" style={{ color: 'var(--pop-blue)', fontSize: '11px' }}>{row.team}</span>
+                        <span className="min-w-0 shrink">
+                          <FitName baseSize={11} minSize={8} className="font-black uppercase" style={{ color: 'var(--pop-blue)' }}>{row.team}</FitName>
+                        </span>
                         {row.isBanker && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '8px', background: 'var(--pop-orange)', color: '#fff' }}>★B</span>}
                         {/* Compact initials+points tab, same treatment as
                             Banker, instead of the card's full name taking
@@ -177,25 +191,25 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                           </span>
                         )}
                       </div>
-                      <div className="normal-case font-bold font-mono" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)' }}>
+                      <div className="normal-case font-bold font-mono truncate" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)' }}>
                         {row.opponentCode && `vs ${row.opponentCode} · `}{showScoring ? `${row.teamPoints ?? 0} pts` : 'Pending'}
                       </div>
-                    </td>
-                    <td className="py-2 px-1 align-top">
+                    </div>
+                    <div className="py-2 px-1" style={{ ...cellStyle, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', minWidth: 0 }}>
                       {playerLine(row.player1Name, row.player1Points, row.player1Goal, row.player1Assist, showScoring, row.aon?.onPlayer1 ? row.aon.outcome : undefined)}
                       {playerLine(row.player2Name, row.player2Points, row.player2Goal, row.player2Assist, showScoring, row.aon?.onPlayer2 ? row.aon.outcome : undefined)}
-                    </td>
+                    </div>
                   </>
                 )}
-                <td className="py-2 pl-1 text-right align-top">
+                <div className="py-2 pl-1 text-right" style={{ ...cellStyle, justifyContent: 'flex-end' }}>
                   <span className="font-black font-mono" style={{ fontSize: '20px', color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums' }}>
                     {row.suspended ? 0 : showScoring ? row.totalPoints ?? 0 : 'TBD'}
                   </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </React.Fragment>
+            )
+          })}
+        </div>
 
         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
           <span><span className="px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>G</span> Goal</span>

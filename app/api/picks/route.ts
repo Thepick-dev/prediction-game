@@ -522,6 +522,12 @@ export async function GET(request: Request) {
     })
     .map(([teamId]) => parseInt(teamId))
 
+  // Kept alongside usedTeams (which only says "fully used or not") rather
+  // than replacing it — a double-use team used exactly once needs the
+  // real count to show "1/2 left" instead of jumping straight from "2/2"
+  // to "Used" with no state in between, which is what usedTeams alone
+  // collapses it to.
+
   const playerCounts: Record<number, number> = {}
   allPicks?.forEach(p => {
     playerCounts[p.player1_id] = (playerCounts[p.player1_id] || 0) + 1
@@ -569,6 +575,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     pick,
     usedTeams,
+    teamUseCounts,
     playerCounts,
     doubleUseTeams,
     bankersUsed,

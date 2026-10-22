@@ -57,9 +57,16 @@ export default function FitName({ children, baseSize, minSize, className, style 
           if (sameLine) siblingsWidth += rect.width + gapPx
         }
       }
-      const available = Math.max(0, parent.clientWidth - siblingsWidth)
+      const available = parent.clientWidth - siblingsWidth
       const needed = ghost.scrollWidth
-      if (available > 0 && needed > available) {
+      if (available <= 0) {
+        // Same-line siblings alone already exceed the container — no
+        // positive width to solve the ratio with, but this is exactly the
+        // case that most needs the floor size, not a reason to give up
+        // and render at full baseSize (which used to make the name eat
+        // into its own siblings rather than shrink out of their way).
+        setFontSize(minSize)
+      } else if (needed > available) {
         // A 4% safety margin — scrollWidth rounds to whole pixels, so an
         // exact-fit computation can still be a sub-pixel over in reality
         // and trip the ellipsis fallback below for no visible reason.

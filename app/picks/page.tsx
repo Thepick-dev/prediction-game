@@ -239,6 +239,10 @@ export default function PicksPage() {
   const [isBanker, setIsBanker] = useState(false)
 
   const [usedTeams, setUsedTeams] = useState<number[]>([])
+  // The real per-team use count — usedTeams alone only says "fully used
+  // or not", which can't distinguish a double-use team picked once (one
+  // left) from one never picked at all (both still show as "not used").
+  const [teamUseCounts, setTeamUseCounts] = useState<Record<number, number>>({})
   const [playerCounts, setPlayerCounts] = useState<Record<number, number>>({})
   const [playerMaxOverride, setPlayerMaxOverride] = useState<Record<number, number>>({})
   const [doubleUseTeams, setDoubleUseTeams] = useState<number[]>([])
@@ -549,6 +553,7 @@ export default function PicksPage() {
         setSavedPickPlayers({ p1: null, p2: null })
       }
       setUsedTeams(pickData.usedTeams ?? [])
+      setTeamUseCounts(pickData.teamUseCounts ?? {})
       setPlayerCounts(pickData.playerCounts ?? {})
       setPlayerMaxOverride(pickData.playerMaxOverride ?? {})
       setDoubleUseTeams(pickData.doubleUseTeams ?? [])
@@ -921,11 +926,14 @@ export default function PicksPage() {
   }
 
   function getTeamStatus(teamId: number) {
-    const isUsed = usedTeams.includes(teamId)
     const isDouble = doubleUseTeams.includes(teamId)
-    const usedCount = isUsed ? (isDouble ? 2 : 1) : 0
     const maxUses = isDouble ? 2 : 1
+    // The real count, not usedTeams' "fully used or not" — that alone
+    // can't tell a double-use team picked once (1 left) from one never
+    // picked at all (both would otherwise read as "not used").
+    const usedCount = Math.min(teamUseCounts[teamId] ?? 0, maxUses)
     const remaining = maxUses - usedCount
+    const isUsed = remaining <= 0
     return { isUsed, isDouble, remaining, maxUses }
   }
 
