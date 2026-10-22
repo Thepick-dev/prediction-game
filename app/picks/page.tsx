@@ -47,6 +47,68 @@ function teamDisplayName(team: Team | undefined) {
   return team.short_name ?? team.name.replace(' FC', '').replace(' AFC', '')
 }
 
+const SQUARE_QUARTILE_BADGE: Record<string, string> = { Q1: 'pop-badge--blue', Q2: 'pop-badge--green', Q3: '', Q4: 'pop-badge--orange' }
+
+// Admin-preview-only redesign of the team pick button: a fixed-size
+// square (not a width-filling pill) so crest, quartile, win/draw points
+// and picks-remaining all get real dedicated space instead of being
+// crammed onto one or two cramped lines. The quartile colour is now the
+// button's own edge, not just a faint tint, so it reads as information
+// at a glance rather than decoration.
+function TeamSquareButton({
+  teamId, name, status, quartile, ringColor, winDraw, selected, onClick,
+}: {
+  teamId: number | null
+  name: string
+  status: { isUsed: boolean; isDouble: boolean; remaining: number; maxUses: number }
+  quartile: string | null
+  ringColor: string | undefined
+  winDraw: { win: number; draw: number }
+  selected: boolean
+  onClick: () => void
+}) {
+  const borderColor = selected ? 'var(--pop-green)' : status.isUsed ? 'rgba(255,255,255,0.15)' : (ringColor ?? 'rgba(255,255,255,0.15)')
+  const textColor = selected ? 'var(--pop-black)' : status.isUsed ? '#4D4D4D' : 'var(--pop-white)'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={status.isUsed && !selected}
+      className={`relative flex flex-col items-center justify-center shrink-0 rounded-2xl w-[108px] h-[108px] sm:w-[150px] sm:h-[150px] ${selected ? 'pop-pop-in' : ''}`}
+      style={{
+        border: `3px solid ${borderColor}`,
+        background: selected ? 'var(--pop-green)' : status.isUsed ? '#111111' : ringColor ? `color-mix(in srgb, ${ringColor} 12%, transparent)` : 'rgba(255,255,255,0.03)',
+        boxShadow: selected ? '0 0 22px rgba(204,250,0,0.5)' : 'none',
+        color: textColor,
+      }}
+    >
+      {quartile && (
+        <span
+          className={`pop-badge ${SQUARE_QUARTILE_BADGE[quartile] ?? ''} absolute top-1.5 left-1.5 px-1.5 py-0.5 text-[7px] sm:text-[8px]`}
+          style={status.isUsed ? { opacity: 0.4 } : undefined}
+        >
+          {quartile}
+        </span>
+      )}
+      <span
+        className="absolute top-1.5 right-1.5 font-mono font-black px-1.5 py-0.5 rounded-full text-[7px] sm:text-[8px]"
+        style={{
+          background: selected ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.1)',
+          color: selected ? 'rgba(0,0,0,0.7)' : status.isUsed ? '#4D4D4D' : 'rgba(255,255,255,0.7)',
+        }}
+      >
+        {status.isUsed ? 'Used' : `${status.remaining}/${status.maxUses}`}
+      </span>
+
+      <TeamCrest teamId={teamId} teamName={name} size={40} />
+      <span className="font-black uppercase text-[11px] sm:text-sm mt-1.5 truncate max-w-full px-1.5">{name}</span>
+      <span className="font-mono text-[8px] sm:text-[10px] font-bold mt-0.5" style={{ opacity: status.isUsed ? 0.6 : 0.85 }}>
+        W+{winDraw.win} D+{winDraw.draw}
+      </span>
+    </button>
+  )
+}
+
 // A friendly quality gate for The Wall, not a security feature — catches
 // the obvious "no", "asdasd", "aaaaaa" class of submission without being
 // clever about it. Empty is fine (comments are optional); only non-empty
@@ -234,6 +296,11 @@ export default function PicksPage() {
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
+  // Admin-only preview toggle for the redesigned square team buttons —
+  // never persisted, never affects a non-admin's session, so it's a
+  // genuinely zero-risk way for the admin to compare old vs new before
+  // asking for it to be rolled out to everyone.
+  const [previewSquareButtons, setPreviewSquareButtons] = useState(false)
   const [competition, setCompetition] = useState<any>(null)
   const [gameweek, setGameweek] = useState<Gameweek | null>(null)
   const [nextGameweek, setNextGameweek] = useState<Gameweek | null>(null)
@@ -1220,7 +1287,19 @@ export default function PicksPage() {
               )
             ) : (
               <>
-                <p className="pop-headline text-2xl sm:text-3xl mb-2 sm:mb-3">Pick Your Team</p>
+                <div className="flex items-center justify-between gap-2 flex-wrap mb-2 sm:mb-3">
+                  <p className="pop-headline text-2xl sm:text-3xl">Pick Your Team</p>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewSquareButtons(v => !v)}
+                      className="pop-badge px-2.5 py-1 text-[9px]"
+                      style={{ background: previewSquareButtons ? 'var(--pop-green)' : 'rgba(255,255,255,0.1)', color: previewSquareButtons ? 'var(--pop-black)' : 'rgba(255,255,255,0.6)' }}
+                    >
+                      🔧 Square buttons preview: {previewSquareButtons ? 'ON' : 'OFF'}
+                    </button>
+                  )}
+                </div>
                 {hasFixtures ? (
                   <div className="grid gap-2 sm:gap-2.5 mb-4 sm:mb-6">
                     {fixtures.map((fixture) => {
@@ -1242,6 +1321,49 @@ export default function PicksPage() {
                       // with "this is a Q2 team".
                       const homeRing = getQuartileRingColor(fixture.home_team_id)
                       const awayRing = getQuartileRingColor(fixture.away_team_id)
+
+                      if (isAdmin && previewSquareButtons) {
+                        return (
+                          <div key={fixture.id} className="pop-panel p-2 sm:p-3">
+                            <div className="flex items-center justify-center gap-2 sm:gap-3">
+                              <TeamSquareButton
+                                teamId={homeTeam?.id ?? null}
+                                name={teamDisplayName(homeTeam)}
+                                status={homeStatus}
+                                quartile={homeQ}
+                                ringColor={homeRing}
+                                winDraw={homeWD}
+                                selected={homeSelected}
+                                onClick={() => !homeStatus.isUsed && selectTeamInFixture(fixture.home_team_id, fixture.id)}
+                              />
+                              <span
+                                className="shrink-0 flex items-center justify-center font-black uppercase"
+                                style={{
+                                  width: 32, height: 32, fontSize: '10px',
+                                  borderRadius: '999px',
+                                  background: 'var(--pop-white)',
+                                  color: 'var(--pop-black)',
+                                  border: '2px solid var(--pop-black)',
+                                  boxShadow: '0 0 0 2px rgba(255,255,255,0.2)',
+                                }}
+                              >
+                                vs
+                              </span>
+                              <TeamSquareButton
+                                teamId={awayTeam?.id ?? null}
+                                name={teamDisplayName(awayTeam)}
+                                status={awayStatus}
+                                quartile={awayQ}
+                                ringColor={awayRing}
+                                winDraw={awayWD}
+                                selected={awaySelected}
+                                onClick={() => !awayStatus.isUsed && selectTeamInFixture(fixture.away_team_id, fixture.id)}
+                              />
+                            </div>
+                          </div>
+                        )
+                      }
+
                       return (
                         <div key={fixture.id} className="pop-panel p-1 sm:p-1.5">
                           <div className="flex items-center gap-1 sm:gap-1.5">
