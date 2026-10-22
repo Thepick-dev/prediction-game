@@ -612,17 +612,39 @@ thead th {
    from the overshoot easing curve rather than an explicit mid-keyframe,
    so there's nothing left to strip without losing the pop. `forwards`
    holds the settled end state rather than snapping back once it finishes. */
+/* Two animations on the same element, not one handed off to the other —
+   the entrance plays once and holds (forwards), then the float starts
+   from a delay exactly matching the entrance's own duration, so there's
+   no gap and no snap between them. Both keyframe sets write a full
+   `scale(...) translateY(...)` at every stop rather than just the part
+   that's changing, so the float doesn't depend on inheriting a value
+   from the entrance animation — each is self-contained. The float is
+   what actually answers "flat": a cold page load can take a few seconds,
+   and sitting perfectly still for all of it read as lifeless even once
+   the original jerkiness (rotate + animated filter) was gone — continuous
+   motion the whole time it's visible, not just a flourish on arrival. */
 .pop-logo-flash-in {
-  animation: pop-logo-flash-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards;
+  animation:
+    pop-logo-flash-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards,
+    pop-logo-float 3.4s ease-in-out infinite 0.45s;
 }
 
 @keyframes pop-logo-flash-in {
-  0% { opacity: 0; transform: scale(0.8); }
-  100% { opacity: 1; transform: scale(1); }
+  0% { opacity: 0; transform: scale(0.8) translateY(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes pop-logo-float {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1) translateY(-7px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pop-logo-flash-in { animation-duration: 0.01s; }
+  /* `none`, not a near-zero duration — with two animations on one
+     element, a shorthand duration override applies to both, and an
+     `infinite` float still cycling every 0.01s is motion, just fast
+     enough to flicker rather than genuinely off. */
+  .pop-logo-flash-in { animation: none; opacity: 1; }
 }
 
 /* "Futzy Says" header ticker (see ceefax-shell.tsx) — content is rendered
