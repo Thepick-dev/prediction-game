@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from './supabase'
-import { resolvePopArtVariant, type PopArtVariant } from './useSkin'
+import { resolvePopArtVariant, resolveLoadingAnimation, type PopArtVariant, type LoadingAnimation } from './useSkin'
 
 const VARIANT_PREVIEW_KEY = 'lms-admin-popart-variant-preview'
+const LOADING_ANIMATION_PREVIEW_KEY = 'lms-admin-loading-animation-preview'
 
 // Pop-art is the only theme now — Classic has been retired, including the
 // admin-only escape hatch that used to allow switching to it for
@@ -19,11 +20,17 @@ const VARIANT_PREVIEW_KEY = 'lms-admin-popart-variant-preview'
 // same data-pop-art-variant attribute useSkin() does. Without this, a
 // page on this hook never shows V2, and worse, navigating here from a
 // useSkin() page wipes the attribute via that hook's own cleanup —
-// exactly the "doesn't look like every page" bug this fixes.
+// exactly the "doesn't look like every page" bug this fixes. Same
+// reasoning now applies to the Futzy loading-animation toggle: most pages
+// (anywhere PopArtLoading can show) are still on THIS hook, not useSkin(),
+// so the admin toggle needs resolving and setting here too or it would
+// only ever take effect on the three pages already migrated.
 export function usePopArtTheme(userId: string | undefined) {
   const [globalPopArtVariant, setGlobalPopArtVariant] = useState<PopArtVariant>('v1')
+  const [globalLoadingAnimation, setGlobalLoadingAnimation] = useState<LoadingAnimation>('float')
   const [isAdmin, setIsAdmin] = useState(false)
   const [variantPreview, setVariantPreviewState] = useState<PopArtVariant | null>(null)
+  const [loadingAnimationPreview, setLoadingAnimationPreviewState] = useState<LoadingAnimation | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -34,6 +41,25 @@ export function usePopArtTheme(userId: string | undefined) {
         if (cancelled) return
         if (data?.pop_art_variant === 'v1' || data?.pop_art_variant === 'v2') {
           setGlobalPopArtVariant(data.pop_art_variant)
+        }
+      } catch {}
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  // Its own isolated fetch — see useSkin.ts's identical comment on why
+  // this can't be bundled into the select above.
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const supabase = createClient()
+        const { data } = await supabase.from('site_skin').select('loading_animation').eq('id', 'singleton').maybeSingle()
+        if (cancelled) return
+        const la = data?.loading_animation
+        if (la === 'float' || la === 'pixelate' || la === 'glitch' || la === 'assemble' || la === 'glow') {
+          setGlobalLoadingAnimation(la)
         }
       } catch {}
     }
@@ -57,10 +83,15 @@ export function usePopArtTheme(userId: string | undefined) {
     try {
       const stored = localStorage.getItem(VARIANT_PREVIEW_KEY)
       if (stored === 'v1' || stored === 'v2') setVariantPreviewState(stored)
+      const storedAnimation = localStorage.getItem(LOADING_ANIMATION_PREVIEW_KEY)
+      if (storedAnimation === 'float' || storedAnimation === 'pixelate' || storedAnimation === 'glitch' || storedAnimation === 'assemble' || storedAnimation === 'glow') {
+        setLoadingAnimationPreviewState(storedAnimation)
+      }
     } catch {}
   }, [])
 
   const resolvedPopArtVariant = resolvePopArtVariant(globalPopArtVariant, isAdmin, variantPreview)
+  const resolvedLoadingAnimation = resolveLoadingAnimation(globalLoadingAnimation, isAdmin, loadingAnimationPreview)
 
   useEffect(() => {
     if (resolvedPopArtVariant !== 'v1') {
@@ -70,6 +101,15 @@ export function usePopArtTheme(userId: string | undefined) {
     }
     return () => { delete document.documentElement.dataset.popArtVariant }
   }, [resolvedPopArtVariant])
+
+  useEffect(() => {
+    if (resolvedLoadingAnimation !== 'float') {
+      document.documentElement.dataset.loadingAnimation = resolvedLoadingAnimation
+    } else {
+      delete document.documentElement.dataset.loadingAnimation
+    }
+    return () => { delete document.documentElement.dataset.loadingAnimation }
+  }, [resolvedLoadingAnimation])
 
   return { popArt: true }
 }

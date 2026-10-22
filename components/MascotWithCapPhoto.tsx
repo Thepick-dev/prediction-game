@@ -51,31 +51,42 @@ export default function MascotWithCapPhoto({ className, style }: { className?: s
       className={`${className ?? ''} ${imagesReady ? 'pop-logo-flash-in' : ''}`}
       style={{ position: 'relative', aspectRatio: '1118 / 960', opacity: imagesReady ? undefined : 0, ...style }}
     >
-      <img
-        ref={logoRef}
-        src="/logo.png"
-        alt=""
-        onLoad={() => setLogoLoaded(true)}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: imagesReady ? 1 : 0 }}
-      />
-      <img
-        ref={photoRef}
-        src="/mascot-cap-photo.png"
-        alt=""
-        onLoad={() => setPhotoLoaded(true)}
-        style={{
-          position: 'absolute',
-          left: '40%',
-          top: '12.5%',
-          width: '8.6%',
-          aspectRatio: '220 / 278',
-          objectFit: 'cover',
-          borderRadius: '50%',
-          border: '2.5px solid white',
-          transform: 'translate(-50%, -50%) rotate(-8deg)',
-          opacity: imagesReady ? 1 : 0,
-        }}
-      />
+      {/* Wraps both images, inset:0 matching the container exactly — inert
+          for every animation variant except Pixelate (globals.css), which
+          needs a single element whose width/height it can shrink (for real
+          blocky image-rendering:pixelated resolution loss, not just a blur)
+          without that fighting the two images' own inline positioning —
+          since both images are sized/positioned as percentages, they scale
+          down as one rigid composed unit when this wrapper does. */}
+      <div className="pop-logo-pixel-stage" style={{ position: 'absolute', inset: 0 }}>
+        <img
+          ref={logoRef}
+          src="/logo.png"
+          alt=""
+          onLoad={() => setLogoLoaded(true)}
+          className="pop-logo-main"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: imagesReady ? 1 : 0 }}
+        />
+        <img
+          ref={photoRef}
+          src="/mascot-cap-photo.png"
+          alt=""
+          onLoad={() => setPhotoLoaded(true)}
+          className="pop-logo-patch"
+          style={{
+            position: 'absolute',
+            left: '40%',
+            top: '12.5%',
+            width: '8.6%',
+            aspectRatio: '220 / 278',
+            objectFit: 'cover',
+            borderRadius: '50%',
+            border: '2.5px solid white',
+            transform: 'translate(-50%, -50%) rotate(-8deg)',
+            opacity: imagesReady ? 1 : 0,
+          }}
+        />
+      </div>
     </div>
   )
 }

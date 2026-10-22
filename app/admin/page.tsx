@@ -139,9 +139,12 @@ async function setActiveSkin(formData: FormData) {
   const activeSkin = formData.get('active_skin') as string
   const rawVariant = formData.get('pop_art_variant')
   const popArtVariant = rawVariant === 'v2' ? rawVariant : 'v1'
+  const rawLoadingAnimation = formData.get('loading_animation')
+  const loadingAnimations = ['float', 'pixelate', 'glitch', 'assemble', 'glow']
+  const loadingAnimation = loadingAnimations.includes(rawLoadingAnimation as string) ? rawLoadingAnimation : 'float'
   const { error } = await supabase
     .from('site_skin')
-    .update({ active_skin: activeSkin, pop_art_variant: popArtVariant, updated_at: new Date().toISOString() })
+    .update({ active_skin: activeSkin, pop_art_variant: popArtVariant, loading_animation: loadingAnimation, updated_at: new Date().toISOString() })
     .eq('id', 'singleton')
   if (error) {
     redirect(`/admin?skinError=${encodeURIComponent(error.message)}#site-skin`)
@@ -209,6 +212,21 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   } catch {
     // site_skin migration not run yet — the form below just renders with
     // "Pop Art" pre-selected either way.
+  }
+
+  // Its own isolated fetch, not bundled into the select above — loading_
+  // animation is a newer column than active_skin/pop_art_variant, and
+  // Supabase returns data: null for the WHOLE query (not just the missing
+  // column) when a selected column doesn't exist yet. Bundling it would
+  // have broken the Skin/Variant radios too on a site that hasn't run this
+  // migration, not just left the new animation radio unset.
+  let loadingAnimation: string | null = null
+  try {
+    const { data } = await supabase.from('site_skin').select('loading_animation').eq('id', 'singleton').maybeSingle()
+    loadingAnimation = data?.loading_animation ?? null
+  } catch {
+    // Migration not run yet — the form below just renders with "Float"
+    // pre-selected either way.
   }
 
   // Same isolation reasoning — only needed to populate the Bonus Card
@@ -439,6 +457,28 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 {opt.label}
               </label>
             ))}
+          </div>
+          <div className="text-sm border-t pt-3">
+            <p className="text-xs text-gray-500 mb-2">Futzy loading-screen animation (the full-screen mascot shown while a page loads):</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+              {[
+                { value: 'float', label: 'Gentle float (default)' },
+                { value: 'pixelate', label: 'Pixelate in/out' },
+                { value: 'glitch', label: 'Glitch / RGB-split' },
+                { value: 'assemble', label: 'Build-up / assemble' },
+                { value: 'glow', label: 'Float + pulsing glow' },
+              ].map(opt => (
+                <label key={opt.value} className="flex items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name="loading_animation"
+                    value={opt.value}
+                    defaultChecked={opt.value === 'float' ? (!loadingAnimation || loadingAnimation === 'float') : loadingAnimation === opt.value}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
           </div>
           <button type="submit" className="text-xs bg-black text-white rounded px-2 py-1">Save skin</button>
         </form>
