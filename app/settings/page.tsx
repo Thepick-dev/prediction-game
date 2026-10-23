@@ -273,7 +273,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <Shell active="SETTINGS" skin={skin}>
+      <Shell active="SETTINGS" skin={skin} loading={loading}>
         <PopArtLoading />
       </Shell>
     )

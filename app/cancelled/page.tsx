@@ -35,7 +35,7 @@ export default function CancelledPage() {
 
   if (loading) {
     return (
-      <Shell theme={popArt ? 'pop-art' : 'classic'}>
+      <Shell theme={popArt ? 'pop-art' : 'classic'} loading={loading}>
         {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
       </Shell>
     )

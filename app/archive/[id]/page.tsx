@@ -243,7 +243,7 @@ export default function ArchivedCompetitionPage() {
 
   if (loading) {
     return (
-      <Shell active="ARCHIVE" theme={popArt ? 'pop-art' : 'classic'}>
+      <Shell active="ARCHIVE" theme={popArt ? 'pop-art' : 'classic'} loading={loading}>
         {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
       </Shell>
     )

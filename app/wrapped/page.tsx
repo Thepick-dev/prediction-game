@@ -232,7 +232,7 @@ export default function WrappedPage() {
 
   if (loading) {
     return (
-      <Shell active="STATS HUB" theme="pop-art">
+      <Shell active="STATS HUB" theme="pop-art" loading={loading}>
         <PopArtLoading />
       </Shell>
     )

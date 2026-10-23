@@ -469,7 +469,7 @@ export default function WallPage() {
 
   if (loading) {
     return (
-      <Shell active="THE WALL" skin={skin}>
+      <Shell active="THE WALL" skin={skin} loading={loading}>
         <PopArtLoading />
       </Shell>
     )

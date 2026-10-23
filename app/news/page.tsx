@@ -73,7 +73,7 @@ export default function NewsListPage() {
 
   if (loading) {
     return (
-      <Shell active="NEWS" theme={popArt ? 'pop-art' : 'classic'}>
+      <Shell active="NEWS" theme={popArt ? 'pop-art' : 'classic'} loading={loading}>
         {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
       </Shell>
     )

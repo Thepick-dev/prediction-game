@@ -9,6 +9,8 @@ import LiveMatchAlerts from '../../components/LiveMatchAlerts'
 import SiteThemeEffects from '../../components/SiteThemeEffects'
 import InstallPrompt from '../../components/InstallPrompt'
 import GhostNoticeModal from '../../components/GhostNoticeModal'
+import LoadingTransition from '../../components/LoadingTransition'
+import PopArtLoading from '../../components/PopArtLoading'
 import { useCountdown } from '../lib/useCountdown'
 import { useRetroA11yPrefs } from '../lib/useRetroA11yPrefs'
 import { RetroFutzy, RetroHud, RetroHudStat } from '../../components/retro'
@@ -30,6 +32,12 @@ type Props = {
   // (see app/lib/usePopArtTheme.ts); remove this once every call site
   // passes `skin` instead (grep for `theme={` in app/).
   theme?: 'classic' | 'pop-art'
+  // The calling page's own "my content isn't ready yet" signal. Shell
+  // combines this with its own header data readiness (see `shellReady`
+  // below) so the loading card never fades until BOTH are done — otherwise
+  // the kit badge, Admin link, Rugby link and Futzy-says ticker visibly
+  // pop into the header after the page already looks loaded.
+  loading?: boolean
 }
 
 // Cycled across nav items as an underline accent colour only — never a
@@ -51,11 +59,25 @@ const navItems = [
   { label: 'SETTINGS', href: '/settings' },
 ]
 
-export default function Shell({ children, active, user, displayName, skin = 'pop-art' }: Props) {
+export default function Shell({ children, active, user, displayName, skin = 'pop-art', loading = false }: Props) {
   const isRetro = skin === 'retro'
-  const isPopArt = !isRetro
   const { dataAttrs: a11yAttrs } = useRetroA11yPrefs()
   const [menuOpen, setMenuOpen] = useState(false)
+  // Every independent header fetch below reports in here (success or
+  // failure alike — a missing column must never keep the loading card up
+  // forever) via markSettled, and shellReady only flips true once all of
+  // them have. A hard 2s timeout forces it open regardless, so a fetch
+  // added later without wiring in markSettled degrades to "briefly
+  // jerky again" rather than "stuck behind the loading card forever".
+  const [settled, setSettled] = useState<Record<string, boolean>>({})
+  const [forceReady, setForceReady] = useState(false)
+  function markSettled(key: string) {
+    setSettled(prev => (prev[key] ? prev : { ...prev, [key]: true }))
+  }
+  useEffect(() => {
+    const t = setTimeout(() => setForceReady(true), 2000)
+    return () => clearTimeout(t)
+  }, [])
   // Each optional piece of the kit is tracked in its own slot rather than
   // one merged object, because the three queries below race each other —
   // whichever resolves first used to bail out via `setKit(prev => prev ? ... : prev)`
@@ -138,22 +160,37 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
   useEffect(() => {
     if (!user?.id) return
     const supabase = createClient()
-    supabase
-      .from('profiles')
-      .select('is_admin, is_super_admin')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => setIsAdmin(!!(data?.is_admin || data?.is_super_admin)))
+    ;(async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('is_admin, is_super_admin')
+          .eq('id', user.id)
+          .single()
+        setIsAdmin(!!(data?.is_admin || data?.is_super_admin))
+      } catch {
+        // isolated — see Props.loading comment above
+      } finally {
+        markSettled('admin')
+      }
+    })()
   }, [user?.id])
 
   // Only fetched once we know the user's actually an admin — a normal
   // player never hits this endpoint at all.
   useEffect(() => {
     if (!isAdmin) return
-    fetch('/api/admin/pending-count')
-      .then(res => res.json())
-      .then(data => setPendingCount(data.count ?? 0))
-      .catch(() => {})
+    ;(async () => {
+      try {
+        const res = await fetch('/api/admin/pending-count')
+        const data = await res.json()
+        setPendingCount(data.count ?? 0)
+      } catch {
+        // isolated — a problem here should only mean the badge doesn't show
+      } finally {
+        markSettled('pendingCount')
+      }
+    })()
   }, [isAdmin])
 
   // Its own isolated query into a whole separate Postgres schema — a
@@ -165,13 +202,21 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
   useEffect(() => {
     if (!user?.id) return
     const supabase = createClient()
-    supabase
-      .schema('rugby')
-      .from('competitions')
-      .select('public_signups_enabled')
-      .eq('status', 'active')
-      .maybeSingle()
-      .then(({ data }) => setShowRugbyLink(data?.public_signups_enabled === true))
+    ;(async () => {
+      try {
+        const { data } = await supabase
+          .schema('rugby')
+          .from('competitions')
+          .select('public_signups_enabled')
+          .eq('status', 'active')
+          .maybeSingle()
+        setShowRugbyLink(data?.public_signups_enabled === true)
+      } catch {
+        // isolated — see Props.loading comment above
+      } finally {
+        markSettled('rugby')
+      }
+    })()
   }, [user?.id])
 
   // Defaults to 'manual_review' (shown, same as the column's own default
@@ -180,12 +225,20 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
   useEffect(() => {
     if (!user?.id) return
     const supabase = createClient()
-    supabase
-      .from('competitions')
-      .select('wall_mode')
-      .eq('status', 'active')
-      .maybeSingle()
-      .then(({ data }) => setWallMode(data?.wall_mode ?? 'manual_review'))
+    ;(async () => {
+      try {
+        const { data } = await supabase
+          .from('competitions')
+          .select('wall_mode')
+          .eq('status', 'active')
+          .maybeSingle()
+        setWallMode(data?.wall_mode ?? 'manual_review')
+      } catch {
+        // isolated — see Props.loading comment above
+      } finally {
+        markSettled('wallMode')
+      }
+    })()
   }, [user?.id])
 
   // Deliberately its own query, independent of the kit fetch below — if the
@@ -195,17 +248,23 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
     if (!user?.id) return
     const supabase = createClient()
     ;(async () => {
-      const { data: comp } = await supabase.from('competitions').select('id').eq('status', 'active').single()
-      if (!comp) return
-      const { data: gws } = await supabase
-        .from('gameweeks')
-        .select('number, deadline')
-        .eq('competition_id', comp.id)
-        .in('status', ['upcoming', 'open'])
-        .order('deadline', { ascending: true })
-        .limit(1)
-      const gw = gws?.[0]
-      if (gw && new Date(gw.deadline) > new Date()) setNextDeadline(gw)
+      try {
+        const { data: comp } = await supabase.from('competitions').select('id').eq('status', 'active').single()
+        if (!comp) return
+        const { data: gws } = await supabase
+          .from('gameweeks')
+          .select('number, deadline')
+          .eq('competition_id', comp.id)
+          .in('status', ['upcoming', 'open'])
+          .order('deadline', { ascending: true })
+          .limit(1)
+        const gw = gws?.[0]
+        if (gw && new Date(gw.deadline) > new Date()) setNextDeadline(gw)
+      } catch {
+        // isolated — see Props.loading comment above
+      } finally {
+        markSettled('deadline')
+      }
     })()
   }, [user?.id])
 
@@ -216,26 +275,34 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
   useEffect(() => {
     if (!user?.id) return
     const supabase = createClient()
-    supabase
-      .from('competitions')
-      .select('futzy_says_text')
-      .eq('status', 'active')
-      .single()
-      .then(({ data }) => {
+    ;(async () => {
+      try {
+        const { data } = await supabase
+          .from('competitions')
+          .select('futzy_says_text')
+          .eq('status', 'active')
+          .single()
         const lines = (data?.futzy_says_text ?? '').split('\n').map((l: string) => l.trim()).filter(Boolean)
         setFutzySaysLines(lines)
-      })
+      } catch {
+        // isolated — see Props.loading comment above
+      } finally {
+        markSettled('futzy')
+      }
+    })()
   }, [user?.id])
 
   useEffect(() => {
     if (!user?.id) return
     const supabase = createClient()
-    supabase
-      .from('profiles')
-      .select('kit_pattern, kit_colour_1, kit_colour_2')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
+
+    ;(async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('kit_pattern, kit_colour_1, kit_colour_2')
+          .eq('id', user.id)
+          .single()
         if (data) {
           setKitBase({
             pattern: data.kit_pattern ?? 'solid',
@@ -243,45 +310,71 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
             colour2: data.kit_colour_2 ?? '#F5ECD9',
           })
         }
-      })
+      } catch {
+        // isolated — see Props.loading comment above
+      } finally {
+        markSettled('kitBase')
+      }
+    })()
+
     // Kept as its own request, deliberately separate from the query above:
     // if these columns ever have a problem, it should only affect the
     // sleeve badges, never take down the kit shirt itself with it.
-    supabase
-      .from('profiles')
-      .select('kit_stars, kit_earths')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
+    ;(async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('kit_stars, kit_earths')
+          .eq('id', user.id)
+          .single()
         if (data) {
           setKitStars(data.kit_stars ?? 0)
           setKitEarths(data.kit_earths ?? 0)
         }
-      })
+      } catch {
+        // isolated — see Props.loading comment above
+      } finally {
+        markSettled('kitBadges')
+      }
+    })()
+
     // Also its own request, same reason as kit_stars/kit_earths above — the
     // trim colour is a newer, optional column, and this must never be able
     // to take the shirt/stars/earths down with it if it's missing.
-    supabase
-      .from('profiles')
-      .select('kit_colour_3')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
+    ;(async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('kit_colour_3')
+          .eq('id', user.id)
+          .single()
         if (data) {
           setKitColour3(data.kit_colour_3 ?? null)
         }
-      })
+      } catch {
+        // isolated — see Props.loading comment above
+      } finally {
+        markSettled('kitColour3')
+      }
+    })()
+
     // Also its own request, same reason — the minigame score shirt number
     // is a separate feature entirely, so a problem with it must never be
     // able to take the shirt itself down with it.
-    supabase
-      .from('minigame_penalty_scores')
-      .select('best_score')
-      .eq('user_id', user.id)
-      .single()
-      .then(({ data }) => {
+    ;(async () => {
+      try {
+        const { data } = await supabase
+          .from('minigame_penalty_scores')
+          .select('best_score')
+          .eq('user_id', user.id)
+          .single()
         setTopScore(data?.best_score ?? 0)
-      })
+      } catch {
+        // isolated — see Props.loading comment above
+      } finally {
+        markSettled('topScore')
+      }
+    })()
   }, [user?.id])
 
   // Computed once, used by both the retro and pop-art branches below —
@@ -291,8 +384,19 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
   // it back on).
   const visibleNavItems = navItems.filter(item => wallMode !== 'hidden' || isAdmin || item.href !== '/wall')
 
+  // Everything this header fetches independently above (admin status,
+  // pending count if admin, rugby link, wall mode, deadline, Futzy-says
+  // ticker, kit) must ALL have reported in — not just the page's own
+  // `loading` prop — before the card fades, or the header keeps visibly
+  // assembling itself underneath after content already looks ready.
+  const requiredSettleKeys = user?.id
+    ? ['admin', 'rugby', 'wallMode', 'deadline', 'futzy', 'kitBase', 'kitBadges', 'kitColour3', 'topScore', ...(isAdmin ? ['pendingCount'] : [])]
+    : []
+  const shellReady = forceReady || requiredSettleKeys.every(k => settled[k])
+
   if (isRetro) {
     return (
+      <LoadingTransition loading={loading || !shellReady} loadingView={<PopArtLoading />}>
       <div className="retro-theme min-h-screen flex flex-col" {...a11yAttrs}>
         <div className="retro-crt-layer" aria-hidden="true" />
         <InstallPrompt />
@@ -469,12 +573,14 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
           document.body
         )}
       </div>
+      </LoadingTransition>
     )
   }
 
   const barColor = 'var(--pop-white)'
 
   return (
+    <LoadingTransition loading={loading || !shellReady} loadingView={<PopArtLoading />}>
     <div className="min-h-screen pop-art-theme">
       <LiveMatchAlerts />
       <SiteThemeEffects />
@@ -733,5 +839,6 @@ export default function Shell({ children, active, user, displayName, skin = 'pop
         document.body
       )}
     </div>
+    </LoadingTransition>
   )
 }
