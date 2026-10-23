@@ -3,9 +3,25 @@ import MascotWithCapPhoto from './MascotWithCapPhoto'
 // Shown wherever the pop-art theme has a loading state — every page that
 // uses this requires login, which is exactly why this is the one place the
 // real player-photo cap patch is allowed to appear; the small header logo
-// everywhere else stays the plain mascot. Full-screen takeover on purpose
-// — fixed, covers the header/nav too, so the mark is genuinely the only
-// thing on screen.
+// everywhere else stays the plain mascot.
+//
+// Rebuilt from a full-bleed solid-black takeover to a smaller, calmer
+// card with a blurred dim backdrop — the full-screen version was the
+// actual source of "feels amateur," independent of whatever animation
+// played on the mascot itself: a solid wall blotting out the whole
+// screen, including the header, on every single navigation, reads as a
+// takeover no matter how the character on it moves. A professional
+// loading state is quiet — it tells you something is happening without
+// demanding the whole screen to do it. The card keeps the brand/fun
+// personality (the mascot, kept, just smaller and calmer) while a plain
+// indeterminate progress bar — not a bouncing character — carries the
+// "something is happening" job, the same way most polished apps do it.
+//
+// Still fixed/inset-0 (a half-ready page underneath can't be shown), but
+// now backdrop-blurred and semi-transparent rather than opaque, so it
+// reads as an overlay settling over the page rather than a wall
+// replacing it — set up for ceefax-shell.tsx's LoadingTransition
+// wrapper to cross-fade this out instead of yanking it away instantly.
 //
 // Deliberately renders the exact same, unconditional JSX every time —
 // no client-only state deciding what shows. Two earlier versions both
@@ -28,13 +44,27 @@ import MascotWithCapPhoto from './MascotWithCapPhoto'
 export default function PopArtLoading({ label }: { label?: string }) {
   return (
     <div
-      className="pop-art-theme fixed inset-0 z-[999] flex flex-col items-center justify-center gap-6"
-      style={{ background: 'var(--pop-black)' }}
+      className="pop-art-theme fixed inset-0 z-[999] flex items-center justify-center p-6"
+      style={{ background: 'rgba(10,10,10,0.82)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
     >
-      <MascotWithCapPhoto className="w-[330px] sm:w-[220px]" />
-      {label && (
-        <p className="pop-headline text-sm tracking-widest" style={{ color: 'rgba(255,255,255,0.5)' }}>{label}</p>
-      )}
+      <div
+        className="pop-loading-card flex flex-col items-center gap-4"
+        style={{
+          background: 'var(--pop-surface)',
+          borderRadius: 20,
+          padding: '28px 32px',
+          border: '1px solid rgba(255,255,255,0.1)',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+        }}
+      >
+        <MascotWithCapPhoto className="w-[120px] sm:w-[132px]" />
+        <div className="pop-loading-bar" style={{ width: 120, height: 3, borderRadius: 2, overflow: 'hidden', background: 'rgba(255,255,255,0.1)' }}>
+          <div className="pop-loading-bar-fill" style={{ height: '100%', width: '40%', borderRadius: 2, background: 'var(--pop-blue)' }} />
+        </div>
+        {label && (
+          <p className="pop-headline text-xs tracking-widest text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>{label}</p>
+        )}
+      </div>
     </div>
   )
 }

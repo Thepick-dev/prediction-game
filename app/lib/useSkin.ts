@@ -1,41 +1,16 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from './supabase'
 
 export type Skin = 'pop-art' | 'retro'
 export type PopArtVariant = 'v1' | 'v2'
-export type LoadingAnimation = 'float' | 'pixelate' | 'glitch' | 'assemble' | 'glow'
 
 // This browser only — never written to the DB, never read for anyone but
 // an actually-confirmed admin (see below). A non-admin poking devtools to
 // set this does nothing: it's simply never honoured for them.
 const PREVIEW_KEY = 'lms-admin-skin-preview'
 const VARIANT_PREVIEW_KEY = 'lms-admin-popart-variant-preview'
-const LOADING_ANIMATION_PREVIEW_KEY = 'lms-admin-loading-animation-preview'
-// Last-known-good value from the DB, cached so the VERY FIRST render can
-// use it — see the root-cause comment on globalLoadingAnimation's
-// useState below for why this exists.
-const LOADING_ANIMATION_CACHE_KEY = 'lms-loading-animation-cache'
-
-// Exported — usePopArtTheme.ts (the hook most pages actually use) needs
-// the exact same cache read/write, not a second hand-copied version that
-// could drift from this one.
-export function isLoadingAnimation(v: unknown): v is LoadingAnimation {
-  return v === 'float' || v === 'pixelate' || v === 'glitch' || v === 'assemble' || v === 'glow'
-}
-
-export function readCachedLoadingAnimation(): LoadingAnimation {
-  try {
-    const cached = localStorage.getItem(LOADING_ANIMATION_CACHE_KEY)
-    if (isLoadingAnimation(cached)) return cached
-  } catch {}
-  return 'float'
-}
-
-export function writeCachedLoadingAnimation(value: LoadingAnimation) {
-  try { localStorage.setItem(LOADING_ANIMATION_CACHE_KEY, value) } catch {}
-}
 
 // Pulled out as a plain function (see __tests__/useSkin.test.ts) so the
 // actual decision logic has real unit coverage without needing a
@@ -54,13 +29,6 @@ export function resolvePopArtVariant(globalVariant: PopArtVariant, isAdmin: bool
   return isAdmin && preview ? preview : globalVariant
 }
 
-// Same shape again — a fourth independent toggle, not folded into Skin or
-// the Pop Art variant, since which Futzy loading animation plays has
-// nothing to do with either of those.
-export function resolveLoadingAnimation(globalAnimation: LoadingAnimation, isAdmin: boolean, preview: LoadingAnimation | null): LoadingAnimation {
-  return isAdmin && preview ? preview : globalAnimation
-}
-
 // Resolves which skin a page should render from three independent inputs:
 // the global DB value (true for every player, every device), whether this
 // user is actually an admin, and that admin's own local preview override
@@ -72,28 +40,9 @@ export function useSkin(userId: string | undefined) {
   // nobody flashes the wrong skin for the vast majority of page loads.
   const [globalSkin, setGlobalSkin] = useState<Skin>('pop-art')
   const [globalPopArtVariant, setGlobalPopArtVariant] = useState<PopArtVariant>('v1')
-  // Root cause of the Futzy loading animation often "not working" or
-  // visibly jumping mid-flight: this used to hardcode 'float' and only
-  // learn the real value from an async DB fetch below. The mascot's own
-  // entrance starts the instant its two images finish loading — which,
-  // once logo.png/mascot-cap-photo.png are browser-cached (true for
-  // almost every page view after the first), happens FASTER than the
-  // Supabase round-trip. So the animation would start under the default
-  // float rules, then the attribute would flip mid-animation once the
-  // fetch resolved — a visible restart/jump, or no visible change at all
-  // if the page's own content finished loading first and unmounted the
-  // screen before the fetch caught up. Seeding this from a cached
-  // last-known-good value (written below every time the fetch succeeds)
-  // means a returning visitor's very first render already has the right
-  // answer, synchronously, before the mascot ever appears — only a
-  // genuinely first-ever visit (nothing cached yet) still has the brief
-  // old race, which is a one-time, acceptable edge case rather than
-  // "most of the time."
-  const [globalLoadingAnimation, setGlobalLoadingAnimation] = useState<LoadingAnimation>(readCachedLoadingAnimation)
   const [isAdmin, setIsAdmin] = useState(false)
   const [preview, setPreviewState] = useState<Skin | null>(null)
   const [variantPreview, setVariantPreviewState] = useState<PopArtVariant | null>(null)
-  const [loadingAnimationPreview, setLoadingAnimationPreviewState] = useState<LoadingAnimation | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -111,32 +60,6 @@ export function useSkin(userId: string | undefined) {
       } catch {
         // Table/column not created yet, or a network hiccup — keep the
         // defaults rather than breaking the page.
-      }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [])
-
-  // Its own isolated fetch, not bundled into the one above — loading_
-  // animation is a newer column, and Supabase returns data: null for the
-  // WHOLE query (not just the missing column) when a selected column
-  // doesn't exist yet. Bundling it would break Skin/Variant resolution
-  // too on a site that hasn't run this migration, not just leave the
-  // animation at its default.
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      try {
-        const supabase = createClient()
-        const { data } = await supabase.from('site_skin').select('loading_animation').eq('id', 'singleton').maybeSingle()
-        if (cancelled) return
-        const la = data?.loading_animation
-        if (isLoadingAnimation(la)) {
-          setGlobalLoadingAnimation(la)
-          writeCachedLoadingAnimation(la)
-        }
-      } catch {
-        // Migration not run yet, or a network hiccup — keep the default.
       }
     }
     load()
@@ -161,10 +84,6 @@ export function useSkin(userId: string | undefined) {
       if (stored === 'pop-art' || stored === 'retro') setPreviewState(stored)
       const storedVariant = localStorage.getItem(VARIANT_PREVIEW_KEY)
       if (storedVariant === 'v1' || storedVariant === 'v2') setVariantPreviewState(storedVariant)
-      const storedAnimation = localStorage.getItem(LOADING_ANIMATION_PREVIEW_KEY)
-      if (storedAnimation === 'float' || storedAnimation === 'pixelate' || storedAnimation === 'glitch' || storedAnimation === 'assemble' || storedAnimation === 'glow') {
-        setLoadingAnimationPreviewState(storedAnimation)
-      }
     } catch {
       // Private browsing / storage blocked — behave as "no override".
     }
@@ -186,17 +105,8 @@ export function useSkin(userId: string | undefined) {
     } catch {}
   }
 
-  function setLoadingAnimationPreview(animation: LoadingAnimation | null) {
-    setLoadingAnimationPreviewState(animation)
-    try {
-      if (animation) localStorage.setItem(LOADING_ANIMATION_PREVIEW_KEY, animation)
-      else localStorage.removeItem(LOADING_ANIMATION_PREVIEW_KEY)
-    } catch {}
-  }
-
   const resolvedSkin = resolveSkin(globalSkin, isAdmin, preview)
   const resolvedPopArtVariant = resolvePopArtVariant(globalPopArtVariant, isAdmin, variantPreview)
-  const resolvedLoadingAnimation = resolveLoadingAnimation(globalLoadingAnimation, isAdmin, loadingAnimationPreview)
 
   // Sets a data attribute on <html> so a plain CSS selector in globals.css
   // can reskin every .pop-art-theme instance on the page at once — same
@@ -213,24 +123,6 @@ export function useSkin(userId: string | undefined) {
     return () => { delete document.documentElement.dataset.popArtVariant }
   }, [resolvedPopArtVariant])
 
-  // Same mechanism again — 'float' is the default/fallback baked directly
-  // into .pop-logo-flash-in's own base rule, so (like v1 above) it's
-  // simply not set as an attribute at all rather than needing its own
-  // [data-loading-animation="float"] CSS block. useLayoutEffect, not
-  // useEffect — applies the attribute synchronously before the browser
-  // paints, the last part of closing the race described on
-  // globalLoadingAnimation's useState above: the cached initial value is
-  // already correct on first render, so this just needs to not be the
-  // one part of the chain that's deferred to after paint.
-  useLayoutEffect(() => {
-    if (resolvedLoadingAnimation !== 'float') {
-      document.documentElement.dataset.loadingAnimation = resolvedLoadingAnimation
-    } else {
-      delete document.documentElement.dataset.loadingAnimation
-    }
-    return () => { delete document.documentElement.dataset.loadingAnimation }
-  }, [resolvedLoadingAnimation])
-
   return {
     skin: resolvedSkin,
     popArt: resolvedSkin === 'pop-art',
@@ -243,9 +135,5 @@ export function useSkin(userId: string | undefined) {
     globalPopArtVariant,
     variantPreview: isAdmin ? variantPreview : null,
     setVariantPreview,
-    loadingAnimation: resolvedLoadingAnimation,
-    globalLoadingAnimation,
-    loadingAnimationPreview: isAdmin ? loadingAnimationPreview : null,
-    setLoadingAnimationPreview,
   }
 }

@@ -597,189 +597,81 @@ thead th {
   100% { transform: rotate(360deg) scale(1); }
 }
 
-/* Loading-screen badge. A previous multi-stage wobble (rotate + scale
-   overshoot across 5 keyframes) looked janky in practice: it plays on
-   every single page load now, competing with a cold page's own JS/font/
-   hydration work for frame time, and a fast-loading page can unmount it
-   before it finishes — a rotating, still-overshooting badge cut off
-   mid-flight looks broken in a way a plain fade never can. This really is
-   just two properties now (opacity, transform: scale) across two
-   keyframes — no rotate, no animated filter (brightness/saturate per
-   frame was the expensive part on a large image, and was still here
-   despite an earlier comment already claiming it was gone). Cheap to
-   composite, safe to interrupt at any point since every frame in between
-   still looks like "fading in normally", and the bounce comes entirely
-   from the overshoot easing curve rather than an explicit mid-keyframe,
-   so there's nothing left to strip without losing the pop. `forwards`
-   holds the settled end state rather than snapping back once it finishes. */
-/* Two animations on the same element, not one handed off to the other —
-   the entrance plays once and holds (forwards), then the float starts
-   from a delay exactly matching the entrance's own duration, so there's
-   no gap and no snap between them. Both keyframe sets write a full
-   `scale(...) translateY(...)` at every stop rather than just the part
-   that's changing, so the float doesn't depend on inheriting a value
-   from the entrance animation — each is self-contained. The float is
-   what actually answers "flat": a cold page load can take a few seconds,
-   and sitting perfectly still for all of it read as lifeless even once
-   the original jerkiness (rotate + animated filter) was gone — continuous
-   motion the whole time it's visible, not just a flourish on arrival. */
+/* ============================================================
+   FUTZY LOADING — rebuilt. Four prior variants (a plain float, then
+   admin-selectable Pixelate/Glitch/Assemble/Glow) were all tried and
+   all rejected — not because any one animation technique was wrong,
+   but because the actual complaint ("feels amateur," "jumps on
+   loading") was never about the mascot's own motion at all. It was the
+   FULL-SCREEN SOLID-BLACK TAKEOVER on every single navigation (see the
+   rebuilt PopArtLoading.tsx) — a wall blotting out the whole screen,
+   header included, reads as a takeover no matter how the character on
+   it moves. Fixing that (smaller card, blurred dim backdrop, a plain
+   progress bar doing the "something is happening" job instead of the
+   mascot) is what actually answers "professional." What's left here is
+   deliberately simple: one calm entrance into one gentle, slow
+   breathing pulse — restrained on purpose, since every more elaborate
+   idea so far made it feel busier, not better. The admin-selectable
+   variant system (site_skin.loading_animation, data-loading-animation)
+   is gone with it — one well-executed design beat a menu of four that
+   didn't land. */
 .pop-logo-flash-in {
   animation:
-    pop-logo-flash-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards,
-    pop-logo-float 3.4s ease-in-out infinite 0.45s;
+    pop-logo-flash-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards,
+    pop-logo-breathe 4s ease-in-out infinite 0.4s;
 }
 
 @keyframes pop-logo-flash-in {
-  0% { opacity: 0; transform: scale(0.8) translateY(0); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
+  0% { opacity: 0; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
-@keyframes pop-logo-float {
-  0%, 100% { transform: scale(1) translateY(0); }
-  50% { transform: scale(1) translateY(-7px); }
+/* Scale only, no translateY — at this card's smaller size a vertical
+   float read as fidgety where a slow, barely-there breathe reads as
+   calm. 4s is deliberately slow; this is ambient, not a flourish. */
+@keyframes pop-logo-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* `none`, not a near-zero duration — with two animations on one
-     element, a shorthand duration override applies to both, and an
-     `infinite` float still cycling every 0.01s is motion, just fast
-     enough to flicker rather than genuinely off. Not attribute-scoped —
-     this one rule covers every variant below, since all of them are
-     disabled the same way. */
-  .pop-logo-flash-in,
-  .pop-logo-flash-in .pop-logo-pixel-stage,
-  .pop-logo-flash-in .pop-logo-main,
-  .pop-logo-flash-in .pop-logo-patch,
-  .pop-logo-flash-in::before {
+  /* `none`, not a near-zero duration — a shorthand duration override
+     applies to both animations on this element, and an `infinite`
+     breathe still cycling every 0.01s is motion, just fast enough to
+     flicker rather than genuinely off. */
+  .pop-logo-flash-in {
     animation: none !important;
     opacity: 1;
   }
-  .pop-logo-flash-in .pop-logo-pixel-stage { top: 0; left: 0; width: 100%; height: 100%; transform: none; }
-  .pop-logo-flash-in::before { content: none; }
 }
 
-/* ============================================================
-   FUTZY LOADING ANIMATION — picker. Admin-selectable on /admin under
-   Site Skin (site_skin.loading_animation, read via useSkin.ts the same
-   way as the Pop Art V2 variant — a data-loading-animation attribute on
-   <html>). Float (above) is the default/fallback when the attribute is
-   absent, so it's deliberately NOT repeated here as its own
-   [data-loading-animation="float"] block — these four are the other
-   options the toggle can select.
-   ============================================================ */
-
-/* PIXELATE. The literal technique — shrink an element with
-   image-rendering:pixelated, scale it back up by the inverse factor —
-   was tried first and verified NOT to work reliably here: a CSS
-   transform-scale on an ancestor compositing an already-rasterized child
-   back up gets smoothly interpolated by the compositor regardless of the
-   pixelated hint (confirmed empirically via screenshots during this
-   session — no visible blockiness despite correct underlying transform
-   math). Real square-pixel mosaic needs a canvas redraw, out of reach
-   for a CSS-only toggle. This is the honest fallback: a stepped blur,
-   using the same steps() hard-jump timing so it still "snaps" into focus
-   in discrete jumps rather than smoothly defocusing — the part of
-   "pixelating in" that actually reads as punchy/digital, even though
-   the blocks themselves aren't literal. */
-[data-loading-animation="pixelate"] .pop-logo-flash-in {
-  animation:
-    pop-logo-pixelate-in 0.5s steps(5, jump-end) 1 forwards,
-    pop-logo-pixelate-pulse 3.2s steps(1, jump-end) infinite 0.5s;
+/* The loading card's own entrance — settles in alongside the backdrop
+   blur fading up, so the whole card arrives as one considered motion
+   rather than the mascot animating inside a backdrop that just snapped
+   into place around it. */
+.pop-loading-card {
+  animation: pop-loading-card-in 0.3s ease-out 1 both;
 }
-@keyframes pop-logo-pixelate-in {
-  0%   { opacity: 0.55; filter: blur(16px) saturate(1.6) contrast(1.3); transform: scale(0.94); }
-  25%  { opacity: 0.75; filter: blur(10px) saturate(1.45) contrast(1.25); transform: scale(0.96); }
-  50%  { opacity: 0.9;  filter: blur(6px) saturate(1.3) contrast(1.15); transform: scale(0.98); }
-  75%  { opacity: 1;    filter: blur(2.5px) saturate(1.1) contrast(1.05); transform: scale(1); }
-  100% { opacity: 1;    filter: blur(0) saturate(1) contrast(1); transform: scale(1); }
-}
-/* The "hold" shimmer — a brief re-blur-and-resolve pulse every ~3.2s,
-   like a glitchy signal refresh. */
-@keyframes pop-logo-pixelate-pulse {
-  0%, 80%, 100% { filter: blur(0) saturate(1) contrast(1); transform: scale(1); }
-  88% { filter: blur(9px) saturate(1.4) contrast(1.2); transform: scale(0.97); }
-  94% { filter: blur(3px) saturate(1.15) contrast(1.08); transform: scale(0.99); }
-}
-
-/* GLITCH — periodic RGB-split + jitter bursts, otherwise static (plus
-   the ordinary entrance). drop-shadow (not box-shadow) follows the
-   PNG's own alpha channel, so the colour fringe traces the mascot's
-   actual silhouette instead of a rectangular box — a real channel-split
-   look, not an approximation. */
-[data-loading-animation="glitch"] .pop-logo-flash-in {
-  animation:
-    pop-logo-flash-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards,
-    pop-logo-glitch-burst 2.6s steps(1, jump-end) infinite 0.45s;
-}
-@keyframes pop-logo-glitch-burst {
-  0%, 92%, 100% { transform: scale(1) translateX(0); filter: none; }
-  93% { transform: scale(1) translateX(-3px); filter: drop-shadow(3px 0 0 rgba(250, 0, 60, 0.75)) drop-shadow(-3px 0 0 rgba(0, 242, 250, 0.75)); }
-  94.5% { transform: scale(1) translateX(2px); filter: drop-shadow(-2px 0 0 rgba(250, 0, 60, 0.75)) drop-shadow(2px 0 0 rgba(0, 242, 250, 0.75)); }
-  96% { transform: scale(1) translateX(-1px); filter: drop-shadow(2px 0 0 rgba(250, 0, 60, 0.6)) drop-shadow(-2px 0 0 rgba(0, 242, 250, 0.6)); }
-  97.5% { transform: scale(1) translateX(0); filter: none; }
-}
-
-/* ASSEMBLE — the mascot's two real layers (the flattened logo, and the
-   separately-composited photo patch — see MascotWithCapPhoto.tsx; there
-   are no separate ball/cap/boots layers to animate independently, the
-   logo is one flattened image) arrive staggered rather than together:
-   the logo settles first, then the photo patch drops in from above and
-   spins into its tilted resting position with a bounce, "clicking" on
-   a beat later. Both keyframe sets write the FULL transform at every
-   stop (translate(-50%, Y%) for the patch is its real centering, not
-   just decoration — overwriting only the rotate/scale part would also
-   silently drop the centering for the animation's duration). */
-[data-loading-animation="assemble"] .pop-logo-flash-in {
-  animation: none;
-  opacity: 1;
-}
-[data-loading-animation="assemble"] .pop-logo-flash-in .pop-logo-main {
-  animation: pop-logo-assemble-main 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1 both;
-}
-[data-loading-animation="assemble"] .pop-logo-flash-in .pop-logo-patch {
-  animation:
-    pop-logo-assemble-patch 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1 both,
-    pop-logo-float 3.4s ease-in-out infinite 0.9s;
-  animation-delay: 0.35s, 0.95s;
-}
-@keyframes pop-logo-assemble-main {
-  0% { opacity: 0; transform: scale(0.55) translateY(30px); }
+@keyframes pop-loading-card-in {
+  0% { opacity: 0; transform: scale(0.96) translateY(6px); }
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
-@keyframes pop-logo-assemble-patch {
-  0% { opacity: 0; transform: translate(-50%, -160%) rotate(-230deg) scale(0.4); }
-  70% { opacity: 1; transform: translate(-50%, -44%) rotate(18deg) scale(1.12); }
-  100% { opacity: 1; transform: translate(-50%, -50%) rotate(-8deg) scale(1); }
+@media (prefers-reduced-motion: reduce) {
+  .pop-loading-card { animation: none; }
 }
 
-/* GLOW — the same float as the default, plus a soft pulsing halo behind
-   the mascot so the motion reads at a glance. The ring is a ::before on
-   the container (already position:relative) rather than a new DOM node —
-   explicit z-index puts it behind both images without needing to touch
-   their own inline position (already absolute, just unstacked). */
-[data-loading-animation="glow"] .pop-logo-flash-in {
-  animation:
-    pop-logo-flash-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1 forwards,
-    pop-logo-float 3.4s ease-in-out infinite 0.45s;
+/* Indeterminate progress fill — a plain, honest "still working on it"
+   signal, the same pattern most loading bars use, so it reads as
+   familiar/professional rather than needing its own explanation. */
+.pop-loading-bar-fill {
+  animation: pop-loading-bar-slide 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
-[data-loading-animation="glow"] .pop-logo-flash-in .pop-logo-pixel-stage {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
+@keyframes pop-loading-bar-slide {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(350%); }
 }
-[data-loading-animation="glow"] .pop-logo-flash-in::before {
-  content: '';
-  position: absolute;
-  inset: 8%;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--pop-pink) 0%, transparent 70%);
-  z-index: 0;
-  pointer-events: none;
-  animation: pop-logo-glow-pulse 2s ease-in-out infinite 0.45s;
-}
-@keyframes pop-logo-glow-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.35; }
-  50% { transform: scale(1.18); opacity: 0.65; }
+@media (prefers-reduced-motion: reduce) {
+  .pop-loading-bar-fill { animation: none; opacity: 0.5; }
 }
 
 /* "Futzy Says" header ticker (see ceefax-shell.tsx) — content is rendered
