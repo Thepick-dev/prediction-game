@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from '../../lib/supabase-server'
 import { getSuspendedUserIds } from '../../lib/suspensions'
 import { getCompetitionMechanicsConfig } from '../../lib/scoring'
 import { getBonusCardNominees } from '../../lib/bonusCardNominees'
+import { getGhostPreusedCounts } from '../../lib/ghostPreused'
 import { NextResponse } from 'next/server'
 
 async function getDoubleUseTeams(supabase: any, competition_id: string, user_id: string): Promise<number[]> {
@@ -165,8 +166,15 @@ export async function POST(request: Request) {
     .eq('competition_id', competition_id)
     .neq('gameweek_id', gameweek_id)
 
+  // A ghost's randomly-assigned "already used" teams/players (see
+  // app/lib/ghostPreused.ts) — merged into the real counts below so a
+  // ghost is capped exactly like a real player who'd picked since week
+  // one, not given a free pass just because they have no actual picks
+  // rows for the gameweeks they missed. Empty for everyone else.
+  const ghostPreused = await getGhostPreusedCounts(supabase, competition_id, user.id)
+
   if (allPicks) {
-    const teamUseCounts: Record<number, number> = {}
+    const teamUseCounts: Record<number, number> = { ...ghostPreused.teamCounts }
     allPicks.forEach(p => {
       teamUseCounts[p.team_id] = (teamUseCounts[p.team_id] || 0) + 1
     })
@@ -182,7 +190,7 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    const playerCounts: Record<number, number> = {}
+    const playerCounts: Record<number, number> = { ...ghostPreused.playerCounts }
     allPicks.forEach(pick => {
       playerCounts[pick.player1_id] = (playerCounts[pick.player1_id] || 0) + 1
       playerCounts[pick.player2_id] = (playerCounts[pick.player2_id] || 0) + 1
@@ -520,8 +528,13 @@ export async function GET(request: Request) {
   ])
 
   const doubleUseTeams = await getDoubleUseTeams(supabase, competition_id!, user.id)
+  // See the identical comment on the POST handler above — a ghost's
+  // randomly-assigned pre-used teams/players, merged in so the Picks
+  // page's own "Used" indicators reflect them too, not just the
+  // server-side validation.
+  const ghostPreused = await getGhostPreusedCounts(supabase, competition_id!, user.id)
 
-  const teamUseCounts: Record<number, number> = {}
+  const teamUseCounts: Record<number, number> = { ...ghostPreused.teamCounts }
   allPicks?.forEach(p => {
     teamUseCounts[p.team_id] = (teamUseCounts[p.team_id] || 0) + 1
   })
@@ -540,7 +553,7 @@ export async function GET(request: Request) {
   // to "Used" with no state in between, which is what usedTeams alone
   // collapses it to.
 
-  const playerCounts: Record<number, number> = {}
+  const playerCounts: Record<number, number> = { ...ghostPreused.playerCounts }
   allPicks?.forEach(p => {
     playerCounts[p.player1_id] = (playerCounts[p.player1_id] || 0) + 1
     playerCounts[p.player2_id] = (playerCounts[p.player2_id] || 0) + 1

@@ -310,6 +310,77 @@ export default async function UsersPage({
     const average = values.length > 0 ? Math.round(values.reduce((sum, v) => sum + v, 0) / values.length) : 0
 
     await admin.from('competition_entries').update({ is_ghost: true, ghost_backfill_points: average }).eq('user_id', userId).eq('competition_id', competitionId)
+
+    // A ghost has no real `picks` rows for the gameweeks they missed, so
+    // left alone they could freely pick teams/players everyone else has
+    // long since used up — not fair on players who were here from week
+    // one. Randomly mark a set of teams/players as already used, roughly
+    // proportional to how many gameweeks they missed (one team + two
+    // players "used" per missed gameweek, same shape as a real pick).
+    // Isolated and best-effort — if these tables don't exist yet (SQL not
+    // run), ghost marking itself still succeeds, just without this
+    // fairness restriction, same degrade-gracefully pattern as everywhere
+    // else a newer table is read on this site.
+    try {
+      const { data: pastGameweeks } = await admin
+        .from('gameweeks')
+        .select('id')
+        .eq('competition_id', competitionId)
+        .lt('deadline', new Date().toISOString())
+      const missedCount = pastGameweeks?.length ?? 0
+
+      // Clear any previous pre-used rows first — re-marking an already-
+      // ghosted user (e.g. after an admin mistake) shouldn't accumulate
+      // uses on top of a stale earlier generation.
+      await admin.from('ghost_preused_teams').delete().eq('user_id', userId).eq('competition_id', competitionId)
+      await admin.from('ghost_preused_players').delete().eq('user_id', userId).eq('competition_id', competitionId)
+
+      if (missedCount > 0) {
+        const [{ data: activeTeams }, { data: allPlayers }] = await Promise.all([
+          admin.from('teams').select('id').eq('active', true),
+          admin.from('players').select('id'),
+        ])
+        const teamIds = (activeTeams ?? []).map(t => t.id)
+        const playerIds = (allPlayers ?? []).map(p => p.id)
+
+        const usedTeamIds = new Set<number>()
+        const playerUses: Record<number, number> = {}
+
+        function pickRandom<T>(pool: T[]): T | undefined {
+          return pool[Math.floor(Math.random() * pool.length)]
+        }
+
+        for (let i = 0; i < missedCount; i++) {
+          const availableTeams = teamIds.filter(id => !usedTeamIds.has(id))
+          const team = pickRandom(availableTeams)
+          if (team != null) usedTeamIds.add(team)
+
+          const availablePlayers1 = playerIds.filter(id => (playerUses[id] ?? 0) < 2)
+          const p1 = pickRandom(availablePlayers1)
+          if (p1 != null) playerUses[p1] = (playerUses[p1] ?? 0) + 1
+
+          const availablePlayers2 = playerIds.filter(id => (playerUses[id] ?? 0) < 2 && id !== p1)
+          const p2 = pickRandom(availablePlayers2)
+          if (p2 != null) playerUses[p2] = (playerUses[p2] ?? 0) + 1
+        }
+
+        if (usedTeamIds.size > 0) {
+          await admin.from('ghost_preused_teams').insert(
+            [...usedTeamIds].map(team_id => ({ user_id: userId, competition_id: competitionId, team_id }))
+          )
+        }
+        const playerRows = Object.entries(playerUses).map(([player_id, uses]) => ({
+          user_id: userId, competition_id: competitionId, player_id: parseInt(player_id), uses,
+        }))
+        if (playerRows.length > 0) {
+          await admin.from('ghost_preused_players').insert(playerRows)
+        }
+      }
+    } catch {
+      // ghost_preused_teams/players migration not run yet, or a transient
+      // error — ghost marking above already succeeded either way.
+    }
+
     revalidatePath('/', 'layout')
     redirect('/admin/users')
   }
@@ -320,6 +391,13 @@ export default async function UsersPage({
     const userId = formData.get('id') as string
     const competitionId = formData.get('competitionId') as string
     await admin.from('competition_entries').update({ is_ghost: false, ghost_backfill_points: null }).eq('user_id', userId).eq('competition_id', competitionId)
+    // Best-effort cleanup — the pre-used restriction only ever made sense
+    // while they were a ghost; un-ghosting should lift it too. Isolated,
+    // same reasoning as the generation step above.
+    try {
+      await admin.from('ghost_preused_teams').delete().eq('user_id', userId).eq('competition_id', competitionId)
+      await admin.from('ghost_preused_players').delete().eq('user_id', userId).eq('competition_id', competitionId)
+    } catch {}
     revalidatePath('/', 'layout')
     redirect('/admin/users')
   }

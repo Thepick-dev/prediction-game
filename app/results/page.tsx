@@ -12,6 +12,7 @@ import ResultsGrid, { type GridRow } from './ResultsGrid'
 import PopArtLoading from '../../components/PopArtLoading'
 import PopSelect from '../../components/PopSelect'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
+import GhostVisibilityNotice, { useGhostVisibilityNotice } from '../../components/GhostVisibilityNotice'
 
 type Gameweek = {
   id: string
@@ -106,6 +107,7 @@ export default function ResultsPage() {
   const [isBotByUser, setIsBotByUser] = useState<Record<string, boolean>>({})
   const [isGhostByUser, setIsGhostByUser] = useState<Record<string, boolean>>({})
   const [showGhosts, setShowGhosts] = useState(false)
+  const ghostVisibilityNotice = useGhostVisibilityNotice()
   // Users removed from the competition — their historical picks/comments
   // must never resurface anywhere, even after their deadline has passed.
   const [activeUserIds, setActiveUserIds] = useState<Set<string>>(new Set())
@@ -584,6 +586,7 @@ export default function ResultsPage() {
 
   if (popArt) {
     return (
+      <>
       <Shell active="RESULTS" user={user} displayName={displayName} theme="pop-art">
         <div className="pop-art-theme">
 
@@ -640,7 +643,13 @@ export default function ResultsPage() {
                   {Object.values(isGhostByUser).some(Boolean) && (
                     <button
                       type="button"
-                      onClick={() => setShowGhosts(v => !v)}
+                      onClick={() => {
+                        setShowGhosts(v => {
+                          const next = !v
+                          if (next) ghostVisibilityNotice.maybeShow()
+                          return next
+                        })
+                      }}
                       className="font-bold uppercase tracking-wider mb-4 -mt-2 block"
                       style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}
                     >
@@ -797,6 +806,9 @@ export default function ResultsPage() {
 
         </div>
       </Shell>
+
+      <GhostVisibilityNotice visible={ghostVisibilityNotice.visible} onMinimise={ghostVisibilityNotice.minimise} onDismissForever={ghostVisibilityNotice.dismissForever} />
+      </>
     )
   }
 

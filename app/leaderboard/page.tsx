@@ -22,6 +22,7 @@ import { useSkin } from '../lib/useSkin'
 import { RULES_TEXT } from '../lib/rulesText'
 import PopArtLoading from '../../components/PopArtLoading'
 import { RetroWindow, RetroButton, RetroModal, pad } from '../../components/retro'
+import GhostVisibilityNotice, { useGhostVisibilityNotice } from '../../components/GhostVisibilityNotice'
 
 type RankedPlayer = {
   user_id: string
@@ -91,6 +92,7 @@ export default function LeaderboardPage() {
   const [ranked, setRanked] = useState<RankedPlayer[]>([])
   const [ghosts, setGhosts] = useState<RankedPlayer[]>([])
   const [showGhosts, setShowGhosts] = useState(false)
+  const ghostVisibilityNotice = useGhostVisibilityNotice()
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
   const [teamsExpandedUsers, setTeamsExpandedUsers] = useState<Set<string>>(new Set())
   const [pickDetails, setPickDetails] = useState<Record<string, PickDetail[]>>({})
@@ -1334,6 +1336,8 @@ export default function LeaderboardPage() {
           </RetroWindow>
         </Shell>
 
+        <GhostVisibilityNotice visible={ghostVisibilityNotice.visible} onMinimise={ghostVisibilityNotice.minimise} onDismissForever={ghostVisibilityNotice.dismissForever} />
+
         {showSeasonShareFor && (() => {
           const targetIndex = ranked.findIndex(p => p.user_id === showSeasonShareFor)
           if (targetIndex === -1) return null
@@ -1994,7 +1998,13 @@ export default function LeaderboardPage() {
             {ghosts.length > 0 && (
               <button
                 type="button"
-                onClick={() => setShowGhosts(v => !v)}
+                onClick={() => {
+                  setShowGhosts(v => {
+                    const next = !v
+                    if (next) ghostVisibilityNotice.maybeShow()
+                    return next
+                  })
+                }}
                 className="font-bold uppercase tracking-wider mt-3"
                 style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}
                 title="Mid-season joiners, given a backfilled starting total for the gameweeks before they joined. Not eligible to be crowned champion."
@@ -2005,6 +2015,8 @@ export default function LeaderboardPage() {
 
           </div>
         </Shell>
+
+        <GhostVisibilityNotice visible={ghostVisibilityNotice.visible} onMinimise={ghostVisibilityNotice.minimise} onDismissForever={ghostVisibilityNotice.dismissForever} />
 
         {showSeasonShareFor && (() => {
           const targetIndex = ranked.findIndex(p => p.user_id === showSeasonShareFor)
