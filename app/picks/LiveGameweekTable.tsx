@@ -5,6 +5,7 @@ import { createClient } from '../lib/supabase'
 import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
 import BotAvatar from '../../components/BotAvatar'
+import FitName from '../../components/FitName'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 
 type Row = {
@@ -33,35 +34,55 @@ type Row = {
   movement: number
 }
 
-const aonBg = { pending: '#A000FA', success: '#CCFA00', failed: '#FA003C' } as const
-const aonLabel = { pending: 'AoN', success: 'AoN ✓', failed: 'AoN ✕' } as const
+// Same colour mapping and "just the word AON" convention as ResultsGrid
+// (app/results/ResultsGrid.tsx) — the two pages show the same kind of
+// per-player breakdown now, so they use the same visual language for the
+// same fact rather than two different ones that happen to mean the same
+// thing.
+const AON_PILL = {
+  success: { bg: 'var(--pop-green)', fg: 'var(--pop-black)' },
+  failed: { bg: 'var(--pop-red)', fg: '#fff' },
+  pending: { bg: 'rgba(255,255,255,0.18)', fg: 'rgba(255,255,255,0.75)' },
+} as const
 
-// Small right-aligned points readout reused for the team/player1/player2/
-// bonus card lines — "—" (not "0") while a value genuinely isn't known yet
-// (no pick, or the preview call failed), matching the header's own total.
-function PtsPill({ value, doubled }: { value: number | null; doubled?: boolean }) {
+function AonPill({ outcome }: { outcome?: 'pending' | 'success' | 'failed' }) {
+  if (!outcome) return null
+  const { bg, fg } = AON_PILL[outcome]
   return (
-    <span className="font-mono font-black whitespace-nowrap" style={{ fontSize: '12px', textAlign: 'right', color: value === null ? 'rgba(255,255,255,0.3)' : value > 0 ? 'var(--pop-green)' : 'rgba(255,255,255,0.4)' }}>
-      {value === null ? '—' : `${value > 0 ? '+' : ''}${value}`}
-      {doubled && value !== null && <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}> ×2</span>}
+    <span
+      className="shrink-0 rounded-full font-black uppercase"
+      style={{ fontSize: '7px', padding: '1px 5px', background: bg, color: fg, letterSpacing: '0.03em' }}
+      title={`All or Nothing — ${outcome === 'pending' ? 'played, result not known yet' : outcome}`}
+    >
+      AON
     </span>
   )
 }
 
-// Every item row (team/player1/player2/bonus card) uses this same two-
-// column grid — a fixed-width points column on the right, everything else
-// truncating into the remaining space on the left — so points always line
-// up in the same place regardless of how long a name or badge combo runs,
-// instead of drifting around depending on each row's own content width.
-const ITEM_GRID_STYLE = { display: 'grid', gridTemplateColumns: '1fr 58px', columnGap: '8px', alignItems: 'center' } as const
+// Small right-aligned points readout reused for every stat line — "—"
+// (not "0") while a value genuinely isn't known yet (no pick, or the
+// preview call failed).
+function PtsPill({ value, doubled }: { value: number | null; doubled?: boolean }) {
+  return (
+    <span className="font-mono font-black whitespace-nowrap shrink-0" style={{ fontSize: '12px', textAlign: 'right', color: value === null ? 'rgba(255,255,255,0.3)' : value > 0 ? 'var(--pop-green)' : 'rgba(255,255,255,0.4)' }}>
+      {value === null ? '—' : `${value > 0 ? '+' : ''}${value}`}
+      {doubled && value !== null && <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}> ×2</span>}
+    </span>
+  )
+}
 
-// Team's row (just a crest + short code) fits the two-column version above.
-// Player rows also need to fit any G/A/All-or-Nothing badges, which used to
-// sit inline right after the name — jumbled together and competing with it
-// for space. This gives the badges their own dedicated middle column
-// instead, so the name always has its own clean truncating lane and the
-// badges never crowd into it.
-const PLAYER_GRID_STYLE = { display: 'grid', gridTemplateColumns: '1fr auto 58px', columnGap: '6px', alignItems: 'center' } as const
+// Every item row (team/player1/player2/bonus card/this week) uses this
+// same two-column grid — a fixed-width points column on the right,
+// everything else truncating into the remaining space on the left — so
+// points always line up in the same place regardless of how long a name
+// or badge combo runs.
+const ITEM_GRID_STYLE = { display: 'grid', gridTemplateColumns: '1fr 48px', columnGap: '6px', alignItems: 'center' } as const
+
+// Player rows also need to fit any G/A/All-or-Nothing badges, which used
+// to sit inline right after the name — jumbled together and competing
+// with it for space. This gives the badges their own dedicated middle
+// column instead, so the name always has its own clean truncating lane.
+const PLAYER_GRID_STYLE = { display: 'grid', gridTemplateColumns: '1fr auto 48px', columnGap: '5px', alignItems: 'center' } as const
 
 // A mobile-native "how's everyone doing right now" view for a locked/live
 // gameweek — deliberately NOT the ResultsGrid ticket (that one's fixed-width
@@ -303,85 +324,107 @@ export default function LiveGameweekTable({
   }
 
   return (
-      <div ref={gridRef} className="rounded-2xl p-2.5 sm:p-3 space-y-1" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
-        {rows.map((row, i) => (
+      <div ref={gridRef} className="rounded-2xl p-2 sm:p-2.5" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+        {rows.map((row, i) => {
+          const rowBg = row.isOwnRow ? 'rgba(160,0,250,0.08)' : (i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined)
+          return (
           <div
             key={row.userId}
-            className="rounded-xl p-1.5 sm:p-2"
-            style={{
-              background: row.isOwnRow ? 'rgba(160,0,250,0.1)' : 'rgba(255,255,255,0.03)',
-              border: row.isOwnRow ? '1px solid rgba(160,0,250,0.4)' : '1px solid rgba(255,255,255,0.06)',
-            }}
+            className="rounded-xl"
+            style={{ padding: '8px 10px', background: rowBg }}
           >
-            <div className="flex items-center justify-between gap-2 mb-0.5 flex-wrap">
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="font-mono font-black shrink-0" style={{ color: 'rgba(255,255,255,0.35)', fontSize: '12px' }}>{i + 1}</span>
-                {row.movement !== 0 && (
-                  <span
-                    className="font-mono font-black shrink-0 inline-flex items-center"
-                    style={{ fontSize: '9px', color: row.movement > 0 ? 'var(--pop-green)' : 'var(--pop-red)' }}
-                    title={row.movement > 0 ? `Up ${row.movement} place${row.movement === 1 ? '' : 's'} this gameweek` : `Down ${Math.abs(row.movement)} place${Math.abs(row.movement) === 1 ? '' : 's'} this gameweek`}
-                  >
-                    {row.movement > 0 ? '📈' : '📉'}{Math.abs(row.movement)}
-                  </span>
-                )}
-                <span className="shrink-0 ml-0.5">
-                  {row.isBot ? <BotAvatar size={20} /> : <KitBadge pattern={row.kit?.pattern ?? 'solid'} colour1={row.kit?.colour1 ?? '#1E4D6B'} colour2={row.kit?.colour2 ?? '#F5ECD9'} colour3={row.kit?.colour3} size={20} />}
+            {/* Header — shirt + name, both big and striking, same
+                treatment as the Leaderboard and the Results cards. Rank
+                and gameweek movement stay small since they're secondary
+                to "whose row is this." */}
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="font-black shrink-0" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
+              {row.movement !== 0 && (
+                <span
+                  className="font-mono font-black shrink-0 inline-flex items-center"
+                  style={{ fontSize: '9px', color: row.movement > 0 ? 'var(--pop-green)' : 'var(--pop-red)' }}
+                  title={row.movement > 0 ? `Up ${row.movement} place${row.movement === 1 ? '' : 's'} this gameweek` : `Down ${Math.abs(row.movement)} place${Math.abs(row.movement) === 1 ? '' : 's'} this gameweek`}
+                >
+                  {row.movement > 0 ? '▲' : '▼'}{Math.abs(row.movement)}
                 </span>
-                <span className="font-black uppercase truncate" style={{ fontSize: '13px' }}>{row.name}</span>
-                {row.isAutopick && <span className="px-1 py-0.5 rounded font-black shrink-0" style={{ fontSize: '9px', background: 'rgba(255,255,255,0.15)' }} title="Autopicked">AP</span>}
-                {row.isBanker && (
-                  <span className="px-1 py-0.5 rounded font-black shrink-0" style={{ fontSize: '9px', background: 'rgba(255,209,0,0.2)', color: '#FFD100' }} title="Banker — everything below is doubled: team, both players">
-                    ★ BANKER
-                  </span>
-                )}
-              </div>
-              <div className="flex items-baseline gap-1 shrink-0 flex-wrap justify-end">
-                <span className="font-mono font-black" style={{ fontSize: '21px', color: 'var(--pop-green)' }}>{row.weeklyPoints ?? '—'}</span>
-                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>this wk</span>
-                <span style={{ color: 'rgba(255,255,255,0.25)' }}>·</span>
-                <span className="font-mono font-black" style={{ fontSize: '17px', color: '#FFFFFF' }}>{row.cumulativeTotal}</span>
-                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>total</span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-px" style={{ fontSize: '11px' }}>
-              <div style={ITEM_GRID_STYLE}>
-                <span className="inline-flex items-center gap-1 min-w-0 px-1.5 py-0.5 rounded font-bold uppercase" style={{ background: 'rgba(0,242,250,0.12)', color: 'var(--pop-blue)' }}>
-                  <TeamCrest teamId={row.teamId} teamName={row.team} size={14} />
-                  <span className="truncate">{row.team}</span>
+              )}
+              {row.isBot ? <BotAvatar size={32} /> : (
+                <span className="shrink-0">
+                  <KitBadge pattern={row.kit?.pattern ?? 'solid'} colour1={row.kit?.colour1 ?? '#1E4D6B'} colour2={row.kit?.colour2 ?? '#F5ECD9'} colour3={row.kit?.colour3} size={32} />
                 </span>
-                <PtsPill value={row.teamPoints} doubled={row.isBanker} />
-              </div>
-              <div style={PLAYER_GRID_STYLE}>
-                <span className="uppercase font-bold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{row.player1Name}</span>
-                <span className="flex items-center gap-1 shrink-0">
-                  {row.player1Goals > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>{'G'.repeat(row.player1Goals)}</span>}
-                  {row.player1Assists > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>{'A'.repeat(row.player1Assists)}</span>}
-                  {row.aon?.onPlayer1 && <span className="shrink-0 px-1 rounded font-black" style={{ background: aonBg[row.aon.outcome], color: row.aon.outcome === 'success' ? '#0A0A0A' : '#fff' }}>{aonLabel[row.aon.outcome]}</span>}
+              )}
+              <span className="min-w-0 flex-1">
+                <FitName
+                  baseSize={19} minSize={12} className="pop-name"
+                  style={{
+                    color: row.isOwnRow ? 'var(--pop-pink)' : '#fff',
+                    textShadow: row.isOwnRow
+                      ? '0 0 4px rgba(160,0,250,0.55), 0 0 12px rgba(160,0,250,0.3)'
+                      : '0 0 4px rgba(0,174,239,0.5), 0 0 12px rgba(0,174,239,0.28)',
+                  }}
+                >
+                  {row.name}
+                </FitName>
+                {row.isAutopick && <div className="normal-case font-bold" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>Autopick</div>}
+              </span>
+              {row.isBanker && (
+                <span
+                  className="shrink-0 inline-flex items-center justify-center rounded-full font-black"
+                  style={{ width: 20, height: 20, fontSize: '10px', background: 'var(--pop-orange)', color: '#fff' }}
+                  title="Banker — team and both players doubled this week"
+                >
+                  ★
                 </span>
-                <PtsPill value={row.player1Points} doubled={row.isBanker} />
-              </div>
-              <div style={PLAYER_GRID_STYLE}>
-                <span className="uppercase font-bold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{row.player2Name}</span>
-                <span className="flex items-center gap-1 shrink-0">
-                  {row.player2Goals > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'var(--pop-green)', color: 'var(--pop-black)' }}>{'G'.repeat(row.player2Goals)}</span>}
-                  {row.player2Assists > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>{'A'.repeat(row.player2Assists)}</span>}
-                  {row.aon?.onPlayer2 && <span className="shrink-0 px-1 rounded font-black" style={{ background: aonBg[row.aon.outcome], color: row.aon.outcome === 'success' ? '#0A0A0A' : '#fff' }}>{aonLabel[row.aon.outcome]}</span>}
-                </span>
-                <PtsPill value={row.player2Points} doubled={row.isBanker} />
-              </div>
-              {row.bonusCard && (
-                <div style={ITEM_GRID_STYLE}>
-                  <span className="px-1.5 py-0.5 rounded font-black uppercase truncate" style={{ background: 'var(--pop-pink)', color: '#fff' }}>
-                    🎴 {bonusCardName ?? 'Bonus Card'}: {row.bonusCard.playerName}
-                  </span>
-                  <PtsPill value={row.bonusCard.points} />
-                </div>
               )}
             </div>
+
+            {/* The 5 rows, left side; grand total standing alone, big, right */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div style={ITEM_GRID_STYLE}>
+                  <span className="inline-flex items-center gap-1 min-w-0">
+                    <span className="shrink-0"><TeamCrest teamId={row.teamId} teamName={row.team} size={13} /></span>
+                    <span className="min-w-0 flex-1"><FitName baseSize={12} minSize={8} className="uppercase font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{row.team}</FitName></span>
+                  </span>
+                  <PtsPill value={row.teamPoints} doubled={row.isBanker} />
+                </div>
+                <div style={PLAYER_GRID_STYLE}>
+                  <span className="min-w-0"><FitName baseSize={12} minSize={8} className="uppercase font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{row.player1Name}</FitName></span>
+                  <span className="flex items-center gap-1 shrink-0">
+                    {row.player1Goals > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>{'G'.repeat(row.player1Goals)}</span>}
+                    {row.player1Assists > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '9px', background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>{'A'.repeat(row.player1Assists)}</span>}
+                    {row.aon?.onPlayer1 && <AonPill outcome={row.aon.outcome} />}
+                  </span>
+                  <PtsPill value={row.player1Points} doubled={row.isBanker} />
+                </div>
+                <div style={PLAYER_GRID_STYLE}>
+                  <span className="min-w-0"><FitName baseSize={12} minSize={8} className="uppercase font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{row.player2Name}</FitName></span>
+                  <span className="flex items-center gap-1 shrink-0">
+                    {row.player2Goals > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>{'G'.repeat(row.player2Goals)}</span>}
+                    {row.player2Assists > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '9px', background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>{'A'.repeat(row.player2Assists)}</span>}
+                    {row.aon?.onPlayer2 && <AonPill outcome={row.aon.outcome} />}
+                  </span>
+                  <PtsPill value={row.player2Points} doubled={row.isBanker} />
+                </div>
+                <div style={ITEM_GRID_STYLE}>
+                  <span className="min-w-0"><FitName baseSize={12} minSize={8} className="uppercase font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{bonusCardName ?? 'Bonus Card'}</FitName></span>
+                  <PtsPill value={row.bonusCard ? row.bonusCard.points : null} />
+                </div>
+                <div style={{ ...ITEM_GRID_STYLE, marginTop: 2, paddingTop: 3, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                  <span className="uppercase font-black" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.03em' }}>This Week</span>
+                  <PtsPill value={row.weeklyPoints} />
+                </div>
+              </div>
+
+              <div className="shrink-0 flex items-center">
+                <span className="font-black font-mono" style={{ fontSize: '28px', color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                  {row.cumulativeTotal}
+                </span>
+              </div>
+            </div>
           </div>
-        ))}
+          )
+        })}
       </div>
   )
 }
