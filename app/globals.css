@@ -674,6 +674,18 @@ thead th {
   .pop-loading-bar-fill { animation: none; opacity: 0.5; }
 }
 
+/* LoadingTransition.tsx's own fade-out — see that component for why this
+   exists (an instant React unmount can't fade on its own). An explicit
+   class rather than an inline transition so reduced-motion can turn it
+   into an instant cut cleanly, same as everything else motion-related
+   on this site. */
+.pop-loading-transition {
+  transition: opacity 0.26s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pop-loading-transition { transition: none; }
+}
+
 /* "Futzy Says" header ticker (see ceefax-shell.tsx) — content is rendered
    twice back to back, so sliding exactly half its own width loops
    seamlessly with no visible seam or jump. Duration is set inline per

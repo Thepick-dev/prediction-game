@@ -13,6 +13,7 @@ import PopArtLoading from '../../components/PopArtLoading'
 import PopSelect from '../../components/PopSelect'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import GhostVisibilityNotice, { useGhostVisibilityNotice } from '../../components/GhostVisibilityNotice'
+import LoadingTransition from '../../components/LoadingTransition'
 
 type Gameweek = {
   id: string
@@ -578,10 +579,25 @@ export default function ResultsPage() {
   // small "show ghosts" switch below.
   const allGridRows = [...gridRows, ...suspendedNoPickRows].filter(r => !isGhostByUser[r.userId] || showGhosts || r.userId === user?.id)
 
+  // LoadingTransition's own loading/loadingView props carry the actual
+  // fade logic — see that component. What matters here is that it sits
+  // in the exact same position (Shell's direct child) across every one
+  // of this page's four return branches below: React reconciles same-
+  // type-same-position elements as an UPDATE even when they come from
+  // different `if` branches of the same component, not a remount
+  // (verified empirically this session) — so Shell AND this
+  // LoadingTransition both stay mounted as one persistent instance the
+  // whole time a visitor is on this page, and the loading view can
+  // genuinely cross-fade into whichever branch's content ends up
+  // rendering, instead of being yanked away the instant `loading` flips.
+  const loadingView = popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>
+
   if (loading) {
     return (
       <Shell active="RESULTS" theme={popArt ? 'pop-art' : 'classic'}>
-        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
+        <LoadingTransition loading={true} loadingView={loadingView}>
+          {null}
+        </LoadingTransition>
       </Shell>
     )
   }
@@ -589,17 +605,19 @@ export default function ResultsPage() {
   if (!competition) {
     return (
       <Shell active="RESULTS" theme={popArt ? 'pop-art' : 'classic'}>
-        {popArt ? (
-          <div className="pop-art-theme text-center py-12">
-            <p className="pop-headline text-2xl mb-2">No Active Competition</p>
-            <p style={{ color: 'rgba(255,255,255,0.5)' }}>There is no active competition right now.</p>
-          </div>
-        ) : (
-          <>
-            <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
-            <p className="text-gray-500">There is no active competition right now.</p>
-          </>
-        )}
+        <LoadingTransition loading={false} loadingView={loadingView}>
+          {popArt ? (
+            <div className="pop-art-theme text-center py-12">
+              <p className="pop-headline text-2xl mb-2">No Active Competition</p>
+              <p style={{ color: 'rgba(255,255,255,0.5)' }}>There is no active competition right now.</p>
+            </div>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
+              <p className="text-gray-500">There is no active competition right now.</p>
+            </>
+          )}
+        </LoadingTransition>
       </Shell>
     )
   }
@@ -608,6 +626,7 @@ export default function ResultsPage() {
     return (
       <>
       <Shell active="RESULTS" user={user} displayName={displayName} theme="pop-art">
+        <LoadingTransition loading={false} loadingView={loadingView}>
         <div className="pop-art-theme">
 
           <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-4 mt-2">Results {competition.name}</h1>
@@ -825,6 +844,7 @@ export default function ResultsPage() {
           )}
 
         </div>
+        </LoadingTransition>
       </Shell>
 
       <GhostVisibilityNotice visible={ghostVisibilityNotice.visible} onMinimise={ghostVisibilityNotice.minimise} onDismissForever={ghostVisibilityNotice.dismissForever} />
@@ -834,6 +854,7 @@ export default function ResultsPage() {
 
   return (
     <Shell active="RESULTS" user={user} displayName={displayName}>
+      <LoadingTransition loading={false} loadingView={loadingView}>
       <HeroPage wide>
         <div className="w-full text-[#F5ECD9]">
 
@@ -1029,6 +1050,7 @@ export default function ResultsPage() {
 
         </div>
       </HeroPage>
+      </LoadingTransition>
     </Shell>
   )
 }
