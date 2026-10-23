@@ -57,7 +57,7 @@ export default function PopArtLoading({ label }: { label?: string }) {
           boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
         }}
       >
-        <MascotWithCapPhoto className="w-[120px] sm:w-[132px]" />
+        <MascotWithCapPhoto className="w-[190px] sm:w-[210px]" />
         <div className="pop-loading-bar" style={{ width: 120, height: 3, borderRadius: 2, overflow: 'hidden', background: 'rgba(255,255,255,0.1)' }}>
           <div className="pop-loading-bar-fill" style={{ height: '100%', width: '40%', borderRadius: 2, background: 'var(--pop-blue)' }} />
         </div>

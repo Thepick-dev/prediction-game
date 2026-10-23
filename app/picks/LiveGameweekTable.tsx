@@ -6,6 +6,7 @@ import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
 import BotAvatar from '../../components/BotAvatar'
 import FitName from '../../components/FitName'
+import GhostVisibilityNotice, { useGhostVisibilityNotice } from '../../components/GhostVisibilityNotice'
 import { buildPlayerDisplayNames, bonusCardDisplayName } from '../lib/players'
 
 type Row = {
@@ -13,6 +14,7 @@ type Row = {
   name: string
   isBot: boolean
   isOwnRow: boolean
+  isGhost: boolean
   kit: { pattern: string; colour1: string; colour2: string; colour3: string | null } | null
   team: string
   teamId: number
@@ -108,6 +110,12 @@ export default function LiveGameweekTable({
   const [rows, setRows] = useState<Row[]>([])
   const [bonusCardName, setBonusCardName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  // Hidden from everyone but themselves by default — same reasoning and
+  // same shared notice as the Results/Leaderboard "show ghost players"
+  // toggle (see GhostVisibilityNotice.tsx): a ghost's backfilled total
+  // mixed into "who picked what" is misleading unless you opt in.
+  const [showGhosts, setShowGhosts] = useState(false)
+  const ghostVisibilityNotice = useGhostVisibilityNotice()
   const supabase = createClient()
 
   useEffect(() => {
@@ -140,7 +148,7 @@ export default function LiveGameweekTable({
       { data: seasonBonusCardData },
       { data: comp },
     ] = await Promise.all([
-      supabase.from('competition_entries').select('user_id').eq('competition_id', competitionId).eq('removed', false),
+      supabase.from('competition_entries').select('user_id, is_ghost').eq('competition_id', competitionId).eq('removed', false),
       supabase.from('picks').select('id, user_id, team_id, player1_id, player2_id, is_banker, is_autopick').eq('gameweek_id', gameweekId),
       supabase.from('profiles').select('id, display_name, kit_pattern, kit_colour_1, kit_colour_2, kit_colour_3, is_bot'),
       supabase.from('teams').select('id, name, short_name, short_code'),
@@ -154,6 +162,8 @@ export default function LiveGameweekTable({
     ])
 
     const activeUserIds = new Set((entries ?? []).map(e => e.user_id))
+    const isGhostByUser: Record<string, boolean> = {}
+    entries?.forEach(e => { isGhostByUser[e.user_id] = e.is_ghost ?? false })
     const profileMap: Record<string, { name: string; isBot: boolean; kit: Row['kit'] }> = {}
     profilesData?.forEach(p => {
       profileMap[p.id] = {
@@ -272,6 +282,7 @@ export default function LiveGameweekTable({
         name: profile?.name ?? 'Unknown',
         isBot: profile?.isBot ?? false,
         isOwnRow: pick.user_id === currentUserId,
+        isGhost: isGhostByUser[pick.user_id] ?? false,
         kit: profile?.kit ?? null,
         team: t ? (t.short_code ?? t.short_name ?? t.name) : '?',
         teamId: pick.team_id,
@@ -324,8 +335,14 @@ export default function LiveGameweekTable({
   }
 
   return (
+    <>
       <div ref={gridRef} className="rounded-2xl p-2 sm:p-2.5" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
         {rows.map((row, i) => {
+          // Rank numbers come from the FULL list (real players + ghosts),
+          // same reasoning as Results/Leaderboard — a ghost existing still
+          // counts toward everyone else's position even while hidden, so
+          // the numbering never shifts depending on the viewer's own toggle.
+          if (row.isGhost && !showGhosts && !row.isOwnRow) return null
           const rowBg = row.isOwnRow ? 'rgba(160,0,250,0.08)' : (i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined)
           return (
           <div
@@ -406,10 +423,12 @@ export default function LiveGameweekTable({
                   </span>
                   <PtsPill value={row.player2Points} doubled={row.isBanker} />
                 </div>
-                <div style={ITEM_GRID_STYLE}>
-                  <span className="min-w-0"><FitName baseSize={12} minSize={8} className="uppercase font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{bonusCardName ?? 'Bonus Card'}</FitName></span>
-                  <PtsPill value={row.bonusCard ? row.bonusCard.points : null} />
-                </div>
+                {row.bonusCard && (
+                  <div style={ITEM_GRID_STYLE}>
+                    <span className="min-w-0"><FitName baseSize={12} minSize={8} className="uppercase font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{bonusCardName ?? 'Bonus Card'}</FitName></span>
+                    <PtsPill value={row.bonusCard.points} />
+                  </div>
+                )}
                 <div style={{ ...ITEM_GRID_STYLE, marginTop: 2, paddingTop: 3, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                   <span className="uppercase font-black" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.03em' }}>This Week</span>
                   <PtsPill value={row.weeklyPoints} />
@@ -426,5 +445,23 @@ export default function LiveGameweekTable({
           )
         })}
       </div>
+      {rows.some(r => r.isGhost) && (
+        <button
+          type="button"
+          onClick={() => {
+            setShowGhosts(v => {
+              const next = !v
+              if (next) ghostVisibilityNotice.maybeShow()
+              return next
+            })
+          }}
+          className="font-bold uppercase tracking-wider mt-2 block"
+          style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}
+        >
+          👻 {showGhosts ? 'Hide' : 'Show'} ghost players
+        </button>
+      )}
+      <GhostVisibilityNotice visible={ghostVisibilityNotice.visible} onMinimise={ghostVisibilityNotice.minimise} onDismissForever={ghostVisibilityNotice.dismissForever} />
+    </>
   )
 }
