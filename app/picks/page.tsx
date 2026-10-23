@@ -12,6 +12,7 @@ import { useCountdown, type CountdownTime } from '../lib/useCountdown'
 import { usePopArtTheme } from '../lib/usePopArtTheme'
 import TicketModal from '../../components/TicketModal'
 import PopArtLoading from '../../components/PopArtLoading'
+import LoadingTransition from '../../components/LoadingTransition'
 import PenaltyShootout from '../../components/PenaltyShootout'
 import { BoltIcon } from '../../components/icons'
 import { QUARTILE_RING_COLORS } from '../lib/quartileColors'
@@ -1108,10 +1109,20 @@ export default function PicksPage() {
   // quartile badge, the bright fill on whichever team is selected), just
   // not as decoration on the row container itself.
 
+  // Same crossfade pattern now used on Results — see LoadingTransition.tsx
+  // and the comment on Results page.tsx's own loadingView const for the
+  // full reasoning (verified empirically: Shell and this component stay
+  // one persistent instance across all four of this page's return
+  // branches, since each puts LoadingTransition in the exact same
+  // position as Shell's direct child).
+  const loadingView = popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>
+
   if (loading) {
     return (
       <Shell active="PICKS" theme={popArt ? 'pop-art' : 'classic'}>
-        {popArt ? <PopArtLoading /> : <p className="text-gray-500">Loading...</p>}
+        <LoadingTransition loading={true} loadingView={loadingView}>
+          {null}
+        </LoadingTransition>
       </Shell>
     )
   }
@@ -1119,14 +1130,16 @@ export default function PicksPage() {
   if (!competition) {
     return (
       <Shell active="PICKS" theme={popArt ? 'pop-art' : 'classic'}>
-        {popArt ? (
-          <PopArtLoading label="No active competition" />
-        ) : (
-          <>
-            <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
-            <p className="text-gray-500">There is no active competition right now.</p>
-          </>
-        )}
+        <LoadingTransition loading={false} loadingView={loadingView}>
+          {popArt ? (
+            <PopArtLoading label="No active competition" />
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold mb-2">No Active Competition</h1>
+              <p className="text-gray-500">There is no active competition right now.</p>
+            </>
+          )}
+        </LoadingTransition>
       </Shell>
     )
   }
@@ -1181,6 +1194,7 @@ export default function PicksPage() {
           </div>
         )}
         <Shell active="PICKS" user={user} displayName={displayName} theme="pop-art">
+          <LoadingTransition loading={false} loadingView={loadingView}>
           {/* No wrapping "card" here on purpose — the page already sits on
               Shell's black background, and boxing all of this content in
               ANOTHER bordered panel was exactly the "box inside a box"
@@ -2026,6 +2040,7 @@ export default function PicksPage() {
               </>
             )}
           </div>
+          </LoadingTransition>
         </Shell>
       </>
     )
@@ -2034,6 +2049,7 @@ export default function PicksPage() {
   return (
     <>
       <Shell active="PICKS" user={user} displayName={displayName}>
+      <LoadingTransition loading={false} loadingView={loadingView}>
       <HeroPage wide>
         <div className="w-full text-[#F5ECD9]">
 
@@ -2633,6 +2649,7 @@ export default function PicksPage() {
         </div>,
         document.body
       )}
+      </LoadingTransition>
       </Shell>
     </>
   )

@@ -21,6 +21,7 @@ import PersonalSeasonShareCard from '../../components/PersonalSeasonShareCard'
 import { useSkin } from '../lib/useSkin'
 import { RULES_TEXT } from '../lib/rulesText'
 import PopArtLoading from '../../components/PopArtLoading'
+import LoadingTransition from '../../components/LoadingTransition'
 import { RetroWindow, RetroButton, RetroModal, pad } from '../../components/retro'
 import GhostVisibilityNotice, { useGhostVisibilityNotice } from '../../components/GhostVisibilityNotice'
 
@@ -932,10 +933,17 @@ export default function LeaderboardPage() {
     setSharingStandings(false)
   }
 
+  // Same crossfade pattern now used on Results/Picks — see
+  // LoadingTransition.tsx and the comment on Results page.tsx's own
+  // loadingView const for the full reasoning.
+  const loadingView = <PopArtLoading />
+
   if (loading) {
     return (
       <Shell active="LEADERBOARD" skin={skin}>
-        <PopArtLoading />
+        <LoadingTransition loading={true} loadingView={loadingView}>
+          {null}
+        </LoadingTransition>
       </Shell>
     )
   }
@@ -943,16 +951,18 @@ export default function LeaderboardPage() {
   if (!competition) {
     return (
       <Shell active="LEADERBOARD" skin={skin}>
-        {retro ? (
-          <RetroWindow title="No Active Competition">
-            <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16 }}>There is no active competition right now.</p>
-          </RetroWindow>
-        ) : (
-          <div className="pop-art-theme text-center py-12">
-            <p className="pop-headline text-2xl mb-2">No Active Competition</p>
-            <p style={{ color: 'rgba(255,255,255,0.5)' }}>There is no active competition right now.</p>
-          </div>
-        )}
+        <LoadingTransition loading={false} loadingView={loadingView}>
+          {retro ? (
+            <RetroWindow title="No Active Competition">
+              <p style={{ fontFamily: 'var(--font-retro-body)', fontSize: 16 }}>There is no active competition right now.</p>
+            </RetroWindow>
+          ) : (
+            <div className="pop-art-theme text-center py-12">
+              <p className="pop-headline text-2xl mb-2">No Active Competition</p>
+              <p style={{ color: 'rgba(255,255,255,0.5)' }}>There is no active competition right now.</p>
+            </div>
+          )}
+        </LoadingTransition>
       </Shell>
     )
   }
@@ -978,6 +988,7 @@ export default function LeaderboardPage() {
     return (
       <>
         <Shell active="LEADERBOARD" user={user} displayName={displayName} skin="retro">
+          <LoadingTransition loading={false} loadingView={loadingView}>
           <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
             <h1 style={{ fontFamily: 'var(--font-retro-display)', fontSize: 24, color: 'var(--retro-gold)', textShadow: 'var(--retro-px) var(--retro-px) 0 #000' }}>
               LEADERBOARD
@@ -1334,6 +1345,7 @@ export default function LeaderboardPage() {
               ))}
             </ol>
           </RetroWindow>
+          </LoadingTransition>
         </Shell>
 
         <GhostVisibilityNotice visible={ghostVisibilityNotice.visible} onMinimise={ghostVisibilityNotice.minimise} onDismissForever={ghostVisibilityNotice.dismissForever} />
@@ -1417,6 +1429,7 @@ export default function LeaderboardPage() {
     return (
       <>
         <Shell active="LEADERBOARD" user={user} displayName={displayName} skin="pop-art">
+          <LoadingTransition loading={false} loadingView={loadingView}>
           <div className="pop-art-theme">
 
             {/* Wraps exactly what gets captured for the shareable image —
@@ -2014,6 +2027,7 @@ export default function LeaderboardPage() {
             )}
 
           </div>
+          </LoadingTransition>
         </Shell>
 
         <GhostVisibilityNotice visible={ghostVisibilityNotice.visible} onMinimise={ghostVisibilityNotice.minimise} onDismissForever={ghostVisibilityNotice.dismissForever} />
