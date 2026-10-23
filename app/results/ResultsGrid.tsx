@@ -30,6 +30,12 @@ export type GridRow = {
   aon: { onPlayer1: boolean; onPlayer2: boolean; outcome: 'pending' | 'success' | 'failed' } | null
   bonusCard: { playerName: string; points: number | null } | null
   totalPoints: number | null
+  // Season-to-date total THROUGH this gameweek (not today's live total —
+  // viewing an old gameweek shows the standings as they stood then). This
+  // is what the big number on the right shows now; totalPoints (this
+  // gameweek alone) moved to its own "This Week" row instead — see the
+  // main component's own comment for why.
+  cumulativeTotal: number
   suspended: { reason: string; suspensionNumber: number } | null
 }
 
@@ -70,29 +76,38 @@ function AonPill({ outcome }: { outcome?: 'pending' | 'success' | 'failed' }) {
 // Bonus Card row specifically — simply not played that week), so a real
 // 0 (a team that lost, a player who didn't score) stays visually
 // distinct from "nothing happened here at all."
-function StatRow({ label, value, color, pill }: {
-  label: string; value: number | null; color: string; pill?: React.ReactNode
+function StatRow({ label, value, color, pill, bold }: {
+  label: string; value: number | null; color: string; pill?: React.ReactNode; bold?: boolean
 }) {
   return (
     <div className="flex items-center justify-between gap-2" style={{ lineHeight: 1.15 }}>
       <span className="min-w-0 flex-1 flex items-center gap-1.5">
-        <FitName baseSize={12} minSize={9} className="uppercase font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{label}</FitName>
+        <FitName
+          baseSize={11} minSize={9} className="uppercase font-bold"
+          style={{ color: bold ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.7)', letterSpacing: bold ? '0.03em' : undefined }}
+        >
+          {label}
+        </FitName>
         {pill}
       </span>
-      <span className="shrink-0 font-mono font-black" style={{ fontSize: '13px', color, fontVariantNumeric: 'tabular-nums' }}>
+      <span className="shrink-0 font-mono font-black" style={{ fontSize: '12px', color, fontVariantNumeric: 'tabular-nums' }}>
         {value ?? '—'}
       </span>
     </div>
   )
 }
 
-// Simple, by design: one card per entrant — a big shirt + name (the
-// headline, same treatment the Leaderboard gives its own name column),
-// then exactly the 4 facts that make up their score as a plain
-// label-then-points list, then the grand total standing on its own on
-// the right. No crests, no G/A badges, no six-column grid fighting for
-// width — everything on screen here was asked for explicitly, nothing
-// extra layered on top of it.
+// One card per entrant — a big shirt + name (the headline, same
+// treatment the Leaderboard gives its own name column), then exactly
+// the 4 facts that make up this gameweek's score as a plain
+// label-then-points list, PLUS a 5th "This Week" row summing them —
+// with the season-to-date grand total standing on its own, big, on the
+// right. Same two-tier shape as the Picks page's own live gameweek card
+// (LiveGameweekTable.tsx) — "what happened this week" on the left,
+// "where that leaves you overall" on the right — so the two pages read
+// as one system rather than two different ones that happen to share a
+// colour scheme. No crests, no G/A badges — everything on screen here
+// was asked for explicitly, nothing extra layered on top of it.
 export default function ResultsGrid({ competitionName, gameweekNumber, bonusCardName, showScoring, rows }: Props) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [sharing, setSharing] = useState(false)
@@ -132,20 +147,20 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
         {rows.map((row, i) => {
           const rowBg = row.suspended ? 'rgba(250,0,60,0.08)' : row.isWinner ? 'rgba(255,210,63,0.08)' : row.isOwnPick ? 'rgba(160,0,250,0.06)' : (i % 2 === 1 ? 'rgba(255,255,255,0.035)' : undefined)
           return (
-            <div key={row.userId} style={{ background: rowBg, padding: '8px 10px', borderRadius: 10 }}>
+            <div key={row.userId} style={{ background: rowBg, padding: '7px 10px', borderRadius: 10 }}>
               {/* Header — shirt + name, both big and striking; rank kept
                   small since it's useful but isn't what this ask wanted
                   leading the card. */}
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="shrink-0 font-black" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
-                {row.isBot ? <BotAvatar size={40} /> : (
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="shrink-0 font-black" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
+                {row.isBot ? <BotAvatar size={30} /> : (
                   <span className="shrink-0">
-                    <KitBadge pattern={row.kit?.pattern ?? 'solid'} colour1={row.kit?.colour1 ?? '#1E4D6B'} colour2={row.kit?.colour2 ?? '#F5ECD9'} colour3={row.kit?.colour3} size={40} />
+                    <KitBadge pattern={row.kit?.pattern ?? 'solid'} colour1={row.kit?.colour1 ?? '#1E4D6B'} colour2={row.kit?.colour2 ?? '#F5ECD9'} colour3={row.kit?.colour3} size={30} />
                   </span>
                 )}
                 <span className="min-w-0 flex-1">
                   <FitName
-                    baseSize={24} minSize={14} className="pop-name"
+                    baseSize={18} minSize={12} className="pop-name"
                     style={{
                       color: row.isOwnPick ? 'var(--pop-pink)' : '#fff',
                       textShadow: row.isOwnPick
@@ -155,12 +170,12 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                   >
                     {row.name}
                   </FitName>
-                  {row.isAutopick && <div className="normal-case font-bold" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>Autopick — deadline missed</div>}
+                  {row.isAutopick && <div className="normal-case font-bold" style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)' }}>Autopick — deadline missed</div>}
                 </span>
                 {row.isBanker && (
                   <span
                     className="shrink-0 inline-flex items-center justify-center rounded-full font-black"
-                    style={{ width: 24, height: 24, fontSize: '12px', background: 'var(--pop-orange)', color: '#fff' }}
+                    style={{ width: 20, height: 20, fontSize: '10px', background: 'var(--pop-orange)', color: '#fff' }}
                     title="Banker — double points this week"
                   >
                     ★
@@ -174,9 +189,9 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                   <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)' }}>{row.suspended.reason}</span>
                 </div>
               ) : (
-                <div className="flex items-center justify-between gap-4">
-                  {/* The 4 rows, left side */}
-                  <div className="min-w-0 flex-1" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div className="flex items-center justify-between gap-3">
+                  {/* The 5 rows, left side */}
+                  <div className="min-w-0 flex-1" style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <StatRow
                       label={row.opponentCode ? `${row.team} (vs ${row.opponentCode})` : row.team}
                       value={showScoring ? row.teamPoints ?? 0 : null}
@@ -199,12 +214,20 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                       value={row.bonusCard ? (showScoring ? row.bonusCard.points ?? 0 : null) : null}
                       color="var(--pop-yellow)"
                     />
+                    <div style={{ marginTop: 1, paddingTop: 2, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                      <StatRow
+                        label="This Week"
+                        value={showScoring ? row.totalPoints ?? 0 : null}
+                        color="rgba(255,255,255,0.6)"
+                        bold
+                      />
+                    </div>
                   </div>
 
-                  {/* Total, right side, big */}
+                  {/* Season total, right side, big */}
                   <div className="shrink-0 flex items-center">
-                    <span className="font-black font-mono" style={{ fontSize: '32px', color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                      {showScoring ? row.totalPoints ?? 0 : 'TBD'}
+                    <span className="font-black font-mono" style={{ fontSize: '28px', color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                      {row.cumulativeTotal}
                     </span>
                   </div>
                 </div>

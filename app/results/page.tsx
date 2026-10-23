@@ -131,6 +131,21 @@ export default function ResultsPage() {
   useEffect(() => { loadBase() }, [])
   useEffect(() => { if (selectedGw) loadPicksForGw(selectedGw) }, [selectedGw])
 
+  // A still-live (locked but not yet completed) gameweek keeps changing
+  // underneath whoever's looking at this — goals, assists, results — so
+  // it re-polls on its own instead of only ever refreshing on a manual
+  // page reload. Same pattern and interval as the Picks page's own live
+  // gameweek card (LiveGameweekTable.tsx). Stops once completed (nothing
+  // left to move) or while a future gameweek is selected (nothing to
+  // poll for yet — loadPicksForGw already short-circuits that case).
+  useEffect(() => {
+    if (!selectedGw) return
+    const gw = gameweeks.find(g => g.id === selectedGw)
+    if (!gw || gw.status === 'completed' || new Date() < new Date(gw.deadline)) return
+    const interval = setInterval(() => loadPicksForGw(selectedGw, true), 60000)
+    return () => clearInterval(interval)
+  }, [selectedGw, gameweeks])
+
   async function loadBase() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { window.location.href = '/login'; return }
@@ -252,8 +267,11 @@ export default function ResultsPage() {
     setLoading(false)
   }
 
-  async function loadPicksForGw(gwId: string) {
-    setLoadingPicks(true)
+  // `background` — same reasoning as LiveGameweekTable's identical param:
+  // a poll refresh should quietly swap the numbers in place, not flash
+  // the whole page's loading state away and back every minute.
+  async function loadPicksForGw(gwId: string, background = false) {
+    if (!background) setLoadingPicks(true)
     const gw = gameweeks.find(g => g.id === gwId)
 
     // A gameweek that isn't due yet: only ever fetch its fixtures (public
@@ -514,6 +532,7 @@ export default function ResultsPage() {
       aon: aon ? { onPlayer1: aon.player_id === pick.player1_id, onPlayer2: aon.player_id === pick.player2_id, outcome: aon.outcome as 'pending' | 'success' | 'failed' } : null,
       bonusCard: bonusCardPlay ? { playerName: playersBare[bonusCardPlay.player_id] ?? 'Unknown', points: bonusCardPlay.points } : null,
       totalPoints: pts?.total_points ?? null,
+      cumulativeTotal: seasonTotalByUser[pick.user_id] ?? 0,
       suspended: null,
     }
   })
@@ -548,6 +567,7 @@ export default function ResultsPage() {
       aon: null,
       bonusCard: null,
       totalPoints: 0,
+      cumulativeTotal: seasonTotalByUser[userId] ?? 0,
       suspended: { reason: s.reason, suspensionNumber: s.suspensionNumber },
     }))
 
