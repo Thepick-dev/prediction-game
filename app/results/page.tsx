@@ -626,7 +626,7 @@ export default function ResultsPage() {
     return (
       <>
       <Shell active="RESULTS" user={user} displayName={displayName} theme="pop-art">
-        <LoadingTransition loading={false} loadingView={loadingView}>
+        <LoadingTransition loading={loadingPicks} loadingView={loadingView}>
         <div className="pop-art-theme">
 
           <h1 className="pop-hero pop-hero--blue text-5xl sm:text-6xl mb-4 mt-2">Results {competition.name}</h1>
@@ -854,7 +854,7 @@ export default function ResultsPage() {
 
   return (
     <Shell active="RESULTS" user={user} displayName={displayName}>
-      <LoadingTransition loading={false} loadingView={loadingView}>
+      <LoadingTransition loading={loadingPicks} loadingView={loadingView}>
       <HeroPage wide>
         <div className="w-full text-[#F5ECD9]">
 
