@@ -1004,11 +1004,11 @@ export default function StatsHubPage() {
   }, [selectedWeekly, compareWeekly, compareUserId])
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'form', label: 'Form' },
     { id: 'teams', label: 'Teams' },
     { id: 'players', label: 'Players' },
     { id: 'me', label: 'Mgrs' },
     { id: 'trends', label: 'Trends' },
+    { id: 'form', label: 'Form' },
   ]
 
   if (loading) {
@@ -1427,6 +1427,57 @@ export default function StatsHubPage() {
 
           {tab === 'trends' && (
             <div>
+              {allRanksChartData.length > 1 && rankedUserMeta.length > 0 && (
+                <>
+                  <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>The Race</p>
+                  <ShareableCard filename="the-race-position-by-gameweek" className="pop-panel pop-panel--pink p-4 mb-4" style={{ height: Math.max(260, rankedUserMeta.length * 26) }}>
+                    <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                      Position by Gameweek
+                    </p>
+                    <ResponsiveContainer width="100%" height="88%">
+                      <LineChart data={allRanksChartData} margin={{ top: 4, right: 78, bottom: 0, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
+                        <XAxis dataKey="name" {...popAxisProps()} />
+                        <YAxis
+                          {...popAxisProps()}
+                          reversed
+                          allowDecimals={false}
+                          domain={[1, rankedUserMeta.length]}
+                          ticks={Array.from({ length: rankedUserMeta.length }, (_, i) => i + 1)}
+                          interval={0}
+                          width={24}
+                        />
+                        <Tooltip {...popTooltipStyle()} />
+                        {rankedUserMeta.map((u, i) => {
+                          const color = rankLineColour(i)
+                          return (
+                            <Line
+                              key={u.uid}
+                              type="monotone"
+                              dataKey={u.uid}
+                              name={u.name}
+                              stroke={color}
+                              strokeWidth={2}
+                              dot={false}
+                              activeDot={{ r: 3 }}
+                              isAnimationActive={false}
+                              label={(props: any) => {
+                                if (props.index !== allRanksChartData.length - 1) return null
+                                return (
+                                  <text x={props.x + 8} y={props.y} dy={3} fontSize={10} fontWeight={700} fill={color} textAnchor="start">
+                                    {u.name}
+                                  </text>
+                                )
+                              }}
+                            />
+                          )
+                        })}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </ShareableCard>
+                </>
+              )}
+
               <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>Banker</p>
               <ShareableCard filename="banker-stats" className="grid grid-cols-2 gap-3 mb-4">
                 <div className="pop-panel pop-panel--yellow p-3">
@@ -1475,57 +1526,6 @@ export default function StatsHubPage() {
                       <p className="text-[10px] uppercase tracking-wider font-black mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>Best Play</p>
                       <p className="text-base font-black" style={{ color: 'var(--pop-blue)' }}>{bestBonusCardPlay ? `${bestBonusCardPlay.name} — GW${bestBonusCardPlay.gw} (${bestBonusCardPlay.points})` : '—'}</p>
                     </div>
-                  </ShareableCard>
-                </>
-              )}
-
-              {allRanksChartData.length > 1 && rankedUserMeta.length > 0 && (
-                <>
-                  <p className="sec-label" style={{ color: 'rgba(255,255,255,0.6)' }}>The Race</p>
-                  <ShareableCard filename="the-race-position-by-gameweek" className="pop-panel pop-panel--pink p-4 mb-4" style={{ height: Math.max(260, rankedUserMeta.length * 26) }}>
-                    <p className="text-xs uppercase tracking-wider font-black mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                      Position by Gameweek
-                    </p>
-                    <ResponsiveContainer width="100%" height="88%">
-                      <LineChart data={allRanksChartData} margin={{ top: 4, right: 78, bottom: 0, left: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={POP_GRID} />
-                        <XAxis dataKey="name" {...popAxisProps()} />
-                        <YAxis
-                          {...popAxisProps()}
-                          reversed
-                          allowDecimals={false}
-                          domain={[1, rankedUserMeta.length]}
-                          ticks={Array.from({ length: rankedUserMeta.length }, (_, i) => i + 1)}
-                          interval={0}
-                          width={24}
-                        />
-                        <Tooltip {...popTooltipStyle()} />
-                        {rankedUserMeta.map((u, i) => {
-                          const color = rankLineColour(i)
-                          return (
-                            <Line
-                              key={u.uid}
-                              type="monotone"
-                              dataKey={u.uid}
-                              name={u.name}
-                              stroke={color}
-                              strokeWidth={2}
-                              dot={false}
-                              activeDot={{ r: 3 }}
-                              isAnimationActive={false}
-                              label={(props: any) => {
-                                if (props.index !== allRanksChartData.length - 1) return null
-                                return (
-                                  <text x={props.x + 8} y={props.y} dy={3} fontSize={10} fontWeight={700} fill={color} textAnchor="start">
-                                    {u.name}
-                                  </text>
-                                )
-                              }}
-                            />
-                          )
-                        })}
-                      </LineChart>
-                    </ResponsiveContainer>
                   </ShareableCard>
                 </>
               )}

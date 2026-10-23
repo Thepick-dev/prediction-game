@@ -1,8 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { createClient } from './supabase'
-import { resolvePopArtVariant, resolveLoadingAnimation, type PopArtVariant, type LoadingAnimation } from './useSkin'
+import {
+  resolvePopArtVariant,
+  resolveLoadingAnimation,
+  isLoadingAnimation,
+  readCachedLoadingAnimation,
+  writeCachedLoadingAnimation,
+  type PopArtVariant,
+  type LoadingAnimation,
+} from './useSkin'
 
 const VARIANT_PREVIEW_KEY = 'lms-admin-popart-variant-preview'
 const LOADING_ANIMATION_PREVIEW_KEY = 'lms-admin-loading-animation-preview'
@@ -27,7 +35,11 @@ const LOADING_ANIMATION_PREVIEW_KEY = 'lms-admin-loading-animation-preview'
 // only ever take effect on the three pages already migrated.
 export function usePopArtTheme(userId: string | undefined) {
   const [globalPopArtVariant, setGlobalPopArtVariant] = useState<PopArtVariant>('v1')
-  const [globalLoadingAnimation, setGlobalLoadingAnimation] = useState<LoadingAnimation>('float')
+  // Seeded from the cached last-known-good value, not hardcoded 'float' —
+  // see useSkin.ts's full explanation on its own identical useState. This
+  // hook is the one MOST pages actually use, so it's the more important
+  // of the two to get this right in.
+  const [globalLoadingAnimation, setGlobalLoadingAnimation] = useState<LoadingAnimation>(readCachedLoadingAnimation)
   const [isAdmin, setIsAdmin] = useState(false)
   const [variantPreview, setVariantPreviewState] = useState<PopArtVariant | null>(null)
   const [loadingAnimationPreview, setLoadingAnimationPreviewState] = useState<LoadingAnimation | null>(null)
@@ -58,8 +70,9 @@ export function usePopArtTheme(userId: string | undefined) {
         const { data } = await supabase.from('site_skin').select('loading_animation').eq('id', 'singleton').maybeSingle()
         if (cancelled) return
         const la = data?.loading_animation
-        if (la === 'float' || la === 'pixelate' || la === 'glitch' || la === 'assemble' || la === 'glow') {
+        if (isLoadingAnimation(la)) {
           setGlobalLoadingAnimation(la)
+          writeCachedLoadingAnimation(la)
         }
       } catch {}
     }
@@ -102,7 +115,10 @@ export function usePopArtTheme(userId: string | undefined) {
     return () => { delete document.documentElement.dataset.popArtVariant }
   }, [resolvedPopArtVariant])
 
-  useEffect(() => {
+  // useLayoutEffect — see useSkin.ts's identical comment: applies before
+  // paint, closing the race now that the initial value above is already
+  // correct from cache rather than hardcoded.
+  useLayoutEffect(() => {
     if (resolvedLoadingAnimation !== 'float') {
       document.documentElement.dataset.loadingAnimation = resolvedLoadingAnimation
     } else {

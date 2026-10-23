@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { createClient } from './supabase'
 
 export type Skin = 'pop-art' | 'retro'
@@ -13,6 +13,29 @@ export type LoadingAnimation = 'float' | 'pixelate' | 'glitch' | 'assemble' | 'g
 const PREVIEW_KEY = 'lms-admin-skin-preview'
 const VARIANT_PREVIEW_KEY = 'lms-admin-popart-variant-preview'
 const LOADING_ANIMATION_PREVIEW_KEY = 'lms-admin-loading-animation-preview'
+// Last-known-good value from the DB, cached so the VERY FIRST render can
+// use it — see the root-cause comment on globalLoadingAnimation's
+// useState below for why this exists.
+const LOADING_ANIMATION_CACHE_KEY = 'lms-loading-animation-cache'
+
+// Exported — usePopArtTheme.ts (the hook most pages actually use) needs
+// the exact same cache read/write, not a second hand-copied version that
+// could drift from this one.
+export function isLoadingAnimation(v: unknown): v is LoadingAnimation {
+  return v === 'float' || v === 'pixelate' || v === 'glitch' || v === 'assemble' || v === 'glow'
+}
+
+export function readCachedLoadingAnimation(): LoadingAnimation {
+  try {
+    const cached = localStorage.getItem(LOADING_ANIMATION_CACHE_KEY)
+    if (isLoadingAnimation(cached)) return cached
+  } catch {}
+  return 'float'
+}
+
+export function writeCachedLoadingAnimation(value: LoadingAnimation) {
+  try { localStorage.setItem(LOADING_ANIMATION_CACHE_KEY, value) } catch {}
+}
 
 // Pulled out as a plain function (see __tests__/useSkin.test.ts) so the
 // actual decision logic has real unit coverage without needing a
@@ -49,7 +72,24 @@ export function useSkin(userId: string | undefined) {
   // nobody flashes the wrong skin for the vast majority of page loads.
   const [globalSkin, setGlobalSkin] = useState<Skin>('pop-art')
   const [globalPopArtVariant, setGlobalPopArtVariant] = useState<PopArtVariant>('v1')
-  const [globalLoadingAnimation, setGlobalLoadingAnimation] = useState<LoadingAnimation>('float')
+  // Root cause of the Futzy loading animation often "not working" or
+  // visibly jumping mid-flight: this used to hardcode 'float' and only
+  // learn the real value from an async DB fetch below. The mascot's own
+  // entrance starts the instant its two images finish loading — which,
+  // once logo.png/mascot-cap-photo.png are browser-cached (true for
+  // almost every page view after the first), happens FASTER than the
+  // Supabase round-trip. So the animation would start under the default
+  // float rules, then the attribute would flip mid-animation once the
+  // fetch resolved — a visible restart/jump, or no visible change at all
+  // if the page's own content finished loading first and unmounted the
+  // screen before the fetch caught up. Seeding this from a cached
+  // last-known-good value (written below every time the fetch succeeds)
+  // means a returning visitor's very first render already has the right
+  // answer, synchronously, before the mascot ever appears — only a
+  // genuinely first-ever visit (nothing cached yet) still has the brief
+  // old race, which is a one-time, acceptable edge case rather than
+  // "most of the time."
+  const [globalLoadingAnimation, setGlobalLoadingAnimation] = useState<LoadingAnimation>(readCachedLoadingAnimation)
   const [isAdmin, setIsAdmin] = useState(false)
   const [preview, setPreviewState] = useState<Skin | null>(null)
   const [variantPreview, setVariantPreviewState] = useState<PopArtVariant | null>(null)
@@ -91,8 +131,9 @@ export function useSkin(userId: string | undefined) {
         const { data } = await supabase.from('site_skin').select('loading_animation').eq('id', 'singleton').maybeSingle()
         if (cancelled) return
         const la = data?.loading_animation
-        if (la === 'float' || la === 'pixelate' || la === 'glitch' || la === 'assemble' || la === 'glow') {
+        if (isLoadingAnimation(la)) {
           setGlobalLoadingAnimation(la)
+          writeCachedLoadingAnimation(la)
         }
       } catch {
         // Migration not run yet, or a network hiccup — keep the default.
@@ -175,8 +216,13 @@ export function useSkin(userId: string | undefined) {
   // Same mechanism again — 'float' is the default/fallback baked directly
   // into .pop-logo-flash-in's own base rule, so (like v1 above) it's
   // simply not set as an attribute at all rather than needing its own
-  // [data-loading-animation="float"] CSS block.
-  useEffect(() => {
+  // [data-loading-animation="float"] CSS block. useLayoutEffect, not
+  // useEffect — applies the attribute synchronously before the browser
+  // paints, the last part of closing the race described on
+  // globalLoadingAnimation's useState above: the cached initial value is
+  // already correct on first render, so this just needs to not be the
+  // one part of the chain that's deferred to after paint.
+  useLayoutEffect(() => {
     if (resolvedLoadingAnimation !== 'float') {
       document.documentElement.dataset.loadingAnimation = resolvedLoadingAnimation
     } else {
