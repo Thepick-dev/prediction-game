@@ -17,6 +17,7 @@ type Row = {
   kit: { pattern: string; colour1: string; colour2: string; colour3: string | null } | null
   team: string
   teamId: number
+  opponentCode: string | null
   teamPoints: number | null
   isBanker: boolean
   isAutopick: boolean
@@ -24,10 +25,12 @@ type Row = {
   player1Points: number | null
   player1Goals: number
   player1Assists: number
+  player1Fixture: { team: string; opponent: string } | null
   player2Name: string
   player2Points: number | null
   player2Goals: number
   player2Assists: number
+  player2Fixture: { team: string; opponent: string } | null
   aon: { onPlayer1: boolean; onPlayer2: boolean; outcome: 'pending' | 'success' | 'failed' } | null
   bonusCard: { playerName: string; points: number | null } | null
   weeklyPoints: number | null
@@ -52,10 +55,23 @@ function AonPill({ outcome }: { outcome?: 'pending' | 'success' | 'failed' }) {
   return (
     <span
       className="shrink-0 rounded-full font-black uppercase"
-      style={{ fontSize: '8px', padding: '2px 6px', background: bg, color: fg, letterSpacing: '0.03em' }}
+      style={{ fontSize: '7px', padding: '1px 5px', background: bg, color: fg, letterSpacing: '0.03em' }}
       title={`All or Nothing — ${outcome === 'pending' ? 'played, result not known yet' : outcome}`}
     >
       AON
+    </span>
+  )
+}
+
+// Appended after a player's name — their own team's fixture this
+// gameweek, abbreviated, with their own team kept at full brightness and
+// the opponent dimmed, so it's clear at a glance which side of the "vs"
+// is actually theirs.
+function PlayerFixture({ team, opponent }: { team: string; opponent: string }) {
+  return (
+    <span style={{ fontWeight: 900 }}>
+      {' ('}{team}
+      <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>{' vs '}{opponent}{')'}</span>
     </span>
   )
 }
@@ -67,20 +83,20 @@ function AonPill({ outcome }: { outcome?: 'pending' | 'success' | 'failed' }) {
 // ResultsGrid's StatRow, same reason: no crests, no G/A badges, nothing
 // layered on top of exactly what was asked for.
 function StatRow({ label, value, color, pill, bold }: {
-  label: string; value: number | null; color: string; pill?: React.ReactNode; bold?: boolean
+  label: React.ReactNode; value: number | null; color: string; pill?: React.ReactNode; bold?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between gap-2" style={{ lineHeight: 1.15 }}>
+    <div className="flex items-center justify-between gap-2" style={{ lineHeight: 1.1 }}>
       <span className="min-w-0 flex-1 flex items-center gap-1.5">
         <FitName
-          baseSize={11} minSize={9} className="uppercase font-bold"
+          baseSize={10} minSize={8} className="uppercase font-bold"
           style={{ color: bold ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.7)', letterSpacing: bold ? '0.03em' : undefined }}
         >
           {label}
         </FitName>
         {pill}
       </span>
-      <span className="shrink-0 font-mono font-black" style={{ fontSize: '12px', color, fontVariantNumeric: 'tabular-nums' }}>
+      <span className="shrink-0 font-mono font-black" style={{ fontSize: '11px', color, fontVariantNumeric: 'tabular-nums' }}>
         {value ?? '—'}
       </span>
     </div>
@@ -154,7 +170,7 @@ export default function LiveGameweekTable({
       supabase.from('teams').select('id, name, short_name, short_code'),
       supabase.from('players').select('id, name, web_name, team_id'),
       supabase.from('points').select('pick_id, user_id, total_points, team_points, player1_points, player2_points, breakdown').eq('competition_id', competitionId),
-      supabase.from('fixtures').select('id').eq('gameweek_id', gameweekId),
+      supabase.from('fixtures').select('id, home_team_id, away_team_id').eq('gameweek_id', gameweekId),
       supabase.from('all_or_nothing_picks').select('user_id, player_id, outcome').eq('gameweek_id', gameweekId),
       supabase.from('bonus_card_plays').select('user_id, player_id, points').eq('gameweek_id', gameweekId),
       supabase.from('bonus_card_plays').select('user_id, points').eq('competition_id', competitionId),
@@ -175,6 +191,30 @@ export default function LiveGameweekTable({
 
     const teamMap: Record<number, { name: string; short_name: string | null; short_code: string | null }> = {}
     teamsData?.forEach(t => { teamMap[t.id] = t })
+    function shortCode(teamId: number | undefined): string | null {
+      const t = teamId != null ? teamMap[teamId] : undefined
+      return t ? (t.short_code ?? t.short_name ?? t.name) : null
+    }
+
+    // Which team each team plays this gameweek — same "whichever fixture
+    // appears last on a double gameweek" simplification already accepted
+    // for the picked team's own opponent below, now also used to show
+    // each individually-chosen player's own fixture (they aren't
+    // necessarily from the picked team at all).
+    const opponentByTeamId: Record<number, number> = {}
+    fixturesData?.forEach(f => {
+      opponentByTeamId[f.home_team_id] = f.away_team_id
+      opponentByTeamId[f.away_team_id] = f.home_team_id
+    })
+    const teamIdByPlayerId: Record<number, number> = {}
+    playersData?.forEach(p => { teamIdByPlayerId[p.id] = p.team_id })
+    function fixtureForPlayer(playerId: number): { team: string; opponent: string } | null {
+      const teamId = teamIdByPlayerId[playerId]
+      const oppId = teamId != null ? opponentByTeamId[teamId] : undefined
+      const team = shortCode(teamId)
+      const opponent = shortCode(oppId)
+      return team && opponent ? { team, opponent } : null
+    }
 
     const playerMap = buildPlayerDisplayNames(playersData ?? [], {})
 
@@ -286,6 +326,7 @@ export default function LiveGameweekTable({
         kit: profile?.kit ?? null,
         team: t ? (t.short_code ?? t.short_name ?? t.name) : '?',
         teamId: pick.team_id,
+        opponentCode: shortCode(opponentByTeamId[pick.team_id]),
         teamPoints: pts?.team_points ?? null,
         isBanker: pick.is_banker,
         isAutopick: !!pick.is_autopick,
@@ -293,10 +334,12 @@ export default function LiveGameweekTable({
         player1Points: pts?.player1_points ?? null,
         player1Goals: goalCountByPlayer[pick.player1_id] ?? 0,
         player1Assists: assistCountByPlayer[pick.player1_id] ?? 0,
+        player1Fixture: fixtureForPlayer(pick.player1_id),
         player2Name: playerMap[pick.player2_id] ?? 'Unknown',
         player2Points: pts?.player2_points ?? null,
         player2Goals: goalCountByPlayer[pick.player2_id] ?? 0,
         player2Assists: assistCountByPlayer[pick.player2_id] ?? 0,
+        player2Fixture: fixtureForPlayer(pick.player2_id),
         aon: aon ? { onPlayer1: aon.player_id === pick.player1_id, onPlayer2: aon.player_id === pick.player2_id, outcome: aonOutcome ?? 'pending' } : null,
         bonusCard: bonusCardPlay ? { playerName: playerMap[bonusCardPlay.player_id] ?? 'Unknown', points: bonusCardPoints } : null,
         weeklyPoints: pts?.total_points != null ? pts.total_points + (bonusCardPoints ?? 0) : null,
@@ -343,8 +386,8 @@ export default function LiveGameweekTable({
 
   return (
     <>
-      <div ref={gridRef} className="pop-panel" style={{ overflow: 'hidden', padding: '16px 10px' }}>
-        <p className="font-black uppercase mb-3" style={{ fontSize: '12px', letterSpacing: '0.04em', color: final ? 'var(--pop-green)' : live ? '#FA6100' : 'rgba(255,255,255,0.4)' }}>
+      <div ref={gridRef} className="pop-panel" style={{ overflow: 'hidden', padding: '10px 8px' }}>
+        <p className="font-black uppercase mb-2" style={{ fontSize: '11px', letterSpacing: '0.04em', color: final ? 'var(--pop-green)' : live ? '#FA6100' : 'rgba(255,255,255,0.4)' }}>
           {final ? '✅ Final Result' : live ? '🔴 Live — scores updating' : '🔒 Picks locked in'}
         </p>
 
@@ -356,30 +399,30 @@ export default function LiveGameweekTable({
           if (row.isGhost && !showGhosts && !row.isOwnRow) return null
           const rowBg = row.isOwnRow ? 'rgba(160,0,250,0.06)' : (i % 2 === 1 ? 'rgba(255,255,255,0.035)' : undefined)
           return (
-          <div key={row.userId} style={{ background: rowBg, padding: '7px 10px', borderRadius: 10 }}>
+          <div key={row.userId} style={{ background: rowBg, padding: '5px 8px', borderRadius: 9 }}>
             {/* Header — shirt + name, both big and striking, same
                 treatment as the Leaderboard and the Results cards. Rank
                 and gameweek movement stay small since they're secondary
                 to "whose row is this." */}
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className="shrink-0 font-black" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="shrink-0 font-black" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
               {row.movement !== 0 && (
                 <span
                   className="font-mono font-black shrink-0 inline-flex items-center"
-                  style={{ fontSize: '9px', color: row.movement > 0 ? 'var(--pop-green)' : 'var(--pop-red)' }}
+                  style={{ fontSize: '8px', color: row.movement > 0 ? 'var(--pop-green)' : 'var(--pop-red)' }}
                   title={row.movement > 0 ? `Up ${row.movement} place${row.movement === 1 ? '' : 's'} this gameweek` : `Down ${Math.abs(row.movement)} place${Math.abs(row.movement) === 1 ? '' : 's'} this gameweek`}
                 >
                   {row.movement > 0 ? '▲' : '▼'}{Math.abs(row.movement)}
                 </span>
               )}
-              {row.isBot ? <BotAvatar size={30} /> : (
+              {row.isBot ? <BotAvatar size={26} /> : (
                 <span className="shrink-0">
-                  <KitBadge pattern={row.kit?.pattern ?? 'solid'} colour1={row.kit?.colour1 ?? '#1E4D6B'} colour2={row.kit?.colour2 ?? '#F5ECD9'} colour3={row.kit?.colour3} size={30} />
+                  <KitBadge pattern={row.kit?.pattern ?? 'solid'} colour1={row.kit?.colour1 ?? '#1E4D6B'} colour2={row.kit?.colour2 ?? '#F5ECD9'} colour3={row.kit?.colour3} size={26} />
                 </span>
               )}
               <span className="min-w-0 flex-1">
                 <FitName
-                  baseSize={18} minSize={12} className="pop-name"
+                  baseSize={16} minSize={11} className="pop-name"
                   style={{
                     color: row.isOwnRow ? 'var(--pop-pink)' : '#fff',
                     textShadow: row.isOwnRow
@@ -389,12 +432,12 @@ export default function LiveGameweekTable({
                 >
                   {row.name}
                 </FitName>
-                {row.isAutopick && <div className="normal-case font-bold" style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)' }}>Autopick — deadline missed</div>}
+                {row.isAutopick && <div className="normal-case font-bold" style={{ fontSize: '7px', color: 'rgba(255,255,255,0.4)' }}>Autopick — deadline missed</div>}
               </span>
               {row.isBanker && (
                 <span
                   className="shrink-0 inline-flex items-center justify-center rounded-full font-black"
-                  style={{ width: 20, height: 20, fontSize: '10px', background: 'var(--pop-orange)', color: '#fff' }}
+                  style={{ width: 18, height: 18, fontSize: '9px', background: 'var(--pop-orange)', color: '#fff' }}
                   title="Banker — team and both players doubled this week"
                 >
                   ★
@@ -405,15 +448,19 @@ export default function LiveGameweekTable({
             {/* The rows, left side; grand total standing alone, big, right */}
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1" style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <StatRow label={row.team} value={row.teamPoints} color="var(--pop-blue)" />
                 <StatRow
-                  label={row.player1Name}
+                  label={<>{row.team}{row.opponentCode && <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>{' (vs '}{row.opponentCode}{')'}</span>}</>}
+                  value={row.teamPoints}
+                  color="var(--pop-blue)"
+                />
+                <StatRow
+                  label={<>{row.player1Name}{row.player1Fixture && <PlayerFixture team={row.player1Fixture.team} opponent={row.player1Fixture.opponent} />}</>}
                   value={row.player1Points}
                   color="var(--pop-yellow)"
                   pill={row.aon?.onPlayer1 ? <AonPill outcome={row.aon.outcome} /> : undefined}
                 />
                 <StatRow
-                  label={row.player2Name}
+                  label={<>{row.player2Name}{row.player2Fixture && <PlayerFixture team={row.player2Fixture.team} opponent={row.player2Fixture.opponent} />}</>}
                   value={row.player2Points}
                   color="var(--pop-yellow)"
                   pill={row.aon?.onPlayer2 ? <AonPill outcome={row.aon.outcome} /> : undefined}
@@ -421,13 +468,13 @@ export default function LiveGameweekTable({
                 {row.bonusCard && (
                   <StatRow label={bonusCardName ?? 'Bonus Card'} value={row.bonusCard.points} color="var(--pop-yellow)" />
                 )}
-                <div style={{ marginTop: 1, paddingTop: 2, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ marginTop: 1, paddingTop: 1, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                   <StatRow label="This Week" value={row.weeklyPoints} color="rgba(255,255,255,0.6)" bold />
                 </div>
               </div>
 
               <div className="shrink-0 flex items-center">
-                <span className="font-black font-mono" style={{ fontSize: '28px', color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                <span className="font-black font-mono" style={{ fontSize: '24px', color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
                   {row.cumulativeTotal}
                 </span>
               </div>
@@ -436,15 +483,15 @@ export default function LiveGameweekTable({
           )
         })}
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-3" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>
           <span className="inline-flex items-center gap-1">
-            <span className="inline-flex items-center justify-center rounded-full font-black" style={{ width: 13, height: 13, fontSize: '9px', background: 'var(--pop-orange)', color: '#fff' }}>★</span>
+            <span className="inline-flex items-center justify-center rounded-full font-black" style={{ width: 12, height: 12, fontSize: '8px', background: 'var(--pop-orange)', color: '#fff' }}>★</span>
             Banker
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>AON</span>
-            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'var(--pop-red)', color: '#fff' }}>AON</span>
-            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.75)' }}>AON</span>
+            <span className="rounded-full font-black uppercase" style={{ fontSize: '7px', padding: '2px 5px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>AON</span>
+            <span className="rounded-full font-black uppercase" style={{ fontSize: '7px', padding: '2px 5px', background: 'var(--pop-red)', color: '#fff' }}>AON</span>
+            <span className="rounded-full font-black uppercase" style={{ fontSize: '7px', padding: '2px 5px', background: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.75)' }}>AON</span>
             All or Nothing — green/grey/red = succeeded/pending/failed
           </span>
         </div>

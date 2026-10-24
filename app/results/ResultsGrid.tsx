@@ -23,10 +23,12 @@ export type GridRow = {
   player1Points: number | null
   player1Goal: boolean
   player1Assist: boolean
+  player1Fixture: { team: string; opponent: string } | null
   player2Name: string
   player2Points: number | null
   player2Goal: boolean
   player2Assist: boolean
+  player2Fixture: { team: string; opponent: string } | null
   aon: { onPlayer1: boolean; onPlayer2: boolean; outcome: 'pending' | 'success' | 'failed' } | null
   bonusCard: { playerName: string; points: number | null } | null
   totalPoints: number | null
@@ -63,10 +65,24 @@ function AonPill({ outcome }: { outcome?: 'pending' | 'success' | 'failed' }) {
   return (
     <span
       className="shrink-0 rounded-full font-black uppercase"
-      style={{ fontSize: '8px', padding: '2px 6px', background: bg, color: fg, letterSpacing: '0.03em' }}
+      style={{ fontSize: '7px', padding: '1px 5px', background: bg, color: fg, letterSpacing: '0.03em' }}
       title={`All or Nothing — ${outcome === 'pending' ? 'played, result not known yet' : outcome}`}
     >
       AON
+    </span>
+  )
+}
+
+// Appended after a player's name — their own team's fixture this
+// gameweek, abbreviated, with their own team kept at full brightness and
+// the opponent dimmed, so it's clear at a glance which side of the "vs"
+// is actually theirs. A player isn't necessarily on the picked team, so
+// this is genuinely new information, not a repeat of the team row above it.
+function PlayerFixture({ team, opponent }: { team: string; opponent: string }) {
+  return (
+    <span style={{ fontWeight: 900 }}>
+      {' ('}{team}
+      <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>{' vs '}{opponent}{')'}</span>
     </span>
   )
 }
@@ -77,20 +93,20 @@ function AonPill({ outcome }: { outcome?: 'pending' | 'success' | 'failed' }) {
 // 0 (a team that lost, a player who didn't score) stays visually
 // distinct from "nothing happened here at all."
 function StatRow({ label, value, color, pill, bold }: {
-  label: string; value: number | null; color: string; pill?: React.ReactNode; bold?: boolean
+  label: React.ReactNode; value: number | null; color: string; pill?: React.ReactNode; bold?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between gap-2" style={{ lineHeight: 1.15 }}>
+    <div className="flex items-center justify-between gap-2" style={{ lineHeight: 1.1 }}>
       <span className="min-w-0 flex-1 flex items-center gap-1.5">
         <FitName
-          baseSize={11} minSize={9} className="uppercase font-bold"
+          baseSize={10} minSize={8} className="uppercase font-bold"
           style={{ color: bold ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.7)', letterSpacing: bold ? '0.03em' : undefined }}
         >
           {label}
         </FitName>
         {pill}
       </span>
-      <span className="shrink-0 font-mono font-black" style={{ fontSize: '12px', color, fontVariantNumeric: 'tabular-nums' }}>
+      <span className="shrink-0 font-mono font-black" style={{ fontSize: '11px', color, fontVariantNumeric: 'tabular-nums' }}>
         {value ?? '—'}
       </span>
     </div>
@@ -135,32 +151,32 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
 
   return (
     <div className="mb-4">
-      <div ref={cardRef} className="pop-panel" style={{ overflow: 'hidden', padding: '16px 10px' }}>
-        <p className="font-black uppercase" style={{ fontSize: '13px', letterSpacing: '0.04em', color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>
+      <div ref={cardRef} className="pop-panel" style={{ overflow: 'hidden', padding: '10px 8px' }}>
+        <p className="font-black uppercase" style={{ fontSize: '12px', letterSpacing: '0.04em', color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>
           {competitionName} — GW{gameweekNumber}
         </p>
 
-        <p className="font-black uppercase mb-3" style={{ fontSize: '12px', letterSpacing: '0.04em', color: final ? 'var(--pop-green)' : live ? '#FA6100' : 'rgba(255,255,255,0.4)' }}>
+        <p className="font-black uppercase mb-2" style={{ fontSize: '11px', letterSpacing: '0.04em', color: final ? 'var(--pop-green)' : live ? '#FA6100' : 'rgba(255,255,255,0.4)' }}>
           {final ? '✅ Final Result' : live ? '🔴 Live — scores updating' : '🔒 Picks locked in'}
         </p>
 
         {rows.map((row, i) => {
           const rowBg = row.suspended ? 'rgba(250,0,60,0.08)' : row.isWinner ? 'rgba(255,210,63,0.08)' : row.isOwnPick ? 'rgba(160,0,250,0.06)' : (i % 2 === 1 ? 'rgba(255,255,255,0.035)' : undefined)
           return (
-            <div key={row.userId} style={{ background: rowBg, padding: '7px 10px', borderRadius: 10 }}>
+            <div key={row.userId} style={{ background: rowBg, padding: '5px 8px', borderRadius: 9 }}>
               {/* Header — shirt + name, both big and striking; rank kept
                   small since it's useful but isn't what this ask wanted
                   leading the card. */}
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="shrink-0 font-black" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
-                {row.isBot ? <BotAvatar size={30} /> : (
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="shrink-0 font-black" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
+                {row.isBot ? <BotAvatar size={26} /> : (
                   <span className="shrink-0">
-                    <KitBadge pattern={row.kit?.pattern ?? 'solid'} colour1={row.kit?.colour1 ?? '#1E4D6B'} colour2={row.kit?.colour2 ?? '#F5ECD9'} colour3={row.kit?.colour3} size={30} />
+                    <KitBadge pattern={row.kit?.pattern ?? 'solid'} colour1={row.kit?.colour1 ?? '#1E4D6B'} colour2={row.kit?.colour2 ?? '#F5ECD9'} colour3={row.kit?.colour3} size={26} />
                   </span>
                 )}
                 <span className="min-w-0 flex-1">
                   <FitName
-                    baseSize={18} minSize={12} className="pop-name"
+                    baseSize={16} minSize={11} className="pop-name"
                     style={{
                       color: row.isOwnPick ? 'var(--pop-pink)' : '#fff',
                       textShadow: row.isOwnPick
@@ -170,12 +186,12 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                   >
                     {row.name}
                   </FitName>
-                  {row.isAutopick && <div className="normal-case font-bold" style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)' }}>Autopick — deadline missed</div>}
+                  {row.isAutopick && <div className="normal-case font-bold" style={{ fontSize: '7px', color: 'rgba(255,255,255,0.4)' }}>Autopick — deadline missed</div>}
                 </span>
                 {row.isBanker && (
                   <span
                     className="shrink-0 inline-flex items-center justify-center rounded-full font-black"
-                    style={{ width: 20, height: 20, fontSize: '10px', background: 'var(--pop-orange)', color: '#fff' }}
+                    style={{ width: 18, height: 18, fontSize: '9px', background: 'var(--pop-orange)', color: '#fff' }}
                     title="Banker — double points this week"
                   >
                     ★
@@ -193,18 +209,18 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                   {/* The 5 rows, left side */}
                   <div className="min-w-0 flex-1" style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <StatRow
-                      label={row.opponentCode ? `${row.team} (vs ${row.opponentCode})` : row.team}
+                      label={<>{row.team}{row.opponentCode && <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>{' (vs '}{row.opponentCode}{')'}</span>}</>}
                       value={showScoring ? row.teamPoints ?? 0 : null}
                       color="var(--pop-blue)"
                     />
                     <StatRow
-                      label={row.player1Name}
+                      label={<>{row.player1Name}{row.player1Fixture && <PlayerFixture team={row.player1Fixture.team} opponent={row.player1Fixture.opponent} />}</>}
                       value={showScoring ? row.player1Points ?? 0 : null}
                       color="var(--pop-yellow)"
                       pill={<AonPill outcome={row.aon?.onPlayer1 ? row.aon.outcome : undefined} />}
                     />
                     <StatRow
-                      label={row.player2Name}
+                      label={<>{row.player2Name}{row.player2Fixture && <PlayerFixture team={row.player2Fixture.team} opponent={row.player2Fixture.opponent} />}</>}
                       value={showScoring ? row.player2Points ?? 0 : null}
                       color="var(--pop-yellow)"
                       pill={<AonPill outcome={row.aon?.onPlayer2 ? row.aon.outcome : undefined} />}
@@ -214,7 +230,7 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
                       value={row.bonusCard ? (showScoring ? row.bonusCard.points ?? 0 : null) : null}
                       color="var(--pop-yellow)"
                     />
-                    <div style={{ marginTop: 1, paddingTop: 2, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ marginTop: 1, paddingTop: 1, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                       <StatRow
                         label="This Week"
                         value={showScoring ? row.totalPoints ?? 0 : null}
@@ -226,7 +242,7 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
 
                   {/* Season total, right side, big */}
                   <div className="shrink-0 flex items-center">
-                    <span className="font-black font-mono" style={{ fontSize: '28px', color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                    <span className="font-black font-mono" style={{ fontSize: '24px', color: 'var(--pop-green)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
                       {row.cumulativeTotal}
                     </span>
                   </div>
@@ -236,15 +252,15 @@ export default function ResultsGrid({ competitionName, gameweekNumber, bonusCard
           )
         })}
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-3" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>
           <span className="inline-flex items-center gap-1">
-            <span className="inline-flex items-center justify-center rounded-full font-black" style={{ width: 13, height: 13, fontSize: '9px', background: 'var(--pop-orange)', color: '#fff' }}>★</span>
+            <span className="inline-flex items-center justify-center rounded-full font-black" style={{ width: 12, height: 12, fontSize: '8px', background: 'var(--pop-orange)', color: '#fff' }}>★</span>
             Banker
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>AON</span>
-            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'var(--pop-red)', color: '#fff' }}>AON</span>
-            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.75)' }}>AON</span>
+            <span className="rounded-full font-black uppercase" style={{ fontSize: '7px', padding: '2px 5px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>AON</span>
+            <span className="rounded-full font-black uppercase" style={{ fontSize: '7px', padding: '2px 5px', background: 'var(--pop-red)', color: '#fff' }}>AON</span>
+            <span className="rounded-full font-black uppercase" style={{ fontSize: '7px', padding: '2px 5px', background: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.75)' }}>AON</span>
             All or Nothing — green/grey/red = succeeded/pending/failed
           </span>
         </div>

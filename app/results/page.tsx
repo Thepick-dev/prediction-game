@@ -116,9 +116,14 @@ export default function ResultsPage() {
   const [teams, setTeams] = useState<Record<number, Team>>({})
   const [players, setPlayers] = useState<Record<number, string>>({})
   // Bare names (no club-code suffix) for the results grid specifically —
-  // the grid already shows the picked team once, so repeating each
-  // player's own club code was redundant clutter.
+  // a player's own fixture now renders as its own highlighted tag next to
+  // their name (see ResultsGrid's PlayerFixture), so a plain inline club
+  // code here would just be the same fact said twice.
   const [playersBare, setPlayersBare] = useState<Record<number, string>>({})
+  // A player isn't necessarily on the picked team — the pick form lets
+  // player1/player2 come from any club — so each one needs its own
+  // fixture, not just the picked team's.
+  const [playerTeamId, setPlayerTeamId] = useState<Record<number, number>>({})
   const [loading, setLoading] = useState(true)
   const [loadingPicks, setLoadingPicks] = useState(false)
   const [fixtures, setFixtures] = useState<FixtureRow[]>([])
@@ -236,9 +241,13 @@ export default function ResultsPage() {
     setIsBotByUser(isBotMap)
     setIsGhostByUser(isGhostMap)
     setKitByUser(kitMap)
+    const playerTeamMap: Record<number, number> = {}
+    playersData?.forEach(p => { playerTeamMap[p.id] = p.team_id })
+
     setTeams(teamMap)
     setPlayers(playerMap)
     setPlayersBare(playerBareMap)
+    setPlayerTeamId(playerTeamMap)
     setBonusCardName(bonusCardDisplayName(comp.bonus_card_name, comp.bonus_card_player_id != null ? playerMap[comp.bonus_card_player_id] : null))
     setGameweeks(gws ?? [])
 
@@ -501,6 +510,21 @@ export default function ResultsPage() {
     opponentByTeamId[f.home_team_id] = f.away_team_id
     opponentByTeamId[f.away_team_id] = f.home_team_id
   })
+  function shortCode(teamId: number | null | undefined): string | null {
+    const t = teamId != null ? teams[teamId] : undefined
+    return t ? (t.short_code ?? t.short_name ?? t.name) : null
+  }
+  // A player isn't necessarily on the picked team, so this resolves each
+  // one's OWN club's fixture — same "whichever fixture appears last on a
+  // double gameweek" simplification already accepted for opponentByTeamId
+  // above, not the frozen team_detail precision the picked team itself
+  // gets, since there's no equivalent frozen breakdown for a player's club.
+  function fixtureForPlayer(playerId: number): { team: string; opponent: string } | null {
+    const teamId = playerTeamId[playerId]
+    const team = shortCode(teamId)
+    const opponent = shortCode(teamId != null ? opponentByTeamId[teamId] : null)
+    return team && opponent ? { team, opponent } : null
+  }
 
   const gridRows: GridRow[] = sortedPicks.map(pick => {
     const pts = pointsMap[pick.id]
@@ -526,10 +550,12 @@ export default function ResultsPage() {
       player1Points: pts?.player1_points ?? null,
       player1Goal: goalPlayers.has(pick.player1_id),
       player1Assist: assistPlayers.has(pick.player1_id),
+      player1Fixture: fixtureForPlayer(pick.player1_id),
       player2Name: playersBare[pick.player2_id] ?? 'Unknown',
       player2Points: pts?.player2_points ?? null,
       player2Goal: goalPlayers.has(pick.player2_id),
       player2Assist: assistPlayers.has(pick.player2_id),
+      player2Fixture: fixtureForPlayer(pick.player2_id),
       aon: aon ? { onPlayer1: aon.player_id === pick.player1_id, onPlayer2: aon.player_id === pick.player2_id, outcome: aon.outcome as 'pending' | 'success' | 'failed' } : null,
       bonusCard: bonusCardPlay ? { playerName: playersBare[bonusCardPlay.player_id] ?? 'Unknown', points: bonusCardPlay.points } : null,
       totalPoints: pts?.total_points ?? null,
@@ -561,10 +587,12 @@ export default function ResultsPage() {
       player1Points: null,
       player1Goal: false,
       player1Assist: false,
+      player1Fixture: null,
       player2Name: '',
       player2Points: null,
       player2Goal: false,
       player2Assist: false,
+      player2Fixture: null,
       aon: null,
       bonusCard: null,
       totalPoints: 0,
