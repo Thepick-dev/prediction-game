@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
-import TeamCrest from '../../components/TeamCrest'
 import KitBadge from '../../components/KitBadge'
 import BotAvatar from '../../components/BotAvatar'
 import FitName from '../../components/FitName'
@@ -36,11 +35,11 @@ type Row = {
   movement: number
 }
 
-// Same colour mapping and "just the word AON" convention as ResultsGrid
-// (app/results/ResultsGrid.tsx) — the two pages show the same kind of
-// per-player breakdown now, so they use the same visual language for the
-// same fact rather than two different ones that happen to mean the same
-// thing.
+// Identical visual language to ResultsGrid (app/results/ResultsGrid.tsx) —
+// same colours, same "just the word AON" pill, same StatRow shape — so the
+// two pages read as one system. Duplicated rather than imported (same
+// precedent as AON_PILL below already being duplicated between the two
+// files) since each page owns its own independent data-fetching.
 const AON_PILL = {
   success: { bg: 'var(--pop-green)', fg: 'var(--pop-black)' },
   failed: { bg: 'var(--pop-red)', fg: '#fff' },
@@ -53,7 +52,7 @@ function AonPill({ outcome }: { outcome?: 'pending' | 'success' | 'failed' }) {
   return (
     <span
       className="shrink-0 rounded-full font-black uppercase"
-      style={{ fontSize: '7px', padding: '1px 5px', background: bg, color: fg, letterSpacing: '0.03em' }}
+      style={{ fontSize: '8px', padding: '2px 6px', background: bg, color: fg, letterSpacing: '0.03em' }}
       title={`All or Nothing — ${outcome === 'pending' ? 'played, result not known yet' : outcome}`}
     >
       AON
@@ -61,38 +60,39 @@ function AonPill({ outcome }: { outcome?: 'pending' | 'success' | 'failed' }) {
   )
 }
 
-// Small right-aligned points readout reused for every stat line — "—"
-// (not "0") while a value genuinely isn't known yet (no pick, or the
-// preview call failed).
-function PtsPill({ value, doubled }: { value: number | null; doubled?: boolean }) {
+// One label:points row — "—" rather than 0 whenever there's genuinely
+// nothing to show yet (scoring not live, or — for the Bonus Card row
+// specifically — simply not played that week), so a real 0 stays visually
+// distinct from "nothing happened here at all." Same component as
+// ResultsGrid's StatRow, same reason: no crests, no G/A badges, nothing
+// layered on top of exactly what was asked for.
+function StatRow({ label, value, color, pill, bold }: {
+  label: string; value: number | null; color: string; pill?: React.ReactNode; bold?: boolean
+}) {
   return (
-    <span className="font-mono font-black whitespace-nowrap shrink-0" style={{ fontSize: '12px', textAlign: 'right', color: value === null ? 'rgba(255,255,255,0.3)' : value > 0 ? 'var(--pop-green)' : 'rgba(255,255,255,0.4)' }}>
-      {value === null ? '—' : `${value > 0 ? '+' : ''}${value}`}
-      {doubled && value !== null && <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}> ×2</span>}
-    </span>
+    <div className="flex items-center justify-between gap-2" style={{ lineHeight: 1.15 }}>
+      <span className="min-w-0 flex-1 flex items-center gap-1.5">
+        <FitName
+          baseSize={11} minSize={9} className="uppercase font-bold"
+          style={{ color: bold ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.7)', letterSpacing: bold ? '0.03em' : undefined }}
+        >
+          {label}
+        </FitName>
+        {pill}
+      </span>
+      <span className="shrink-0 font-mono font-black" style={{ fontSize: '12px', color, fontVariantNumeric: 'tabular-nums' }}>
+        {value ?? '—'}
+      </span>
+    </div>
   )
 }
 
-// Every item row (team/player1/player2/bonus card/this week) uses this
-// same two-column grid — a fixed-width points column on the right,
-// everything else truncating into the remaining space on the left — so
-// points always line up in the same place regardless of how long a name
-// or badge combo runs.
-const ITEM_GRID_STYLE = { display: 'grid', gridTemplateColumns: '1fr 48px', columnGap: '6px', alignItems: 'center' } as const
-
-// Player rows also need to fit any G/A/All-or-Nothing badges, which used
-// to sit inline right after the name — jumbled together and competing
-// with it for space. This gives the badges their own dedicated middle
-// column instead, so the name always has its own clean truncating lane.
-const PLAYER_GRID_STYLE = { display: 'grid', gridTemplateColumns: '1fr auto 48px', columnGap: '5px', alignItems: 'center' } as const
-
 // A mobile-native "how's everyone doing right now" view for a locked/live
-// gameweek — deliberately NOT the ResultsGrid ticket (that one's fixed-width
-// and built to be captured as a WhatsApp image, not read natively on a
-// phone; forcing it into this page would need the exact horizontal-scroll
-// its own design accepts as a tradeoff, which doesn't work here). This is a
-// stacked card list instead — nothing side-by-side that could force a
-// horizontal scroll, no matter how long a name or team gets.
+// gameweek — its own component since it owns independent data-fetching and
+// live polling that ResultsGrid (purely presentational, fed by its page)
+// doesn't need. Same card chrome and row language as ResultsGrid though,
+// deliberately, so the two pages read as one system rather than two that
+// happen to share a colour scheme.
 export default function LiveGameweekTable({
   competitionId, gameweekId, gameweekStatus, currentUserId, gridRef,
 }: {
@@ -334,28 +334,35 @@ export default function LiveGameweekTable({
     return null
   }
 
+  // Same "final / live / locked" status language as Results — the GW
+  // number itself already sits in the page's own panel just above this,
+  // so it isn't repeated here, but the live/final state wasn't shown
+  // anywhere on Picks before this and is genuinely useful to know.
+  const final = gameweekStatus === 'completed'
+  const live = !final && rows.some(r => (r.weeklyPoints ?? 0) > 0)
+
   return (
     <>
-      <div ref={gridRef} className="rounded-2xl p-2 sm:p-2.5" style={{ background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div ref={gridRef} className="pop-panel" style={{ overflow: 'hidden', padding: '16px 10px' }}>
+        <p className="font-black uppercase mb-3" style={{ fontSize: '12px', letterSpacing: '0.04em', color: final ? 'var(--pop-green)' : live ? '#FA6100' : 'rgba(255,255,255,0.4)' }}>
+          {final ? '✅ Final Result' : live ? '🔴 Live — scores updating' : '🔒 Picks locked in'}
+        </p>
+
         {rows.map((row, i) => {
           // Rank numbers come from the FULL list (real players + ghosts),
           // same reasoning as Results/Leaderboard — a ghost existing still
           // counts toward everyone else's position even while hidden, so
           // the numbering never shifts depending on the viewer's own toggle.
           if (row.isGhost && !showGhosts && !row.isOwnRow) return null
-          const rowBg = row.isOwnRow ? 'rgba(160,0,250,0.08)' : (i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined)
+          const rowBg = row.isOwnRow ? 'rgba(160,0,250,0.06)' : (i % 2 === 1 ? 'rgba(255,255,255,0.035)' : undefined)
           return (
-          <div
-            key={row.userId}
-            className="rounded-xl"
-            style={{ padding: '8px 10px', background: rowBg }}
-          >
+          <div key={row.userId} style={{ background: rowBg, padding: '7px 10px', borderRadius: 10 }}>
             {/* Header — shirt + name, both big and striking, same
                 treatment as the Leaderboard and the Results cards. Rank
                 and gameweek movement stay small since they're secondary
                 to "whose row is this." */}
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="font-black shrink-0" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="shrink-0 font-black" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{i + 1}</span>
               {row.movement !== 0 && (
                 <span
                   className="font-mono font-black shrink-0 inline-flex items-center"
@@ -365,14 +372,14 @@ export default function LiveGameweekTable({
                   {row.movement > 0 ? '▲' : '▼'}{Math.abs(row.movement)}
                 </span>
               )}
-              {row.isBot ? <BotAvatar size={32} /> : (
+              {row.isBot ? <BotAvatar size={30} /> : (
                 <span className="shrink-0">
-                  <KitBadge pattern={row.kit?.pattern ?? 'solid'} colour1={row.kit?.colour1 ?? '#1E4D6B'} colour2={row.kit?.colour2 ?? '#F5ECD9'} colour3={row.kit?.colour3} size={32} />
+                  <KitBadge pattern={row.kit?.pattern ?? 'solid'} colour1={row.kit?.colour1 ?? '#1E4D6B'} colour2={row.kit?.colour2 ?? '#F5ECD9'} colour3={row.kit?.colour3} size={30} />
                 </span>
               )}
               <span className="min-w-0 flex-1">
                 <FitName
-                  baseSize={19} minSize={12} className="pop-name"
+                  baseSize={18} minSize={12} className="pop-name"
                   style={{
                     color: row.isOwnRow ? 'var(--pop-pink)' : '#fff',
                     textShadow: row.isOwnRow
@@ -382,7 +389,7 @@ export default function LiveGameweekTable({
                 >
                   {row.name}
                 </FitName>
-                {row.isAutopick && <div className="normal-case font-bold" style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>Autopick</div>}
+                {row.isAutopick && <div className="normal-case font-bold" style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)' }}>Autopick — deadline missed</div>}
               </span>
               {row.isBanker && (
                 <span
@@ -395,43 +402,27 @@ export default function LiveGameweekTable({
               )}
             </div>
 
-            {/* The 5 rows, left side; grand total standing alone, big, right */}
+            {/* The rows, left side; grand total standing alone, big, right */}
             <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 flex-1" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <div style={ITEM_GRID_STYLE}>
-                  <span className="inline-flex items-center gap-1 min-w-0">
-                    <span className="shrink-0"><TeamCrest teamId={row.teamId} teamName={row.team} size={13} /></span>
-                    <span className="min-w-0 flex-1"><FitName baseSize={12} minSize={8} className="uppercase font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{row.team}</FitName></span>
-                  </span>
-                  <PtsPill value={row.teamPoints} doubled={row.isBanker} />
-                </div>
-                <div style={PLAYER_GRID_STYLE}>
-                  <span className="min-w-0"><FitName baseSize={12} minSize={8} className="uppercase font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{row.player1Name}</FitName></span>
-                  <span className="flex items-center gap-1 shrink-0">
-                    {row.player1Goals > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>{'G'.repeat(row.player1Goals)}</span>}
-                    {row.player1Assists > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '9px', background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>{'A'.repeat(row.player1Assists)}</span>}
-                    {row.aon?.onPlayer1 && <AonPill outcome={row.aon.outcome} />}
-                  </span>
-                  <PtsPill value={row.player1Points} doubled={row.isBanker} />
-                </div>
-                <div style={PLAYER_GRID_STYLE}>
-                  <span className="min-w-0"><FitName baseSize={12} minSize={8} className="uppercase font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{row.player2Name}</FitName></span>
-                  <span className="flex items-center gap-1 shrink-0">
-                    {row.player2Goals > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '9px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>{'G'.repeat(row.player2Goals)}</span>}
-                    {row.player2Assists > 0 && <span className="shrink-0 px-1 rounded font-black" style={{ fontSize: '9px', background: 'rgba(204,250,0,0.25)', color: 'var(--pop-green)' }}>{'A'.repeat(row.player2Assists)}</span>}
-                    {row.aon?.onPlayer2 && <AonPill outcome={row.aon.outcome} />}
-                  </span>
-                  <PtsPill value={row.player2Points} doubled={row.isBanker} />
-                </div>
+              <div className="min-w-0 flex-1" style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <StatRow label={row.team} value={row.teamPoints} color="var(--pop-blue)" />
+                <StatRow
+                  label={row.player1Name}
+                  value={row.player1Points}
+                  color="var(--pop-yellow)"
+                  pill={row.aon?.onPlayer1 ? <AonPill outcome={row.aon.outcome} /> : undefined}
+                />
+                <StatRow
+                  label={row.player2Name}
+                  value={row.player2Points}
+                  color="var(--pop-yellow)"
+                  pill={row.aon?.onPlayer2 ? <AonPill outcome={row.aon.outcome} /> : undefined}
+                />
                 {row.bonusCard && (
-                  <div style={ITEM_GRID_STYLE}>
-                    <span className="min-w-0"><FitName baseSize={12} minSize={8} className="uppercase font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{bonusCardName ?? 'Bonus Card'}</FitName></span>
-                    <PtsPill value={row.bonusCard.points} />
-                  </div>
+                  <StatRow label={bonusCardName ?? 'Bonus Card'} value={row.bonusCard.points} color="var(--pop-yellow)" />
                 )}
-                <div style={{ ...ITEM_GRID_STYLE, marginTop: 2, paddingTop: 3, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                  <span className="uppercase font-black" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.03em' }}>This Week</span>
-                  <PtsPill value={row.weeklyPoints} />
+                <div style={{ marginTop: 1, paddingTop: 2, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                  <StatRow label="This Week" value={row.weeklyPoints} color="rgba(255,255,255,0.6)" bold />
                 </div>
               </div>
 
@@ -444,6 +435,19 @@ export default function LiveGameweekTable({
           </div>
           )
         })}
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-3" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+          <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center justify-center rounded-full font-black" style={{ width: 13, height: 13, fontSize: '9px', background: 'var(--pop-orange)', color: '#fff' }}>★</span>
+            Banker
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'var(--pop-green)', color: 'var(--pop-black)' }}>AON</span>
+            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'var(--pop-red)', color: '#fff' }}>AON</span>
+            <span className="rounded-full font-black uppercase" style={{ fontSize: '8px', padding: '2px 6px', background: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.75)' }}>AON</span>
+            All or Nothing — green/grey/red = succeeded/pending/failed
+          </span>
+        </div>
       </div>
       {rows.some(r => r.isGhost) && (
         <button
