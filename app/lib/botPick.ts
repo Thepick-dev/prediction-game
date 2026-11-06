@@ -217,6 +217,13 @@ export async function deriveBotPick(
   if (!activeTeams || activeTeams.length === 0) return null
   if (!allPlayers || allPlayers.length < 2) return null
 
+  // Same team-activity check deriveAutopick applies (see its own comment) —
+  // a player whose club isn't in activeTeams this season (relegated,
+  // promotion-swapped out) must never be a candidate, regardless of how
+  // good their projection looks, even though their own `active` flag can
+  // stay true since they still play football, just not in this league.
+  const activeTeamIds = new Set(activeTeams.map(t => t.id))
+
   const quartileMap: Record<number, number> = {}
   assignments?.forEach(a => { quartileMap[a.team_id] = a.tier })
 
@@ -278,7 +285,7 @@ export async function deriveBotPick(
   // (see buildPlayerPointsCalculator in scoring.ts), not because it changes
   // the projection.
   const playerCandidates = allPlayers
-    .filter(p => p.active !== false && (playerUseCounts[p.id] || 0) < 2)
+    .filter(p => p.active !== false && activeTeamIds.has(p.team_id) && (playerUseCounts[p.id] || 0) < 2)
     .map(p => {
       const fixtures = fixturesByTeamId[p.team_id] ?? []
       return {

@@ -59,6 +59,13 @@ describe('deriveAutopick — team selection', () => {
     const supabase = fakeFor({
       teams: [{ id: 2, name: 'Team B' }],
       team_league_positions: [{ team_id: 2, position: 5, recorded_at: '2026-05-03' }],
+      // Players must actually be on the one active team here, now that a
+      // player's own team has to be active too — team 2 (not 1) deliberately,
+      // unlike basePlayers' default set.
+      players: [
+        { id: 101, name: 'Player A', team_id: 2, value: 8.0 },
+        { id: 102, name: 'Player B', team_id: 2, value: 8.5 },
+      ],
       picks: [{ team_id: 2, player1_id: 101, player2_id: 102 }],
       tier_draft_picks: { tier1_team_id: 2, tier2_team_id: null, tier3_team_id: null, tier4_team_id: null },
     })
@@ -189,6 +196,43 @@ describe('deriveAutopick — double gameweek fixture resolution', () => {
     const result = await deriveAutopick(supabase, 'user-1', 'gw-1', 'comp-1')
     expect(result?.player1_fixture_id).toBe(901)
     expect(result?.player2_fixture_id).toBe(901)
+  })
+})
+
+describe('deriveAutopick — player team must be active', () => {
+  it('never picks a player whose team is relegated/not active this season, even when they look like the best candidate', async () => {
+    // Team 99 is deliberately absent from the `teams` fixture — the same
+    // shape .eq('active', true) would produce for a relegated club — while
+    // its players are still present in the `players` table, exactly like a
+    // relegated club's squad rows aren't deleted, just no longer pickable.
+    const supabase = fakeFor({
+      players: [
+        // Most valuable player in the whole pool, so if the team-activity
+        // check were missing, the shared priority order would put them
+        // first every time — a false pass here would be very unlikely.
+        { id: 999, name: 'Relegated Striker', team_id: 99, value: 15.0 },
+        { id: 101, name: 'Player A', team_id: 1, value: 8.0 },
+        { id: 102, name: 'Player B', team_id: 1, value: 8.5 },
+      ],
+    })
+    const result = await deriveAutopick(supabase, 'user-1', 'gw-1', 'comp-1')
+    expect(result).not.toBeNull()
+    expect(result?.player1_id).not.toBe(999)
+    expect(result?.player2_id).not.toBe(999)
+  })
+
+  it("never picks a player whose own `active` flag is false, even on an active team", async () => {
+    const supabase = fakeFor({
+      players: [
+        { id: 999, name: 'Departed Player', team_id: 1, value: 15.0, active: false },
+        { id: 101, name: 'Player A', team_id: 1, value: 8.0 },
+        { id: 102, name: 'Player B', team_id: 1, value: 8.5 },
+      ],
+    })
+    const result = await deriveAutopick(supabase, 'user-1', 'gw-1', 'comp-1')
+    expect(result).not.toBeNull()
+    expect(result?.player1_id).not.toBe(999)
+    expect(result?.player2_id).not.toBe(999)
   })
 })
 

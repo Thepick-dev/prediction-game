@@ -111,7 +111,7 @@ export async function deriveAutopick(
   const [{ data: activeTeams }, { data: leaguePositions }, { data: allPlayers }, { data: userPicks }, { data: tierPicks }, { data: gwFixtures }, { data: playerValues }] = await Promise.all([
     supabase.from('teams').select('id, name').eq('active', true),
     supabase.from('team_league_positions').select('team_id, position, recorded_at').order('recorded_at', { ascending: false }),
-    supabase.from('players').select('id, name, team_id, chance_of_playing'),
+    supabase.from('players').select('id, name, team_id, chance_of_playing, active'),
     supabase.from('picks').select('team_id, player1_id, player2_id').eq('user_id', userId).eq('competition_id', competitionId),
     supabase.from('tier_draft_picks').select('tier1_team_id, tier2_team_id, tier3_team_id, tier4_team_id').eq('competition_id', competitionId).eq('user_id', userId).single(),
     supabase.from('fixtures').select('id, home_team_id, away_team_id').eq('gameweek_id', gameweekId),
@@ -126,6 +126,16 @@ export async function deriveAutopick(
 
   if (!activeTeams || activeTeams.length === 0) return null
   if (!allPlayers || allPlayers.length < 2) return null
+
+  // A player whose club isn't active this season (relegated, promotion-
+  // swapped out, etc. — see teams.active in CLAUDE.md) must never be
+  // autopicked, even if they personally still play football elsewhere —
+  // the same two-part check the human-facing picker already applies (see
+  // app/picks/page.tsx's selectablePlayers). Missed here before: this used
+  // to draw from every player row regardless of whether their team was
+  // still in activeTeams at all.
+  const activeTeamIds = new Set(activeTeams.map(t => t.id))
+  const eligiblePlayers = allPlayers.filter(p => activeTeamIds.has(p.team_id) && p.active !== false)
 
   // Latest league position per team
   const seen = new Set<number>()
@@ -190,8 +200,8 @@ export async function deriveAutopick(
   // one user's differs from another's is personally having already used a
   // name twice, in which case they fall through to the next name in this
   // same shared order instead of a fresh random pick.
-  const fitPlayers = allPlayers.filter(p => p.chance_of_playing == null || p.chance_of_playing >= 50)
-  const unfitPlayers = allPlayers.filter(p => !(p.chance_of_playing == null || p.chance_of_playing >= 50))
+  const fitPlayers = eligiblePlayers.filter(p => p.chance_of_playing == null || p.chance_of_playing >= 50)
+  const unfitPlayers = eligiblePlayers.filter(p => !(p.chance_of_playing == null || p.chance_of_playing >= 50))
   const valuableFit = fitPlayers.filter(p => (valueByPlayerId[p.id] ?? 0) >= MIN_AUTOPICK_PLAYER_VALUE)
   const cheapFit = fitPlayers.filter(p => (valueByPlayerId[p.id] ?? 0) < MIN_AUTOPICK_PLAYER_VALUE)
 
